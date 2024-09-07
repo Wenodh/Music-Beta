@@ -9,6 +9,7 @@ import AlbumDetails from './pages/AlbumDetails';
 import ArtistPage from './pages/ArtistPage';
 import Home from './pages/Home';
 import PlaylistPage from './pages/PlaylistPage';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 export default function App() {
     const [searchedSongs, setSearchedSongs] = useState([]);
@@ -48,6 +49,7 @@ export default function App() {
                 </Routes>
                 {currentSong && <Player />}
             </BrowserRouter>
+            <SpeedInsights />
         </MusicContext.Provider>
     );
 }
