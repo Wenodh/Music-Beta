@@ -7,7 +7,6 @@ const VolumeController = ({ isVolumeVisible }) => {
 
   useLayoutEffect(() => {
     if (currentSong) {
-      console.log(currentSong.audio.volume);
       setVolume(currentSong.audio.volume * 100);
     }
   }, [currentSong, volume]);

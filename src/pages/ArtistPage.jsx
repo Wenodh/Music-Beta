@@ -6,9 +6,9 @@ import Navbar from "../components/Navbar";
 import Player from "../components/Player";
 import SongsList from "../components/SongsList";
 import SearchSection from "../components/SearchSection";
-import { albumById } from '../constants';
+import { albumById, artistById } from '../constants';
 
-const AlbumDetails = () => {
+const ArtistPage = () => {
   const { setSongs } = useContext(MusicContext);
   const [album, setAlbum] = useState([]);
   const [image, setImage] = useState([]);
@@ -16,14 +16,15 @@ const AlbumDetails = () => {
   const { id } = useParams();
 
   const getAlbumDetails = async () => {
-    const res = await axios.get(albumById +`${id}`);
-    const { data } = await res.data;
+    const res = await axios.get(artistById +`${id}?sortBy=popularity&songCount=30`);
+    const { data } = res.data;
+    console.log(data)
     setAlbum(data);
-    setSongs(data.songs);
+    setSongs(data.topSongs);
     setImage(getImg(data.image));
   };
 
-  const getImg = (image) => (image = image[2].url);
+  const getImg = (image) => (image = image[image.length-1].url);
 
   useEffect(() => {
     getAlbumDetails();
@@ -52,7 +53,7 @@ const AlbumDetails = () => {
         </div>
 
         <div>
-          {album.songs?.map((song) => (
+          {album.topSongs?.map((song) => (
             <SongsList key={song.id} {...song} />
           ))}
         </div>
@@ -63,4 +64,4 @@ const AlbumDetails = () => {
   );
 };
 
-export default AlbumDetails;
+export default ArtistPage;

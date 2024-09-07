@@ -86,6 +86,7 @@ const Player = () => {
             alt=""
             width={55}
             className="rounded-lg"
+            loading="lazy"
           />
           <div className="hidden lg:block">
             <span>{currentSong?.name}</span>
