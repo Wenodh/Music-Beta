@@ -14,7 +14,7 @@ const SongItem = ({ id, title, image, type, primaryArtists }) => {
             try {
                 setLoading(true); // Start loading
                 const { data } = await axios.get(`${url}/api/songs/${id}`);
-                const { downloadUrl, name, duration } = data[0];
+                const { downloadUrl, name, duration } = data.data[0];
                 playMusic(downloadUrl, name, duration, image, id, primaryArtists);
             } catch (error) {
                 console.error('Failed to fetch song details:', error);
