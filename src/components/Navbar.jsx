@@ -1,48 +1,64 @@
 import { Link } from 'react-router-dom';
 import { MdKeyboardArrowDown } from 'react-icons/md';
 import axios from 'axios';
-import { useContext } from 'react';
+import { useContext, useState, useCallback } from 'react';
 import MusicContext from '../context/MusicContext';
-import { search, songs } from '../constants';
+import { search } from '../constants';
+import { debounce } from 'lodash';
 
 const Navbar = () => {
     const { setSearchedSongs } = useContext(MusicContext);
+    const [query, setQuery] = useState('');
 
-    const searchSongs = async (e) => {
-        const res = await axios.get(
-          search + e.target.value
-        );
-      const { data } = await res.data;
-      setSearchedSongs([...data.songs.results, ...data.albums.results,...data.artists.results,...data.playlists.results])
-        // if (
-        //     data.results.length === 0 ||
-        //     e.target.value === ' ' ||
-        //     e.target.value.length === 0
-        // ) {
-        //     setSearchedSongs([]);
-        // } else {
-        //     setSearchedSongs(data.results);
-        // }
+    // Debounce the search function to prevent rapid API calls
+    const searchSongs = useCallback(
+        debounce(async (query) => {
+            if (!query) {
+                setSearchedSongs([]);
+                return;
+            }
+            try {
+                const res = await axios.get(`${search}${query}`);
+                const { data } = res.data;
+                setSearchedSongs([
+                    ...data.songs.results,
+                    ...data.albums.results,
+                    ...data.artists.results,
+                    ...data.playlists.results,
+                ]);
+            } catch (error) {
+                console.error('Error fetching search results:', error);
+                setSearchedSongs([]); // Clear results on error
+            }
+        }, 300), // Debounce with 300ms delay
+        [setSearchedSongs]
+    );
+
+    // Handle search input change
+    const handleInputChange = (e) => {
+        setQuery(e.target.value);
+        searchSongs(e.target.value);
     };
 
     return (
         <nav className="lg:flex justify-between items-center py-3 border-none lg:border px-2 fixed top-0 left-0 right-0 bg-[#f5f5f5ff] z-20">
-            {/* 1st div */}
+            {/* Logo and Title */}
             <div className="flex flex-col lg:flex-row justify-between items-center mx-auto lg:mx-0">
                 <div className="flex justify-between items-center gap-2 mr-4">
-                    <img src="/savan-logo.png" alt="logo" width={37} loading="lazy"/>
+                    <img
+                        src="/savan-logo.png"
+                        alt="logo"
+                        width={37}
+                        loading="lazy"
+                    />
                     <Link to="/" className="font-extrabold text-lg">
-                        JioSaavn
+                        Music Beta
                     </Link>
                 </div>
-                {/* <div className="flex text-[14px] lg:text-[24px] gap-5 text-gray-600 font-semibold h-full">
-                    <li className="list-none">Music</li>
-                    <li className="list-none">Podcasts</li>
-                    <li className="list-none">Go Pro</li>
-                </div> */}
             </div>
-            {/* 2nd div */}
-            <div className="">
+
+            {/* Search Input */}
+            <div>
                 <input
                     type="text"
                     name="search"
@@ -51,24 +67,14 @@ const Navbar = () => {
                     placeholder="Search for songs"
                     autoComplete="off"
                     autoCorrect="off"
-                    onChange={searchSongs}
+                    value={query}
+                    onChange={handleInputChange}
                 />
             </div>
-            {/* 3rd div */}
+
+            {/* Optional: Additional Nav Items (currently hidden) */}
             <div className="hidden lg:flex justify-between items-center gap-4">
-                {/* <div className="flex justify-center gap-2">
-                    <div className="flex flex-col text-sm">
-                        <span className="text-[14px] text-gray-600 font-semibold">
-                            Music Languages
-                        </span>
-                        <span className="text-[12px] text-gray-500">Hindi</span>
-                    </div>
-                    <MdKeyboardArrowDown className="text-xl text-gray-500 mt-2" />
-                </div>
-                <div className="flex text-[15px] gap-5 text-gray-600 font-semibold">
-                    <li className="list-none">Log In</li>
-                    <li className="list-none">Sign Up</li>
-                </div> */}
+                {/* Additional nav content can be placed here */}
             </div>
         </nav>
     );
