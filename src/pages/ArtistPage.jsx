@@ -17,7 +17,6 @@ const ArtistPage = () => {
             artistById + `${id}?sortBy=popularity&songCount=30`
         );
         const { data } = res.data;
-        console.log(data);
         setAlbum(data);
         setSongs(data.topSongs);
         setImage(getImg(data.image));

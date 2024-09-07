@@ -4,7 +4,15 @@ import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
 import MusicContext from '../context/MusicContext';
 
-const SongsList = ({ name, artists, duration, downloadUrl, image, id }) => {
+const SongsList = ({
+    name,
+    artists,
+    duration,
+    downloadUrl,
+    image,
+    id,
+    album,
+}) => {
     const { isPlaying, currentSong, playMusic } = useContext(MusicContext);
     const [isDownloading, setIsDownloading] = useState(false); // Track download status
     const primaryArtists = artists?.primary?.[0]?.name || '';
@@ -48,7 +56,8 @@ const SongsList = ({ name, artists, duration, downloadUrl, image, id }) => {
                             duration,
                             image,
                             id,
-                            primaryArtists
+                            primaryArtists,
+                            album?.id
                         )
                     }
                     aria-label="Pause"
@@ -64,7 +73,8 @@ const SongsList = ({ name, artists, duration, downloadUrl, image, id }) => {
                             duration,
                             image,
                             id,
-                            primaryArtists
+                            primaryArtists,
+                            album?.id
                         )
                     }
                     aria-label="Play"

@@ -12,23 +12,31 @@ const AlbumItem = ({
     type,
     downloadUrl,
     duration,
+    album
 }) => {
     const navigate = useNavigate();
     const { isPlaying, currentSong, playMusic } = useContext(MusicContext);
 
-    // Check if the current song is playing
     const isCurrentSongPlaying = isPlaying && currentSong?.id === id;
 
-    // Handle click event depending on the type (song or album)
     const handleClick = () => {
         if (type === 'song' && downloadUrl?.length) {
-            playMusic(downloadUrl, name, duration, image, id, artists?.primary[0]?.name);
-        } else {
+            playMusic(
+                downloadUrl,
+                name,
+                duration,
+                image,
+                id,
+                artists?.primary[0]?.name,
+                album.id
+            );
+        } else if (type === 'playlist') {
+            navigate(`/playlists/${id}`);
+        } else if (type === 'album') {
             navigate(`/albums/${id}`);
         }
     };
 
-    // Memoize artists string to avoid recalculating on every render
     const artistsString = useMemo(() => {
         return artists?.all?.map((artist) => artist.name).join(', ');
     }, [artists]);
@@ -44,7 +52,7 @@ const AlbumItem = ({
                     alt="music cover"
                     className={`w-full h-auto transition duration-300 ease-in-out group-hover:brightness-50 ${
                         isCurrentSongPlaying ? 'brightness-50' : ''
-                        }`}
+                    }`}
                     loading="lazy"
                 />
                 <div

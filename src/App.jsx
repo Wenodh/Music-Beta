@@ -46,8 +46,8 @@ export default function App() {
                     <Route path="/artists/:id" element={<ArtistPage />} />
                     <Route path="/playlists/:id" element={<PlaylistPage />} />
                 </Routes>
+                {currentSong && <Player />}
             </BrowserRouter>
-            {currentSong && <Player />}
         </MusicContext.Provider>
     );
 }

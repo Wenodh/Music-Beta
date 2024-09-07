@@ -8,8 +8,10 @@ import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
 import VolumeController from './VolumeController';
 import { useState, useContext, useRef, useEffect } from 'react';
 import MusicContext from '../context/MusicContext';
+import { useNavigate } from 'react-router-dom';
 
 const Player = () => {
+    const navigate = useNavigate();
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false); // Track download status
     const { currentSong, playMusic, isPlaying, nextSong, prevSong } =
@@ -97,6 +99,10 @@ const Player = () => {
                             isPlaying && 'motion-safe:animate-spin'
                         }`}
                         loading="lazy"
+                        onClick={() =>
+                            currentSong?.albumId &&
+                            navigate(`/albums/${currentSong.albumId}`)
+                        }
                     />
                     <div className="hidden lg:block">
                         <span>{currentSong?.name}</span>
@@ -122,7 +128,8 @@ const Player = () => {
                                     currentSong.name,
                                     currentSong.duration,
                                     currentSong.image,
-                                    currentSong.id
+                                    currentSong.id,
+                                    currentSong?.albumId
                                 )
                             }
                         />
@@ -135,7 +142,8 @@ const Player = () => {
                                     currentSong.name,
                                     currentSong.duration,
                                     currentSong.image,
-                                    currentSong.id
+                                    currentSong.id,
+                                    currentSong?.albumId
                                 )
                             }
                         />

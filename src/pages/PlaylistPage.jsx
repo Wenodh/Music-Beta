@@ -15,7 +15,6 @@ const PlaylistPage = () => {
   const getAlbumDetails = async () => {
     const res = await axios.get(playlistById +`${id}&limit=50&page=0`);
     const { data } = await res.data;
-    console.log(data)
     setAlbum(data);
     setSongs(data.songs);
     setImage(getImg(data.image));
