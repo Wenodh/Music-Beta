@@ -36,7 +36,7 @@ const SongsList = ({ name, artists, duration, downloadUrl, image, id }) => {
     };
 
     return (
-        <div className="flex justify-between items-center w-[80vw] lg:w-[50vw] mb-2 lg:mb-1 py-2 px-4 hover:bg-white hover:shadow-md rounded-md shadow-sm bg-white/65">
+        <div className="flex justify-between items-center w-[80vw] lg:w-[50vw] mb-2 lg:mb-1 py-2 px-4 hover:bg-white hover:shadow-md rounded-md shadow-sm bg-white/65 gap-4">
             {isCurrentSongPlaying ? (
                 <FaPause
                     className="text-gray-700 hover:text-gray-500 cursor-pointer"
@@ -71,7 +71,7 @@ const SongsList = ({ name, artists, duration, downloadUrl, image, id }) => {
                 />
             )}
 
-            <div className="flex flex-col lg:flex-row gap-2 justify-between items-start w-[80%]">
+            <div className="flex flex-col lg:flex-row gap-0.5 md:gap-2 justify-between items-start w-[80%]">
                 <span
                     className={`font-bold text-xs ${
                         id === currentSong?.id && 'text-[#46c7b6ff]'
