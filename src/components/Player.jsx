@@ -20,7 +20,7 @@ const Player = () => {
     const { currentSong, isPlaying, songs } = useSelector((state) => state.musicPlayer);
 
     // Use ref to manage the audio element
-    const audioRef = useRef(null);
+    const audioRef = useRef(new Audio(""));
 
     const nextSong = () => {
         if (currentSong) {
