@@ -95,6 +95,7 @@ const Player = () => {
                         src={currentSong?.image}
                         alt=""
                         width={55}
+                        height={55}
                         className={`rounded-full shadow-2xl ${
                             isPlaying && 'motion-safe:animate-spin'
                         }`}

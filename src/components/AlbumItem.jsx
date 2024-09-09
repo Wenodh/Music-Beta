@@ -12,7 +12,7 @@ const AlbumItem = ({
     type,
     downloadUrl,
     duration,
-    album
+    album,
 }) => {
     const navigate = useNavigate();
     const { isPlaying, currentSong, playMusic } = useContext(MusicContext);
@@ -43,17 +43,18 @@ const AlbumItem = ({
 
     return (
         <div
-            className="w-[160px] max-h-[220px] overflow-y-clip flex flex-col justify-center items-center gap-3 rounded-lg"
+            className="w-36 max-h-56 overflow-y-clip flex flex-col justify-center items-center gap-3 rounded-lg"
             onClick={handleClick}
         >
             <div className="relative group cursor-pointer">
                 <img
-                    src={image[2]?.url}
+                    src={image[1]?.url}
                     alt="music cover"
-                    className={`w-full h-auto transition duration-300 ease-in-out group-hover:brightness-50 ${
+                    className={`w-full min-w-36 min-h-36 transition duration-300 ease-in-out group-hover:brightness-50 rounded-md shadow-lg ${
                         isCurrentSongPlaying ? 'brightness-50' : ''
                     }`}
-                    loading="lazy"
+                    width={150}
+                    height={150}
                 />
                 <div
                     className={`absolute inset-0 flex justify-center items-center text-white opacity-0 group-hover:opacity-100 transition duration-300 ease-in-out ${
@@ -74,10 +75,10 @@ const AlbumItem = ({
                 </div>
             </div>
             <div className="text-[13px] w-full flex flex-col justify-center items-center">
-                <span className="text-gray-600 font-semibold overflow-x-clip w-full truncate">
+                <span className="text-gray-800 font-semibold overflow-x-clip w-full truncate">
                     {name}
                 </span>
-                <p className="text-gray-500 font-thin text-xs truncate w-full">
+                <p className="text-gray-700 font-thin text-xs truncate w-full">
                     {artistsString}
                 </p>
             </div>

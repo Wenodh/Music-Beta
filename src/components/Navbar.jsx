@@ -49,6 +49,7 @@ const Navbar = () => {
                         src="/savan-logo.png"
                         alt="logo"
                         width={37}
+                        height={37}
                         loading="lazy"
                     />
                     <Link to="/" className="font-extrabold text-lg">

@@ -31,6 +31,10 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'html-cache',
+              expiration: {
+                maxEntries: 10, // Cache up to 10 HTML files
+                maxAgeSeconds: 60 * 60 * 24, // Cache for 1 day
+              },
             },
           },
           {
@@ -38,6 +42,10 @@ export default defineConfig({
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'assets-cache',
+              expiration: {
+                maxEntries: 50, // Cache up to 50 assets (JS/CSS)
+                maxAgeSeconds: 60 * 60 * 24 * 30, // Cache for 30 days
+              },
             },
           },
           {
@@ -45,9 +53,28 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'image-cache',
+              expiration: {
+                maxEntries: 100, // Cache up to 100 images
+                maxAgeSeconds: 60 * 60 * 24 * 365, // Cache for 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200], // Cache valid responses
+              },
+            },
+          },
+          {
+            urlPattern: ({ request }) => request.destination === 'font',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'font-cache',
+              expiration: {
+                maxEntries: 20, // Cache up to 20 fonts
+                maxAgeSeconds: 60 * 60 * 24 * 365, // Cache for 1 year
+              },
             },
           },
         ],
+        navigateFallback: '/index.html', // Fallback to index.html for navigation
       },
     }),
   ],

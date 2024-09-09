@@ -27,6 +27,7 @@ const AlbumDetails = () => {
                         src={image}
                         alt={details?.title}
                         width={250}
+                        height={250}
                         className="mx-auto mb-4 rounded-lg"
                         loading="lazy"
                     />

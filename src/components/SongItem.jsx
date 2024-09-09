@@ -44,6 +44,8 @@ const SongItem = ({ id, title, image, type, primaryArtists }) => {
     return (
         <div className="min-w-[60px] max-w-[80px] max-h-[140px] md:max-w-[120px] md:max-h-[180px]  overflow-y-clip flex flex-col justify-center items-center gap-2 rounded-lg">
             <img
+                width={80}
+                height={80}
                 src={image[2].url}
                 alt={title}
                 className={`rounded-lg cursor-pointer ${loading ? 'opacity-50' : ''}`}
