@@ -3,7 +3,7 @@ import { FaPause, FaPlay } from 'react-icons/fa';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
 import { useDispatch, useSelector } from 'react-redux';
-import { pauseMusic, playMusic, } from '../features/musicPlayer/musicPlayerSlice';
+import { pauseMusic, playMusic, } from '../features/musicplayer/musicPlayerSlice';
 
 const SongsList = ({
     name,

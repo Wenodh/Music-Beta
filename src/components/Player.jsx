@@ -8,7 +8,7 @@ import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
 import VolumeController from './VolumeController';
 import { useState, useRef, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { playMusic, setCurrentSong } from '../features/musicPlayer/musicPlayerSlice';
+import { playMusic, setCurrentSong } from '../features/musicplayer/musicPlayerSlice';
 import { addSong } from '../features/recentlyPlayed/recentlyPlayedSlice';
 import { useNavigate } from 'react-router-dom';
 

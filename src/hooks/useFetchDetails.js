@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { setSongs } from '../features/musicPlayer/musicPlayerSlice';
+import { setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { useDispatch } from 'react-redux';
 
 const useFetchDetails = (apiUrl, id, getImageUrl) => {

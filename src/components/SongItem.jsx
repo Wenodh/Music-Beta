@@ -5,7 +5,7 @@ import { url } from '../constants';
 import {
     playMusic,
     setSearchedSongs,
-} from '../features/musicPlayer/musicPlayerSlice';
+} from '../features/musicplayer/musicPlayerSlice';
 import { useDispatch } from 'react-redux';
 
 const SongItem = ({ id, title, image, type, primaryArtists }) => {

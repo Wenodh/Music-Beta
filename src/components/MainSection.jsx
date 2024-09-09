@@ -3,7 +3,7 @@ import axios from 'axios';
 import Slider from './Slider';
 import { album, playlistSearch, songs } from '../constants';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSongs } from '../features/musicPlayer/musicPlayerSlice';
+import { setSongs } from '../features/musicplayer/musicPlayerSlice';
 
 const MainSection = () => {
     const [albums, setAlbums] = useState([]);

@@ -7,7 +7,7 @@ import { debounce } from 'lodash';
 import ThemeToggle from './ThemeToggle';
 import { useDispatch, useSelector } from 'react-redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setSearchedSongs } from '../features/musicPlayer/musicPlayerSlice';
+import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
 
 const Navbar = () => {
     const languages = [

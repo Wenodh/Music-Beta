@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { playMusic, pauseMusic } from '../features/musicPlayer/musicPlayerSlice';
+import { playMusic, pauseMusic } from '../features/musicplayer/musicPlayerSlice';
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { useMemo } from 'react';
 
