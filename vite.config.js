@@ -9,7 +9,7 @@ export default defineConfig({
       manifest: {
         name: 'Music Beta',
         short_name: 'music-beat',
-        description: 'jio saavn clone',
+        description: 'Jio Saavn clone',
         theme_color: '#ffffff',
         icons: [
           {
@@ -75,6 +75,8 @@ export default defineConfig({
           },
         ],
         navigateFallback: '/index.html', // Fallback to index.html for navigation
+        skipWaiting: true, // Ensure the new service worker takes control immediately
+        clientsClaim: true, // Ensure the service worker takes control of all clients
       },
     }),
   ],

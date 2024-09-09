@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SongsList from '../components/SongsList';
 import { playlistById } from '../constants';
-import MusicContext from '../context/MusicContext';
 import { setSongs } from '../features/musicPlayer/musicPlayerSlice';
 import { useDispatch } from 'react-redux';
 
