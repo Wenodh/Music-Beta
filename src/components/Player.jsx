@@ -8,7 +8,10 @@ import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
 import VolumeController from './VolumeController';
 import { useState, useRef, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { playMusic, setCurrentSong } from '../features/musicplayer/musicPlayerSlice';
+import {
+    playMusic,
+    setCurrentSong,
+} from '../features/musicplayer/musicPlayerSlice';
 import { addSong } from '../features/recentlyPlayed/recentlyPlayedSlice';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,10 +20,12 @@ const Player = () => {
     const dispatch = useDispatch();
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
-    const { currentSong, isPlaying, songs } = useSelector((state) => state.musicPlayer);
+    const { currentSong, isPlaying, songs } = useSelector(
+        (state) => state.musicPlayer
+    );
 
     // Use ref to manage the audio element
-    const audioRef = useRef(new Audio(""));
+    const audioRef = useRef(new Audio(''));
 
     const nextSong = () => {
         if (currentSong) {
@@ -66,7 +71,8 @@ const Player = () => {
         if (currentSong) {
             // Update audio src based on currentSong
             if (audioRef.current) {
-                audioRef.current.src = currentSong.music[currentSong.music.length - 1]?.url || '';
+                audioRef.current.src =
+                    currentSong.music[currentSong.music.length - 1]?.url || '';
             }
 
             if (isPlaying) {
@@ -90,7 +96,10 @@ const Player = () => {
 
             // Cleanup listeners when component unmounts or song changes
             return () => {
-                audioRef.current?.removeEventListener('timeupdate', handleTimeUpdate);
+                audioRef.current?.removeEventListener(
+                    'timeupdate',
+                    handleTimeUpdate
+                );
                 audioRef.current?.removeEventListener('ended', handleSongEnd);
             };
         }
@@ -135,7 +144,11 @@ const Player = () => {
     };
 
     return (
-        <div className="dark:bg-gray-800 dark:text-white fixed bottom-0 right-0 left-0 bg-[#f5f5f5ff] flex flex-col ">
+        <div
+            className={`dark:bg-gray-800 dark:text-white fixed bottom-0 right-0 left-0 bg-[#f5f5f5ff] flex flex-col ${
+                !currentSong && 'hidden'
+            }`}
+        >
             <input
                 type="range"
                 id="progress"
