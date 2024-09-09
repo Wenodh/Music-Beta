@@ -7,6 +7,7 @@ import MusicContext from './context/MusicContext';
 import useMusicPlayer from './hooks/useMusicPlayer';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import Home from './pages/Home';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -26,31 +27,54 @@ export default function App() {
     } = useMusicPlayer([]);
 
     return (
-        <MusicContext.Provider
-            value={{
-                songs,
-                setSongs,
-                playMusic,
-                isPlaying,
-                currentSong,
-                nextSong,
-                prevSong,
-                setSearchedSongs,
-                searchedSongs,
-            }}
-        >
-            <BrowserRouter>
-                <Navbar />
-                <SearchSection />
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/albums/:id" element={<AlbumDetails />} />
-                    <Route path="/artists/:id" element={<ArtistPage />} />
-                    <Route path="/playlists/:id" element={<PlaylistPage />} />
-                </Routes>
-                {currentSong && <Player />}
-            </BrowserRouter>
-            <SpeedInsights />
-        </MusicContext.Provider>
+        <ErrorBoundary>
+            <MusicContext.Provider
+                value={{
+                    songs,
+                    setSongs,
+                    playMusic,
+                    isPlaying,
+                    currentSong,
+                    nextSong,
+                    prevSong,
+                    setSearchedSongs,
+                    searchedSongs,
+                }}
+            >
+                <BrowserRouter>
+                    <Navbar />
+                    <SearchSection />
+                    <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route
+                            path="/albums/:id"
+                            element={
+                                <Suspense fallback={<div>Loading...</div>}>
+                                    <AlbumDetails />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="/artists/:id"
+                            element={
+                                <Suspense fallback={<div>Loading...</div>}>
+                                    <ArtistPage />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="/playlists/:id"
+                            element={
+                                <Suspense fallback={<div>Loading...</div>}>
+                                    <PlaylistPage />
+                                </Suspense>
+                            }
+                        />
+                    </Routes>
+                    {currentSong && <Player />}
+                </BrowserRouter>
+                <SpeedInsights />
+            </MusicContext.Provider>
+        </ErrorBoundary>
     );
 }
