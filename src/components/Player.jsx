@@ -220,10 +220,10 @@ const Player = () => {
                     ) : (
                         <LuHardDriveDownload
                             onClick={() =>
-                                handleDownloadSong(currentSong.audioUrl)
+                                handleDownloadSong(currentSong.music[currentSong.music.length-1].url)
                             }
                             className={`text-gray-700 hover:text-gray-500 text-2xl lg:text-3xl ${
-                                !currentSong?.audioUrl || isDownloading
+                                !currentSong.music[currentSong.music.length-1].url || isDownloading
                                     ? 'cursor-not-allowed opacity-50'
                                     : 'cursor-pointer'
                             } lg:mr-2`}
