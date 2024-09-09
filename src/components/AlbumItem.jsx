@@ -1,7 +1,8 @@
-import { useContext, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import MusicContext from '../context/MusicContext';
+import { playMusic, pauseMusic } from '../features/musicPlayer/musicPlayerSlice';
 import { FaPause, FaPlay } from 'react-icons/fa';
+import { useMemo } from 'react';
 
 const AlbumItem = ({
     name,
@@ -15,21 +16,26 @@ const AlbumItem = ({
     album,
 }) => {
     const navigate = useNavigate();
-    const { isPlaying, currentSong, playMusic } = useContext(MusicContext);
+    const dispatch = useDispatch();
+    const { isPlaying, currentSong } = useSelector((state) => state.musicPlayer);
 
     const isCurrentSongPlaying = isPlaying && currentSong?.id === id;
 
     const handleClick = () => {
         if (type === 'song' && downloadUrl?.length) {
-            playMusic(
-                downloadUrl,
-                name,
-                duration,
-                image,
-                id,
-                artists?.primary[0]?.name,
-                album.id
-            );
+            if (isCurrentSongPlaying) {
+                dispatch(pauseMusic());
+            } else {
+                dispatch(playMusic({
+                    music: downloadUrl,
+                    name,
+                    duration,
+                    image,
+                    id,
+                    primaryArtists: artists?.primary[0]?.name,
+                    albumId: album?.id
+                }));
+            }
         } else if (type === 'playlist') {
             navigate(`/playlists/${id}`);
         } else if (type === 'album') {
@@ -74,11 +80,11 @@ const AlbumItem = ({
                     )}
                 </div>
             </div>
-            <div className="text-[13px] w-full flex flex-col justify-center items-center">
-                <span className="text-gray-800 font-semibold overflow-x-clip w-full truncate">
+            <div className="text-[13px] w-full flex flex-col justify-center items-center text-gray-800 dark:text-gray-300">
+                <span className=" font-semibold overflow-x-clip w-full truncate">
                     {name}
                 </span>
-                <p className="text-gray-700 font-thin text-xs truncate w-full">
+                <p className="font-thin text-xs truncate w-full ">
                     {artistsString}
                 </p>
             </div>

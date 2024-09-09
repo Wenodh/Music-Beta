@@ -1,38 +1,67 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MdKeyboardArrowDown } from 'react-icons/md';
 import axios from 'axios';
-import { useContext, useState, useCallback } from 'react';
-import MusicContext from '../context/MusicContext';
+import { useState, useCallback, useEffect } from 'react';
 import { search } from '../constants';
 import { debounce } from 'lodash';
+import ThemeToggle from './ThemeToggle';
+import { useDispatch, useSelector } from 'react-redux';
+import { setLanguage } from '../features/language/languageSlice';
+import { setSearchedSongs } from '../features/musicPlayer/musicPlayerSlice';
 
 const Navbar = () => {
-    const { setSearchedSongs } = useContext(MusicContext);
+    const languages = [
+        'Hindi',
+        'Bengali',
+        'Telugu',
+        'English',
+        'Marathi',
+        'Tamil',
+        'Gujarati',
+        'Urdu',
+        'Kannada',
+        'Odia',
+        'Malayalam',
+        'Punjabi',
+        'Assamese',
+        'Maithili',
+        'Santali',
+        'Kashmiri',
+        'Konkani',
+        'Dogri',
+        'Manipuri',
+        'Bodo',
+        'Sanskrit',
+        'Sindhi',
+    ];
+    const dispatch = useDispatch();
+    const selectedLanguage = useSelector((state) => state.language);
     const [query, setQuery] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const navigate = useNavigate();
 
     // Debounce the search function to prevent rapid API calls
-    const searchSongs = useCallback(
-        debounce(async (query) => {
-            if (!query) {
-                setSearchedSongs([]);
-                return;
-            }
-            try {
-                const res = await axios.get(`${search}${query}`);
-                const { data } = res.data;
+    const searchSongs = debounce(async (query) => {
+        if (!query) {
+            dispatch(setSearchedSongs([]));
+            return;
+        }
+        try {
+            const res = await axios.get(`${search}${query}`);
+            const { data } = res.data;
+            dispatch(
                 setSearchedSongs([
                     ...data.songs.results,
                     ...data.albums.results,
                     ...data.artists.results,
                     ...data.playlists.results,
-                ]);
-            } catch (error) {
-                console.error('Error fetching search results:', error);
-                setSearchedSongs([]); // Clear results on error
-            }
-        }, 300), // Debounce with 300ms delay
-        [setSearchedSongs]
-    );
+                ])
+            );
+        } catch (error) {
+            console.error('Error fetching search results:', error);
+            dispatch(setSearchedSongs([]));
+        }
+    }, 300);
 
     // Handle search input change
     const handleInputChange = (e) => {
@@ -40,42 +69,80 @@ const Navbar = () => {
         searchSongs(e.target.value);
     };
 
+    // Toggle dropdown visibility
+    const handleDropdownToggle = () => {
+        setIsDropdownOpen(!isDropdownOpen);
+    };
+
+    // Handle language selection
+    const handleLanguageSelect = (language) => {
+        dispatch(setLanguage(language));
+        setIsDropdownOpen(false);
+    };
+
     return (
-        <nav className="lg:flex justify-between items-center py-3 border-none lg:border px-2 fixed top-0 left-0 right-0 bg-[#f5f5f5ff] z-20">
+        <nav className="lg:flex dark:bg-gray-800 dark:text-white justify-between items-center py-3 px-4 fixed top-0 left-0 right-0 bg-[#f5f5f5] z-20 shadow-md">
             {/* Logo and Title */}
-            <div className="flex flex-col lg:flex-row justify-between items-center mx-auto lg:mx-0">
-                <div className="flex justify-between items-center gap-2 mr-4">
+            <div className="flex flex-col lg:flex-row items-center gap-4">
+                <div
+                    className="flex items-center gap-2 pb-2"
+                    onClick={() => navigate('/')}
+                >
                     <img
-                        src="/savan-logo.png"
+                        src="/ios/40.png"
                         alt="logo"
-                        width={37}
-                        height={37}
-                        loading="lazy"
+                        width={30}
+                        height={30}
                     />
-                    <Link to="/" className="font-extrabold text-lg">
+                    <span
+                        // to="/"
+                        className="font-extrabold text-lg hover:text-gray-700"
+                    >
                         Music Beta
-                    </Link>
+                    </span>
                 </div>
             </div>
 
-            {/* Search Input */}
-            <div>
+            {/* Mobile View: Search Input, Language Dropdown, Theme Toggle */}
+            <div className="flex items-center gap-4 lg:gap-6">
                 <input
                     type="text"
                     name="search"
                     id="search"
-                    className="py-2 rounded-full w-[100%] lg:w-[44vw] outline-none text-center border text-black"
-                    placeholder="Search for songs"
+                    className="py-2 px-4 rounded-full w-full lg:w-[44vw] outline-none text-black dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm focus:border-gray-500 dark:focus:border-gray-400 transition-colors duration-300"
+                    placeholder="Search"
                     autoComplete="off"
                     autoCorrect="off"
                     value={query}
                     onChange={handleInputChange}
                 />
-            </div>
 
-            {/* Optional: Additional Nav Items (currently hidden) */}
-            <div className="hidden lg:flex justify-between items-center gap-4">
-                {/* Additional nav content can be placed here */}
+                <div className="relative">
+                    <button
+                        onClick={handleDropdownToggle}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white dark:bg-gray-700 dark:border-gray-600 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none"
+                    >
+                        {selectedLanguage.slice(0, 2)} <MdKeyboardArrowDown />
+                    </button>
+                    {isDropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
+                            <ul>
+                                {languages.map((language) => (
+                                    <li
+                                        key={language}
+                                        onClick={() =>
+                                            handleLanguageSelect(language)
+                                        }
+                                        className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    >
+                                        {language}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+                <ThemeToggle />
             </div>
         </nav>
     );

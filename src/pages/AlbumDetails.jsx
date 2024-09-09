@@ -10,7 +10,6 @@ const AlbumDetails = () => {
         id,
         (image) => image[2].url
     );
-
     if (loading) {
         return <div>Loading album details...</div>;
     }
@@ -21,7 +20,7 @@ const AlbumDetails = () => {
 
     return (
         <>
-            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24 my-28 lg:my-20 mx-2 lg:mx-auto lg:items-start">
+            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24 py-28 lg:py-20 mx-2 lg:mx-auto lg:items-start min-h-screen">
                 <div>
                     <img
                         src={image}

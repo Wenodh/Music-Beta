@@ -1,10 +1,10 @@
-// src/hooks/useFetchDetails.js
-import { useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import MusicContext from '../context/MusicContext';
+import { setSongs } from '../features/musicPlayer/musicPlayerSlice';
+import { useDispatch } from 'react-redux';
 
 const useFetchDetails = (apiUrl, id, getImageUrl) => {
-    const { setSongs } = useContext(MusicContext);
+    const dispatch = useDispatch();
     const [details, setDetails] = useState(null);
     const [image, setImage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -15,7 +15,7 @@ const useFetchDetails = (apiUrl, id, getImageUrl) => {
             const res = await axios.get(`${apiUrl}${id}`);
             const { data } = res.data;
             setDetails(data);
-            setSongs(data.songs);
+            dispatch(setSongs(data.songs));
             setImage(getImageUrl(data.image));
         } catch (err) {
             setError('Failed to fetch details.');

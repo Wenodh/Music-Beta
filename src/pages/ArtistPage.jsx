@@ -1,12 +1,12 @@
 import axios from 'axios';
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SongsList from '../components/SongsList';
 import { artistById } from '../constants';
 import MusicContext from '../context/MusicContext';
+import { setSongs } from '../features/musicPlayer/musicPlayerSlice';
 
 const ArtistPage = () => {
-    const { setSongs } = useContext(MusicContext);
     const [album, setAlbum] = useState([]);
     const [image, setImage] = useState([]);
 
@@ -30,7 +30,7 @@ const ArtistPage = () => {
 
     return (
         <>
-            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24 my-28 lg:my-20 mx-2 lg:mx-auto lg:items-start">
+            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24 py-28 lg:py-20 mx-2 lg:mx-auto lg:items-start min-h-screen">
                 <div>
                     <img
                         src={image}

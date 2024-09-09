@@ -6,85 +6,143 @@ import { HiSpeakerWave } from 'react-icons/hi2';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
 import VolumeController from './VolumeController';
-import { useState, useContext, useRef, useEffect } from 'react';
-import MusicContext from '../context/MusicContext';
+import { useState, useRef, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { playMusic, setCurrentSong } from '../features/musicPlayer/musicPlayerSlice';
+import { addSong } from '../features/recentlyPlayed/recentlyPlayedSlice';
 import { useNavigate } from 'react-router-dom';
 
 const Player = () => {
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false); // Track download status
-    const { currentSong, playMusic, isPlaying, nextSong, prevSong } =
-        useContext(MusicContext);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const { currentSong, isPlaying, songs } = useSelector((state) => state.musicPlayer);
 
-    const inputRef = useRef();
+    // Use ref to manage the audio element
+    const audioRef = useRef(null);
 
+    const nextSong = () => {
+        if (currentSong) {
+            const index = songs.findIndex((song) => song.id === currentSong.id);
+            const nextIndex = (index + 1) % songs.length;
+            const next = songs[nextIndex];
+
+            dispatch(
+                playMusic({
+                    music: next.downloadUrl,
+                    name: next.name,
+                    duration: next.duration,
+                    image: next.image,
+                    id: next.id,
+                    primaryArtists: next.primaryArtists,
+                    albumId: next?.album?.id,
+                })
+            );
+        }
+    };
+
+    const prevSong = () => {
+        if (currentSong) {
+            const index = songs.findIndex((song) => song.id === currentSong.id);
+            const prevIndex = (index - 1 + songs.length) % songs.length;
+            const prev = songs[prevIndex];
+            dispatch(
+                playMusic({
+                    music: prev.downloadUrl,
+                    name: prev.name,
+                    duration: prev.duration,
+                    image: prev.image,
+                    id: prev.id,
+                    primaryArtists: prev.primaryArtists,
+                    albumId: prev?.album?.id,
+                })
+            );
+        }
+    };
+
+    // Handle audio play/pause when the state changes
     useEffect(() => {
         if (currentSong) {
-            const audioElement = currentSong.audio;
+            // Update audio src based on currentSong
+            if (audioRef.current) {
+                audioRef.current.src = currentSong.music[currentSong.music.length - 1]?.url || '';
+            }
+
+            if (isPlaying) {
+                audioRef.current?.play();
+            } else {
+                audioRef.current?.pause();
+            }
 
             const handleTimeUpdate = () => {
                 const duration = Number(currentSong.duration);
-                const currentTime = audioElement.currentTime;
-                const newTiming = (currentTime / duration) * 100;
-                inputRef.current.value = newTiming;
+                const currentTime = audioRef.current.currentTime;
+                const progress = (currentTime / duration) * 100;
+                document.getElementById('progress').value = progress; // Update the progress bar
             };
 
-            const handleSongEnd = () => nextSong();
+            const handleSongEnd = () => nextSong(); // Move to the next song
 
-            audioElement.addEventListener('timeupdate', handleTimeUpdate);
-            audioElement.addEventListener('ended', handleSongEnd);
+            // Add event listeners
+            audioRef.current?.addEventListener('timeupdate', handleTimeUpdate);
+            audioRef.current?.addEventListener('ended', handleSongEnd);
 
+            // Cleanup listeners when component unmounts or song changes
             return () => {
-                audioElement.removeEventListener(
-                    'timeupdate',
-                    handleTimeUpdate
-                );
-                audioElement.addEventListener('ended', handleSongEnd);
+                audioRef.current?.removeEventListener('timeupdate', handleTimeUpdate);
+                audioRef.current?.removeEventListener('ended', handleSongEnd);
             };
         }
-    }, [currentSong]);
+    }, [currentSong, isPlaying]);
 
     const handleProgressChange = (event) => {
         const newPercentage = parseFloat(event.target.value);
         const newTime = (newPercentage / 100) * Number(currentSong.duration);
         if (newTime >= 0) {
-            currentSong.audio.currentTime = newTime;
+            audioRef.current.currentTime = newTime;
         }
     };
 
     const handleDownloadSong = async (url) => {
-        setIsDownloading(true); // Set loading state
+        setIsDownloading(true);
         try {
             const res = await fetch(url);
             const blob = await res.blob();
-
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = `${currentSong.name}.mp3`;
-
             document.body.appendChild(link);
             link.click();
-
             document.body.removeChild(link);
         } catch (error) {
-            console.log('Error fetching or downloading files', error);
+            console.log('Error downloading the song', error);
         } finally {
-            setIsDownloading(false); // Reset loading state
+            setIsDownloading(false);
+        }
+    };
+
+    const handlePlayPause = () => {
+        if (isPlaying) {
+            audioRef.current?.pause();
+        } else {
+            audioRef.current?.play();
+        }
+        dispatch(playMusic(currentSong)); // Update the playing state in Redux
+        if (!isPlaying) {
+            dispatch(addSong(currentSong));
         }
     };
 
     return (
-        <div className="fixed bottom-0 right-0 left-0 bg-[#f5f5f5ff] flex flex-col ">
+        <div className="dark:bg-gray-800 dark:text-white fixed bottom-0 right-0 left-0 bg-[#f5f5f5ff] flex flex-col ">
             <input
                 type="range"
-                name="progress"
                 id="progress"
                 min={0}
                 max={100}
                 step="0.1"
-                value={0}
-                ref={inputRef}
+                defaultValue={0}
                 onChange={handleProgressChange}
                 className="w-full h-[5px] text-green-400 range"
             />
@@ -123,33 +181,14 @@ const Player = () => {
                     {isPlaying ? (
                         <FaPause
                             className="text-gray-700 hover:text-gray-500 cursor-pointer"
-                            onClick={() =>
-                                playMusic(
-                                    currentSong?.audio,
-                                    currentSong.name,
-                                    currentSong.duration,
-                                    currentSong.image,
-                                    currentSong.id,
-                                    currentSong?.albumId
-                                )
-                            }
+                            onClick={handlePlayPause}
                         />
                     ) : (
                         <FaPlay
                             className="text-gray-700 hover:text-gray-500 cursor-pointer"
-                            onClick={() =>
-                                playMusic(
-                                    currentSong.audio,
-                                    currentSong.name,
-                                    currentSong.duration,
-                                    currentSong.image,
-                                    currentSong.id,
-                                    currentSong?.albumId
-                                )
-                            }
+                            onClick={handlePlayPause}
                         />
                     )}
-
                     <IoMdSkipForward
                         onClick={nextSong}
                         className="text-gray-700 hover:text-gray-500 cursor-pointer"
@@ -159,7 +198,7 @@ const Player = () => {
 
                 {/* 3rd div */}
                 <div
-                    className="flex lg:w-[30vw] justify-end items-center "
+                    className="flex lg:w-[30vw] justify-end items-center"
                     onMouseEnter={() => setIsVolumeVisible(true)}
                     onMouseLeave={() => setIsVolumeVisible(false)}
                 >
@@ -168,18 +207,17 @@ const Player = () => {
                     ) : (
                         <LuHardDriveDownload
                             onClick={() =>
-                                handleDownloadSong(currentSong.audio.src)
+                                handleDownloadSong(currentSong.audioUrl)
                             }
                             className={`text-gray-700 hover:text-gray-500 text-2xl lg:text-3xl ${
-                                !currentSong?.audio?.src || isDownloading
+                                !currentSong?.audioUrl || isDownloading
                                     ? 'cursor-not-allowed opacity-50'
                                     : 'cursor-pointer'
                             } lg:mr-2`}
                         />
                     )}
-
                     <HiSpeakerWave className="text-gray-700 hover:text-gray-500 text-2xl lg:text-3xl cursor-pointer hidden lg:block" />
-                    <VolumeController isVolumeVisible={isVolumeVisible} />
+                    {/* <VolumeController isVolumeVisible={isVolumeVisible} /> */}
                 </div>
             </div>
         </div>

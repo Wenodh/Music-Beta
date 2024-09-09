@@ -1,8 +1,9 @@
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
-import MusicContext from '../context/MusicContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { pauseMusic, playMusic, } from '../features/musicPlayer/musicPlayerSlice';
 
 const SongsList = ({
     name,
@@ -13,7 +14,8 @@ const SongsList = ({
     id,
     album,
 }) => {
-    const { isPlaying, currentSong, playMusic } = useContext(MusicContext);
+    const dispatch = useDispatch();
+    const { isPlaying, currentSong } = useSelector((state) => state.musicPlayer);
     const [isDownloading, setIsDownloading] = useState(false); // Track download status
     const primaryArtists = artists?.primary?.[0]?.name || '';
     const isCurrentSongPlaying = id === currentSong?.id && isPlaying;
@@ -43,40 +45,34 @@ const SongsList = ({
         }
     };
 
+    const handlePlayPause = () => {
+        if (isCurrentSongPlaying) {
+            dispatch(pauseMusic()); // Dispatch pause action
+        } else {
+            dispatch(playMusic({
+                music: downloadUrl,
+                name,
+                duration,
+                image,
+                id,
+                primaryArtists,
+                albumId: album?.id
+            })); // Dispatch play action with song details
+        }
+    };
+
     return (
         <div className="flex justify-between items-center w-[80vw] lg:w-[50vw] mb-2 lg:mb-1 py-2 px-4 hover:bg-white hover:shadow-md rounded-md shadow-sm bg-white/65 gap-4">
             {isCurrentSongPlaying ? (
                 <FaPause
                     className="text-gray-700 hover:text-gray-500 cursor-pointer"
-                    onClick={() =>
-                        downloadUrl?.length &&
-                        playMusic(
-                            downloadUrl,
-                            name,
-                            duration,
-                            image,
-                            id,
-                            primaryArtists,
-                            album?.id
-                        )
-                    }
+                    onClick={handlePlayPause}
                     aria-label="Pause"
                 />
             ) : (
                 <FaPlay
                     className="text-gray-700 hover:text-gray-500 cursor-pointer"
-                    onClick={() =>
-                        downloadUrl?.length &&
-                        playMusic(
-                            downloadUrl,
-                            name,
-                            duration,
-                            image,
-                            id,
-                            primaryArtists,
-                            album?.id
-                        )
-                    }
+                    onClick={handlePlayPause}
                     aria-label="Play"
                 />
             )}

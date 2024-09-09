@@ -1,12 +1,16 @@
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import MusicContext from '../context/MusicContext';
 import { url } from '../constants';
+import {
+    playMusic,
+    setSearchedSongs,
+} from '../features/musicPlayer/musicPlayerSlice';
+import { useDispatch } from 'react-redux';
 
 const SongItem = ({ id, title, image, type, primaryArtists }) => {
     const navigate = useNavigate();
-    const { playMusic, setSearchedSongs } = useContext(MusicContext);
+    const dispatch = useDispatch();
     const [loading, setLoading] = useState(false); // Loading state for song fetching
 
     const handleClick = useCallback(async () => {
@@ -14,8 +18,18 @@ const SongItem = ({ id, title, image, type, primaryArtists }) => {
             try {
                 setLoading(true); // Start loading
                 const { data } = await axios.get(`${url}/api/songs/${id}`);
-                const { downloadUrl, name, duration } = data.data[0];
-                playMusic(downloadUrl, name, duration, image, id, primaryArtists);
+                const { downloadUrl, name, duration,artists,album } = data.data[0];
+                dispatch(
+                    playMusic({
+                        music: downloadUrl,
+                        name,
+                        duration,
+                        image,
+                        id,
+                        primaryArtists: artists?.primary[0]?.name,
+                        albumId: album?.id,
+                    })
+                );
             } catch (error) {
                 console.error('Failed to fetch song details:', error);
             } finally {
@@ -37,9 +51,9 @@ const SongItem = ({ id, title, image, type, primaryArtists }) => {
                     return;
             }
             navigate(route);
-            setSearchedSongs([]); // Clear search results after navigating
+            dispatch(setSearchedSongs([])); // Clear search results after navigating
         }
-    }, [type, id, image, primaryArtists, playMusic, setSearchedSongs, navigate]);
+    }, [type, id, image, primaryArtists, dispatch, navigate]);
 
     return (
         <div className="min-w-[60px] max-w-[80px] max-h-[140px] md:max-w-[120px] md:max-h-[180px]  overflow-y-clip flex flex-col justify-center items-center gap-2 rounded-lg">
@@ -48,7 +62,9 @@ const SongItem = ({ id, title, image, type, primaryArtists }) => {
                 height={80}
                 src={image[2].url}
                 alt={title}
-                className={`rounded-lg cursor-pointer ${loading ? 'opacity-50' : ''}`}
+                className={`rounded-lg cursor-pointer ${
+                    loading ? 'opacity-50' : ''
+                }`}
                 onClick={handleClick}
                 loading="lazy"
             />
