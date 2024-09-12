@@ -23,7 +23,6 @@ const Player = () => {
     const { currentSong, isPlaying, songs } = useSelector(
         (state) => state.musicPlayer
     );
-
     // Use ref to manage the audio element
     const audioRef = useRef(new Audio(''));
 
@@ -220,10 +219,10 @@ const Player = () => {
                     ) : (
                         <LuHardDriveDownload
                             onClick={() =>
-                                handleDownloadSong(currentSong.music[currentSong.music.length-1].url)
+                                handleDownloadSong(currentSong?.music[currentSong.music.length-1]?.url)
                             }
                             className={`text-gray-700 hover:text-gray-500 text-2xl lg:text-3xl ${
-                                !currentSong.music[currentSong.music.length-1].url || isDownloading
+                                !currentSong?.music[currentSong?.music?.length-1]?.url || isDownloading
                                     ? 'cursor-not-allowed opacity-50'
                                     : 'cursor-pointer'
                             } lg:mr-2`}
