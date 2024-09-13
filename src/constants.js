@@ -1,4 +1,4 @@
-export const url = "https://saavn.dev"
+export const url = "https://jiosaavn-api-cyan-theta.vercel.app"
 export const album = `${url}/api/search/albums`
 export const albumById = `${url}/api/albums?id=`
 export const playlistById = `${url}/api/playlists?id=`
