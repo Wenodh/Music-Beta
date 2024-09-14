@@ -3,6 +3,7 @@ import SongsList from '../components/SongsList';
 import { albumById } from '../constants';
 import useFetchDetails from '../hooks/useFetchDetails';
 import Slider from '../components/Slider';
+import { useEffect } from 'react';
 
 const AlbumDetails = () => {
     const { id } = useParams();
@@ -11,6 +12,9 @@ const AlbumDetails = () => {
         id,
         (image) => image[2].url
     );
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [id]);
     if (loading) {
         return <div>Loading album details...</div>;
     }
@@ -20,7 +24,7 @@ const AlbumDetails = () => {
     }
 
     return (
-        <div className="min-h-screen py-28 lg:py-20 mx-2 lg:mx-auto">
+        <div className="min-h-screen py-28 lg:py-20 mx-2 lg:mx-auto ">
             <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24  lg:items-start">
                 <div>
                     <img

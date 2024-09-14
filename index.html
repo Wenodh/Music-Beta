@@ -2,9 +2,20 @@
 <html lang="en">
 
 <head>
+  <script>
+    const isDarkMode = localStorage.getItem('theme') === 'dark' ||
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
   <meta charset="UTF-8" />
+  <link rel="preload" href="/path/to/styles.css" as="style">
+  <meta name="theme-color" content="#1f2937" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="theme-color" content="#ffffff" />
   <link rel="icon" type="image/svg+xml" href="/ios/40.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Music Beta</title>

@@ -16,11 +16,11 @@ const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
 
 export default function App() {
     return (
-        <ErrorBoundary>
-            <Provider store={store}>
-                <PersistGate loading={null} persistor={persistor}>
-                    <BrowserRouter>
-                        <div className="dark:bg-gray-800 dark:text-white">
+        <div className="dark:bg-gray-800 dark:text-white">
+            <ErrorBoundary>
+                <Provider store={store}>
+                    <PersistGate loading={null} persistor={persistor}>
+                        <BrowserRouter>
                             <Navbar />
                             <SearchSection />
                             <Routes>
@@ -57,11 +57,11 @@ export default function App() {
                                 />
                             </Routes>
                             <Player />
-                        </div>
-                    </BrowserRouter>
-                    <SpeedInsights />
-                </PersistGate>
-            </Provider>
-        </ErrorBoundary>
+                        </BrowserRouter>
+                        <SpeedInsights />
+                    </PersistGate>
+                </Provider>
+            </ErrorBoundary>
+        </div>
     );
 }
