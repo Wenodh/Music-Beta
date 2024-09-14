@@ -46,7 +46,7 @@ const PlaylistPage = () => {
                     </div>
                 </div>
 
-                <div>
+                <div className="max-h-96 overflow-y-auto overflow-x-hidden">
                     {album.songs?.map((song) => (
                         <SongsList key={song.id} {...song} />
                     ))}

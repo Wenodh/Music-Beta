@@ -40,7 +40,7 @@ const AlbumDetails = () => {
                     </div>
                 </div>
 
-                <div>
+                <div className="max-h-96 overflow-y-auto overflow-x-hidden">
                     {details?.songs?.map((song) => (
                         <SongsList key={song.id} {...song} />
                     ))}
