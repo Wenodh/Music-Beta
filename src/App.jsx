@@ -16,7 +16,7 @@ const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
 
 export default function App() {
     return (
-        <div className="dark:bg-gray-800 dark:text-white">
+        <div className="dark:bg-gray-800 dark:text-white min-h-screen">
             <ErrorBoundary>
                 <Provider store={store}>
                     <PersistGate loading={null} persistor={persistor}>

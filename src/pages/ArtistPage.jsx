@@ -41,10 +41,9 @@ const ArtistPage = () => {
                         loading="lazy"
                     />
                     <div className="w-[250px] text-gray-600">
-                        <h1>{album.name}</h1>
+                        <center>{album.name}</center>
                         <p>
-                            by {album?.artists?.primary[0]?.name} .{' '}
-                            {album.songCount} songs
+                            {album.songCount ? `${album.songCount} songs` : ''}
                         </p>
                     </div>
                 </div>
