@@ -7,6 +7,7 @@ const musicPlayerSlice = createSlice({
         isPlaying: false,
         currentSong: null,
         searchedSongs: [],
+        recentlyPlayed: [],
     },
     reducers: {
         setSongs: (state, action) => {
@@ -25,16 +26,16 @@ const musicPlayerSlice = createSlice({
                 primaryArtists,
                 albumId,
             } = action.payload;
+
+            // Toggle play/pause if current song is clicked again
             if (state.currentSong && state.currentSong.id === id) {
                 state.isPlaying = !state.isPlaying;
             } else {
-                if (state.currentSong) {
-                    state.isPlaying = false;
-                }
+                // If a new song is played
                 state.currentSong = {
                     name,
                     duration,
-                    image: image[2].url,
+                    image: image?.[2]?.url,
                     id,
                     music,
                     primaryArtists,
@@ -42,6 +43,21 @@ const musicPlayerSlice = createSlice({
                 };
                 state.isPlaying = true;
             }
+            // Add song to recently played, limiting to 20 songs
+            const updatedRecentlyPlayed = [
+                {
+                    name,
+                    duration,
+                    image,
+                    id,
+                    downloadUrl:music,
+                    primaryArtists,
+                    albumId,
+                },
+                ...state?.recentlyPlayed?.filter((song) => song.id !== id),
+            ]?.slice(0, 20);
+
+            state.recentlyPlayed = updatedRecentlyPlayed;
         },
         pauseMusic: (state) => {
             if (state.currentSong) {
@@ -58,9 +74,8 @@ export const {
     setSongs,
     setSearchedSongs,
     playMusic,
-    nextSong,
-    prevSong,
-    setCurrentSong,
     pauseMusic,
+    setCurrentSong,
 } = musicPlayerSlice.actions;
+
 export default musicPlayerSlice.reducer;

@@ -1,45 +1,55 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { playMusic, pauseMusic } from '../features/musicplayer/musicPlayerSlice';
+import {
+    playMusic,
+    pauseMusic,
+} from '../features/musicplayer/musicPlayerSlice';
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { useMemo } from 'react';
 
-const AlbumItem = ({
-    name,
-    artists,
-    id,
-    image,
-    title,
-    type,
-    downloadUrl,
-    duration,
-    album,
-}) => {
+const AlbumItem = (props) => {
+    const {
+        name,
+        artists,
+        id,
+        image,
+        title,
+        type,
+        downloadUrl,
+        duration,
+        album,
+    } = props;
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const { isPlaying, currentSong } = useSelector((state) => state.musicPlayer);
-
+    const { isPlaying, currentSong } = useSelector(
+        (state) => state.musicPlayer
+    );
     const isCurrentSongPlaying = isPlaying && currentSong?.id === id;
 
     const handleClick = () => {
-        if (type === 'song' && downloadUrl?.length) {
+        if ((!type || type === 'song') && downloadUrl?.length) {
             if (isCurrentSongPlaying) {
                 dispatch(pauseMusic());
             } else {
-                dispatch(playMusic({
+                const songData = {
                     music: downloadUrl,
                     name,
                     duration,
                     image,
                     id,
-                    primaryArtists: artists?.primary[0]?.name,
-                    albumId: album?.id
-                }));
+                    primaryArtists:
+                        artists?.primary[0]?.name || props?.primaryArtists,
+                    albumId: album?.id || props?.albumId,
+                };
+                // Play the music
+                dispatch(playMusic(songData));
             }
         } else if (type === 'playlist') {
             navigate(`/playlists/${id}`);
         } else if (type === 'album') {
             navigate(`/albums/${id}`);
+        } else if (type === 'artist') {
+            navigate(`/artists/${id}`);
         }
     };
 
@@ -49,16 +59,16 @@ const AlbumItem = ({
 
     return (
         <div
-            className="w-36 max-h-56 overflow-y-clip flex flex-col justify-center items-center gap-3 rounded-lg"
+            className="w-24 md:w-36 max-h-56 overflow-y-clip flex flex-col justify-center items-center gap-3 rounded-lg"
             onClick={handleClick}
         >
             <div className="relative group cursor-pointer">
                 <img
                     src={image[1]?.url}
                     alt="music cover"
-                    className={`w-full min-w-36 min-h-36 transition duration-300 ease-in-out group-hover:brightness-50 rounded-md shadow-lg ${
+                    className={`w-full min-w-24 min-h-24 md:min-w-36 md:min-h-36 transition duration-300 ease-in-out group-hover:brightness-50  shadow-lg ${
                         isCurrentSongPlaying ? 'brightness-50' : ''
-                    }`}
+                    } ${type === 'artist' ? 'rounded-full' : 'rounded-md'}`}
                     width={150}
                     height={150}
                 />
@@ -81,12 +91,20 @@ const AlbumItem = ({
                 </div>
             </div>
             <div className="text-[13px] w-full flex flex-col justify-center items-center text-gray-800 dark:text-gray-300">
-                <span className=" font-semibold overflow-x-clip w-full truncate">
-                    {name}
-                </span>
-                <p className="font-thin text-xs truncate w-full ">
-                    {artistsString}
-                </p>
+                {type === 'artist' ? (
+                    <center className=" font-semibold overflow-x-clip w-full truncate">
+                        {name}
+                    </center>
+                ) : (
+                    <>
+                        <p className=" font-semibold overflow-x-clip w-full truncate">
+                            {name}
+                        </p>
+                        <p className="font-thin text-xs truncate w-full ">
+                            {artistsString}
+                        </p>
+                    </>
+                )}
             </div>
         </div>
     );

@@ -12,7 +12,6 @@ import {
     playMusic,
     setCurrentSong,
 } from '../features/musicplayer/musicPlayerSlice';
-import { addSong } from '../features/recentlyPlayed/recentlyPlayedSlice';
 import { useNavigate } from 'react-router-dom';
 
 const Player = () => {
@@ -69,9 +68,9 @@ const Player = () => {
     useEffect(() => {
         if (currentSong) {
             // Update audio src based on currentSong
-            if (audioRef.current) {
+            if (audioRef.current && currentSong?.music) {
                 audioRef.current.src =
-                    currentSong.music[currentSong.music.length - 1]?.url || '';
+                    currentSong?.music[currentSong.music.length - 1]?.url || '';
             }
 
             if (isPlaying) {
@@ -137,9 +136,6 @@ const Player = () => {
             audioRef.current?.play();
         }
         dispatch(playMusic(currentSong)); // Update the playing state in Redux
-        if (!isPlaying) {
-            dispatch(addSong(currentSong));
-        }
     };
 
     return (
@@ -219,10 +215,16 @@ const Player = () => {
                     ) : (
                         <LuHardDriveDownload
                             onClick={() =>
-                                handleDownloadSong(currentSong?.music[currentSong.music.length-1]?.url)
+                                handleDownloadSong(
+                                    currentSong?.music[
+                                        currentSong?.music?.length - 1
+                                    ]?.url
+                                )
                             }
                             className={`text-gray-700 hover:text-gray-500 text-2xl lg:text-3xl ${
-                                !currentSong?.music[currentSong?.music?.length-1]?.url || isDownloading
+                                !currentSong?.music?.[
+                                    currentSong?.music?.length - 1
+                                ]?.url || isDownloading
                                     ? 'cursor-not-allowed opacity-50'
                                     : 'cursor-pointer'
                             } lg:mr-2`}

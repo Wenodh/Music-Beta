@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import SongsList from '../components/SongsList';
 import { albumById } from '../constants';
 import useFetchDetails from '../hooks/useFetchDetails';
+import Slider from '../components/Slider';
 
 const AlbumDetails = () => {
     const { id } = useParams();
@@ -19,8 +20,8 @@ const AlbumDetails = () => {
     }
 
     return (
-        <>
-            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24 py-28 lg:py-20 mx-2 lg:mx-auto lg:items-start min-h-screen">
+        <div className="min-h-screen py-28 lg:py-20 mx-2 lg:mx-auto">
+            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24  lg:items-start">
                 <div>
                     <img
                         src={image}
@@ -45,7 +46,18 @@ const AlbumDetails = () => {
                     ))}
                 </div>
             </div>
-        </>
+            {details?.artists?.all?.length > 0 && (
+                <>
+                    <h2 className="text-xl px-3 py-2 font-semibold text-gray-700 dark:text-gray-300 w-full lg:w-[78vw] mx-auto">
+                        Artists
+                    </h2>
+                    <Slider
+                        data={details.artists.all}
+                        className="grid-rows-1 w-full"
+                    />
+                </>
+            )}
+        </div>
     );
 };
 

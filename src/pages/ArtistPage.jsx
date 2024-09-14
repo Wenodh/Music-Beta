@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import SongsList from '../components/SongsList';
 import { artistById } from '../constants';
 import { setSongs } from '../features/musicplayer/musicPlayerSlice';
+import Slider from '../components/Slider';
 
 const ArtistPage = () => {
     const [album, setAlbum] = useState([]);
@@ -20,7 +21,6 @@ const ArtistPage = () => {
         setSongs(data.topSongs);
         setImage(getImg(data.image));
     };
-
     const getImg = (image) => (image = image[image.length - 1].url);
 
     useEffect(() => {
@@ -28,8 +28,8 @@ const ArtistPage = () => {
     }, [id]);
 
     return (
-        <>
-            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24 py-28 lg:py-20 mx-2 lg:mx-auto lg:items-start min-h-screen">
+        <div className="min-h-screen py-28 lg:py-20 mx-2 lg:mx-auto">
+            <div className="flex flex-col lg:flex-row lg:justify-center items-center gap-6 lg:gap-24  lg:items-start">
                 <div>
                     <img
                         src={image}
@@ -48,13 +48,35 @@ const ArtistPage = () => {
                     </div>
                 </div>
 
-                <div>
+                <div className="max-h-96 overflow-y-auto overflow-x-hidden">
                     {album.topSongs?.map((song) => (
                         <SongsList key={song.id} {...song} />
                     ))}
                 </div>
             </div>
-        </>
+            {album?.topAlbums?.length > 0 && (
+                <>
+                    <h2 className="text-xl px-3 py-2 font-semibold text-gray-700 dark:text-gray-300 w-full lg:w-[78vw] mx-auto">
+                        Albums
+                    </h2>
+                    <Slider
+                        data={album.topAlbums}
+                        className="grid-rows-1 w-full"
+                    />
+                </>
+            )}
+            {album?.similarArtists?.length > 0 && (
+                <>
+                    <h2 className="text-xl px-3 py-2 font-semibold text-gray-700 dark:text-gray-300 w-full lg:w-[78vw] mx-auto">
+                        Similar Artists
+                    </h2>
+                    <Slider
+                        data={album.similarArtists}
+                        className="grid-rows-1 w-full"
+                    />
+                </>
+            )}
+        </div>
     );
 };
 
