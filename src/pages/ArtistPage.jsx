@@ -5,8 +5,10 @@ import SongsList from '../components/SongsList';
 import { artistById } from '../constants';
 import { setSongs } from '../features/musicplayer/musicPlayerSlice';
 import Slider from '../components/Slider';
+import { useDispatch } from 'react-redux';
 
 const ArtistPage = () => {
+    const dispatch = useDispatch();
     const [album, setAlbum] = useState([]);
     const [image, setImage] = useState([]);
 
@@ -18,7 +20,7 @@ const ArtistPage = () => {
         );
         const { data } = res.data;
         setAlbum(data);
-        setSongs(data.topSongs);
+        dispatch(setSongs(data.topSongs));
         setImage(getImg(data.image));
     };
     const getImg = (image) => (image = image[image.length - 1].url);
