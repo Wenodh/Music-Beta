@@ -88,12 +88,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 pb-2"
                     onClick={() => navigate('/')}
                 >
-                    <img
-                        src="/ios/40.png"
-                        alt="logo"
-                        width={30}
-                        height={30}
-                    />
+                    <img src="/ios/40.png" alt="logo" width={30} height={30} />
                     <span
                         // to="/"
                         className="font-extrabold text-lg hover:text-gray-700"
@@ -125,7 +120,7 @@ const Navbar = () => {
                         {selectedLanguage.slice(0, 2)} <MdKeyboardArrowDown />
                     </button>
                     {isDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
+                        <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-[70vh] overflow-y-scroll">
                             <ul>
                                 {languages.map((language) => (
                                     <li
