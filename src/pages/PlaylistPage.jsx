@@ -34,7 +34,7 @@ const PlaylistPage = () => {
                 <div>
                     <img
                         src={image}
-                        alt={album.title}
+                        alt={album.name}
                         width={250}
                         height={250}
                         className="mx-auto mb-4 rounded-lg"

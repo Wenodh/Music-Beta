@@ -29,7 +29,7 @@ const AlbumDetails = () => {
                 <div>
                     <img
                         src={image}
-                        alt={details?.title}
+                        alt={details?.name}
                         width={250}
                         height={250}
                         className="mx-auto mb-4 rounded-lg"
