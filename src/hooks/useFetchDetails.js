@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { useDispatch } from 'react-redux';
+import { setSongs } from '../features/musicplayer/musicPlayerSlice';
 
-const useFetchDetails = (apiUrl, id, getImageUrl) => {
+const useFetchDetails = (apiUrl, getImageUrl) => {
     const dispatch = useDispatch();
     const [details, setDetails] = useState(null);
     const [image, setImage] = useState('');
@@ -12,10 +12,10 @@ const useFetchDetails = (apiUrl, id, getImageUrl) => {
 
     const fetchDetails = useCallback(async () => {
         try {
-            const res = await axios.get(`${apiUrl}${id}`);
+            const res = await axios.get(apiUrl);
             const { data } = res.data;
             setDetails(data);
-            dispatch(setSongs(data.songs));
+            dispatch(setSongs(data?.songs || data?.topSongs));
             setImage(getImageUrl(data.image));
         } catch (err) {
             setError('Failed to fetch details.');
@@ -23,11 +23,11 @@ const useFetchDetails = (apiUrl, id, getImageUrl) => {
         } finally {
             setLoading(false);
         }
-    }, [apiUrl, id, getImageUrl]);
+    }, [apiUrl, getImageUrl, dispatch]);
 
     useEffect(() => {
         fetchDetails();
-    }, []);
+    }, [fetchDetails]);
 
     return { details, image, loading, error };
 };

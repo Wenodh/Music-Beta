@@ -11,7 +11,7 @@ const musicPlayerSlice = createSlice({
     },
     reducers: {
         setSongs: (state, action) => {
-            state.songs = action.payload;
+            state.songs = [...action.payload, ...state.songs].slice(0, 100);
         },
         setSearchedSongs: (state, action) => {
             state.searchedSongs = action.payload;
@@ -50,7 +50,7 @@ const musicPlayerSlice = createSlice({
                     duration,
                     image,
                     id,
-                    downloadUrl:music,
+                    downloadUrl: music,
                     primaryArtists,
                     albumId,
                 },
