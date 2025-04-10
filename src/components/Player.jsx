@@ -22,8 +22,8 @@ const Player = () => {
     const { currentSong, isPlaying, songs } = useSelector(
         (state) => state.musicPlayer
     );
-    // Use ref to manage the audio element
-    const audioRef = useRef(new Audio(''));
+     // Use ref to manage the audio element
+ const audioRef = useRef(new Audio(''));
 
     const nextSong = () => {
         if (currentSong) {
@@ -63,10 +63,23 @@ const Player = () => {
             );
         }
     };
-
     // Handle audio play/pause when the state changes
     useEffect(() => {
         if (currentSong) {
+            // console.log(currentSong)
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new window.MediaMetadata({
+                  title: currentSong?.name,
+                  artist: currentSong?.primaryArtists,
+                  album: currentSong?.album,
+                  artwork: [
+                    { src: currentSong.image , sizes: '512x512', type: 'image/png' }
+                  ]
+                });
+                // console.log(navigator,"testing") 
+                navigator.mediaSession.setActionHandler('previoustrack', prevSong);
+                navigator.mediaSession.setActionHandler('nexttrack', nextSong);
+            }
             // Update audio src based on currentSong
             if (audioRef.current && currentSong?.music) {
                 audioRef.current.src =
@@ -101,7 +114,7 @@ const Player = () => {
                 audioRef.current?.removeEventListener('ended', handleSongEnd);
             };
         }
-    }, [currentSong, isPlaying]);
+    }, [currentSong, isPlaying,nextSong, prevSong]);
 
     const handleProgressChange = (event) => {
         const newPercentage = parseFloat(event.target.value);
@@ -115,6 +128,13 @@ const Player = () => {
         setIsDownloading(true);
         try {
             const res = await fetch(url);
+            // const res = await fetch(url, {
+            //     method: 'GET',
+            //     headers: {
+            //         Accept: 'audio/mp3', // Specify the type of response you expect
+            //         // You can add more headers here if needed
+            //     },
+            // });
             const blob = await res.blob();
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
