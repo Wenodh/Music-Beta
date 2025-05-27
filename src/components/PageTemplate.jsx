@@ -3,10 +3,10 @@ import SongsList from '../components/SongsList';
 import Slider from '../components/Slider';
 import ImageComponent from '../components/ImageComponent';
 import FlexLayout from '../components/FlexLayout';
-import { useGetDetailsQuery } from '.././features/api/apiSlice'; // Import useGetDetailsQuery
+import { useGetDetailsQuery } from '../../features/api/apiSlice'; // Import useGetDetailsQuery
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux'; // Import useDispatch
-import { setSongs } from '.././features/musicplayer/musicPlayerSlice'; // Import setSongs
+import { setSongs } from '../../features/musicplayer/musicPlayerSlice'; // Import setSongs
 
 const PageTemplate = ({ apiUrl, getImageUrl }) => {
     const { id } = useParams();
@@ -74,7 +74,7 @@ const PageTemplate = ({ apiUrl, getImageUrl }) => {
                 details?.artists?.all || details?.artists
             )}
             {renderSection('Albums', details?.topAlbums)}
-            {renderSection('Similar Artists', details?.similarArtists)}
+            {renderSection('Similar Artists', details.similarArtists)}
         </div>
     );
 };

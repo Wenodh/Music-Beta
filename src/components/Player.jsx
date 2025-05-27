@@ -22,8 +22,9 @@ const Player = () => {
     const { currentSong, isPlaying, songs } = useSelector(
         (state) => state.musicPlayer
     );
-     // Use ref to manage the audio element
- const audioRef = useRef(new Audio(''));
+    // Use ref to manage the audio element
+    const audioRef = useRef(new Audio(''));
+    const currentLoadedSongIdRef = useRef(null); // Ref to store the ID of the currently loaded song
 
     const nextSong = () => {
         if (currentSong) {
@@ -82,8 +83,11 @@ const Player = () => {
             }
             // Update audio src based on currentSong
             if (audioRef.current && currentSong?.music) {
-                audioRef.current.src =
-                    currentSong?.music[currentSong.music.length - 1]?.url || '';
+                const newSongUrl = currentSong?.music[currentSong.music.length - 1]?.url;
+                if (newSongUrl && currentSong.id !== currentLoadedSongIdRef.current) {
+                    audioRef.current.src = newSongUrl;
+                    currentLoadedSongIdRef.current = currentSong.id; // Update the ref
+                }
             }
 
             if (isPlaying) {
