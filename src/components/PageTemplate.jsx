@@ -3,21 +3,37 @@ import SongsList from '../components/SongsList';
 import Slider from '../components/Slider';
 import ImageComponent from '../components/ImageComponent';
 import FlexLayout from '../components/FlexLayout';
-import useFetchDetails from '../hooks/useFetchDetails';
+import { useGetDetailsQuery } from '../../features/api/apiSlice'; // Import useGetDetailsQuery
 import { useEffect } from 'react';
+import { useDispatch } from 'react-redux'; // Import useDispatch
+import { setSongs } from '../../features/musicplayer/musicPlayerSlice'; // Import setSongs
 
 const PageTemplate = ({ apiUrl, getImageUrl }) => {
     const { id } = useParams();
-    const { details, image, loading, error } = useFetchDetails(
-        apiUrl,
-        getImageUrl
-    );
+    const dispatch = useDispatch(); // Initialize dispatch
+    // Call useGetDetailsQuery
+    const { data: details, isLoading, isError, error } = useGetDetailsQuery(apiUrl);
+
+    // Derive image using getImageUrl after data is fetched
+    const image = details ? getImageUrl(details.image) : null;
+
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [id]);
+
+    // useEffect to dispatch songs
+    useEffect(() => {
+        if (details) {
+            const songsToDispatch = details?.songs || details?.topSongs || [];
+            if (songsToDispatch.length > 0) {
+                dispatch(setSongs(songsToDispatch));
+            }
+        }
+    }, [details, dispatch]);
+
     const songs = details?.songs || details?.topSongs || [];
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div>{error}</div>;
+    if (isLoading) return <div>Loading...</div>; // Use isLoading
+    if (isError) return <div>{error?.toString()}</div>; // Use isError and error
     const renderSection = (title, list) => {
         return (
             list?.length > 0 && (
