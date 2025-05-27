@@ -5,7 +5,7 @@ import { combineReducers } from '@reduxjs/toolkit';
 import musicPlayerReducer from './features/musicplayer/musicPlayerSlice';
 import recentlyPlayedReducer from './features/recentlyPlayed/recentlyPlayedSlice';
 import languageReducer from './features/language/languageSlice';
-import { apiSlice } from '../features/api/apiSlice'; // Import apiSlice
+import { apiSlice } from './features/api/apiSlice'; // Import apiSlice
 
 // Combine reducers
 const rootReducer = combineReducers({

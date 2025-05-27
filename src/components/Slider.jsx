@@ -7,7 +7,6 @@ import { useRef, useCallback } from 'react';
 
 const Slider = ({ data, scrollAmount = 800, className = 'md:grid-rows-2' }) => {
     const scrollRef = useRef(null);
-
     const scroll = useCallback(
         (direction) => {
             if (scrollRef.current) {
