@@ -80,7 +80,7 @@ const SongsList = ({
             <div className="flex flex-col lg:flex-row gap-0.5 md:gap-2 justify-between items-start w-[80%] dark:text-gray-700">
                 <span
                     className={`font-bold text-xs ${
-                        id === currentSong?.id ? 'text-[#46c7b6ff] dark:text-teal-300' : ''
+                        id === currentSong?.id ? 'text-[#46c7b6ff] dark:text-teal-900' : ''
                     }`}
                 >
                     {name}
