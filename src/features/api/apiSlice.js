@@ -9,31 +9,31 @@ export const apiSlice = createApi({
   endpoints: (builder) => ({
     getDetails: builder.query({
       query: (apiUrl) => ({ url: apiUrl }), // Query needs to return an object with url property
-      transformResponse: (res) => res.data.data, // Transform the response
+      transformResponse: (res) => res?.data, // Transform the response
     }),
     getHomeAlbums: builder.query({
       query: ({ language, page = 1, limit = 10 }) => ({ // Default values for page and limit
         url: `${album}?query=${language}&page=${page}&limit=${limit}`,
       }),
-      transformResponse: (res) => res.data.results,
+      transformResponse: (res) => res?.data?.results,
     }),
     getHomeTrendingSongs: builder.query({
       query: ({ language, page = 1, limit = 10 }) => ({ // Default values for page and limit
         url: `${songs}?query=${language}&page=${page}&limit=${limit}`,
       }),
-      transformResponse: (res) => res.data?.data?.results,
+      transformResponse: (res) => res?.data?.results,
     }),
     getHomeTopPlaylists: builder.query({
       query: (language) => ({
         url: `${playlistSearch}${language}`,
       }),
-      transformResponse: (res) => res.data?.data?.results,
+      transformResponse: (res) => res?.data?.results,
     }),
     getHomeArtists: builder.query({
       query: (language) => ({
         url: `${searchArtist}${language} singer`,
       }),
-      transformResponse: (res) => res.data.data.results,
+      transformResponse: (res) => res?.data?.results,
     }),
   }),
 });
