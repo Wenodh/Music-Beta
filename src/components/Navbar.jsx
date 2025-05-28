@@ -36,9 +36,17 @@ const Navbar = () => {
     ];
     const dispatch = useDispatch();
     const selectedLanguage = useSelector((state) => state.language);
+    const searchedSongs = useSelector((state) => state.musicPlayer.searchedSongs); // Added this line
     const [query, setQuery] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const navigate = useNavigate();
+
+    // useEffect to clear query when searchedSongs is empty
+    useEffect(() => {
+        if (searchedSongs && searchedSongs.length === 0 && query !== '') {
+            setQuery('');
+        }
+    }, [searchedSongs, query]); // Added query to dependency array
 
     // Debounce the search function to prevent rapid API calls
     const searchSongs = debounce(async (query) => {
