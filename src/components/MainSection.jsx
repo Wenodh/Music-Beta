@@ -11,7 +11,7 @@ import {
 
 const MainSection = () => {
     const dispatch = useDispatch();
-    const language = useSelector((state) => state.language.language); // Corrected language selector
+    const language = useSelector((state) => state.language);
     const recentlyPlayedSongs = useSelector(
         (state) => state.musicPlayer.recentlyPlayed
     );
