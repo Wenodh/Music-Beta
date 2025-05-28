@@ -7,6 +7,9 @@ import { useRef, useCallback } from 'react';
 
 const Slider = ({ data, scrollAmount = 800, className = 'md:grid-rows-2' }) => {
     const scrollRef = useRef(null);
+    const uniqueById = data?.filter((item, index, self) =>
+  self.findIndex(obj => obj.id === item.id) === index
+);
 
     const scroll = useCallback(
         (direction) => {
@@ -29,7 +32,7 @@ const Slider = ({ data, scrollAmount = 800, className = 'md:grid-rows-2' }) => {
                 className={`grid grid-rows-1 grid-flow-col-dense items-center gap-4 overflow-x-scroll w-full lg:w-[78vw] px-5 scroll-hide p-2 min-h-[100px] md:min-h-[200px] ${className}`}
                 ref={scrollRef}
             >
-                {data?.map((album) => (
+                {uniqueById?.map((album) => (
                     <AlbumItem key={album.id} {...album} />
                 ))}
             </div>
