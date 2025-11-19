@@ -93,7 +93,7 @@ const Navbar = () => {
                         // to="/"
                         className="font-extrabold text-lg hover:text-gray-700"
                     >
-                        Music Beta
+                        Music
                     </span>
                 </div>
             </div>
