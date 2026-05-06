@@ -15,10 +15,11 @@ export default defineConfig({
                 'masked-icon.svg',
             ],
             manifest: {
-                name: 'Music Beta',
-                short_name: 'Music Beta',
-                description: 'A music app built with React and Saavn API',
-                theme_color: '#ffffff',
+                name: 'VibeCloud',
+                short_name: 'VibeCloud',
+                description: 'A modern music streaming app with Glassmorphism UI',
+                theme_color: '#ef4444',
+                background_color: '#ffffff',
                 icons: [
                     {
                         src: 'pwa-192x192.png',

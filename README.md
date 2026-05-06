@@ -1,8 +1,6 @@
-# Music Beta - Modern Music Application
+# VibeCloud - Modern Music Application
 
-Music Beta is a high-performance, modern music streaming application built with React, TypeScript, and Tailwind CSS. It leverages the Saavn API to provide a seamless music listening experience with a focus on design, responsiveness, and speed.
-
-🔗 **Demo**: [musicbeta.vercel.app](https://musicbeta.vercel.app)
+VibeCloud is a high-performance, modern music streaming application built with React, TypeScript, and Tailwind CSS. It leverages the Saavn API to provide a seamless music listening experience with a focus on design, responsiveness, and speed.
 
 ---
 
@@ -11,7 +9,7 @@ Music Beta is a high-performance, modern music streaming application built with 
 - **Modern Glassmorphism UI**: A premium, "frosted glass" design aesthetic with fluid animations powered by Framer Motion.
 - **TypeScript Powered**: Fully migrated to TypeScript for better maintainability and type safety.
 - **Sleep Timer**: Set a timer to automatically pause your music, perfect for listening before bed.
-- **Responsive Design**: optimized for both mobile and desktop experiences.
+- **Responsive Design**: Optimized for both mobile and desktop experiences.
 - **Real-time Music Data**: Integrated with the Saavn API for a vast library of songs, albums, and playlists.
 - **Download Support**: High-quality song downloads for offline listening.
 - **PWA Ready**: Installable on mobile and desktop as a Progressive Web App.

@@ -24,13 +24,14 @@ const Navbar: React.FC = () => {
         { name: 'Punjabi', value: 'punjabi' },
     ];
 
-    const fetchSearchts = async (query: string) => {
+    const fetchSearchResults = async (query: string) => {
         if (!query.trim()) {
             dispatch(setSearchedSongs([]));
             return;
         }
         try {
             const res = await axios.get(`${searchUrl}${query}`);
+            // The global search API might return data in a different structure
             const songs = res.data.data.songs.results;
             dispatch(setSearchedSongs(songs));
         } catch (error) {
@@ -39,7 +40,7 @@ const Navbar: React.FC = () => {
     };
 
     const debouncedSearch = _.debounce((query: string) => {
-        fetchSearchts(query);
+        fetchSearchResults(query);
     }, 500);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,7 +51,7 @@ const Navbar: React.FC = () => {
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        fetchSearchts(searchQuery);
+        fetchSearchResults(searchQuery);
     };
 
     return (
@@ -63,7 +64,7 @@ const Navbar: React.FC = () => {
                 className="text-2xl font-bold cursor-pointer text-primary-light dark:text-primary-dark tracking-tight"
                 onClick={() => navigate('/')}
             >
-                Music<span className="font-light italic">Beta</span>
+                Vibe<span className="font-light italic">Cloud</span>
             </div>
 
             <form

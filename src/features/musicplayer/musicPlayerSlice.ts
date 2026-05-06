@@ -15,21 +15,14 @@ const musicPlayerSlice = createSlice({
     initialState,
     reducers: {
         setSongs: (state, action: PayloadAction<Song[]>) => {
-            state.songs = [...action.payload, ...state.songs].slice(0, 100);
+            state.songs = action.payload.slice(0, 100);
         },
         setSearchedSongs: (state, action: PayloadAction<Song[]>) => {
             state.searchedSongs = action.payload;
         },
         playMusic: (state, action: PayloadAction<any>) => {
-            const {
-                music,
-                name,
-                duration,
-                image,
-                id,
-                primaryArtists,
-                albumId,
-            } = action.payload;
+            const song = action.payload;
+            const id = song.id;
 
             // Toggle play/pause if current song is clicked again
             if (state.currentSong && state.currentSong.id === id) {
@@ -37,37 +30,26 @@ const musicPlayerSlice = createSlice({
             } else {
                 // If a new song is played
                 state.currentSong = {
-                    name,
-                    duration,
-                    image: Array.isArray(image) ? image[image.length - 1]?.url : image,
-                    id,
-                    music,
-                    downloadUrl: music,
-                    primaryArtists,
-                    albumId,
+                    ...song,
+                    image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
+                    downloadUrl: song.downloadUrl || song.music,
                 } as Song;
                 state.isPlaying = true;
-            }
-            // Add song to recently played, limiting to 20 songs
-            const updatedRecentlyPlayed = [
-                {
-                    name,
-                    duration,
-                    image,
-                    id,
-                    downloadUrl: music,
-                    primaryArtists,
-                    albumId,
-                },
-                ...(state.recentlyPlayed?.filter((song) => song.id !== id) || []),
-            ].slice(0, 20);
 
-            state.recentlyPlayed = updatedRecentlyPlayed as Song[];
+                // Add to recently played
+                state.recentlyPlayed = [
+                    state.currentSong,
+                    ...state.recentlyPlayed.filter((s) => s.id !== id),
+                ].slice(0, 20);
+
+                // Also ensure it's in the current playlist if not already there
+                if (!state.songs.find(s => s.id === id)) {
+                    state.songs = [state.currentSong, ...state.songs].slice(0, 100);
+                }
+            }
         },
         pauseMusic: (state) => {
-            if (state.currentSong) {
-                state.isPlaying = false;
-            }
+            state.isPlaying = false;
         },
         setCurrentSong: (state, action: PayloadAction<any>) => {
             state.currentSong = action.payload;
@@ -78,7 +60,7 @@ const musicPlayerSlice = createSlice({
         decrementSleepTimer: (state) => {
             if (state.sleepTimer && state.sleepTimer > 0) {
                 state.sleepTimer -= 1;
-            } else {
+            } else if (state.sleepTimer === 0) {
                 state.sleepTimer = null;
                 state.isPlaying = false;
             }

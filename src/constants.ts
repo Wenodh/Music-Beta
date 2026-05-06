@@ -1,10 +1,10 @@
-export const url = "https://saavn.dev/api"
+export const url = "https://jiosaavn-api-cyan-theta.vercel.app"
 export const album = `${url}/search/albums`
 export const albumById = `${url}/albums?id=`
 export const playlistById = `${url}/playlists?id=`
 export const songs = `${url}/search/songs`
-export const search = `${url}/search/songs?query=`
-export const artistById = `${url}/artists?id=`
+export const search = `${url}/search?query=`
+export const artistById = `${url}/artists/`
 export const playlistSearch = `${url}/search/playlists?query=`
 export const searchArtist = `${url}/search/artists?query=`
 export const modules = `${url}/modules?language=`
