@@ -5,7 +5,7 @@ import FlexLayout from './FlexLayout';
 import SongsList from './SongsList';
 import Slider from './Slider';
 import { useAppDispatch } from '../hooks/redux';
-import { setSongs } from '../features/musicplayer/musicPlayerSlice';
+import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { useEffect } from 'react';
 
 interface PageTemplateProps {

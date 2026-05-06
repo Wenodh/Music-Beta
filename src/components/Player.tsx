@@ -15,16 +15,38 @@ import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
 import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
+import { setPreferredQuality } from '../features/musicplayer/musicPlayerSlice';
+import { HiQueueList } from 'react-icons/hi2';
+import Queue from './Queue';
+import { MdOutlineLyrics } from 'react-icons/md';
+import Lyrics from './Lyrics';
+import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
+import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
+import { suggestions } from '../constants';
+import { setRecommendations } from '../features/musicplayer/musicPlayerSlice';
+import Visualizer from './Visualizer';
 
 const Player = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
-    const { currentSong, isPlaying, songs, sleepTimer } = useAppSelector(
+    const [isQueueOpen, setIsQueueOpen] = useState(false);
+    const [isLyricsOpen, setIsLyricsOpen] = useState(false);
+    const { currentSong, isPlaying, songs, sleepTimer, preferredQuality } = useAppSelector(
         (state) => state.musicPlayer
     );
+    const { favorites, playlists } = useAppSelector((state) => state.library);
+    const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
+
+    const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const audioRef = useRef(new Audio(''));
+
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.crossOrigin = 'anonymous';
+        }
+    }, []);
 
     const nextSong = useCallback(() => {
         if (currentSong && songs.length > 0) {
@@ -64,6 +86,45 @@ const Player = () => {
             );
         }
     }, [currentSong, songs, dispatch]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    handlePlayPause();
+                    break;
+                case 'ArrowRight':
+                    if (e.ctrlKey || e.metaKey) nextSong();
+                    break;
+                case 'ArrowLeft':
+                    if (e.ctrlKey || e.metaKey) prevSong();
+                    break;
+                case 'KeyM':
+                    // Volume toggle could be here
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isPlaying, currentSong, nextSong, prevSong]);
+
+    useEffect(() => {
+        if (currentSong) {
+            // Fetch recommendations
+            fetch(suggestions(currentSong.id))
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'SUCCESS' && data.data) {
+                        dispatch(setRecommendations(data.data));
+                    }
+                })
+                .catch(err => console.error('Error fetching recommendations:', err));
+        }
+    }, [currentSong, dispatch]);
 
     useEffect(() => {
         let interval: any;
@@ -172,8 +233,11 @@ const Player = () => {
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
-                    className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-50"
+                    className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-50 overflow-hidden"
                 >
+                    <div className="absolute inset-0 z-0 pointer-events-none">
+                        <Visualizer audioRef={audioRef} isPlaying={isPlaying} />
+                    </div>
                     <input
                         type="range"
                         id="progress"
@@ -201,11 +265,70 @@ const Player = () => {
                                     navigate(`/albums/${currentSong.albumId}`)
                                 }
                             />
-                            <div className="hidden lg:block overflow-hidden">
+                            <div className="hidden lg:block overflow-hidden max-w-[200px]">
                                 <p className="font-semibold truncate">{currentSong?.name}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                     {currentSong?.primaryArtists}
                                 </p>
+                            </div>
+                            <div className="flex gap-2 items-center ml-2">
+                                <motion.div whileTap={{ scale: 0.8 }}>
+                                    {isFavorite ? (
+                                        <IoHeart
+                                            onClick={() => dispatch(toggleFavorite(currentSong))}
+                                            className="text-red-500 cursor-pointer text-xl"
+                                        />
+                                    ) : (
+                                        <IoHeartOutline
+                                            onClick={() => dispatch(toggleFavorite(currentSong))}
+                                            className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
+                                        />
+                                    )}
+                                </motion.div>
+                                <div className="relative">
+                                    <IoAddCircleOutline
+                                        onClick={() => setIsPlaylistMenuOpen(!isPlaylistMenuOpen)}
+                                        className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
+                                    />
+                                    <AnimatePresence>
+                                        {isPlaylistMenuOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -10 }}
+                                                className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden py-1"
+                                            >
+                                                <p className="px-3 py-2 text-[10px] uppercase font-bold text-gray-400">Add to Playlist</p>
+                                                {playlists.map(p => (
+                                                    <button
+                                                        key={p.id}
+                                                        onClick={() => {
+                                                            dispatch(addToPlaylist({ playlistId: p.id, song: currentSong }));
+                                                            setIsPlaylistMenuOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate"
+                                                    >
+                                                        {p.name}
+                                                    </button>
+                                                ))}
+                                                {playlists.length === 0 && (
+                                                    <p className="px-3 py-2 text-xs text-gray-500 italic">No playlists found</p>
+                                                )}
+                                                <div className="border-t border-gray-100 dark:border-gray-700 mt-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            navigate('/library');
+                                                            setIsPlaylistMenuOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 font-medium"
+                                                    >
+                                                        + New Playlist
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
                             </div>
                         </div>
 
@@ -239,6 +362,30 @@ const Player = () => {
 
                         {/* 3rd div */}
                         <div className="flex lg:w-[30vw] justify-end items-center gap-5">
+                            <motion.div whileTap={{ scale: 0.9 }}>
+                                <MdOutlineLyrics
+                                    onClick={() => setIsLyricsOpen(!isLyricsOpen)}
+                                    className={`text-2xl cursor-pointer hover:text-red-500 transition-colors ${isLyricsOpen ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}
+                                />
+                            </motion.div>
+                            <motion.div whileTap={{ scale: 0.9 }}>
+                                <HiQueueList
+                                    onClick={() => setIsQueueOpen(!isQueueOpen)}
+                                    className={`text-2xl cursor-pointer hover:text-red-500 transition-colors ${isQueueOpen ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}
+                                />
+                            </motion.div>
+                            <select
+                                value={preferredQuality}
+                                onChange={(e) => dispatch(setPreferredQuality(e.target.value as any))}
+                                className="bg-transparent text-[10px] border border-gray-300 dark:border-gray-700 rounded px-1 py-0.5 focus:outline-none hidden lg:block"
+                                title="Audio Quality"
+                            >
+                                <option value="12kbps">12kbps</option>
+                                <option value="48kbps">48kbps</option>
+                                <option value="96kbps">96kbps</option>
+                                <option value="160kbps">160kbps</option>
+                                <option value="320kbps">320kbps</option>
+                            </select>
                             <SleepTimer />
                             {isDownloading ? (
                                 <AiOutlineLoading3Quarters className="animate-spin text-red-500 text-2xl lg:text-3xl" />
@@ -265,6 +412,12 @@ const Player = () => {
                             </div>
                         </div>
                     </div>
+                    <Queue isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} />
+                    <Lyrics
+                        isOpen={isLyricsOpen}
+                        onClose={() => setIsLyricsOpen(false)}
+                        songId={currentSong?.id || ''}
+                    />
                 </motion.div>
             )}
         </AnimatePresence>

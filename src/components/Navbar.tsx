@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline } from 'react-icons/io5';
+import { IoSearchOutline, IoLibraryOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { motion } from 'framer-motion';
@@ -31,9 +31,8 @@ const Navbar: React.FC = () => {
         }
         try {
             const res = await axios.get(`${searchUrl}${query}`);
-            // The global search API might return data in a different structure
-            const songs = res.data.data.songs.results;
-            dispatch(setSearchedSongs(songs));
+            // Global search returns topQuery, songs, albums, artists, playlists
+            dispatch(setSearchedSongs(res.data.data));
         } catch (error) {
             console.error('Error fetching search results:', error);
         }
@@ -62,12 +61,23 @@ const Navbar: React.FC = () => {
         >
             <div className="flex items-center justify-between w-full md:w-auto gap-4">
                 <div
-                    className="text-2xl font-bold cursor-pointer text-primary-light dark:text-primary-dark tracking-tight"
+                    className="flex flex-col cursor-pointer"
                     onClick={() => navigate('/')}
                 >
-                    Vibe<span className="font-light italic">Cloud</span>
+                    <div className="text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight">
+                        Vibe<span className="font-light italic text-red-500">On</span>
+                    </div>
+                    <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 -mt-1 self-end">
+                        by WENODH
+                    </div>
                 </div>
                 <div className="flex items-center gap-2 md:hidden">
+                    <button
+                        onClick={() => navigate('/library')}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                        <IoLibraryOutline size={20} />
+                    </button>
                     <select
                         value={language}
                         onChange={(e) => dispatch(setLanguage(e.target.value))}
@@ -109,6 +119,13 @@ const Navbar: React.FC = () => {
                         </option>
                     ))}
                 </select>
+                <button
+                    onClick={() => navigate('/library')}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors flex items-center gap-2"
+                >
+                    <IoLibraryOutline size={20} />
+                    <span className="text-sm font-medium">Library</span>
+                </button>
                 <ThemeToggle />
             </div>
         </motion.nav>

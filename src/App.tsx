@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
+const Library = lazy(() => import('./pages/Library'));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -37,6 +38,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Album...</div>}>
                             <PageWrapper><AlbumDetails /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/library"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Library...</div>}>
+                            <PageWrapper><Library /></PageWrapper>
                         </Suspense>
                     }
                 />

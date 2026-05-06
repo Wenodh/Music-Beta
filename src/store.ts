@@ -5,12 +5,14 @@ import { combineReducers } from '@reduxjs/toolkit';
 import musicPlayerReducer from './features/musicplayer/musicPlayerSlice';
 import recentlyPlayedReducer from './features/recentlyPlayed/recentlyPlayedSlice';
 import languageReducer from './features/language/languageSlice';
+import libraryReducer from './features/library/librarySlice';
 
 // Combine reducers
 const rootReducer = combineReducers({
     musicPlayer: musicPlayerReducer,
     recentlyPlayed: recentlyPlayedReducer,
     language: languageReducer,
+    library: libraryReducer,
 });
 
 const persistConfig = {

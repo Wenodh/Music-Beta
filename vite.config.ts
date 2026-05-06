@@ -14,9 +14,36 @@ export default defineConfig({
                 'apple-touch-icon.png',
                 'masked-icon.svg',
             ],
+            workbox: {
+                globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+                runtimeCaching: [
+                    {
+                        urlPattern: /^https:\/\/jiosaavn-api-cyan-theta\.vercel\.app\/api\/.*/i,
+                        handler: 'NetworkFirst',
+                        options: {
+                            cacheName: 'api-cache',
+                            expiration: {
+                                maxEntries: 100,
+                                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                            }
+                        }
+                    },
+                    {
+                        urlPattern: /^https:\/\/(www\.)?jiosaavn\.com\/.*\.jpg/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'image-cache',
+                            expiration: {
+                                maxEntries: 200,
+                                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                            }
+                        }
+                    }
+                ]
+            },
             manifest: {
-                name: 'VibeCloud',
-                short_name: 'VibeCloud',
+                name: 'VibeOn',
+                short_name: 'VibeOn',
                 description: 'A modern music streaming app with Glassmorphism UI',
                 theme_color: '#ef4444',
                 background_color: '#ffffff',

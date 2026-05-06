@@ -8,3 +8,5 @@ export const artistById = `${url}/api/artists/`
 export const playlistSearch = `${url}/api/search/playlists?page=0&limit=25&query=`
 export const searchArtist = `${url}/api/search/artists?page=0&limit=25&query=`
 export const modules = `${url}/api/search/albums?query=`
+export const lyrics = `${url}/api/songs/`
+export const suggestions = (id: string) => `${url}/api/songs/${id}/suggestions`
