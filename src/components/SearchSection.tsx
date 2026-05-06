@@ -48,7 +48,7 @@ const SearchSection: React.FC = () => {
                         </div>
                         <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{song.name}</p>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-1">{song.primaryArtists}</p>
-                        {song.album && (
+                        {song.album && typeof song.album === 'object' && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();

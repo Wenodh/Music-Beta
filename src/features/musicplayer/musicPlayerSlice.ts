@@ -33,6 +33,7 @@ const musicPlayerSlice = createSlice({
                     ...song,
                     image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
                     downloadUrl: song.downloadUrl || song.music,
+                    music: song.music || song.downloadUrl,
                 } as Song;
                 state.isPlaying = true;
 

@@ -89,10 +89,11 @@ const Player = () => {
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
                 navigator.mediaSession.setActionHandler('nexttrack', nextSong);
             }
-            if (audioRef.current && currentSong?.music) {
-                const songUrl = Array.isArray(currentSong.music) ? currentSong.music[currentSong.music.length - 1]?.url : currentSong.music;
-                if (audioRef.current.src !== songUrl) {
-                    audioRef.current.src = songUrl || '';
+            if (audioRef.current) {
+                const musicData = currentSong?.music || currentSong?.downloadUrl;
+                const songUrl = Array.isArray(musicData) ? musicData[musicData.length - 1]?.url : musicData;
+                if (songUrl && audioRef.current.src !== songUrl) {
+                    audioRef.current.src = songUrl;
                 }
             }
 

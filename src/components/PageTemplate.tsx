@@ -17,13 +17,19 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { details, loading, error, image } = useFetchDetails(apiUrl, getImageUrl);
     const dispatch = useAppDispatch();
 
-    const songs = details?.songs || details?.topSongs || [];
+    const songs = (details as any)?.songs || (details as any)?.topSongs || [];
 
     useEffect(() => {
         if (songs.length > 0) {
             dispatch(setSongs(songs));
         }
     }, [songs, dispatch]);
+
+    const handlePlayAll = () => {
+        if (songs.length > 0) {
+            dispatch(playMusic(songs[0]));
+        }
+    };
 
     if (loading) return (
         <div className="flex justify-center items-center h-[60vh]">
@@ -47,7 +53,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         <div className="p-5 pb-32 max-w-7xl mx-auto">
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
-                    <div className="relative group">
+                    <div className="relative group cursor-pointer" onClick={handlePlayAll}>
                         <ImageComponent src={image} alt={details?.name || 'Album/Artist'} />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                             <button className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
@@ -57,12 +63,15 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     </div>
                     <h1 className="text-3xl font-black mt-6 text-center lg:text-left leading-tight">{details?.name}</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2 text-center lg:text-left font-medium">
-                        {Array.isArray(details?.artists)
-                            ? details.artists.map((a: any) => a.name).join(', ')
-                            : details?.primaryArtists || details?.artists}
+                        {Array.isArray((details as any)?.artists)
+                            ? (details as any).artists.map((a: any) => a.name).join(', ')
+                            : (details as any)?.primaryArtists ||
+                              ((details as any)?.artists && typeof (details as any).artists === 'object'
+                                ? (details as any).artists.primary?.map((a: any) => a.name).join(', ')
+                                : (details as any)?.artists)}
                     </p>
-                    {details?.songCount && (
-                        <p className="text-sm text-gray-400 mt-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{details.songCount} Songs</p>
+                    {(details as any)?.songCount && (
+                        <p className="text-sm text-gray-400 mt-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{(details as any).songCount} Songs</p>
                     )}
                 </div>
 
@@ -88,9 +97,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                 </div>
             </FlexLayout>
 
-            {details?.topAlbums && (
+            {(details as any)?.topAlbums && (
                 <div className="mt-20">
-                    <Slider data={details.topAlbums} title="Top Albums" />
+                    <Slider data={(details as any).topAlbums} title="Top Albums" />
                 </div>
             )}
         </div>

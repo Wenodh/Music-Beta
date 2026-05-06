@@ -3,22 +3,45 @@ import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import { motion } from 'framer-motion';
-import { modules } from '../constants';
+import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
 
 const MainSection: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<{
+        albums: any[];
+        songs: any[];
+        playlists: any[];
+        artists: any[];
+    }>({
+        albums: [],
+        songs: [],
+        playlists: [],
+        artists: []
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`${modules}${language}&page=0&limit=25`);
-                setData(response.data.data);
+                const results = await Promise.allSettled([
+                    axios.get(`${modules}${language}&page=0&limit=25`),
+                    axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
+                    axios.get(`${playlistSearch}${language}`),
+                    axios.get(`${searchArtist}${language}`)
+                ]);
+
+                const [albumsRes, songsRes, playlistsRes, artistsRes] = results;
+
+                setData({
+                    albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
+                    songs: songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [],
+                    playlists: playlistsRes.status === 'fulfilled' ? (playlistsRes.value.data.data.results || []) : [],
+                    artists: artistsRes.status === 'fulfilled' ? (artistsRes.value.data.data.results || []) : []
+                });
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error in fetchData:', error);
             } finally {
                 setLoading(false);
             }
@@ -61,24 +84,24 @@ const MainSection: React.FC = () => {
                     <Slider data={recentlyPlayed} title="Recently Played" />
                 </motion.div>
             )}
-            {data?.albums && (
+            {data.songs && data.songs.length > 0 && (
+                <motion.div variants={itemVariants}>
+                    <Slider data={data.songs} title="Trending Songs" />
+                </motion.div>
+            )}
+            {data.albums && data.albums.length > 0 && (
                 <motion.div variants={itemVariants}>
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
-            {data?.playlists && (
+            {data.playlists && data.playlists.length > 0 && (
                 <motion.div variants={itemVariants}>
                     <Slider data={data.playlists} title="Top Playlists" />
                 </motion.div>
             )}
-            {data?.charts && (
+            {data.artists && data.artists.length > 0 && (
                 <motion.div variants={itemVariants}>
-                    <Slider data={data.charts} title="Charts" />
-                </motion.div>
-            )}
-            {data?.trending?.albums && (
-                <motion.div variants={itemVariants}>
-                    <Slider data={data.trending.albums} title="Trending Now" />
+                    <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
         </motion.div>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAppDispatch } from '../hooks/redux';
+import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 
 interface AlbumItemProps {
     id: string;
@@ -8,13 +10,20 @@ interface AlbumItemProps {
     name: string;
     artists?: string;
     type?: string;
+    data?: any;
 }
 
 const AlbumItem: React.FC<AlbumItemProps> = (props) => {
-    const { id, image, name, artists, type } = props;
+    const { id, image, name, artists, type, data } = props;
+    const dispatch = useAppDispatch();
     const navigate = useNavigate();
 
     const handleClick = () => {
+        if (type === 'song' && data) {
+            dispatch(playMusic(data));
+            return;
+        }
+
         if (type === 'playlist') {
             navigate(`/playlists/${id}`);
         } else if (type === 'artist') {
@@ -32,7 +41,7 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
             onClick={handleClick}
             className="flex flex-col items-start gap-3 p-3 rounded-2xl bg-white/5 dark:bg-gray-800/5 hover:bg-white/10 dark:hover:bg-gray-800/10 border border-transparent hover:border-white/20 dark:hover:border-gray-700/20 cursor-pointer transition-all w-44 shrink-0 group shadow-sm hover:shadow-xl"
         >
-            <div className="relative w-40 h-40 overflow-hidden rounded-xl shadow-inner">
+            <div className={`relative w-40 h-40 overflow-hidden shadow-inner ${type === 'artist' ? 'rounded-full' : 'rounded-xl'}`}>
                 <img
                     src={image}
                     alt={name}
