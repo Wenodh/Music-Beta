@@ -1,16 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-    darkMode: 'class',
-    content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-    theme: {
-        extend: {},
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          light: '#ef4444',
+          dark: '#f87171',
+        }
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+      animation: {
+        'spin-slow': 'spin 8s linear infinite',
+      }
     },
-    plugins: [],
-    content: [
-        './src/**/*.html',
-        './src/**/*.js',
-        './src/**/*.jsx',
-        './src/**/*.ts',
-        './src/**/*.tsx',
-      ],
-};
+  },
+  plugins: [],
+}

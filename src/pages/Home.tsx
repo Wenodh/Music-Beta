@@ -1,6 +1,6 @@
 import MainSection from '../components/MainSection';
 
-const Home = () => {
+const Home: React.FC = () => {
     return <MainSection />;
 };
 

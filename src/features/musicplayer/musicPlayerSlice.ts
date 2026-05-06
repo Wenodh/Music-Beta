@@ -1,22 +1,26 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { Song, MusicPlayerState } from '../../types/music';
+
+const initialState: MusicPlayerState = {
+    songs: [],
+    isPlaying: false,
+    currentSong: null,
+    searchedSongs: [],
+    recentlyPlayed: [],
+    sleepTimer: null,
+};
 
 const musicPlayerSlice = createSlice({
     name: 'musicPlayer',
-    initialState: {
-        songs: [],
-        isPlaying: false,
-        currentSong: null,
-        searchedSongs: [],
-        recentlyPlayed: [],
-    },
+    initialState,
     reducers: {
-        setSongs: (state, action) => {
+        setSongs: (state, action: PayloadAction<Song[]>) => {
             state.songs = [...action.payload, ...state.songs].slice(0, 100);
         },
-        setSearchedSongs: (state, action) => {
+        setSearchedSongs: (state, action: PayloadAction<Song[]>) => {
             state.searchedSongs = action.payload;
         },
-        playMusic: (state, action) => {
+        playMusic: (state, action: PayloadAction<any>) => {
             const {
                 music,
                 name,
@@ -35,12 +39,13 @@ const musicPlayerSlice = createSlice({
                 state.currentSong = {
                     name,
                     duration,
-                    image: image?.[2]?.url,
+                    image: Array.isArray(image) ? image[image.length - 1]?.url : image,
                     id,
                     music,
+                    downloadUrl: music,
                     primaryArtists,
                     albumId,
-                };
+                } as Song;
                 state.isPlaying = true;
             }
             // Add song to recently played, limiting to 20 songs
@@ -54,18 +59,29 @@ const musicPlayerSlice = createSlice({
                     primaryArtists,
                     albumId,
                 },
-                ...state?.recentlyPlayed?.filter((song) => song.id !== id),
-            ]?.slice(0, 20);
+                ...(state.recentlyPlayed?.filter((song) => song.id !== id) || []),
+            ].slice(0, 20);
 
-            state.recentlyPlayed = updatedRecentlyPlayed;
+            state.recentlyPlayed = updatedRecentlyPlayed as Song[];
         },
         pauseMusic: (state) => {
             if (state.currentSong) {
                 state.isPlaying = false;
             }
         },
-        setCurrentSong: (state, action) => {
+        setCurrentSong: (state, action: PayloadAction<any>) => {
             state.currentSong = action.payload;
+        },
+        setSleepTimer: (state, action: PayloadAction<number | null>) => {
+            state.sleepTimer = action.payload;
+        },
+        decrementSleepTimer: (state) => {
+            if (state.sleepTimer && state.sleepTimer > 0) {
+                state.sleepTimer -= 1;
+            } else {
+                state.sleepTimer = null;
+                state.isPlaying = false;
+            }
         },
     },
 });
@@ -76,6 +92,8 @@ export const {
     playMusic,
     pauseMusic,
     setCurrentSong,
+    setSleepTimer,
+    decrementSleepTimer,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
