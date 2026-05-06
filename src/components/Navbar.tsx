@@ -58,13 +58,29 @@ const Navbar: React.FC = () => {
         <motion.nav
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="sticky top-0 z-50 flex flex-col md:flex-row items-center justify-between p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-gray-800/20 shadow-sm gap-4"
+            className="sticky top-0 z-50 flex flex-col items-center p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-gray-800/20 shadow-sm gap-4 md:flex-row md:justify-between"
         >
-            <div
-                className="text-2xl font-bold cursor-pointer text-primary-light dark:text-primary-dark tracking-tight"
-                onClick={() => navigate('/')}
-            >
-                Vibe<span className="font-light italic">Cloud</span>
+            <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                <div
+                    className="text-2xl font-bold cursor-pointer text-primary-light dark:text-primary-dark tracking-tight"
+                    onClick={() => navigate('/')}
+                >
+                    Vibe<span className="font-light italic">Cloud</span>
+                </div>
+                <div className="flex items-center gap-2 md:hidden">
+                    <select
+                        value={language}
+                        onChange={(e) => dispatch(setLanguage(e.target.value))}
+                        className="p-1.5 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:outline-none cursor-pointer text-xs font-medium transition-all"
+                    >
+                        {languages.map((lang) => (
+                            <option key={lang.value} value={lang.value}>
+                                {lang.name}
+                            </option>
+                        ))}
+                    </select>
+                    <ThemeToggle />
+                </div>
             </div>
 
             <form
@@ -81,7 +97,7 @@ const Navbar: React.FC = () => {
                 <IoSearchOutline className="absolute left-3 text-gray-500" />
             </form>
 
-            <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-4">
                 <select
                     value={language}
                     onChange={(e) => dispatch(setLanguage(e.target.value))}

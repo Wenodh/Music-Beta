@@ -38,7 +38,10 @@ const SongsList: React.FC<SongsListProps> = ({
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
         const url = Array.isArray(downloadUrl) ? downloadUrl[downloadUrl.length - 1]?.url : downloadUrl;
-        if (!url) return;
+        if (!url) {
+            alert("Download URL not available for this song.");
+            return;
+        }
 
         setIsDownloading(true);
         try {
@@ -59,6 +62,10 @@ const SongsList: React.FC<SongsListProps> = ({
 
     const isCurrent = currentSong?.id === id;
 
+    const parsedArtists = typeof artists === 'object'
+        ? (artists as any).primary?.map((a: any) => a.name).join(', ') || (artists as any).all?.map((a: any) => a.name).join(', ')
+        : artists;
+
     return (
         <motion.div
             whileHover={{ x: 4, backgroundColor: "rgba(239, 68, 68, 0.05)" }}
@@ -66,7 +73,7 @@ const SongsList: React.FC<SongsListProps> = ({
                 dispatch(
                     playMusic({
                         name,
-                        primaryArtists: artists,
+                        primaryArtists: parsedArtists,
                         duration,
                         music: downloadUrl,
                         image,
@@ -97,7 +104,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         {name}
                     </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[180px] md:max-w-md">
-                        {artists}
+                        {parsedArtists}
                     </p>
                 </div>
             </div>

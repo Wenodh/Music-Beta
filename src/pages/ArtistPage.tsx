@@ -8,7 +8,11 @@ const ArtistPage: React.FC = () => {
     const apiUrl = `${artistById}${id}`;
 
     const getImageUrl = (data: any) => {
-        return data?.image?.[2]?.url || data?.image || '';
+        if (Array.isArray(data?.image)) {
+            return data.image.find((img: any) => img.quality === '500x500')?.url ||
+                   data.image[data.image.length - 1]?.url;
+        }
+        return data?.image || '';
     };
 
     return <PageTemplate apiUrl={apiUrl} getImageUrl={getImageUrl} />;
