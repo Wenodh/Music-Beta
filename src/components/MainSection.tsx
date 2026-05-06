@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import { motion } from 'framer-motion';
+import { modules } from '../constants';
 
 const MainSection: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
@@ -14,9 +15,7 @@ const MainSection: React.FC = () => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(
-                    `https://saavn.dev/api/modules?language=${language}`
-                );
+                const response = await axios.get(`${modules}${language}`);
                 setData(response.data.data);
             } catch (error) {
                 console.error('Error fetching data:', error);

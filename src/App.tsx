@@ -7,7 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import Home from './pages/Home';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Provider } from 'react-redux';
-import { persistor, store } from './store.js';
+import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
