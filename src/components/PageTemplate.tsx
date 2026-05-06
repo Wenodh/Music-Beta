@@ -59,7 +59,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     <p className="text-gray-500 dark:text-gray-400 mt-2 text-center lg:text-left font-medium">
                         {Array.isArray(details?.artists)
                             ? details.artists.map((a: any) => a.name).join(', ')
-                            : details?.primaryArtists || (typeof details?.artists === 'object' ? (details.artists.primary?.map((a: any) => a.name).join(', ')) : details?.artists)}
+                            : details?.primaryArtists ||
+                              (details?.artists && typeof details.artists === 'object'
+                                ? details.artists.primary?.map((a: any) => a.name).join(', ')
+                                : details?.artists)}
                     </p>
                     {details?.songCount && (
                         <p className="text-sm text-gray-400 mt-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{details.songCount} Songs</p>

@@ -44,6 +44,7 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
                             name={item.name || item.title}
                             artists={item.primaryArtists || item.artist || item.subtitle}
                             type={item.type}
+                            data={item}
                         />
                     ))}
                 </div>
