@@ -15,8 +15,8 @@ const MainSection: React.FC = () => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`${modules}${language}`);
-                setData(response.data.data);
+                const response = await axios.get(`${modules}${language}&page=0&limit=25`);
+                setData(response.data.data.results);
             } catch (error) {
                 console.error('Error fetching data:', error);
             } finally {
@@ -61,24 +61,9 @@ const MainSection: React.FC = () => {
                     <Slider data={recentlyPlayed} title="Recently Played" />
                 </motion.div>
             )}
-            {data?.albums && (
+            {data && data.length > 0 && (
                 <motion.div variants={itemVariants}>
-                    <Slider data={data.albums} title="Trending Albums" />
-                </motion.div>
-            )}
-            {data?.playlists && (
-                <motion.div variants={itemVariants}>
-                    <Slider data={data.playlists} title="Top Playlists" />
-                </motion.div>
-            )}
-            {data?.charts && (
-                <motion.div variants={itemVariants}>
-                    <Slider data={data.charts} title="Charts" />
-                </motion.div>
-            )}
-            {data?.trending?.albums && (
-                <motion.div variants={itemVariants}>
-                    <Slider data={data.trending.albums} title="Trending Now" />
+                    <Slider data={data} title="Trending Albums" />
                 </motion.div>
             )}
         </motion.div>

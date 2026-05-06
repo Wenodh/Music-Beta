@@ -40,9 +40,9 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
                         <AlbumItem
                             key={item.id}
                             id={item.id}
-                            image={item.image?.[2]?.url || item.image}
+                            image={Array.isArray(item.image) ? (item.image[2]?.url || item.image[0]?.url) : item.image}
                             name={item.name || item.title}
-                            artists={item.primaryArtists || item.subtitle}
+                            artists={item.primaryArtists || item.artist || item.subtitle}
                             type={item.type}
                         />
                     ))}
