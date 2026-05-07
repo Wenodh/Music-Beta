@@ -42,21 +42,27 @@ export default defineConfig({
                 ]
             },
             manifest: {
-                name: 'Music Beta',
-                short_name: 'Music Beta',
+                name: 'VibeOn',
+                short_name: 'VibeOn',
                 description: 'A modern music streaming app with Glassmorphism UI',
                 theme_color: '#ef4444',
                 background_color: '#ffffff',
+                display: 'standalone',
+                scope: '/',
+                start_url: '/',
+                orientation: 'portrait',
                 icons: [
                     {
-                        src: 'android/android-launchericon-192-192.png',
+                        src: '/android/android-launchericon-192-192.png',
                         sizes: '192x192',
                         type: 'image/png',
+                        purpose: 'any maskable'
                     },
                     {
-                        src: 'android/android-launchericon-512-512.png',
+                        src: '/android/android-launchericon-512-512.png',
                         sizes: '512x512',
                         type: 'image/png',
+                        purpose: 'any maskable'
                     },
                 ],
             },

@@ -127,54 +127,56 @@ const SongsList: React.FC<SongsListProps> = ({
                         <span className="text-white text-xs">▶</span>
                     </div>
                 </div>
-                <div>
-                    <p className="font-semibold text-xs sm:text-sm truncate max-w-[180px] md:max-w-md">
+                <div className="flex flex-col min-w-0">
+                    <p className="font-semibold text-xs sm:text-sm truncate max-w-[120px] xs:max-w-[180px] md:max-w-md">
                         {name}
                     </p>
-                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[180px] md:max-w-md">
+                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[120px] xs:max-w-[180px] md:max-w-md">
                         {parsedArtists}
                     </p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-4">
-                <span className="text-[10px] sm:text-xs font-mono text-gray-400 mr-1 sm:mr-2">
+            <div className="flex items-center gap-0.5 sm:gap-2">
+                <span className="hidden xs:block text-[10px] sm:text-xs font-mono text-gray-400 mr-1">
                     {formatDuration(duration)}
                 </span>
 
-                <motion.button
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handleFavorite}
-                    className={`p-2 rounded-full transition-colors ${isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
-                    title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                >
-                    {isFavorite ? <IoHeart size={18} /> : <IoHeartOutline size={18} />}
-                </motion.button>
+                <div className="flex items-center">
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleFavorite}
+                        className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                        title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                    >
+                        {isFavorite ? <IoHeart size={16} className="sm:w-[18px] sm:h-[18px]" /> : <IoHeartOutline size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                    </motion.button>
 
-                <motion.button
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handleAddToPlaylist}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                    title="Add to Playlist"
-                >
-                    <IoAdd size={20} />
-                </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleAddToPlaylist}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        title="Add to Playlist"
+                    >
+                        <IoAdd size={18} className="sm:w-[20px] sm:h-[20px]" />
+                    </motion.button>
 
-                <motion.button
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handleDownload}
-                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                    aria-label="Download song"
-                >
-                    {isDownloading ? (
-                        <AiOutlineLoading3Quarters className="animate-spin" />
-                    ) : (
-                        <LuHardDriveDownload size={18} />
-                    )}
-                </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleDownload}
+                        className="p-1.5 sm:p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        aria-label="Download song"
+                    >
+                        {isDownloading ? (
+                            <AiOutlineLoading3Quarters className="animate-spin text-sm" />
+                        ) : (
+                            <LuHardDriveDownload size={16} className="sm:w-[18px] sm:h-[18px]" />
+                        )}
+                    </motion.button>
+                </div>
             </div>
         </motion.div>
     );

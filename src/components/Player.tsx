@@ -551,9 +551,7 @@ const Player = () => {
                                             </button>
 
                                             <div className="lg:hidden border-t border-gray-100 dark:border-gray-700 mt-1">
-                                                <div className="px-4 py-2">
-                                                    <SleepTimer />
-                                                </div>
+                                                <SleepTimer showLabel />
                                             </div>
 
                                             {isDownloading ? (
