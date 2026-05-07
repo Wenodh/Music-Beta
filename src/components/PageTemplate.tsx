@@ -11,6 +11,7 @@ import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -89,14 +90,14 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{details?.name}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-sm sm:text-base line-clamp-2 px-4 lg:px-0">
-                        {Array.isArray((details as any)?.artists)
+                        {decodeHtmlEntities(Array.isArray((details as any)?.artists)
                             ? (details as any).artists.map((a: any) => a.name).join(', ')
                             : (details as any)?.primaryArtists ||
                               ((details as any)?.artists && typeof (details as any).artists === 'object'
                                 ? (details as any).artists.primary?.map((a: any) => a.name).join(', ')
-                                : (details as any)?.artists)}
+                                : (details as any)?.artists) || '')}
                     </p>
                     {(details as any)?.songCount && (
                         <p className="text-xs sm:text-sm text-gray-400 mt-1 sm:mt-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{(details as any).songCount} Songs</p>
@@ -200,8 +201,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                                 </motion.button>
                                             </div>
                                         </div>
-                                        <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{song.name}</p>
-                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{song.primaryArtists}</p>
+                                        <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{decodeHtmlEntities(song.name)}</p>
+                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(song.primaryArtists)}</p>
                                     </motion.div>
                                 )
                             ))}

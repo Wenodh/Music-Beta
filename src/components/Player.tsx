@@ -25,6 +25,7 @@ import Lyrics from './Lyrics';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
 
@@ -328,9 +329,9 @@ const Player = () => {
                                 </div>
                             </motion.div>
                             <div className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
-                                <p className="font-semibold text-sm sm:text-base truncate">{currentSong?.name}</p>
+                                <p className="font-semibold text-sm sm:text-base truncate">{decodeHtmlEntities(currentSong?.name)}</p>
                                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
-                                    {currentSong?.primaryArtists}
+                                    {decodeHtmlEntities(currentSong?.primaryArtists)}
                                 </p>
                             </div>
                             <div className="flex gap-2 items-center ml-2 lg:flex">
@@ -473,8 +474,8 @@ const Player = () => {
                                                 <div className="flex items-center gap-3 p-2">
                                                     <img src={imageUrl} alt="" className="w-10 h-10 rounded-lg shadow-sm" />
                                                     <div className="overflow-hidden">
-                                                        <p className="text-sm font-bold truncate">{currentSong?.name}</p>
-                                                        <p className="text-[10px] text-gray-500 truncate">{currentSong?.primaryArtists}</p>
+                                                        <p className="text-sm font-bold truncate">{decodeHtmlEntities(currentSong?.name)}</p>
+                                                        <p className="text-[10px] text-gray-500 truncate">{decodeHtmlEntities(currentSong?.primaryArtists)}</p>
                                                     </div>
                                                 </div>
                                             </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface AlbumItemProps {
     id: string;
@@ -55,9 +56,9 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
                 </div>
             </div>
             <div className="w-full px-1">
-                <p className="font-bold text-sm truncate group-hover:text-red-500 transition-colors leading-tight">{name}</p>
+                <p className="font-bold text-sm truncate group-hover:text-red-500 transition-colors leading-tight">{decodeHtmlEntities(name)}</p>
                 {artists && (
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{artists}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{decodeHtmlEntities(artists)}</p>
                 )}
             </div>
         </motion.div>

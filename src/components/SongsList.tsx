@@ -9,6 +9,7 @@ import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { motion } from 'framer-motion';
 import { IoAdd, IoHeart, IoHeartOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface SongsListProps {
     name: string;
@@ -116,8 +117,8 @@ const SongsList: React.FC<SongsListProps> = ({
                     : 'hover:border-gray-200 dark:hover:border-gray-800'
             }`}
         >
-            <div className="flex items-center gap-4">
-                <div className="relative group/song">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
+                <div className="relative group/song flex-shrink-0">
                     <img
                         src={Array.isArray(image) ? image[0]?.url : image}
                         alt={name}
@@ -128,21 +129,21 @@ const SongsList: React.FC<SongsListProps> = ({
                     </div>
                 </div>
                 <div className="flex flex-col min-w-0">
-                    <p className="font-semibold text-xs sm:text-sm truncate max-w-[120px] xs:max-w-[180px] md:max-w-md">
-                        {name}
+                    <p className="font-semibold text-xs sm:text-sm truncate">
+                        {decodeHtmlEntities(name)}
                     </p>
-                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[120px] xs:max-w-[180px] md:max-w-md">
-                        {parsedArtists}
+                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                        {decodeHtmlEntities(parsedArtists)}
                     </p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-0.5 sm:gap-2">
-                <span className="hidden xs:block text-[10px] sm:text-xs font-mono text-gray-400 mr-1">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                <span className="hidden sm:block text-[10px] sm:text-xs font-mono text-gray-400">
                     {formatDuration(duration)}
                 </span>
 
-                <div className="flex items-center">
+                <div className="flex items-center gap-1">
                     <motion.button
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
@@ -157,7 +158,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleAddToPlaylist}
-                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
                         title="Add to Playlist"
                     >
                         <IoAdd size={18} className="sm:w-[20px] sm:h-[20px]" />
@@ -167,7 +168,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleDownload}
-                        className="p-1.5 sm:p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        className="p-1.5 sm:p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
                         aria-label="Download song"
                     >
                         {isDownloading ? (
