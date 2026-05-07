@@ -73,7 +73,7 @@ const AnimatedRoutes = () => {
 
 export default function App() {
     return (
-        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white">
+        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-32 md:pt-20">
             <ErrorBoundary>
                 <Provider store={store}>
                     <PersistGate loading={null} persistor={persistor}>

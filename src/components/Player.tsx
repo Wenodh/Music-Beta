@@ -348,7 +348,7 @@ const Player = () => {
                                     <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
                                 </div>
                             </motion.div>
-                            <div className="overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
+                            <div className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
                                 <p className="font-semibold text-sm sm:text-base truncate">{currentSong?.name}</p>
                                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                                     {currentSong?.primaryArtists}

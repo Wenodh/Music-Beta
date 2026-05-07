@@ -124,25 +124,31 @@ const Library: React.FC = () => {
             )}
 
             {activeTab === 'playlists' && !selectedPlaylist && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <div className={viewMode === 'grid'
+                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                    : "space-y-2"
+                }>
                     <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setIsCreating(true)}
-                        className="aspect-square rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex flex-col items-center justify-center gap-2 hover:border-red-500 hover:text-red-500 transition-colors"
+                        className={`${viewMode === 'list' ? 'flex items-center gap-4 p-3 w-full border-2 border-dashed' : 'aspect-square border-2 border-dashed flex flex-col items-center justify-center gap-2'} rounded-xl border-gray-200 dark:border-gray-800 hover:border-red-500 hover:text-red-500 transition-colors`}
                     >
-                        <IoAdd size={32} />
+                        <IoAdd size={viewMode === 'list' ? 24 : 32} />
                         <span className="font-semibold text-sm">New Playlist</span>
                     </motion.button>
 
-                    {playlists.map((playlist) => (
+                    {[...playlists].sort((a, b) => {
+                        if (sortBy === 'name') return a.name.localeCompare(b.name);
+                        return 0;
+                    }).map((playlist) => (
                         <motion.div
                             key={playlist.id}
                             layout
-                            className="group cursor-pointer"
+                            className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
                             onClick={() => setSelectedPlaylist(playlist.id)}
                         >
-                            <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300">
+                            <div className={`relative bg-gray-100 dark:bg-gray-800 overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'} flex items-center justify-center`}>
                                 {playlist.songs.length > 0 ? (
                                     <img
                                         src={Array.isArray(playlist.songs[0].image) ? playlist.songs[0].image[playlist.songs[0].image.length - 1].url : playlist.songs[0].image}
@@ -150,13 +156,13 @@ const Library: React.FC = () => {
                                         alt=""
                                     />
                                 ) : (
-                                    <IoMusicalNote size={40} className="text-gray-300 dark:text-gray-700" />
+                                    <IoMusicalNote size={viewMode === 'list' ? 20 : 40} className="text-gray-300 dark:text-gray-700" />
                                 )}
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <span className="text-white font-bold">{playlist.songs.length} songs</span>
+                                    <span className="text-white text-[10px] font-bold">{playlist.songs.length} songs</span>
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between gap-2">
+                            <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
                                 <p className="font-semibold truncate text-sm">{playlist.name}</p>
                                 <button
                                     onClick={(e) => {

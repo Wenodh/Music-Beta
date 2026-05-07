@@ -17,11 +17,13 @@ const Navbar: React.FC = () => {
     const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => {
+            if (isSearchFocused) return;
             const currentScrollY = window.scrollY;
-            if (currentScrollY > 100) {
+            if (currentScrollY > 10) {
                 if (currentScrollY > lastScrollY) {
                     setIsVisible(false);
                 } else {
@@ -35,7 +37,7 @@ const Navbar: React.FC = () => {
 
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
-    }, [lastScrollY]);
+    }, [lastScrollY, isSearchFocused]);
 
     const fetchSearchResults = async (query: string) => {
         if (!query.trim()) {
@@ -68,10 +70,9 @@ const Navbar: React.FC = () => {
 
     return (
         <motion.nav
-            initial={{ y: 0 }}
-            animate={{ y: isVisible ? 0 : -150 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="sticky top-0 z-50 flex flex-col items-center p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-gray-800/20 shadow-sm gap-4 md:flex-row md:justify-between transition-colors"
+            animate={{ y: isVisible || isSearchFocused ? 0 : -200 }}
+            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-4 md:flex-row md:justify-between transition-all"
         >
             <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div
@@ -103,8 +104,10 @@ const Navbar: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={handleSearchChange}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
                     placeholder="Search for songs..."
-                    className="w-full p-2 pl-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:border-red-400/50 focus:outline-none transition-all"
+                    className="w-full p-2 pl-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:border-red-400/50 focus:ring-2 focus:ring-red-400/20 focus:outline-none transition-all"
                 />
                 <IoSearchOutline className="absolute left-3 text-gray-500" />
             </form>
