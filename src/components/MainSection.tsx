@@ -77,7 +77,7 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-4"
+            className="pb-32 pt-8"
         >
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants}>

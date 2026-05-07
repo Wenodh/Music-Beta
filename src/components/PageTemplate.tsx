@@ -227,27 +227,27 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                                 alt={song.name}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 sm:gap-2">
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => handleFavorite(e, song)}
-                                                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
                                                     title={favorites.some(s => s.id === song.id) ? "Remove from Favorites" : "Add to Favorites"}
                                                 >
-                                                    {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeartOutline />}
+                                                    {favorites.some(s => s.id === song.id) ? <IoHeart size={14} /> : <IoHeartOutline size={14} />}
                                                 </motion.button>
-                                                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
-                                                    <IoPlay />
+                                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
+                                                    <IoPlay size={16} />
                                                 </div>
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => handleAddToPlaylist(e, song)}
-                                                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
                                                     title="Add to Playlist"
                                                 >
-                                                    <IoAdd size={20} />
+                                                    <IoAdd size={16} />
                                                 </motion.button>
                                             </div>
                                         </div>

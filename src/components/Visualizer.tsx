@@ -104,9 +104,9 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             for (let i = 0; i < bufferLength; i++) {
                 barHeight = (dataArray[i] / 255) * height * 0.9;
 
-                // Random vibrant colors based on frequency index
-                const hue = (i * 137.5) % 360;
-                ctx.fillStyle = `hsla(${hue}, 85%, 60%, 0.7)`;
+                // Smooth Red to Orange gradient (brand matched)
+                const hue = 10 + (i / bufferLength) * 40;
+                ctx.fillStyle = `hsla(${hue}, 90%, 55%, 0.7)`;
 
                 // Rounded bars
                 ctx.beginPath();

@@ -81,7 +81,7 @@ export const AppContent = () => {
     const { toasts, playlistModal } = useAppSelector(state => state.ui);
 
     return (
-        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-20 md:pt-20">
+        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-28 md:pt-20">
             <BrowserRouter>
                 <Navbar />
                 <SearchSection />
