@@ -19,12 +19,12 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
     const navigate = useNavigate();
 
     const handleClick = () => {
-        if (type === 'song' && data) {
+        if ((type === 'song' || data?.type === 'song') && data) {
             dispatch(playMusic(data));
             return;
         }
 
-        if (type === 'playlist') {
+        if (type === 'playlist' || data?.type === 'playlist') {
             navigate(`/playlists/${id}`);
         } else if (type === 'artist') {
             navigate(`/artists/${id}`);

@@ -37,7 +37,8 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
                 source.connect(analyser);
                 analyser.connect(context.destination);
 
-                analyser.fftSize = 256;
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.8;
                 contextRef.current = context;
                 analyserRef.current = analyser;
                 sourceRef.current = source;
@@ -72,23 +73,36 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             requestRef.current = requestAnimationFrame(draw);
             analyserRef.current!.getByteFrequencyData(dataArray);
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // High DPI adjustment
+            const dpr = window.devicePixelRatio || 1;
+            if (canvas.width !== canvas.clientWidth * dpr || canvas.height !== canvas.clientHeight * dpr) {
+                canvas.width = canvas.clientWidth * dpr;
+                canvas.height = canvas.clientHeight * dpr;
+                ctx.scale(dpr, dpr);
+            }
 
-            const barWidth = (canvas.width / bufferLength) * 2.5;
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const barWidth = (width / bufferLength) * 2;
             let barHeight;
             let x = 0;
 
             for (let i = 0; i < bufferLength; i++) {
-                barHeight = dataArray[i] / 2;
+                barHeight = (dataArray[i] / 255) * height * 0.8;
 
-                const red = (barHeight + 100) * (i / bufferLength);
-                const green = 50 * (i / bufferLength);
-                const blue = 150;
+                // Gradient color
+                const hue = (i / bufferLength) * 360;
+                ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.6)`;
 
-                ctx.fillStyle = `rgb(${red},${green},${blue})`;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                // Rounded bars
+                ctx.beginPath();
+                ctx.roundRect(x, height - barHeight, barWidth - 1, barHeight, [4, 4, 0, 0]);
+                ctx.fill();
 
-                x += barWidth + 1;
+                x += barWidth;
             }
         };
 
