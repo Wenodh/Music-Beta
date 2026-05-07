@@ -24,6 +24,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
+    const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
 
     const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
@@ -34,9 +35,21 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     }, [rawSongs, dispatch]);
 
     const songs = [...rawSongs].sort((a: any, b: any) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-        if (sortBy === 'duration') return Number(b.duration) - Number(a.duration);
+        if (sortBy === 'name') {
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            return nameA.localeCompare(nameB);
+        }
+        if (sortBy === 'artist') {
+            const artistA = a.primaryArtists || '';
+            const artistB = b.primaryArtists || '';
+            return artistA.localeCompare(artistB);
+        }
+        if (sortBy === 'duration') {
+            const durA = Number(a.duration) || 0;
+            const durB = Number(b.duration) || 0;
+            return durB - durA;
+        }
         return 0;
     });
 
@@ -127,21 +140,55 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2 text-sm">
-                                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer relative group">
-                                    <IoFilterOutline className="group-hover:text-red-500 transition-colors" />
-                                    <select
-                                        value={sortBy}
-                                        onChange={(e) => setSortBy(e.target.value as any)}
-                                        className="bg-transparent border-none focus:ring-0 cursor-pointer font-bold outline-none text-[11px] uppercase tracking-wider appearance-none pr-4"
-                                    >
-                                        <option value="default">Sort: Default</option>
-                                        <option value="name">Name (A-Z)</option>
-                                        <option value="artist">Artist (A-Z)</option>
-                                        <option value="duration">Duration</option>
-                                    </select>
-                                    <div className="absolute right-2 pointer-events-none text-[8px]">▼</div>
-                                </div>
+                            <div className="flex items-center gap-2 text-sm relative">
+                                <button
+                                    onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                                    className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
+                                >
+                                    <IoFilterOutline className={`group-hover:text-red-500 transition-colors ${sortBy !== 'default' ? 'text-red-500' : ''}`} />
+                                    <span className="font-bold text-[11px] uppercase tracking-wider">
+                                        {sortBy === 'default' ? 'Sort' : sortBy === 'name' ? 'Name' : sortBy === 'artist' ? 'Artist' : 'Duration'}
+                                    </span>
+                                    <div className={`transition-transform duration-200 ${isSortMenuOpen ? 'rotate-180' : ''}`}>
+                                        <div className="text-[8px]">▼</div>
+                                    </div>
+                                </button>
+
+                                <AnimatePresence>
+                                    {isSortMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setIsSortMenuOpen(false)} />
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50 py-1"
+                                            >
+                                                {[
+                                                    { id: 'default', label: 'Default' },
+                                                    { id: 'name', label: 'Name (A-Z)' },
+                                                    { id: 'artist', label: 'Artist (A-Z)' },
+                                                    { id: 'duration', label: 'Duration' }
+                                                ].map((option) => (
+                                                    <button
+                                                        key={option.id}
+                                                        onClick={() => {
+                                                            setSortBy(option.id as any);
+                                                            setIsSortMenuOpen(false);
+                                                        }}
+                                                        className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${
+                                                            sortBy === option.id
+                                                                ? 'text-red-500 bg-red-50 dark:bg-red-500/10'
+                                                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                        }`}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     </div>

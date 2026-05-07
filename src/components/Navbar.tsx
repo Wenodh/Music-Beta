@@ -89,9 +89,9 @@ const Navbar: React.FC = () => {
                 <div className="absolute right-0 md:hidden">
                     <button
                         onClick={() => dispatch(setSettingsOpen(true))}
-                        className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
+                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-red-500/20"
                     >
-                        <IoPersonCircleOutline size={30} />
+                        <img src="/savan-logo.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     </button>
                 </div>
             </div>
@@ -115,10 +115,10 @@ const Navbar: React.FC = () => {
             <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
-                    className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-red-500/10"
                 >
-                    <IoPersonCircleOutline size={28} />
-                    <span className="text-sm font-semibold">Account</span>
+                    <img src="/savan-logo.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+                    <span className="text-sm font-bold uppercase tracking-tight">Account</span>
                 </button>
             </div>
         </motion.nav>
