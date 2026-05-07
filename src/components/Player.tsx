@@ -34,6 +34,7 @@ const Player = () => {
     const dispatch = useAppDispatch();
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
+    const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isQueueOpen, setIsQueueOpen] = useState(false);
     const [isLyricsOpen, setIsLyricsOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -42,6 +43,16 @@ const Player = () => {
     );
     const { favorites, playlists } = useAppSelector((state) => state.library);
     const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
+
+    const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
+    const { data: dominantColor } = useColor(imageUrl || '', 'hex', { crossOrigin: 'anonymous' });
+
+    const hexToRgb = (hex: string) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `${r}, ${g}, ${b}`;
+    };
 
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const audioRef = useRef(new Audio(''));
@@ -141,6 +152,13 @@ const Player = () => {
     }, [isPlaying, sleepTimer, dispatch]);
 
     useEffect(() => {
+        if (dominantColor) {
+            document.documentElement.style.setProperty('--primary-dynamic', dominantColor);
+            document.documentElement.style.setProperty('--primary-dynamic-rgb', hexToRgb(dominantColor));
+        }
+    }, [dominantColor]);
+
+    useEffect(() => {
         if (currentSong) {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new window.MediaMetadata({
@@ -200,6 +218,15 @@ const Player = () => {
         }
     };
 
+    const handleDoubleTap = (side: 'left' | 'right') => {
+        const seekAmount = side === 'left' ? -10 : 10;
+        if (audioRef.current) {
+            audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.duration, audioRef.current.currentTime + seekAmount));
+            setSeekAnimation(side === 'left' ? 'backward' : 'forward');
+            setTimeout(() => setSeekAnimation(null), 500);
+        }
+    };
+
     const handleDownloadSong = async (url: string) => {
         if (!url) return;
         setIsDownloading(true);
@@ -246,9 +273,6 @@ const Player = () => {
         }
     };
 
-    const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
-    const { data: dominantColor } = useColor(imageUrl || '', 'hex', { crossOrigin: 'anonymous' });
-
     return (
         <AnimatePresence>
             {currentSong && (
@@ -260,7 +284,7 @@ const Player = () => {
                         backgroundColor: dominantColor ? `${dominantColor}15` : undefined,
                         borderTopColor: dominantColor ? `${dominantColor}40` : undefined,
                     }}
-                    className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-50 overflow-hidden"
+                    className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-50"
                 >
                     <div className="absolute inset-0 z-0 pointer-events-none">
                         <Visualizer audioRef={audioRef} isPlaying={isPlaying} />
@@ -296,18 +320,37 @@ const Player = () => {
                                     height={55}
                                     className="rounded-full shadow-lg"
                                     loading="lazy"
+                                    onDoubleClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        handleDoubleTap(x < rect.width / 2 ? 'left' : 'right');
+                                    }}
                                     onClick={() =>
                                         currentSong?.albumId &&
                                         navigate(`/albums/${currentSong.albumId}`)
                                     }
                                 />
+                                <AnimatePresence>
+                                    {seekAnimation && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.5 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.5 }}
+                                            className={`absolute inset-0 flex items-center justify-center pointer-events-none z-10 ${seekAnimation === 'backward' ? 'pr-8' : 'pl-8'}`}
+                                        >
+                                            <div className="bg-black/40 text-white px-2 py-1 rounded-full text-[10px] font-bold">
+                                                {seekAnimation === 'backward' ? '-10s' : '+10s'}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 rounded-full transition-opacity flex items-center justify-center pointer-events-none">
                                     <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
                                 </div>
                             </motion.div>
-                            <div className="hidden lg:block overflow-hidden max-w-[200px]">
-                                <p className="font-semibold truncate">{currentSong?.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            <div className="overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
+                                <p className="font-semibold text-sm sm:text-base truncate">{currentSong?.name}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                                     {currentSong?.primaryArtists}
                                 </p>
                             </div>
