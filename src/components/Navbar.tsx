@@ -91,7 +91,7 @@ const Navbar: React.FC = () => {
                         onClick={() => dispatch(setSettingsOpen(true))}
                         className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-red-500/20"
                     >
-                        <img src="/savan-logo.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                        <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     </button>
                 </div>
             </div>
@@ -117,7 +117,7 @@ const Navbar: React.FC = () => {
                     onClick={() => dispatch(setSettingsOpen(true))}
                     className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-red-500/10"
                 >
-                    <img src="/savan-logo.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+                    <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
                     <span className="text-sm font-bold uppercase tracking-tight">Account</span>
                 </button>
             </div>
