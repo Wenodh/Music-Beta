@@ -31,9 +31,9 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
         >
             <div
                 onPointerDown={(e) => {
-                    e.preventDefault();
                     dragControls.start(e);
                 }}
+                style={{ touchAction: 'none' }}
                 className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors shrink-0"
             >
                 <IoReorderThreeOutline size={20} className={isActive ? 'text-red-400' : 'text-gray-400'} />

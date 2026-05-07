@@ -8,9 +8,8 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoArrowBack } from 'react-icons/io5';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 
@@ -22,7 +21,6 @@ interface PageTemplateProps {
 const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { details, loading, error, image } = useFetchDetails(apiUrl, getImageUrl);
     const dispatch = useAppDispatch();
-    const navigate = useNavigate();
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
@@ -82,13 +80,6 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
     return (
         <div className="p-5 pb-32 max-w-7xl mx-auto">
-            <button
-                onClick={() => navigate(-1)}
-                className="mb-6 flex items-center gap-2 text-gray-500 hover:text-red-500 transition-colors lg:hidden"
-            >
-                <IoArrowBack size={20} />
-                <span className="text-sm font-bold uppercase tracking-wider">Back</span>
-            </button>
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>
@@ -113,7 +104,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     )}
                 </div>
 
-                <div className="flex-1 w-full lg:pl-10 mt-6 lg:mt-0">
+                <div className="flex-1 w-full lg:pl-10 mt-4 lg:mt-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
                         <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
                             Songs

@@ -13,7 +13,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
     useEffect(() => {
-        if (!audioRef.current || analyserRef.current) return;
+        if (!audioRef.current) return;
 
         const initAudio = () => {
             if (analyserRef.current) return;
@@ -47,8 +47,19 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             }
         };
 
+        // Initialize immediately if it's already playing or when it starts playing
+        if (isPlaying) {
+            initAudio();
+            if (contextRef.current?.state === 'suspended') {
+                contextRef.current.resume();
+            }
+        }
+
         const handleFirstInteraction = () => {
             initAudio();
+            if (contextRef.current?.state === 'suspended') {
+                contextRef.current.resume();
+            }
             document.removeEventListener('click', handleFirstInteraction);
         };
 
@@ -57,7 +68,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
         return () => {
             document.removeEventListener('click', handleFirstInteraction);
         };
-    }, [audioRef]);
+    }, [audioRef, isPlaying]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
