@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface SongItemProps {
     id: string;
@@ -42,10 +43,10 @@ const SongItem: React.FC<SongItemProps> = ({
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
             </div>
-            <p className="text-sm font-semibold text-center truncate w-full">{title}</p>
+            <p className="text-sm font-semibold text-center truncate w-full">{decodeHtmlEntities(title)}</p>
             {primaryArtists && (
                 <p className="text-xs text-gray-500 text-center truncate w-full">
-                    {primaryArtists}
+                    {decodeHtmlEntities(primaryArtists)}
                 </p>
             )}
         </div>

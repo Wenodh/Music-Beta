@@ -23,9 +23,9 @@ import Queue from './Queue';
 import { MdOutlineLyrics } from 'react-icons/md';
 import Lyrics from './Lyrics';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
-import { useColor } from 'color-thief-react';
 import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
 
@@ -44,14 +44,6 @@ const Player = () => {
     const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
 
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
-    const { data: dominantColor } = useColor(imageUrl || '', 'hex', { crossOrigin: 'anonymous' });
-
-    const hexToRgb = (hex: string) => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `${r}, ${g}, ${b}`;
-    };
 
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const audioRef = useRef(new Audio(''));
@@ -149,13 +141,6 @@ const Player = () => {
         }
         return () => clearInterval(interval);
     }, [isPlaying, sleepTimer, dispatch]);
-
-    useEffect(() => {
-        if (dominantColor) {
-            document.documentElement.style.setProperty('--primary-dynamic', dominantColor);
-            document.documentElement.style.setProperty('--primary-dynamic-rgb', hexToRgb(dominantColor));
-        }
-    }, [dominantColor]);
 
     useEffect(() => {
         if (currentSong) {
@@ -279,10 +264,6 @@ const Player = () => {
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
-                    style={{
-                        backgroundColor: dominantColor ? `${dominantColor}15` : undefined,
-                        borderTopColor: dominantColor ? `${dominantColor}40` : undefined,
-                    }}
                     className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-50"
                 >
                     <div className="absolute inset-0 z-0 pointer-events-none">
@@ -348,9 +329,9 @@ const Player = () => {
                                 </div>
                             </motion.div>
                             <div className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
-                                <p className="font-semibold text-sm sm:text-base truncate">{currentSong?.name}</p>
+                                <p className="font-semibold text-sm sm:text-base truncate">{decodeHtmlEntities(currentSong?.name)}</p>
                                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
-                                    {currentSong?.primaryArtists}
+                                    {decodeHtmlEntities(currentSong?.primaryArtists)}
                                 </p>
                             </div>
                             <div className="flex gap-2 items-center ml-2 lg:flex">
@@ -375,6 +356,7 @@ const Player = () => {
                                                 setIsPlaylistMenuOpen(!isPlaylistMenuOpen);
                                             }}
                                             className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
+                                            title="Add to Playlist"
                                         />
                                         <AnimatePresence>
                                             {isPlaylistMenuOpen && (
@@ -492,8 +474,8 @@ const Player = () => {
                                                 <div className="flex items-center gap-3 p-2">
                                                     <img src={imageUrl} alt="" className="w-10 h-10 rounded-lg shadow-sm" />
                                                     <div className="overflow-hidden">
-                                                        <p className="text-sm font-bold truncate">{currentSong?.name}</p>
-                                                        <p className="text-[10px] text-gray-500 truncate">{currentSong?.primaryArtists}</p>
+                                                        <p className="text-sm font-bold truncate">{decodeHtmlEntities(currentSong?.name)}</p>
+                                                        <p className="text-[10px] text-gray-500 truncate">{decodeHtmlEntities(currentSong?.primaryArtists)}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -515,6 +497,7 @@ const Player = () => {
                                                         setIsPlaylistMenuOpen(!isPlaylistMenuOpen);
                                                     }}
                                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                    title="Add to Playlist"
                                                 >
                                                     <IoAddCircleOutline size={20} /> Add to Playlist
                                                 </button>
@@ -569,9 +552,7 @@ const Player = () => {
                                             </button>
 
                                             <div className="lg:hidden border-t border-gray-100 dark:border-gray-700 mt-1">
-                                                <div className="px-4 py-2">
-                                                    <SleepTimer />
-                                                </div>
+                                                <SleepTimer showLabel />
                                             </div>
 
                                             {isDownloading ? (

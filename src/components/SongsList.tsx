@@ -1,10 +1,15 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { toggleFavorite } from '../features/library/librarySlice';
+import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { useState } from 'react';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { motion } from 'framer-motion';
+import { IoAdd, IoHeart, IoHeartOutline } from 'react-icons/io5';
+import { Song } from '../types/music';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface SongsListProps {
     name: string;
@@ -27,12 +32,36 @@ const SongsList: React.FC<SongsListProps> = ({
 }) => {
     const dispatch = useAppDispatch();
     const { currentSong } = useAppSelector((state) => state.musicPlayer);
+    const { favorites } = useAppSelector((state) => state.library);
     const [isDownloading, setIsDownloading] = useState(false);
+
+    const isFavorite = favorites.some(s => s.id === id);
 
     const formatDuration = (sec: string | number) => {
         const minutes = Math.floor(Number(sec) / 60);
         const seconds = Math.floor(Number(sec) % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    const handleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const songData: Song = {
+            id, name, primaryArtists: parsedArtists, duration,
+            image, downloadUrl, album
+        };
+        dispatch(toggleFavorite(songData));
+        dispatch(showToast({
+            message: isFavorite ? 'Removed from favorites' : 'Added to favorites'
+        }));
+    };
+
+    const handleAddToPlaylist = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const songData: Song = {
+            id, name, primaryArtists: parsedArtists, duration,
+            image, downloadUrl, album
+        };
+        dispatch(openPlaylistModal(songData));
     };
 
     const handleDownload = async (e: React.MouseEvent) => {
@@ -88,8 +117,8 @@ const SongsList: React.FC<SongsListProps> = ({
                     : 'hover:border-gray-200 dark:hover:border-gray-800'
             }`}
         >
-            <div className="flex items-center gap-4">
-                <div className="relative group/song">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
+                <div className="relative group/song flex-shrink-0">
                     <img
                         src={Array.isArray(image) ? image[0]?.url : image}
                         alt={name}
@@ -99,33 +128,56 @@ const SongsList: React.FC<SongsListProps> = ({
                         <span className="text-white text-xs">▶</span>
                     </div>
                 </div>
-                <div>
-                    <p className="font-semibold text-xs sm:text-sm truncate max-w-[180px] md:max-w-md">
-                        {name}
+                <div className="flex flex-col min-w-0">
+                    <p className="font-semibold text-xs sm:text-sm truncate">
+                        {decodeHtmlEntities(name)}
                     </p>
-                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[180px] md:max-w-md">
-                        {parsedArtists}
+                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                        {decodeHtmlEntities(parsedArtists)}
                     </p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-5">
-                <span className="text-xs font-mono text-gray-400">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                <span className="hidden sm:block text-[10px] sm:text-xs font-mono text-gray-400">
                     {formatDuration(duration)}
                 </span>
-                <motion.button
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handleDownload}
-                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                    aria-label="Download song"
-                >
-                    {isDownloading ? (
-                        <AiOutlineLoading3Quarters className="animate-spin" />
-                    ) : (
-                        <LuHardDriveDownload size={18} />
-                    )}
-                </motion.button>
+
+                <div className="flex items-center gap-1">
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleFavorite}
+                        className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                        title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                    >
+                        {isFavorite ? <IoHeart size={16} className="sm:w-[18px] sm:h-[18px]" /> : <IoHeartOutline size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleAddToPlaylist}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                        title="Add to Playlist"
+                    >
+                        <IoAdd size={18} className="sm:w-[20px] sm:h-[20px]" />
+                    </motion.button>
+
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleDownload}
+                        className="p-1.5 sm:p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                        aria-label="Download song"
+                    >
+                        {isDownloading ? (
+                            <AiOutlineLoading3Quarters className="animate-spin text-sm" />
+                        ) : (
+                            <LuHardDriveDownload size={16} className="sm:w-[18px] sm:h-[18px]" />
+                        )}
+                    </motion.button>
+                </div>
             </div>
         </motion.div>
     );

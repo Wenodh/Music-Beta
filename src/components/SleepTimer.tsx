@@ -3,7 +3,11 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSleepTimer } from '../features/musicplayer/musicPlayerSlice';
 import { MdOutlineTimer } from 'react-icons/md';
 
-const SleepTimer: React.FC = () => {
+interface SleepTimerProps {
+    showLabel?: boolean;
+}
+
+const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
     const dispatch = useAppDispatch();
     const { sleepTimer } = useAppSelector((state) => state.musicPlayer);
     const [isOpen, setIsOpen] = useState(false);
@@ -18,24 +22,33 @@ const SleepTimer: React.FC = () => {
     ];
 
     return (
-        <div className="relative">
+        <div className="relative w-full">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`p-2 rounded-full transition-colors ${
-                    sleepTimer ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
+                className={`w-full flex items-center gap-3 transition-colors ${
+                    showLabel
+                        ? 'px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700'
+                        : 'p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                } ${sleepTimer ? 'text-red-500' : ''}`}
                 title="Sleep Timer"
             >
-                <MdOutlineTimer className="text-2xl" />
-                {sleepTimer && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                        {sleepTimer}
+                <div className="relative">
+                    <MdOutlineTimer className="text-2xl" />
+                    {sleepTimer && !showLabel && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                            {sleepTimer}
+                        </span>
+                    )}
+                </div>
+                {showLabel && (
+                    <span className="flex-1 text-left">
+                        Sleep Timer {sleepTimer ? `(${sleepTimer}m)` : ''}
                     </span>
                 )}
             </button>
 
             {isOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50">
+                <div className={`absolute bottom-full ${showLabel ? 'left-0' : 'right-0'} mb-2 w-48 rounded-lg bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50`}>
                     <div className="p-3 border-b border-gray-100 dark:border-gray-700">
                         <h3 className="text-sm font-semibold">Sleep Timer</h3>
                     </div>
