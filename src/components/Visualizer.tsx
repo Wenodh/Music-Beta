@@ -91,15 +91,15 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             let x = 0;
 
             for (let i = 0; i < bufferLength; i++) {
-                barHeight = (dataArray[i] / 255) * height * 0.8;
+                barHeight = (dataArray[i] / 255) * height * 0.9;
 
-                // Gradient color
-                const hue = (i / bufferLength) * 360;
-                ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.6)`;
+                // Vibrant Gradient color - using red as base to match theme
+                const hue = 350 + (i / bufferLength) * 40; // Red to Pink range
+                ctx.fillStyle = `hsla(${hue}, 90%, 60%, 0.7)`;
 
                 // Rounded bars
                 ctx.beginPath();
-                ctx.roundRect(x, height - barHeight, barWidth - 1, barHeight, [4, 4, 0, 0]);
+                ctx.roundRect(x, height - barHeight, barWidth - 1.5, barHeight, [6, 6, 0, 0]);
                 ctx.fill();
 
                 x += barWidth;
@@ -129,7 +129,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             ref={canvasRef}
             width={100}
             height={40}
-            className="w-full h-full opacity-30 pointer-events-none"
+            className="w-full h-full opacity-50 pointer-events-none"
         />
     );
 };

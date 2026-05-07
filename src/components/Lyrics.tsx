@@ -39,7 +39,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, isOpen, onClose }) => {
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
-                    className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex flex-col text-white p-6 md:p-12 overflow-y-auto"
+                    className="fixed inset-0 bottom-[88px] z-[40] bg-black/90 backdrop-blur-xl flex flex-col text-white p-6 md:p-12 overflow-y-auto"
                 >
                     <button
                         onClick={onClose}
@@ -48,7 +48,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, isOpen, onClose }) => {
                         <IoClose size={32} />
                     </button>
 
-                    <div className="max-w-3xl mx-auto w-full pt-12">
+                    <div className="max-w-3xl mx-auto w-full pt-12 pb-12">
                         {loading ? (
                             <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                                 <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>

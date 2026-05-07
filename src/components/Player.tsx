@@ -28,6 +28,7 @@ import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
+import { openPlaylistModal } from '../features/ui/uiSlice';
 
 const Player = () => {
     const navigate = useNavigate();
@@ -40,8 +41,7 @@ const Player = () => {
     const { currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen } = useAppSelector(
         (state) => state.musicPlayer
     );
-    const { favorites, playlists } = useAppSelector((state) => state.library);
-    const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
+    const { favorites } = useAppSelector((state) => state.library);
 
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
 
@@ -353,55 +353,11 @@ const Player = () => {
                                         <IoAddCircleOutline
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setIsPlaylistMenuOpen(!isPlaylistMenuOpen);
+                                                dispatch(openPlaylistModal(currentSong!));
                                             }}
                                             className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
                                             title="Add to Playlist"
                                         />
-                                        <AnimatePresence>
-                                            {isPlaylistMenuOpen && (
-                                                <>
-                                                    <div
-                                                        className="fixed inset-0 z-[100]"
-                                                        onClick={() => setIsPlaylistMenuOpen(false)}
-                                                    />
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: -10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
-                                                        className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden py-1 z-[101]"
-                                                    >
-                                                        <p className="px-3 py-2 text-[10px] uppercase font-bold text-gray-400">Add to Playlist</p>
-                                                        {playlists.map(p => (
-                                                            <button
-                                                                key={p.id}
-                                                                onClick={() => {
-                                                                    dispatch(addToPlaylist({ playlistId: p.id, song: currentSong }));
-                                                                    setIsPlaylistMenuOpen(false);
-                                                                }}
-                                                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate"
-                                                            >
-                                                                {p.name}
-                                                            </button>
-                                                        ))}
-                                                        {playlists.length === 0 && (
-                                                            <p className="px-3 py-2 text-xs text-gray-500 italic">No playlists found</p>
-                                                        )}
-                                                        <div className="border-t border-gray-100 dark:border-gray-700 mt-1">
-                                                            <button
-                                                                onClick={() => {
-                                                                    navigate('/library');
-                                                                    setIsPlaylistMenuOpen(false);
-                                                                }}
-                                                                className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 font-medium"
-                                                            >
-                                                                + New Playlist
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                </>
-                                            )}
-                                        </AnimatePresence>
                                     </div>
                                 </div>
                             </div>
@@ -491,45 +447,16 @@ const Player = () => {
                                                 {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
                                             </button>
 
-                                            <div className="relative">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsPlaylistMenuOpen(!isPlaylistMenuOpen);
-                                                    }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                                    title="Add to Playlist"
-                                                >
-                                                    <IoAddCircleOutline size={20} /> Add to Playlist
-                                                </button>
-                                                <AnimatePresence>
-                                                    {isPlaylistMenuOpen && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, x: 10 }}
-                                                            animate={{ opacity: 1, x: 0 }}
-                                                            exit={{ opacity: 0, x: 10 }}
-                                                            className="absolute bottom-0 right-full mr-2 w-48 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden py-1 z-[70]"
-                                                        >
-                                                            <p className="px-3 py-2 text-[10px] uppercase font-bold text-gray-400">Your Playlists</p>
-                                                            {playlists.map(p => (
-                                                                <button
-                                                                    key={p.id}
-                                                                    onClick={() => {
-                                                                        dispatch(addToPlaylist({ playlistId: p.id, song: currentSong }));
-                                                                        setIsPlaylistMenuOpen(false);
-                                                                        setIsMoreMenuOpen(false);
-                                                                    }}
-                                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate"
-                                                                >
-                                                                    {p.name}
-                                                                </button>
-                                                            ))}
-                                                            {playlists.length === 0 && (
-                                                                <p className="px-3 py-2 text-xs text-gray-500 italic">No playlists found</p>
-                                                            )}
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    dispatch(openPlaylistModal(currentSong!));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                title="Add to Playlist"
+                                            >
+                                                <IoAddCircleOutline size={20} /> Add to Playlist
+                                            </button>
 
                                             <button
                                                 onClick={() => {

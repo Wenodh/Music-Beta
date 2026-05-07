@@ -1,8 +1,8 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { reorderQueue, removeFromQueue, playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { reorderQueue, removeFromQueue, playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { motion, Reorder, AnimatePresence, useDragControls } from 'framer-motion';
-import { IoClose, IoReorderThreeOutline } from 'react-icons/io5';
+import { IoClose, IoReorderThreeOutline, IoTrashOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
 
 import { setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
@@ -22,15 +22,21 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             value={song}
             dragListener={false}
             dragControls={dragControls}
-            className={`flex items-center gap-3 p-2 rounded-lg group mb-1 ${
-                isActive ? 'bg-red-50 dark:bg-red-900/10 text-red-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={`flex items-center gap-3 p-2 rounded-xl group mb-1 transition-colors ${
+                isActive ? 'bg-red-500/10 dark:bg-red-500/20 text-red-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
             }`}
         >
             <div
-                onPointerDown={(e) => dragControls.start(e)}
-                className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors shrink-0"
+                onPointerDown={(e) => {
+                    e.preventDefault();
+                    dragControls.start(e);
+                }}
+                className="cursor-grab active:cursor-grabbing p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors shrink-0"
             >
-                <IoReorderThreeOutline className="text-gray-400" />
+                <IoReorderThreeOutline size={20} className={isActive ? 'text-red-400' : 'text-gray-400'} />
             </div>
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" onClick={() => onPlay(song)}>
                 <img
@@ -78,24 +84,44 @@ const Queue: React.FC = () => {
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         className="fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[110] border-l border-gray-200 dark:border-gray-800 flex flex-col"
                     >
-                        <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                            <h2 className="text-xl font-bold">Up Next</h2>
-                            <button onClick={() => dispatch(setQueueOpen(false))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
-                                <IoClose size={24} />
-                            </button>
+                        <div className="p-5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                            <div>
+                                <h2 className="text-xl font-bold">Queue</h2>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{songs.length} Songs</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {songs.length > 0 && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm('Clear all songs from queue?')) {
+                                                dispatch(setSongs([]));
+                                            }
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                        title="Clear Queue"
+                                    >
+                                        <IoTrashOutline size={20} />
+                                    </button>
+                                )}
+                                <button onClick={() => dispatch(setQueueOpen(false))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                                    <IoClose size={24} />
+                                </button>
+                            </div>
                         </div>
 
-                    <div className="flex-1 overflow-y-auto p-2">
-                        <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))}>
-                            {songs.map((song) => (
-                                <QueueItem
-                                    key={song.id}
-                                    song={song}
-                                    isActive={currentSong?.id === song.id}
-                                    onPlay={(s) => dispatch(playMusic(s))}
-                                    onRemove={(id) => dispatch(removeFromQueue(id))}
-                                />
-                            ))}
+                    <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                        <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))} className="space-y-1">
+                            <AnimatePresence initial={false}>
+                                {songs.map((song) => (
+                                    <QueueItem
+                                        key={song.id}
+                                        song={song}
+                                        isActive={currentSong?.id === song.id}
+                                        onPlay={(s) => dispatch(playMusic(s))}
+                                        onRemove={(id) => dispatch(removeFromQueue(id))}
+                                    />
+                                ))}
+                            </AnimatePresence>
                         </Reorder.Group>
 
                         {recommendations.length > 0 && (

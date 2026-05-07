@@ -8,8 +8,9 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoArrowBack } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 
@@ -21,6 +22,7 @@ interface PageTemplateProps {
 const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { details, loading, error, image } = useFetchDetails(apiUrl, getImageUrl);
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
@@ -80,6 +82,13 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
     return (
         <div className="p-5 pb-32 max-w-7xl mx-auto">
+            <button
+                onClick={() => navigate(-1)}
+                className="mb-6 flex items-center gap-2 text-gray-500 hover:text-red-500 transition-colors lg:hidden"
+            >
+                <IoArrowBack size={20} />
+                <span className="text-sm font-bold uppercase tracking-wider">Back</span>
+            </button>
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>
@@ -90,8 +99,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-sm sm:text-base line-clamp-2 px-4 lg:px-0">
+                    <h1 className="text-xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-xs sm:text-base line-clamp-2 px-4 lg:px-0">
                         {decodeHtmlEntities(Array.isArray((details as any)?.artists)
                             ? (details as any).artists.map((a: any) => a.name).join(', ')
                             : (details as any)?.primaryArtists ||
@@ -127,18 +136,21 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <IoFilterOutline />
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value as any)}
-                                    className="bg-transparent border-none focus:ring-0 cursor-pointer font-medium outline-none"
-                                >
-                                    <option value="default">Default</option>
-                                    <option value="name">A-Z (Name)</option>
-                                    <option value="artist">A-Z (Artist)</option>
-                                    <option value="duration">Duration</option>
-                                </select>
+                            <div className="flex items-center gap-2 text-sm">
+                                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer relative group">
+                                    <IoFilterOutline className="group-hover:text-red-500 transition-colors" />
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value as any)}
+                                        className="bg-transparent border-none focus:ring-0 cursor-pointer font-bold outline-none text-[11px] uppercase tracking-wider appearance-none pr-4"
+                                    >
+                                        <option value="default">Sort: Default</option>
+                                        <option value="name">Name (A-Z)</option>
+                                        <option value="artist">Artist (A-Z)</option>
+                                        <option value="duration">Duration</option>
+                                    </select>
+                                    <div className="absolute right-2 pointer-events-none text-[8px]">▼</div>
+                                </div>
                             </div>
                         </div>
                     </div>
