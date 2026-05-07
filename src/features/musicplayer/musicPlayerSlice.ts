@@ -68,11 +68,13 @@ const musicPlayerSlice = createSlice({
             state.sleepTimer = action.payload;
         },
         decrementSleepTimer: (state) => {
-            if (state.sleepTimer && state.sleepTimer > 0) {
-                state.sleepTimer -= 1;
-            } else if (state.sleepTimer === 0) {
-                state.sleepTimer = null;
-                state.isPlaying = false;
+            if (state.sleepTimer !== null) {
+                if (state.sleepTimer > 1) {
+                    state.sleepTimer -= 1;
+                } else {
+                    state.sleepTimer = null;
+                    state.isPlaying = false;
+                }
             }
         },
         addToQueue: (state, action: PayloadAction<Song>) => {

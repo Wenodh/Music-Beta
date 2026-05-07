@@ -1,28 +1,19 @@
 import React, { useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setLanguage } from '../features/language/languageSlice';
+import { useAppDispatch } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoLibraryOutline } from 'react-icons/io5';
+import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
-import ThemeToggle from './ThemeToggle';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { search as searchUrl } from '../constants';
 import _ from 'lodash';
+import SettingsDrawer from './SettingsDrawer';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const { language } = useAppSelector((state) => state.language);
-
-    const languages = [
-        { name: 'Telugu', value: 'telugu' },
-        { name: 'Hindi', value: 'hindi' },
-        { name: 'English', value: 'english' },
-        { name: 'Tamil', value: 'tamil' },
-        { name: 'Punjabi', value: 'punjabi' },
-    ];
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const fetchSearchResults = async (query: string) => {
         if (!query.trim()) {
@@ -59,43 +50,31 @@ const Navbar: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             className="sticky top-0 z-50 flex flex-col items-center p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-gray-800/20 shadow-sm gap-4 md:flex-row md:justify-between"
         >
-            <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div
-                    className="flex flex-col cursor-pointer"
+                    className="flex flex-col items-center md:items-start cursor-pointer"
                     onClick={() => navigate('/')}
                 >
-                    <div className="text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight">
+                    <div className="text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight leading-none">
                         Vibe<span className="font-light italic text-red-500">On</span>
                     </div>
-                    <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 -mt-1 self-end">
-                        by WENODH
+                    <div className="text-[9px] font-medium tracking-[0.2em] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">
+                        by <span className="text-red-400/80">WENODH</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 md:hidden">
+                <div className="absolute right-0 md:hidden">
                     <button
-                        onClick={() => navigate('/library')}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
                     >
-                        <IoLibraryOutline size={20} />
+                        <IoPersonCircleOutline size={30} />
                     </button>
-                    <select
-                        value={language}
-                        onChange={(e) => dispatch(setLanguage(e.target.value))}
-                        className="p-1.5 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:outline-none cursor-pointer text-xs font-medium transition-all"
-                    >
-                        {languages.map((lang) => (
-                            <option key={lang.value} value={lang.value}>
-                                {lang.name}
-                            </option>
-                        ))}
-                    </select>
-                    <ThemeToggle />
                 </div>
             </div>
 
             <form
                 onSubmit={handleSearchSubmit}
-                className="relative flex items-center w-full md:w-1/3"
+                className="relative flex items-center w-full md:w-1/3 order-3 md:order-none"
             >
                 <input
                     type="text"
@@ -107,27 +86,16 @@ const Navbar: React.FC = () => {
                 <IoSearchOutline className="absolute left-3 text-gray-500" />
             </form>
 
-            <div className="hidden md:flex items-center gap-4">
-                <select
-                    value={language}
-                    onChange={(e) => dispatch(setLanguage(e.target.value))}
-                    className="p-2 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:outline-none cursor-pointer text-sm font-medium transition-all"
-                >
-                    {languages.map((lang) => (
-                        <option key={lang.value} value={lang.value}>
-                            {lang.name}
-                        </option>
-                    ))}
-                </select>
+            <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
                 <button
-                    onClick={() => navigate('/library')}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors flex items-center gap-2"
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2"
                 >
-                    <IoLibraryOutline size={20} />
-                    <span className="text-sm font-medium">Library</span>
+                    <IoPersonCircleOutline size={28} />
+                    <span className="text-sm font-semibold">Account</span>
                 </button>
-                <ThemeToggle />
             </div>
+            <SettingsDrawer isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         </motion.nav>
     );
 };

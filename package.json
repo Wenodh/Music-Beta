@@ -13,6 +13,8 @@
     "@reduxjs/toolkit": "^2.2.7",
     "@vercel/speed-insights": "^1.0.12",
     "axios": "^1.6.5",
+    "color-thief-react": "^2.1.0",
+    "colorthief": "^3.3.1",
     "framer-motion": "^12.38.0",
     "lodash": "^4.17.21",
     "react": "^18.2.0",
@@ -23,6 +25,7 @@
     "redux-persist": "^6.0.0"
   },
   "devDependencies": {
+    "@types/colorthief": "^2.6.1",
     "@types/lodash": "^4.17.24",
     "@types/node": "^22.19.17",
     "@types/react": "^18.3.28",
