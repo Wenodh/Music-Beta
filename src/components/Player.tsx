@@ -17,13 +17,13 @@ import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
 import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
-import { setPreferredQuality } from '../features/musicplayer/musicPlayerSlice';
 import { HiQueueList } from 'react-icons/hi2';
 import Queue from './Queue';
 import { MdOutlineLyrics } from 'react-icons/md';
 import Lyrics from './Lyrics';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
+import { toggleCloudFavorite, addToCloudPlaylist } from '../features/library/libraryActions';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
@@ -37,10 +37,11 @@ const Player = () => {
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isLyricsOpen, setIsLyricsOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-    const { currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen } = useAppSelector(
+    const { currentSong, isPlaying, songs, sleepTimer, isQueueOpen } = useAppSelector(
         (state) => state.musicPlayer
     );
     const { favorites, playlists } = useAppSelector((state) => state.library);
+    const { user } = useAppSelector((state) => state.auth);
     const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
 
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
@@ -257,6 +258,26 @@ const Player = () => {
         }
     };
 
+    const handleToggleFavorite = () => {
+        if (currentSong) {
+            dispatch(toggleFavorite(currentSong));
+            if (user) {
+                dispatch(toggleCloudFavorite(currentSong));
+            }
+        }
+    };
+
+    const handleAddToPlaylist = (playlistId: string) => {
+        if (currentSong) {
+            dispatch(addToPlaylist({ playlistId, song: currentSong }));
+            if (user) {
+                dispatch(addToCloudPlaylist({ playlistId, song: currentSong }));
+            }
+            setIsPlaylistMenuOpen(false);
+            setIsMoreMenuOpen(false);
+        }
+    };
+
     return (
         <AnimatePresence>
             {currentSong && (
@@ -339,12 +360,12 @@ const Player = () => {
                                     <motion.div whileTap={{ scale: 0.8 }}>
                                         {isFavorite ? (
                                             <IoHeart
-                                                onClick={() => dispatch(toggleFavorite(currentSong))}
+                                                onClick={handleToggleFavorite}
                                                 className="text-red-500 cursor-pointer text-xl"
                                             />
                                         ) : (
                                             <IoHeartOutline
-                                                onClick={() => dispatch(toggleFavorite(currentSong))}
+                                                onClick={handleToggleFavorite}
                                                 className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
                                             />
                                         )}
@@ -375,10 +396,7 @@ const Player = () => {
                                                         {playlists.map(p => (
                                                             <button
                                                                 key={p.id}
-                                                                onClick={() => {
-                                                                    dispatch(addToPlaylist({ playlistId: p.id, song: currentSong }));
-                                                                    setIsPlaylistMenuOpen(false);
-                                                                }}
+                                                                onClick={() => handleAddToPlaylist(p.id)}
                                                                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate"
                                                             >
                                                                 {p.name}
@@ -481,10 +499,7 @@ const Player = () => {
                                             </div>
 
                                             <button
-                                                onClick={() => {
-                                                    dispatch(toggleFavorite(currentSong));
-                                                    setIsMoreMenuOpen(false);
-                                                }}
+                                                onClick={handleToggleFavorite}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                             >
                                                 {isFavorite ? <IoHeart className="text-red-500" size={20} /> : <IoHeartOutline size={20} />}
@@ -513,11 +528,7 @@ const Player = () => {
                                                             {playlists.map(p => (
                                                                 <button
                                                                     key={p.id}
-                                                                    onClick={() => {
-                                                                        dispatch(addToPlaylist({ playlistId: p.id, song: currentSong }));
-                                                                        setIsPlaylistMenuOpen(false);
-                                                                        setIsMoreMenuOpen(false);
-                                                                    }}
+                                                                    onClick={() => handleAddToPlaylist(p.id)}
                                                                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate"
                                                                 >
                                                                     {p.name}

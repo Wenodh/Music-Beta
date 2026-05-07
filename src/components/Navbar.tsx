@@ -3,18 +3,19 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import axios from 'axios';
 import { search as searchUrl } from '../constants';
 import _ from 'lodash';
 
 import { setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { setAuthModalOpen } from '../features/auth/authSlice';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { user } = useAppSelector((state) => state.auth);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -46,7 +47,6 @@ const Navbar: React.FC = () => {
         }
         try {
             const res = await axios.get(`${searchUrl}${query}`);
-            // Global search returns topQuery, songs, albums, artists, playlists
             dispatch(setSearchedSongs(res.data.data));
         } catch (error) {
             console.error('Error fetching search results:', error);
@@ -66,6 +66,14 @@ const Navbar: React.FC = () => {
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         fetchSearchResults(searchQuery);
+    };
+
+    const handleProfileClick = () => {
+        if (user) {
+            dispatch(setSettingsOpen(true));
+        } else {
+            dispatch(setAuthModalOpen(true));
+        }
     };
 
     return (
@@ -88,10 +96,14 @@ const Navbar: React.FC = () => {
                 </div>
                 <div className="absolute right-0 md:hidden">
                     <button
-                        onClick={() => dispatch(setSettingsOpen(true))}
+                        onClick={handleProfileClick}
                         className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
                     >
-                        <IoPersonCircleOutline size={30} />
+                        {user?.user_metadata?.avatar_url ? (
+                            <img src={user.user_metadata.avatar_url} alt="" className="w-8 h-8 rounded-full border border-red-500" />
+                        ) : (
+                            <IoPersonCircleOutline size={30} className={user ? 'text-red-500' : ''} />
+                        )}
                     </button>
                 </div>
             </div>
@@ -114,11 +126,15 @@ const Navbar: React.FC = () => {
 
             <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
                 <button
-                    onClick={() => dispatch(setSettingsOpen(true))}
+                    onClick={handleProfileClick}
                     className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2"
                 >
-                    <IoPersonCircleOutline size={28} />
-                    <span className="text-sm font-semibold">Account</span>
+                    {user?.user_metadata?.avatar_url ? (
+                        <img src={user.user_metadata.avatar_url} alt="" className="w-7 h-7 rounded-full border border-red-500" />
+                    ) : (
+                        <IoPersonCircleOutline size={28} className={user ? 'text-red-500' : ''} />
+                    )}
+                    <span className="text-sm font-semibold">{user ? user.user_metadata.full_name || 'Account' : 'Login'}</span>
                 </button>
             </div>
         </motion.nav>

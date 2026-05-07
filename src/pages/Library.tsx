@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } from '../features/library/librarySlice';
+import { createCloudPlaylist, deleteCloudPlaylist, removeFromCloudPlaylist, toggleCloudFavorite } from '../features/library/libraryActions';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Library: React.FC = () => {
     const { favorites, playlists } = useAppSelector((state) => state.library);
+    const { user } = useAppSelector((state) => state.auth);
     const dispatch = useAppDispatch();
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -18,9 +20,34 @@ const Library: React.FC = () => {
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            dispatch(createPlaylist({ name: newPlaylistName.trim() }));
+            if (user) {
+                dispatch(createCloudPlaylist({ name: newPlaylistName.trim() }));
+            } else {
+                dispatch(createPlaylist({ name: newPlaylistName.trim() }));
+            }
             setNewPlaylistName('');
             setIsCreating(false);
+        }
+    };
+
+    const handleDeletePlaylist = (id: string) => {
+        dispatch(deletePlaylist(id));
+        if (user) {
+            dispatch(deleteCloudPlaylist(id));
+        }
+    };
+
+    const handleRemoveFromPlaylist = (playlistId: string, songId: string) => {
+        dispatch(removeFromPlaylist({ playlistId, songId }));
+        if (user) {
+            dispatch(removeFromCloudPlaylist({ playlistId, songId }));
+        }
+    };
+
+    const handleToggleFavorite = (song: any) => {
+        dispatch(toggleFavorite(song));
+        if (user) {
+            dispatch(toggleCloudFavorite(song));
         }
     };
 
@@ -88,7 +115,7 @@ const Library: React.FC = () => {
                         [...favorites].sort((a, b) => {
                             if (sortBy === 'name') return a.name.localeCompare(b.name);
                             if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-                            return 0; // Default is date, but favorites aren't timestamped, so we keep order
+                            return 0; // Default is date
                         }).map((song) => (
                             <motion.div
                                 key={song.id}
@@ -100,7 +127,7 @@ const Library: React.FC = () => {
                             >
                                 <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
                                     <img
-                                        src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
+                                        src={typeof song.image === 'string' ? song.image : song.image[song.image.length - 1].url}
                                         alt={song.name}
                                         className="w-full h-full object-cover"
                                     />
@@ -151,7 +178,7 @@ const Library: React.FC = () => {
                             <div className={`relative bg-gray-100 dark:bg-gray-800 overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'} flex items-center justify-center`}>
                                 {playlist.songs.length > 0 ? (
                                     <img
-                                        src={Array.isArray(playlist.songs[0].image) ? playlist.songs[0].image[playlist.songs[0].image.length - 1].url : playlist.songs[0].image}
+                                        src={typeof playlist.songs[0].image === 'string' ? playlist.songs[0].image : playlist.songs[0].image[playlist.songs[0].image.length - 1].url}
                                         className="w-full h-full object-cover"
                                         alt=""
                                     />
@@ -167,7 +194,7 @@ const Library: React.FC = () => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        dispatch(deletePlaylist(playlist.id));
+                                        handleDeletePlaylist(playlist.id);
                                     }}
                                     className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 rounded-full transition-all"
                                 >
@@ -200,7 +227,7 @@ const Library: React.FC = () => {
                                 onClick={() => dispatch(playMusic(song))}
                             >
                                 <img
-                                    src={Array.isArray(song.image) ? song.image[0].url : song.image}
+                                    src={typeof song.image === 'string' ? song.image : song.image[0].url}
                                     alt=""
                                     className="w-12 h-12 rounded-lg object-cover"
                                 />
@@ -212,7 +239,7 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            dispatch(toggleFavorite(song));
+                                            handleToggleFavorite(song);
                                         }}
                                         className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
                                     >
@@ -221,7 +248,7 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            dispatch(removeFromPlaylist({ playlistId: selectedPlaylist, songId: song.id }));
+                                            handleRemoveFromPlaylist(selectedPlaylist, song.id);
                                         }}
                                         className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all"
                                     >

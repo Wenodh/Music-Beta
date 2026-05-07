@@ -2,16 +2,20 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { logout as logoutAction } from '../features/auth/authSlice';
+import { clearLibrary } from '../features/library/librarySlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoLogOutOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
     const { preferredQuality, isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { user } = useAppSelector((state) => state.auth);
 
     const languages = [
         { name: 'Telugu', value: 'telugu' },
@@ -22,6 +26,14 @@ const SettingsDrawer: React.FC = () => {
     ];
 
     const qualities = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        dispatch(logoutAction());
+        dispatch(clearLibrary());
+        dispatch(setSettingsOpen(false));
+        navigate('/');
+    };
 
     return (
         <AnimatePresence>
@@ -50,6 +62,22 @@ const SettingsDrawer: React.FC = () => {
                                     <IoCloseOutline size={28} />
                                 </button>
                             </div>
+
+                            {user && (
+                                <div className="mb-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-3xl flex items-center gap-4">
+                                    {user.user_metadata?.avatar_url ? (
+                                        <img src={user.user_metadata.avatar_url} alt="" className="w-12 h-12 rounded-full border-2 border-red-500" />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center text-white text-xl font-bold">
+                                            {user.email?.[0].toUpperCase()}
+                                        </div>
+                                    )}
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-bold truncate">{user.user_metadata?.full_name || 'User'}</p>
+                                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-8">
                                 <section>
@@ -117,25 +145,17 @@ const SettingsDrawer: React.FC = () => {
                                     </div>
                                 </section>
 
-                                <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Playback Settings</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl opacity-60">
-                                            <div>
-                                                <p className="text-sm font-medium">Gapless Playback</p>
-                                                <p className="text-[10px] text-gray-500">Coming soon</p>
-                                            </div>
-                                            <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 rounded-full" />
-                                        </div>
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl opacity-60">
-                                            <div>
-                                                <p className="text-sm font-medium">Equalizer</p>
-                                                <p className="text-[10px] text-gray-500">Coming soon</p>
-                                            </div>
-                                            <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 rounded-full" />
-                                        </div>
-                                    </div>
-                                </section>
+                                {user && (
+                                    <section>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full flex items-center gap-3 p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all group"
+                                        >
+                                            <IoLogOutOutline size={20} className="group-hover:scale-110 transition-transform" />
+                                            <span className="text-sm font-bold">Sign Out</span>
+                                        </button>
+                                    </section>
+                                )}
                             </div>
 
                             <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800 text-center">

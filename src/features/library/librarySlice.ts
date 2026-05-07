@@ -21,6 +21,12 @@ const librarySlice = createSlice({
     name: 'library',
     initialState,
     reducers: {
+        setFavorites: (state, action: PayloadAction<Song[]>) => {
+            state.favorites = action.payload;
+        },
+        setPlaylists: (state, action: PayloadAction<Playlist[]>) => {
+            state.playlists = action.payload;
+        },
         toggleFavorite: (state, action: PayloadAction<Song>) => {
             const index = state.favorites.findIndex(s => s.id === action.payload.id);
             if (index >= 0) {
@@ -29,9 +35,9 @@ const librarySlice = createSlice({
                 state.favorites.push(action.payload);
             }
         },
-        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song }>) => {
+        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; id?: string }>) => {
             state.playlists.push({
-                id: Date.now().toString(),
+                id: action.payload.id || Date.now().toString(),
                 name: action.payload.name,
                 songs: action.payload.song ? [action.payload.song] : [],
             });
@@ -51,15 +57,22 @@ const librarySlice = createSlice({
                 playlist.songs = playlist.songs.filter(s => s.id !== action.payload.songId);
             }
         },
+        clearLibrary: (state) => {
+            state.favorites = [];
+            state.playlists = [];
+        },
     },
 });
 
 export const {
+    setFavorites,
+    setPlaylists,
     toggleFavorite,
     createPlaylist,
     deletePlaylist,
     addToPlaylist,
     removeFromPlaylist,
+    clearLibrary,
 } = librarySlice.actions;
 
 export default librarySlice.reducer;
