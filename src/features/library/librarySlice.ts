@@ -29,11 +29,11 @@ const librarySlice = createSlice({
                 state.favorites.push(action.payload);
             }
         },
-        createPlaylist: (state, action: PayloadAction<string>) => {
+        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song }>) => {
             state.playlists.push({
                 id: Date.now().toString(),
-                name: action.payload,
-                songs: [],
+                name: action.payload.name,
+                songs: action.payload.song ? [action.payload.song] : [],
             });
         },
         deletePlaylist: (state, action: PayloadAction<string>) => {

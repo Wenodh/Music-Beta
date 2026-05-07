@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { createPlaylist, deletePlaylist } from '../features/library/librarySlice';
+import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } from '../features/library/librarySlice';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +18,7 @@ const Library: React.FC = () => {
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            dispatch(createPlaylist(newPlaylistName.trim()));
+            dispatch(createPlaylist({ name: newPlaylistName.trim() }));
             setNewPlaylistName('');
             setIsCreating(false);
         }
@@ -207,6 +207,26 @@ const Library: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                     <p className="font-semibold truncate">{song.name}</p>
                                     <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            dispatch(toggleFavorite(song));
+                                        }}
+                                        className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                                    >
+                                        {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeart size={18} className="opacity-40" />}
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            dispatch(removeFromPlaylist({ playlistId: selectedPlaylist, songId: song.id }));
+                                        }}
+                                        className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all"
+                                    >
+                                        <IoTrash size={18} />
+                                    </button>
                                 </div>
                             </div>
                         ))}

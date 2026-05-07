@@ -1,10 +1,14 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { toggleFavorite } from '../features/library/librarySlice';
+import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { useState } from 'react';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { motion } from 'framer-motion';
+import { IoAdd, IoHeart, IoHeartOutline } from 'react-icons/io5';
+import { Song } from '../types/music';
 
 interface SongsListProps {
     name: string;
@@ -27,12 +31,36 @@ const SongsList: React.FC<SongsListProps> = ({
 }) => {
     const dispatch = useAppDispatch();
     const { currentSong } = useAppSelector((state) => state.musicPlayer);
+    const { favorites } = useAppSelector((state) => state.library);
     const [isDownloading, setIsDownloading] = useState(false);
+
+    const isFavorite = favorites.some(s => s.id === id);
 
     const formatDuration = (sec: string | number) => {
         const minutes = Math.floor(Number(sec) / 60);
         const seconds = Math.floor(Number(sec) % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    const handleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const songData: Song = {
+            id, name, primaryArtists: parsedArtists, duration,
+            image, downloadUrl, album
+        };
+        dispatch(toggleFavorite(songData));
+        dispatch(showToast({
+            message: isFavorite ? 'Removed from favorites' : 'Added to favorites'
+        }));
+    };
+
+    const handleAddToPlaylist = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const songData: Song = {
+            id, name, primaryArtists: parsedArtists, duration,
+            image, downloadUrl, album
+        };
+        dispatch(openPlaylistModal(songData));
     };
 
     const handleDownload = async (e: React.MouseEvent) => {
@@ -109,10 +137,31 @@ const SongsList: React.FC<SongsListProps> = ({
                 </div>
             </div>
 
-            <div className="flex items-center gap-5">
-                <span className="text-xs font-mono text-gray-400">
+            <div className="flex items-center gap-1 sm:gap-4">
+                <span className="text-[10px] sm:text-xs font-mono text-gray-400 mr-1 sm:mr-2">
                     {formatDuration(duration)}
                 </span>
+
+                <motion.button
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleFavorite}
+                    className={`p-2 rounded-full transition-colors ${isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                    title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                >
+                    {isFavorite ? <IoHeart size={18} /> : <IoHeartOutline size={18} />}
+                </motion.button>
+
+                <motion.button
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleAddToPlaylist}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                    title="Add to Playlist"
+                >
+                    <IoAdd size={20} />
+                </motion.button>
+
                 <motion.button
                     whileHover={{ scale: 1.2 }}
                     whileTap={{ scale: 0.9 }}

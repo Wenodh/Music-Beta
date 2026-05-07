@@ -4,10 +4,13 @@ import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
 import SongsList from './SongsList';
 import Slider from './Slider';
-import { useAppDispatch } from '../hooks/redux';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay } from 'react-icons/io5';
+import { toggleFavorite } from '../features/library/librarySlice';
+import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Song } from '../types/music';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -17,6 +20,7 @@ interface PageTemplateProps {
 const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { details, loading, error, image } = useFetchDetails(apiUrl, getImageUrl);
     const dispatch = useAppDispatch();
+    const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
 
@@ -39,6 +43,20 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         if (songs.length > 0) {
             dispatch(playMusic(songs[0]));
         }
+    };
+
+    const handleFavorite = (e: React.MouseEvent, song: Song) => {
+        e.stopPropagation();
+        const isFavorite = favorites.some(s => s.id === song.id);
+        dispatch(toggleFavorite(song));
+        dispatch(showToast({
+            message: isFavorite ? 'Removed from favorites' : 'Added to favorites'
+        }));
+    };
+
+    const handleAddToPlaylist = (e: React.MouseEvent, song: Song) => {
+        e.stopPropagation();
+        dispatch(openPlaylistModal(song));
     };
 
     if (loading) return (
@@ -129,7 +147,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                         : "flex flex-col gap-1"
                     }>
                         <AnimatePresence mode="popLayout">
-                            {songs.map((song: any) => (
+                            {songs.map((song: Song) => (
                                 viewMode === 'list' ? (
                                     <SongsList
                                         key={song.id}
@@ -149,7 +167,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.9 }}
                                         whileHover={{ y: -5 }}
-                                        className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
+                                        className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all relative"
                                         onClick={() => dispatch(playMusic(song))}
                                     >
                                         <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-md">
@@ -158,10 +176,28 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                                 alt={song.name}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={(e) => handleFavorite(e, song)}
+                                                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    title={favorites.some(s => s.id === song.id) ? "Remove from Favorites" : "Add to Favorites"}
+                                                >
+                                                    {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeartOutline />}
+                                                </motion.button>
                                                 <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
                                                     <IoPlay />
                                                 </div>
+                                                <motion.button
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={(e) => handleAddToPlaylist(e, song)}
+                                                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    title="Add to Playlist"
+                                                >
+                                                    <IoAdd size={20} />
+                                                </motion.button>
                                             </div>
                                         </div>
                                         <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{song.name}</p>

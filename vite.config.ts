@@ -10,9 +10,9 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             includeAssets: [
-                'favicon.ico',
-                'apple-touch-icon.png',
-                'masked-icon.svg',
+                'ios/60.png',
+                'ios/180.png',
+                'savan-logo.png',
             ],
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
@@ -42,19 +42,19 @@ export default defineConfig({
                 ]
             },
             manifest: {
-                name: 'VibeOn',
-                short_name: 'VibeOn',
+                name: 'Music Beta',
+                short_name: 'Music Beta',
                 description: 'A modern music streaming app with Glassmorphism UI',
                 theme_color: '#ef4444',
                 background_color: '#ffffff',
                 icons: [
                     {
-                        src: 'pwa-192x192.png',
+                        src: 'android/android-launchericon-192-192.png',
                         sizes: '192x192',
                         type: 'image/png',
                     },
                     {
-                        src: 'pwa-512x512.png',
+                        src: 'android/android-launchericon-512-512.png',
                         sizes: '512x512',
                         type: 'image/png',
                     },

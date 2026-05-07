@@ -12,6 +12,10 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SettingsDrawer from './components/SettingsDrawer';
 import Queue from './components/Queue';
+import ToastContainer from './components/toast/ToastContainer';
+import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
+import { showToast, removeToast, closePlaylistModal } from './features/ui/uiSlice';
+import { useAppSelector, useAppDispatch } from './hooks/redux';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -72,24 +76,43 @@ const AnimatedRoutes = () => {
     );
 };
 
-export default function App() {
+export const AppContent = () => {
+    const dispatch = useAppDispatch();
+    const { toasts, playlistModal } = useAppSelector(state => state.ui);
+
     return (
         <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-32 md:pt-20">
-            <ErrorBoundary>
-                <Provider store={store}>
-                    <PersistGate loading={null} persistor={persistor}>
-                        <BrowserRouter>
-                            <Navbar />
-                            <SearchSection />
-                            <AnimatedRoutes />
-                            <Player />
-                            <SettingsDrawer />
-                            <Queue />
-                        </BrowserRouter>
-                        <SpeedInsights />
-                    </PersistGate>
-                </Provider>
-            </ErrorBoundary>
+            <BrowserRouter>
+                <Navbar />
+                <SearchSection />
+                <AnimatedRoutes />
+                <Player />
+                <SettingsDrawer />
+                <Queue />
+                <ToastContainer
+                    toasts={toasts}
+                    removeToast={(id) => dispatch(removeToast(id))}
+                />
+                <AddToPlaylistModal
+                    song={playlistModal.song}
+                    onClose={() => dispatch(closePlaylistModal())}
+                    onSuccess={(name) => dispatch(showToast({ message: `Added to ${name}` }))}
+                    onError={(msg) => dispatch(showToast({ message: msg, type: 'error' }))}
+                />
+            </BrowserRouter>
         </div>
+    );
+};
+
+export default function App() {
+    return (
+        <ErrorBoundary>
+            <Provider store={store}>
+                <PersistGate loading={null} persistor={persistor}>
+                    <AppContent />
+                    <SpeedInsights />
+                </PersistGate>
+            </Provider>
+        </ErrorBoundary>
     );
 }
