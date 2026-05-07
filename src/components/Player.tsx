@@ -26,7 +26,7 @@ import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { useColor } from 'color-thief-react';
 import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
-import { setRecommendations } from '../features/musicplayer/musicPlayerSlice';
+import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
 
 const Player = () => {
@@ -35,10 +35,9 @@ const Player = () => {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
-    const [isQueueOpen, setIsQueueOpen] = useState(false);
     const [isLyricsOpen, setIsLyricsOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-    const { currentSong, isPlaying, songs, sleepTimer, preferredQuality } = useAppSelector(
+    const { currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen } = useAppSelector(
         (state) => state.musicPlayer
     );
     const { favorites, playlists } = useAppSelector((state) => state.library);
@@ -455,7 +454,7 @@ const Player = () => {
                             </motion.div>
                             <motion.div whileTap={{ scale: 0.9 }}>
                                 <HiQueueList
-                                    onClick={() => setIsQueueOpen(!isQueueOpen)}
+                                    onClick={() => dispatch(setQueueOpen(!isQueueOpen))}
                                     className={`text-2xl cursor-pointer hover:text-red-500 transition-colors ${isQueueOpen ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
                             </motion.div>
@@ -569,7 +568,6 @@ const Player = () => {
                             </div>
                         </div>
                     </div>
-                    <Queue isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} />
                     <Lyrics
                         isOpen={isLyricsOpen}
                         onClose={() => setIsLyricsOpen(false)}

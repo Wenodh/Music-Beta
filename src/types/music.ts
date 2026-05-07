@@ -25,4 +25,5 @@ export interface MusicPlayerState {
     sleepTimer: number | null;
     preferredQuality: '12kbps' | '48kbps' | '96kbps' | '160kbps' | '320kbps';
     isSettingsOpen: boolean;
+    isQueueOpen: boolean;
 }

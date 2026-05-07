@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import useFetchDetails from '../hooks/useFetchDetails';
 import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
@@ -6,7 +6,8 @@ import SongsList from './SongsList';
 import Slider from './Slider';
 import { useAppDispatch } from '../hooks/redux';
 import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { useEffect } from 'react';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay } from 'react-icons/io5';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -16,14 +17,23 @@ interface PageTemplateProps {
 const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { details, loading, error, image } = useFetchDetails(apiUrl, getImageUrl);
     const dispatch = useAppDispatch();
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+    const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
 
-    const songs = (details as any)?.songs || (details as any)?.topSongs || [];
+    const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
     useEffect(() => {
-        if (songs.length > 0) {
-            dispatch(setSongs(songs));
+        if (rawSongs.length > 0) {
+            dispatch(setSongs(rawSongs));
         }
-    }, [songs, dispatch]);
+    }, [rawSongs, dispatch]);
+
+    const songs = [...rawSongs].sort((a: any, b: any) => {
+        if (sortBy === 'name') return a.name.localeCompare(b.name);
+        if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
+        if (sortBy === 'duration') return Number(b.duration) - Number(a.duration);
+        return 0;
+    });
 
     const handlePlayAll = () => {
         if (songs.length > 0) {
@@ -76,23 +86,90 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                 </div>
 
                 <div className="flex-1 w-full lg:pl-10 mt-10 lg:mt-0">
-                    <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
-                        Songs
-                        <span className="text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{songs.length}</span>
-                    </h2>
-                    <div className="flex flex-col gap-1">
-                        {songs.map((song: any) => (
-                            <SongsList
-                                key={song.id}
-                                name={song.name}
-                                artists={song.primaryArtists}
-                                duration={song.duration}
-                                downloadUrl={song.downloadUrl}
-                                image={song.image}
-                                id={song.id}
-                                album={song.album || details}
-                            />
-                        ))}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
+                        <h2 className="text-2xl font-black flex items-center gap-2">
+                            Songs
+                            <span className="text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{songs.length}</span>
+                        </h2>
+
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                                >
+                                    <IoGridOutline size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                                >
+                                    <IoListOutline size={18} />
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <IoFilterOutline />
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value as any)}
+                                    className="bg-transparent border-none focus:ring-0 cursor-pointer font-medium outline-none"
+                                >
+                                    <option value="default">Default</option>
+                                    <option value="name">A-Z (Name)</option>
+                                    <option value="artist">A-Z (Artist)</option>
+                                    <option value="duration">Duration</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={viewMode === 'grid'
+                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-6"
+                        : "flex flex-col gap-1"
+                    }>
+                        <AnimatePresence mode="popLayout">
+                            {songs.map((song: any) => (
+                                viewMode === 'list' ? (
+                                    <SongsList
+                                        key={song.id}
+                                        name={song.name}
+                                        artists={song.primaryArtists}
+                                        duration={song.duration}
+                                        downloadUrl={song.downloadUrl}
+                                        image={song.image}
+                                        id={song.id}
+                                        album={song.album || details}
+                                    />
+                                ) : (
+                                    <motion.div
+                                        key={song.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        whileHover={{ y: -5 }}
+                                        className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
+                                        onClick={() => dispatch(playMusic(song))}
+                                    >
+                                        <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-md">
+                                            <img
+                                                src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
+                                                alt={song.name}
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
+                                                    <IoPlay />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{song.name}</p>
+                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{song.primaryArtists}</p>
+                                    </motion.div>
+                                )
+                            ))}
+                        </AnimatePresence>
                     </div>
                 </div>
             </FlexLayout>

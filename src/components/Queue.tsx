@@ -4,31 +4,36 @@ import { reorderQueue, removeFromQueue, playMusic } from '../features/musicplaye
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import { IoClose, IoReorderThreeOutline } from 'react-icons/io5';
 
-interface QueueProps {
-    isOpen: boolean;
-    onClose: () => void;
-}
+import { setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 
-const Queue: React.FC<QueueProps> = ({ isOpen, onClose }) => {
-    const { songs, currentSong, recommendations } = useAppSelector((state) => state.musicPlayer);
+const Queue: React.FC = () => {
+    const { songs, currentSong, recommendations, isQueueOpen } = useAppSelector((state) => state.musicPlayer);
     const dispatch = useAppDispatch();
 
     return (
         <AnimatePresence>
-            {isOpen && (
-                <motion.div
-                    initial={{ x: '100%' }}
-                    animate={{ x: 0 }}
-                    exit={{ x: '100%' }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed right-0 top-0 bottom-0 w-full md:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[60] border-l border-gray-200 dark:border-gray-800 flex flex-col"
-                >
-                    <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
-                        <h2 className="text-xl font-bold">Queue</h2>
-                        <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
-                            <IoClose size={24} />
-                        </button>
-                    </div>
+            {isQueueOpen && (
+                <>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => dispatch(setQueueOpen(false))}
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+                    />
+                    <motion.div
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[110] border-l border-gray-200 dark:border-gray-800 flex flex-col"
+                    >
+                        <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+                            <h2 className="text-xl font-bold">Up Next</h2>
+                            <button onClick={() => dispatch(setQueueOpen(false))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                                <IoClose size={24} />
+                            </button>
+                        </div>
 
                     <div className="flex-1 overflow-y-auto p-2">
                         <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))}>
@@ -89,9 +94,9 @@ const Queue: React.FC<QueueProps> = ({ isOpen, onClose }) => {
                                                 e.stopPropagation();
                                                 dispatch(reorderQueue([...songs, song]));
                                             }}
-                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 rounded transition-opacity text-xs"
+                                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-red-50 dark:bg-red-900/20 md:bg-transparent text-red-500 rounded transition-opacity text-xs font-bold"
                                         >
-                                            Add
+                                        ADD
                                         </button>
                                     </div>
                                 ))}
@@ -99,6 +104,7 @@ const Queue: React.FC<QueueProps> = ({ isOpen, onClose }) => {
                         )}
                     </div>
                 </motion.div>
+                </>
             )}
         </AnimatePresence>
     );

@@ -11,6 +11,7 @@ const initialState: MusicPlayerState = {
     sleepTimer: null,
     preferredQuality: '320kbps',
     isSettingsOpen: false,
+    isQueueOpen: false,
 };
 
 const musicPlayerSlice = createSlice({
@@ -107,6 +108,15 @@ const musicPlayerSlice = createSlice({
         },
         setSettingsOpen: (state, action: PayloadAction<boolean>) => {
             state.isSettingsOpen = action.payload;
+            if (action.payload) {
+                state.isQueueOpen = false;
+            }
+        },
+        setQueueOpen: (state, action: PayloadAction<boolean>) => {
+            state.isQueueOpen = action.payload;
+            if (action.payload) {
+                state.isSettingsOpen = false;
+            }
         },
     },
 });
@@ -125,6 +135,7 @@ export const {
     reorderQueue,
     setRecommendations,
     setSettingsOpen,
+    setQueueOpen,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
