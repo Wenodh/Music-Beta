@@ -24,6 +24,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
+    const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
 
     const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
@@ -34,9 +35,21 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     }, [rawSongs, dispatch]);
 
     const songs = [...rawSongs].sort((a: any, b: any) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-        if (sortBy === 'duration') return Number(b.duration) - Number(a.duration);
+        if (sortBy === 'name') {
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            return nameA.localeCompare(nameB);
+        }
+        if (sortBy === 'artist') {
+            const artistA = a.primaryArtists || '';
+            const artistB = b.primaryArtists || '';
+            return artistA.localeCompare(artistB);
+        }
+        if (sortBy === 'duration') {
+            const durA = Number(a.duration) || 0;
+            const durB = Number(b.duration) || 0;
+            return durB - durA;
+        }
         return 0;
     });
 
@@ -90,8 +103,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-sm sm:text-base line-clamp-2 px-4 lg:px-0">
+                    <h1 className="text-xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-xs sm:text-base line-clamp-2 px-4 lg:px-0">
                         {decodeHtmlEntities(Array.isArray((details as any)?.artists)
                             ? (details as any).artists.map((a: any) => a.name).join(', ')
                             : (details as any)?.primaryArtists ||
@@ -104,7 +117,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     )}
                 </div>
 
-                <div className="flex-1 w-full lg:pl-10 mt-6 lg:mt-0">
+                <div className="flex-1 w-full lg:pl-10 mt-4 lg:mt-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
                         <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
                             Songs
@@ -127,18 +140,55 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <IoFilterOutline />
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value as any)}
-                                    className="bg-transparent border-none focus:ring-0 cursor-pointer font-medium outline-none"
+                            <div className="flex items-center gap-2 text-sm relative">
+                                <button
+                                    onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                                    className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
                                 >
-                                    <option value="default">Default</option>
-                                    <option value="name">A-Z (Name)</option>
-                                    <option value="artist">A-Z (Artist)</option>
-                                    <option value="duration">Duration</option>
-                                </select>
+                                    <IoFilterOutline className={`group-hover:text-red-500 transition-colors ${sortBy !== 'default' ? 'text-red-500' : ''}`} />
+                                    <span className="font-bold text-[11px] uppercase tracking-wider">
+                                        {sortBy === 'default' ? 'Sort' : sortBy === 'name' ? 'Name' : sortBy === 'artist' ? 'Artist' : 'Duration'}
+                                    </span>
+                                    <div className={`transition-transform duration-200 ${isSortMenuOpen ? 'rotate-180' : ''}`}>
+                                        <div className="text-[8px]">▼</div>
+                                    </div>
+                                </button>
+
+                                <AnimatePresence>
+                                    {isSortMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setIsSortMenuOpen(false)} />
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50 py-1"
+                                            >
+                                                {[
+                                                    { id: 'default', label: 'Default' },
+                                                    { id: 'name', label: 'Name (A-Z)' },
+                                                    { id: 'artist', label: 'Artist (A-Z)' },
+                                                    { id: 'duration', label: 'Duration' }
+                                                ].map((option) => (
+                                                    <button
+                                                        key={option.id}
+                                                        onClick={() => {
+                                                            setSortBy(option.id as any);
+                                                            setIsSortMenuOpen(false);
+                                                        }}
+                                                        className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${
+                                                            sortBy === option.id
+                                                                ? 'text-red-500 bg-red-50 dark:bg-red-500/10'
+                                                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                        }`}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     </div>
@@ -177,27 +227,27 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                                 alt={song.name}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 sm:gap-2">
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => handleFavorite(e, song)}
-                                                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
                                                     title={favorites.some(s => s.id === song.id) ? "Remove from Favorites" : "Add to Favorites"}
                                                 >
-                                                    {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeartOutline />}
+                                                    {favorites.some(s => s.id === song.id) ? <IoHeart size={14} /> : <IoHeartOutline size={14} />}
                                                 </motion.button>
-                                                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
-                                                    <IoPlay />
+                                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
+                                                    <IoPlay size={16} />
                                                 </div>
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => handleAddToPlaylist(e, song)}
-                                                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
                                                     title="Add to Playlist"
                                                 >
-                                                    <IoAdd size={20} />
+                                                    <IoAdd size={16} />
                                                 </motion.button>
                                             </div>
                                         </div>

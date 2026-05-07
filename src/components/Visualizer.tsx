@@ -13,7 +13,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
     useEffect(() => {
-        if (!audioRef.current || analyserRef.current) return;
+        if (!audioRef.current) return;
 
         const initAudio = () => {
             if (analyserRef.current) return;
@@ -47,8 +47,19 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             }
         };
 
+        // Initialize immediately if it's already playing or when it starts playing
+        if (isPlaying) {
+            initAudio();
+            if (contextRef.current?.state === 'suspended') {
+                contextRef.current.resume();
+            }
+        }
+
         const handleFirstInteraction = () => {
             initAudio();
+            if (contextRef.current?.state === 'suspended') {
+                contextRef.current.resume();
+            }
             document.removeEventListener('click', handleFirstInteraction);
         };
 
@@ -57,7 +68,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
         return () => {
             document.removeEventListener('click', handleFirstInteraction);
         };
-    }, [audioRef]);
+    }, [audioRef, isPlaying]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -91,15 +102,15 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             let x = 0;
 
             for (let i = 0; i < bufferLength; i++) {
-                barHeight = (dataArray[i] / 255) * height * 0.8;
+                barHeight = (dataArray[i] / 255) * height * 0.9;
 
-                // Gradient color
-                const hue = (i / bufferLength) * 360;
-                ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.6)`;
+                // Smooth Red to Orange gradient (brand matched)
+                const hue = 10 + (i / bufferLength) * 40;
+                ctx.fillStyle = `hsla(${hue}, 90%, 55%, 0.7)`;
 
                 // Rounded bars
                 ctx.beginPath();
-                ctx.roundRect(x, height - barHeight, barWidth - 1, barHeight, [4, 4, 0, 0]);
+                ctx.roundRect(x, height - barHeight, barWidth - 1.5, barHeight, [6, 6, 0, 0]);
                 ctx.fill();
 
                 x += barWidth;
@@ -129,7 +140,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             ref={canvasRef}
             width={100}
             height={40}
-            className="w-full h-full opacity-30 pointer-events-none"
+            className="w-full h-full opacity-50 pointer-events-none"
         />
     );
 };
