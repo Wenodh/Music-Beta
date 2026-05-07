@@ -10,6 +10,7 @@ const initialState: MusicPlayerState = {
     recentlyPlayed: [],
     sleepTimer: null,
     preferredQuality: '320kbps',
+    isSettingsOpen: false,
 };
 
 const musicPlayerSlice = createSlice({
@@ -104,6 +105,9 @@ const musicPlayerSlice = createSlice({
                 }
             }
         },
+        setSettingsOpen: (state, action: PayloadAction<boolean>) => {
+            state.isSettingsOpen = action.payload;
+        },
     },
 });
 
@@ -120,6 +124,7 @@ export const {
     removeFromQueue,
     reorderQueue,
     setRecommendations,
+    setSettingsOpen,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;

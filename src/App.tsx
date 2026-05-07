@@ -10,6 +10,7 @@ import { Provider } from 'react-redux';
 import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SettingsDrawer from './components/SettingsDrawer';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -81,6 +82,7 @@ export default function App() {
                             <SearchSection />
                             <AnimatedRoutes />
                             <Player />
+                            <SettingsDrawer />
                         </BrowserRouter>
                         <SpeedInsights />
                     </PersistGate>

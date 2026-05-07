@@ -1,22 +1,17 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 
-interface SettingsDrawerProps {
-    isOpen: boolean;
-    onClose: () => void;
-}
-
-const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
+const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { preferredQuality } = useAppSelector((state) => state.musicPlayer);
+    const { preferredQuality, isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
 
     const languages = [
         { name: 'Telugu', value: 'telugu' },
@@ -30,28 +25,28 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
 
     return (
         <AnimatePresence>
-            {isOpen && (
+            {isSettingsOpen && (
                 <>
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
+                        onClick={() => dispatch(setSettingsOpen(false))}
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
                     />
                     <motion.div
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed right-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-900 shadow-2xl z-[70] overflow-y-auto"
+                        className="fixed right-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-900 shadow-2xl z-[110] overflow-y-auto"
                     >
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-8">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
                                     <IoSettingsOutline /> Settings
                                 </h2>
-                                <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                                <button onClick={() => dispatch(setSettingsOpen(false))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                                     <IoCloseOutline size={28} />
                                 </button>
                             </div>
@@ -109,7 +104,7 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
                                         <button
                                             onClick={() => {
                                                 navigate('/library');
-                                                onClose();
+                                                dispatch(setSettingsOpen(false));
                                             }}
                                             className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                         >

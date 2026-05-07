@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { createPlaylist, deletePlaylist } from '../features/library/librarySlice';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { IoAdd, IoHeart, IoTrash, IoMusicalNote } from 'react-icons/io5';
+import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Library: React.FC = () => {
@@ -12,6 +12,8 @@ const Library: React.FC = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [activeTab, setActiveTab] = useState<'favorites' | 'playlists'>('favorites');
     const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
 
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,47 +30,88 @@ const Library: React.FC = () => {
         <div className="p-4 lg:p-8 max-w-7xl mx-auto pb-32">
             <h1 className="text-3xl font-bold mb-8">My Library</h1>
 
-            <div className="flex gap-4 mb-8 border-b border-gray-100 dark:border-gray-800">
-                <button
-                    onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
-                    className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-red-500' : 'text-gray-500'}`}
-                >
-                    Favorites
-                    {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />}
-                </button>
-                <button
-                    onClick={() => setActiveTab('playlists')}
-                    className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-red-500' : 'text-gray-500'}`}
-                >
-                    Playlists
-                    {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />}
-                </button>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex gap-4">
+                    <button
+                        onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
+                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-red-500' : 'text-gray-500'}`}
+                    >
+                        Favorites
+                        {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('playlists')}
+                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-red-500' : 'text-gray-500'}`}
+                    >
+                        Playlists
+                        {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-4 pb-4 md:pb-0">
+                    <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                        >
+                            <IoGridOutline size={18} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                        >
+                            <IoListOutline size={18} />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <IoFilterOutline />
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="bg-transparent border-none focus:ring-0 cursor-pointer font-medium"
+                        >
+                            <option value="date">Recently Added</option>
+                            <option value="name">A-Z (Name)</option>
+                            <option value="artist">A-Z (Artist)</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             {activeTab === 'favorites' && !selectedPlaylist && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <div className={viewMode === 'grid'
+                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                    : "space-y-2"
+                }>
                     {favorites.length > 0 ? (
-                        favorites.map((song) => (
+                        [...favorites].sort((a, b) => {
+                            if (sortBy === 'name') return a.name.localeCompare(b.name);
+                            if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
+                            return 0; // Default is date, but favorites aren't timestamped, so we keep order
+                        }).map((song) => (
                             <motion.div
                                 key={song.id}
                                 layout
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="group cursor-pointer"
+                                className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
                                 onClick={() => dispatch(playMusic(song))}
                             >
-                                <div className="relative aspect-square mb-3">
+                                <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
                                     <img
                                         src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
                                         alt={song.name}
-                                        className="rounded-xl w-full h-full object-cover shadow-md group-hover:shadow-xl transition-all duration-300"
+                                        className="w-full h-full object-cover"
                                     />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
-                                        <IoHeart className="text-red-500 text-3xl" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <IoHeart className="text-red-500 text-xl" />
                                     </div>
                                 </div>
-                                <p className="font-semibold truncate text-sm">{song.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
+                                    <p className="font-semibold truncate text-sm">{song.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                </div>
                             </motion.div>
                         ))
                     ) : (
