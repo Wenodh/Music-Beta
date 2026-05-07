@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../../hooks/redux';
 import { addToPlaylist, createPlaylist } from '../../features/library/librarySlice';
+import { addToCloudPlaylist, createCloudPlaylist } from '../../features/library/libraryActions';
 import { Song } from '../../types/music';
 import { IoAdd, IoClose, IoMusicalNote } from 'react-icons/io5';
 
@@ -14,6 +15,7 @@ interface AddToPlaylistModalProps {
 
 const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, onSuccess, onError }) => {
     const { playlists } = useAppSelector((state) => state.library);
+    const { user } = useAppSelector((state) => state.auth);
     const dispatch = useAppDispatch();
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -27,6 +29,9 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
             return;
         }
         dispatch(addToPlaylist({ playlistId, song }));
+        if (user) {
+            dispatch(addToCloudPlaylist({ playlistId, song }));
+        }
         onSuccess(playlistName);
         onClose();
     };
@@ -34,7 +39,11 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            dispatch(createPlaylist({ name: newPlaylistName.trim(), song }));
+            if (user) {
+                dispatch(createCloudPlaylist({ name: newPlaylistName.trim(), song }));
+            } else {
+                dispatch(createPlaylist({ name: newPlaylistName.trim(), song }));
+            }
             setNewPlaylistName('');
             setIsCreating(false);
             onSuccess(newPlaylistName.trim());
@@ -82,7 +91,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
                                 <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400">
                                     {playlist.songs.length > 0 ? (
                                         <img
-                                            src={Array.isArray(playlist.songs[0].image) ? playlist.songs[0].image[0].url : playlist.songs[0].image}
+                                            src={typeof playlist.songs[0].image === 'string' ? playlist.songs[0].image : playlist.songs[0].image[0].url}
                                             className="w-full h-full object-cover rounded-lg"
                                             alt=""
                                         />

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
@@ -14,8 +14,12 @@ import SettingsDrawer from './components/SettingsDrawer';
 import Queue from './components/Queue';
 import ToastContainer from './components/toast/ToastContainer';
 import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
+import AuthModal from './components/auth/AuthModal';
 import { showToast, removeToast, closePlaylistModal } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
+import { supabase } from './lib/supabase';
+import { setSession } from './features/auth/authSlice';
+import { syncLibrary } from './features/library/libraryActions';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -79,6 +83,28 @@ const AnimatedRoutes = () => {
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal } = useAppSelector(state => state.ui);
+    const { user } = useAppSelector(state => state.auth);
+
+    useEffect(() => {
+        // Initialize Supabase session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          dispatch(setSession(session));
+        });
+
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+          dispatch(setSession(session));
+        });
+
+        return () => subscription.unsubscribe();
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (user) {
+            dispatch(syncLibrary());
+        }
+    }, [user, dispatch]);
 
     return (
         <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-32 md:pt-20">
@@ -89,6 +115,7 @@ export const AppContent = () => {
                 <Player />
                 <SettingsDrawer />
                 <Queue />
+                <AuthModal />
                 <ToastContainer
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}
