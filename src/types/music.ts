@@ -17,9 +17,13 @@ export interface Song {
 
 export interface MusicPlayerState {
     songs: Song[];
+    recommendations: Song[];
     isPlaying: boolean;
     currentSong: Song | null;
-    searchedSongs: Song[];
+    searchedSongs: any;
     recentlyPlayed: Song[];
     sleepTimer: number | null;
+    preferredQuality: '12kbps' | '48kbps' | '96kbps' | '160kbps' | '320kbps';
+    isSettingsOpen: boolean;
+    isQueueOpen: boolean;
 }

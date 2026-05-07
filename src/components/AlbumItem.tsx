@@ -19,12 +19,12 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
     const navigate = useNavigate();
 
     const handleClick = () => {
-        if (type === 'song' && data) {
+        if ((type === 'song' || data?.type === 'song') && data) {
             dispatch(playMusic(data));
             return;
         }
 
-        if (type === 'playlist') {
+        if (type === 'playlist' || data?.type === 'playlist') {
             navigate(`/playlists/${id}`);
         } else if (type === 'artist') {
             navigate(`/artists/${id}`);
@@ -39,9 +39,9 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={handleClick}
-            className="flex flex-col items-start gap-3 p-3 rounded-2xl bg-white/5 dark:bg-gray-800/5 hover:bg-white/10 dark:hover:bg-gray-800/10 border border-transparent hover:border-white/20 dark:hover:border-gray-700/20 cursor-pointer transition-all w-44 shrink-0 group shadow-sm hover:shadow-xl"
+            className="flex flex-col items-start gap-2.5 p-2.5 rounded-2xl bg-white/5 dark:bg-gray-800/5 hover:bg-white/10 dark:hover:bg-gray-800/10 border border-transparent hover:border-white/20 dark:hover:border-gray-700/20 cursor-pointer transition-all w-36 shrink-0 group shadow-sm hover:shadow-xl"
         >
-            <div className={`relative w-40 h-40 overflow-hidden shadow-inner ${type === 'artist' ? 'rounded-full' : 'rounded-xl'}`}>
+            <div className={`relative w-32 h-32 overflow-hidden shadow-inner ${type === 'artist' ? 'rounded-full' : 'rounded-xl'}`}>
                 <img
                     src={image}
                     alt={name}

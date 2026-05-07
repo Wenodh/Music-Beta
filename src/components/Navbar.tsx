@@ -1,28 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setLanguage } from '../features/language/languageSlice';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline } from 'react-icons/io5';
+import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
-import ThemeToggle from './ThemeToggle';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { search as searchUrl } from '../constants';
 import _ from 'lodash';
+
+import { setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const { language } = useAppSelector((state) => state.language);
+    const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const [isVisible, setIsVisible] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-    const languages = [
-        { name: 'Telugu', value: 'telugu' },
-        { name: 'Hindi', value: 'hindi' },
-        { name: 'English', value: 'english' },
-        { name: 'Tamil', value: 'tamil' },
-        { name: 'Punjabi', value: 'punjabi' },
-    ];
+    useEffect(() => {
+        const handleScroll = () => {
+            if (isSearchFocused) return;
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > 10) {
+                if (currentScrollY > lastScrollY) {
+                    setIsVisible(false);
+                } else {
+                    setIsVisible(true);
+                }
+            } else {
+                setIsVisible(true);
+            }
+            setLastScrollY(currentScrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY, isSearchFocused]);
 
     const fetchSearchResults = async (query: string) => {
         if (!query.trim()) {
@@ -31,9 +46,8 @@ const Navbar: React.FC = () => {
         }
         try {
             const res = await axios.get(`${searchUrl}${query}`);
-            // The global search API might return data in a different structure
-            const songs = res.data.data.songs.results;
-            dispatch(setSearchedSongs(songs));
+            // Global search returns topQuery, songs, albums, artists, playlists
+            dispatch(setSearchedSongs(res.data.data));
         } catch (error) {
             console.error('Error fetching search results:', error);
         }
@@ -56,60 +70,56 @@ const Navbar: React.FC = () => {
 
     return (
         <motion.nav
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="sticky top-0 z-50 flex flex-col items-center p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/20 dark:border-gray-800/20 shadow-sm gap-4 md:flex-row md:justify-between"
+            animate={{ y: isVisible || isSearchFocused ? 0 : -200 }}
+            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-3 md:p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-2 md:gap-4 md:flex-row md:justify-between transition-all"
         >
-            <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div
-                    className="text-2xl font-bold cursor-pointer text-primary-light dark:text-primary-dark tracking-tight"
+                    className="flex flex-col items-center md:items-start cursor-pointer"
                     onClick={() => navigate('/')}
                 >
-                    Vibe<span className="font-light italic">Cloud</span>
+                    <div className="text-lg md:text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight leading-none">
+                        Vibe<span className="font-light italic text-red-500">On</span>
+                    </div>
+                    <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">
+                        by <span className="text-red-400/80">WENODH</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 md:hidden">
-                    <select
-                        value={language}
-                        onChange={(e) => dispatch(setLanguage(e.target.value))}
-                        className="p-1.5 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:outline-none cursor-pointer text-xs font-medium transition-all"
+                <div className="absolute right-0 md:hidden">
+                    <button
+                        onClick={() => dispatch(setSettingsOpen(true))}
+                        className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
                     >
-                        {languages.map((lang) => (
-                            <option key={lang.value} value={lang.value}>
-                                {lang.name}
-                            </option>
-                        ))}
-                    </select>
-                    <ThemeToggle />
+                        <IoPersonCircleOutline size={30} />
+                    </button>
                 </div>
             </div>
 
             <form
                 onSubmit={handleSearchSubmit}
-                className="relative flex items-center w-full md:w-1/3"
+                className="relative flex items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0"
             >
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={handleSearchChange}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
                     placeholder="Search for songs..."
-                    className="w-full p-2 pl-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:border-red-400/50 focus:outline-none transition-all"
+                    className="w-full p-2 pl-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:border-red-400/50 focus:ring-2 focus:ring-red-400/20 focus:outline-none transition-all"
                 />
                 <IoSearchOutline className="absolute left-3 text-gray-500" />
             </form>
 
-            <div className="hidden md:flex items-center gap-4">
-                <select
-                    value={language}
-                    onChange={(e) => dispatch(setLanguage(e.target.value))}
-                    className="p-2 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:outline-none cursor-pointer text-sm font-medium transition-all"
+            <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
+                <button
+                    onClick={() => dispatch(setSettingsOpen(true))}
+                    className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2"
                 >
-                    {languages.map((lang) => (
-                        <option key={lang.value} value={lang.value}>
-                            {lang.name}
-                        </option>
-                    ))}
-                </select>
-                <ThemeToggle />
+                    <IoPersonCircleOutline size={28} />
+                    <span className="text-sm font-semibold">Account</span>
+                </button>
             </div>
         </motion.nav>
     );

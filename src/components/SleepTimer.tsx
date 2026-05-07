@@ -10,6 +10,7 @@ const SleepTimer: React.FC = () => {
 
     const options = [
         { label: 'Off', value: null },
+        { label: '1 min', value: 1 },
         { label: '5 min', value: 5 },
         { label: '15 min', value: 15 },
         { label: '30 min', value: 30 },

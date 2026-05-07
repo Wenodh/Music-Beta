@@ -3,11 +3,15 @@ import { Song, MusicPlayerState } from '../../types/music';
 
 const initialState: MusicPlayerState = {
     songs: [],
+    recommendations: [],
     isPlaying: false,
     currentSong: null,
     searchedSongs: [],
     recentlyPlayed: [],
     sleepTimer: null,
+    preferredQuality: '320kbps',
+    isSettingsOpen: false,
+    isQueueOpen: false,
 };
 
 const musicPlayerSlice = createSlice({
@@ -17,7 +21,7 @@ const musicPlayerSlice = createSlice({
         setSongs: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload.slice(0, 100);
         },
-        setSearchedSongs: (state, action: PayloadAction<Song[]>) => {
+        setSearchedSongs: (state, action: PayloadAction<any>) => {
             state.searchedSongs = action.payload;
         },
         playMusic: (state, action: PayloadAction<any>) => {
@@ -29,11 +33,18 @@ const musicPlayerSlice = createSlice({
                 state.isPlaying = !state.isPlaying;
             } else {
                 // If a new song is played
+                const downloadUrl = song.downloadUrl || song.music;
+                let musicUrl = downloadUrl;
+                if (Array.isArray(downloadUrl)) {
+                    musicUrl = downloadUrl.find((d: any) => d.quality === state.preferredQuality)?.url ||
+                               downloadUrl[downloadUrl.length - 1]?.url;
+                }
+
                 state.currentSong = {
                     ...song,
                     image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
-                    downloadUrl: song.downloadUrl || song.music,
-                    music: song.music || song.downloadUrl,
+                    downloadUrl: downloadUrl,
+                    music: musicUrl,
                 } as Song;
                 state.isPlaying = true;
 
@@ -59,11 +70,52 @@ const musicPlayerSlice = createSlice({
             state.sleepTimer = action.payload;
         },
         decrementSleepTimer: (state) => {
-            if (state.sleepTimer && state.sleepTimer > 0) {
-                state.sleepTimer -= 1;
-            } else if (state.sleepTimer === 0) {
-                state.sleepTimer = null;
-                state.isPlaying = false;
+            if (state.sleepTimer !== null) {
+                if (state.sleepTimer > 1) {
+                    state.sleepTimer -= 1;
+                } else {
+                    state.sleepTimer = null;
+                    state.isPlaying = false;
+                }
+            }
+        },
+        addToQueue: (state, action: PayloadAction<Song>) => {
+            if (!state.songs.find(s => s.id === action.payload.id)) {
+                state.songs.push(action.payload);
+            }
+        },
+        removeFromQueue: (state, action: PayloadAction<string>) => {
+            state.songs = state.songs.filter(s => s.id !== action.payload);
+        },
+        reorderQueue: (state, action: PayloadAction<Song[]>) => {
+            state.songs = action.payload;
+        },
+        setRecommendations: (state, action: PayloadAction<Song[]>) => {
+            state.recommendations = action.payload;
+        },
+        setPreferredQuality: (state, action: PayloadAction<MusicPlayerState['preferredQuality']>) => {
+            state.preferredQuality = action.payload;
+            if (state.currentSong) {
+                // We don't change the actual playing source here to avoid interruption
+                // but we update the currentSong object so it's ready for the next play or manual reload
+                const downloadUrl = state.currentSong.downloadUrl;
+                if (Array.isArray(downloadUrl)) {
+                    const newMusic = downloadUrl.find((d: any) => d.quality === action.payload)?.url ||
+                                     downloadUrl[downloadUrl.length - 1]?.url;
+                    state.currentSong.music = newMusic;
+                }
+            }
+        },
+        setSettingsOpen: (state, action: PayloadAction<boolean>) => {
+            state.isSettingsOpen = action.payload;
+            if (action.payload) {
+                state.isQueueOpen = false;
+            }
+        },
+        setQueueOpen: (state, action: PayloadAction<boolean>) => {
+            state.isQueueOpen = action.payload;
+            if (action.payload) {
+                state.isSettingsOpen = false;
             }
         },
     },
@@ -77,6 +129,13 @@ export const {
     setCurrentSong,
     setSleepTimer,
     decrementSleepTimer,
+    setPreferredQuality,
+    addToQueue,
+    removeFromQueue,
+    reorderQueue,
+    setRecommendations,
+    setSettingsOpen,
+    setQueueOpen,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;

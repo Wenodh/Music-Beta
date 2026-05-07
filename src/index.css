@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --primary-dynamic: #ef4444;
+    --primary-dynamic-rgb: 239, 68, 68;
+  }
   body {
     @apply transition-colors duration-300 bg-gray-50 dark:bg-gray-950;
   }

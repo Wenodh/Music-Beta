@@ -10,10 +10,13 @@ import { Provider } from 'react-redux';
 import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SettingsDrawer from './components/SettingsDrawer';
+import Queue from './components/Queue';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
+const Library = lazy(() => import('./pages/Library'));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -41,6 +44,14 @@ const AnimatedRoutes = () => {
                     }
                 />
                 <Route
+                    path="/library"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Library...</div>}>
+                            <PageWrapper><Library /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
                     path="/artists/:id"
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Artist...</div>}>
@@ -63,7 +74,7 @@ const AnimatedRoutes = () => {
 
 export default function App() {
     return (
-        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white">
+        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-32 md:pt-20">
             <ErrorBoundary>
                 <Provider store={store}>
                     <PersistGate loading={null} persistor={persistor}>
@@ -72,6 +83,8 @@ export default function App() {
                             <SearchSection />
                             <AnimatedRoutes />
                             <Player />
+                            <SettingsDrawer />
+                            <Queue />
                         </BrowserRouter>
                         <SpeedInsights />
                     </PersistGate>

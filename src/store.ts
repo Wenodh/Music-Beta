@@ -3,19 +3,20 @@ import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // Use local storage for persistence
 import { combineReducers } from '@reduxjs/toolkit';
 import musicPlayerReducer from './features/musicplayer/musicPlayerSlice';
-import recentlyPlayedReducer from './features/recentlyPlayed/recentlyPlayedSlice';
 import languageReducer from './features/language/languageSlice';
+import libraryReducer from './features/library/librarySlice';
 
 // Combine reducers
 const rootReducer = combineReducers({
     musicPlayer: musicPlayerReducer,
-    recentlyPlayed: recentlyPlayedReducer,
     language: languageReducer,
+    library: libraryReducer,
 });
 
 const persistConfig = {
     key: 'root',
     storage,
+    whitelist: ['musicPlayer', 'language', 'library'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

@@ -100,10 +100,10 @@ const SongsList: React.FC<SongsListProps> = ({
                     </div>
                 </div>
                 <div>
-                    <p className="font-semibold text-sm truncate max-w-[180px] md:max-w-md">
+                    <p className="font-semibold text-xs sm:text-sm truncate max-w-[180px] md:max-w-md">
                         {name}
                     </p>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[180px] md:max-w-md">
+                    <p className="text-[9px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[180px] md:max-w-md">
                         {parsedArtists}
                     </p>
                 </div>
