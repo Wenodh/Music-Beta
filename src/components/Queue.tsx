@@ -1,10 +1,60 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { reorderQueue, removeFromQueue, playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { motion, Reorder, AnimatePresence } from 'framer-motion';
+import { motion, Reorder, AnimatePresence, useDragControls } from 'framer-motion';
 import { IoClose, IoReorderThreeOutline } from 'react-icons/io5';
+import { Song } from '../types/music';
 
 import { setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
+
+interface QueueItemProps {
+    song: Song;
+    isActive: boolean;
+    onPlay: (song: Song) => void;
+    onRemove: (id: string) => void;
+}
+
+const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove }) => {
+    const dragControls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={song}
+            dragListener={false}
+            dragControls={dragControls}
+            className={`flex items-center gap-3 p-2 rounded-lg group mb-1 ${
+                isActive ? 'bg-red-50 dark:bg-red-900/10 text-red-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+            }`}
+        >
+            <div
+                onPointerDown={(e) => dragControls.start(e)}
+                className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors shrink-0"
+            >
+                <IoReorderThreeOutline className="text-gray-400" />
+            </div>
+            <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" onClick={() => onPlay(song)}>
+                <img
+                    src={Array.isArray(song.image) ? song.image[0]?.url : song.image}
+                    alt=""
+                    className="w-10 h-10 rounded object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{song.name}</p>
+                    <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
+                </div>
+            </div>
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(song.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-opacity"
+            >
+                <IoClose size={16} />
+            </button>
+        </Reorder.Item>
+    );
+};
 
 const Queue: React.FC = () => {
     const { songs, currentSong, recommendations, isQueueOpen } = useAppSelector((state) => state.musicPlayer);
@@ -38,34 +88,13 @@ const Queue: React.FC = () => {
                     <div className="flex-1 overflow-y-auto p-2">
                         <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))}>
                             {songs.map((song) => (
-                                <Reorder.Item
+                                <QueueItem
                                     key={song.id}
-                                    value={song}
-                                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer group mb-1 ${
-                                        currentSong?.id === song.id ? 'bg-red-50 dark:bg-red-900/10 text-red-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                                    }`}
-                                    onClick={() => dispatch(playMusic(song))}
-                                >
-                                    <IoReorderThreeOutline className="text-gray-400 shrink-0" />
-                                    <img
-                                        src={Array.isArray(song.image) ? song.image[0]?.url : song.image}
-                                        alt=""
-                                        className="w-10 h-10 rounded object-cover"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold truncate">{song.name}</p>
-                                        <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
-                                    </div>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            dispatch(removeFromQueue(song.id));
-                                        }}
-                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-opacity"
-                                    >
-                                        <IoClose size={16} />
-                                    </button>
-                                </Reorder.Item>
+                                    song={song}
+                                    isActive={currentSong?.id === song.id}
+                                    onPlay={(s) => dispatch(playMusic(s))}
+                                    onRemove={(id) => dispatch(removeFromQueue(id))}
+                                />
                             ))}
                         </Reorder.Group>
 

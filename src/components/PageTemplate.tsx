@@ -71,8 +71,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-3xl font-black mt-6 text-center lg:text-left leading-tight">{details?.name}</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2 text-center lg:text-left font-medium">
+                    <h1 className="text-2xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight">{details?.name}</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-sm sm:text-base">
                         {Array.isArray((details as any)?.artists)
                             ? (details as any).artists.map((a: any) => a.name).join(', ')
                             : (details as any)?.primaryArtists ||
@@ -81,13 +81,13 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                 : (details as any)?.artists)}
                     </p>
                     {(details as any)?.songCount && (
-                        <p className="text-sm text-gray-400 mt-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{(details as any).songCount} Songs</p>
+                        <p className="text-xs sm:text-sm text-gray-400 mt-1 sm:mt-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{(details as any).songCount} Songs</p>
                     )}
                 </div>
 
-                <div className="flex-1 w-full lg:pl-10 mt-10 lg:mt-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
-                        <h2 className="text-2xl font-black flex items-center gap-2">
+                <div className="flex-1 w-full lg:pl-10 mt-6 lg:mt-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
+                        <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
                             Songs
                             <span className="text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{songs.length}</span>
                         </h2>
