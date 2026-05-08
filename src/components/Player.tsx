@@ -529,6 +529,8 @@ const Player = () => {
                         isOpen={isLyricsOpen}
                         onClose={() => setIsLyricsOpen(false)}
                         songId={currentSong?.id || ''}
+                        songName={currentSong?.name || ''}
+                        artistName={currentSong?.primaryArtists || ''}
                     />
                 </motion.div>
             )}

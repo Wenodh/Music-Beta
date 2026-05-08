@@ -5,7 +5,7 @@ import FlexLayout from './FlexLayout';
 import SongsList from './SongsList';
 import Slider from './Slider';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { setSongs, playMusic, addRecentlyPlayedAlbum } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
@@ -32,7 +32,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         if (rawSongs.length > 0) {
             dispatch(setSongs(rawSongs));
         }
-    }, [rawSongs, dispatch]);
+        if (details && (details as any).type === 'album') {
+            dispatch(addRecentlyPlayedAlbum(details));
+        }
+    }, [rawSongs, details, dispatch]);
 
     const songs = [...rawSongs].sort((a: any, b: any) => {
         if (sortBy === 'name') {

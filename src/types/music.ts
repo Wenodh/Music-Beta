@@ -22,6 +22,7 @@ export interface MusicPlayerState {
     currentSong: Song | null;
     searchedSongs: any;
     recentlyPlayed: Song[];
+    recentlyPlayedAlbums: any[];
     sleepTimer: number | null;
     preferredQuality: '12kbps' | '48kbps' | '96kbps' | '160kbps' | '320kbps';
     isSettingsOpen: boolean;
