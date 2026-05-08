@@ -19,6 +19,7 @@ import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setPreferredQuality } from '../features/musicplayer/musicPlayerSlice';
 import { HiQueueList } from 'react-icons/hi2';
+import { MdOutlineGraphicEq } from 'react-icons/md';
 import Queue from './Queue';
 import { MdOutlineLyrics } from 'react-icons/md';
 import Lyrics from './Lyrics';
@@ -28,7 +29,7 @@ import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
-import { openPlaylistModal } from '../features/ui/uiSlice';
+import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 
 const Player = () => {
     const navigate = useNavigate();
@@ -456,6 +457,16 @@ const Player = () => {
                                                 title="Add to Playlist"
                                             >
                                                 <IoAddCircleOutline size={20} /> Add to Playlist
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    dispatch(setEqualizerOpen(true));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <MdOutlineGraphicEq size={20} /> Equalizer
                                             </button>
 
                                             <button

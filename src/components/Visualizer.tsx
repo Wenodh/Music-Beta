@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { useAppSelector } from '../hooks/redux';
+import { FREQUENCIES } from '../constants/equalizer';
 
 interface VisualizerProps {
     audioRef: React.RefObject<HTMLAudioElement>;
@@ -11,6 +13,8 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
     const analyserRef = useRef<AnalyserNode | null>(null);
     const contextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+    const filtersRef = useRef<BiquadFilterNode[]>([]);
+    const { equalizerSettings } = useAppSelector(state => state.musicPlayer);
 
     useEffect(() => {
         if (!audioRef.current) return;
@@ -33,8 +37,27 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
                     audioEl._visualizerSource = source;
                 }
 
+                // Create filters
+                const filters = FREQUENCIES.map((freq, i) => {
+                    const filter = context.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.value = freq;
+                    filter.Q.value = 1;
+                    filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
+                    return filter;
+                });
+                filtersRef.current = filters;
+
                 const analyser = context.createAnalyser();
-                source.connect(analyser);
+
+                // Connect source -> filter1 -> filter2 -> ... -> filter10 -> analyser -> destination
+                let lastNode: AudioNode = source;
+                filters.forEach(filter => {
+                    lastNode.connect(filter);
+                    lastNode = filter;
+                });
+
+                lastNode.connect(analyser);
                 analyser.connect(context.destination);
 
                 analyser.fftSize = 512;
@@ -69,6 +92,14 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             document.removeEventListener('click', handleFirstInteraction);
         };
     }, [audioRef, isPlaying]);
+
+    useEffect(() => {
+        if (filtersRef.current.length > 0) {
+            filtersRef.current.forEach((filter, i) => {
+                filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
+            });
+        }
+    }, [equalizerSettings]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

@@ -12,6 +12,11 @@ const initialState: MusicPlayerState = {
     preferredQuality: '320kbps',
     isSettingsOpen: false,
     isQueueOpen: false,
+    equalizerSettings: {
+        enabled: false,
+        bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        preset: 'Normal',
+    },
 };
 
 const musicPlayerSlice = createSlice({
@@ -118,6 +123,17 @@ const musicPlayerSlice = createSlice({
                 state.isSettingsOpen = false;
             }
         },
+        setEqualizerEnabled: (state, action: PayloadAction<boolean>) => {
+            state.equalizerSettings.enabled = action.payload;
+        },
+        setEqualizerBand: (state, action: PayloadAction<{ index: number; value: number }>) => {
+            state.equalizerSettings.bands[action.payload.index] = action.payload.value;
+            state.equalizerSettings.preset = 'Custom';
+        },
+        setEqualizerPreset: (state, action: PayloadAction<{ name: string; bands: number[] }>) => {
+            state.equalizerSettings.preset = action.payload.name;
+            state.equalizerSettings.bands = [...action.payload.bands];
+        },
     },
 });
 
@@ -136,6 +152,9 @@ export const {
     setRecommendations,
     setSettingsOpen,
     setQueueOpen,
+    setEqualizerEnabled,
+    setEqualizerBand,
+    setEqualizerPreset,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
