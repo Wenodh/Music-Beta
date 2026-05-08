@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen, setEqualizerOpen } from '../features/musicplayer/musicPlayerSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline } from 'react-icons/io5';
@@ -127,13 +127,16 @@ const SettingsDrawer: React.FC = () => {
                                             </div>
                                             <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 rounded-full" />
                                         </div>
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl opacity-60">
+                                        <button
+                                            onClick={() => dispatch(setEqualizerOpen(true))}
+                                            className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                        >
                                             <div>
                                                 <p className="text-sm font-medium">Equalizer</p>
-                                                <p className="text-[10px] text-gray-500">Coming soon</p>
+                                                <p className="text-[10px] text-red-500 font-bold uppercase">Open Panel</p>
                                             </div>
-                                            <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 rounded-full" />
-                                        </div>
+                                            <IoMusicalNotesOutline className="text-red-500" size={20} />
+                                        </button>
                                     </div>
                                 </section>
                             </div>

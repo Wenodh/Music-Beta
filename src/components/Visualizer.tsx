@@ -11,6 +11,8 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
     const analyserRef = useRef<AnalyserNode | null>(null);
     const contextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+    const filtersRef = useRef<BiquadFilterNode[]>([]);
+    const { equalizerSettings } = useAppSelector((state) => state.musicPlayer);
 
     useEffect(() => {
         if (!audioRef.current) return;
@@ -34,9 +36,28 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
                 }
 
                 const analyser = context.createAnalyser();
-                source.connect(analyser);
+
+                // Create 10 band equalizer
+                const frequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+                const filters = frequencies.map((freq) => {
+                    const filter = context.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.value = freq;
+                    filter.Q.value = 1.4; // Standard Q for 10-band EQ
+                    filter.gain.value = 0;
+                    return filter;
+                });
+
+                // Connect chain: source -> filters[0...9] -> analyser -> destination
+                let lastNode: AudioNode = source;
+                filters.forEach(filter => {
+                    lastNode.connect(filter);
+                    lastNode = filter;
+                });
+                lastNode.connect(analyser);
                 analyser.connect(context.destination);
 
+                filtersRef.current = filters;
                 analyser.fftSize = 512;
                 analyser.smoothingTimeConstant = 0.8;
                 contextRef.current = context;
@@ -69,6 +90,15 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             document.removeEventListener('click', handleFirstInteraction);
         };
     }, [audioRef, isPlaying]);
+
+    useEffect(() => {
+        if (filtersRef.current.length > 0) {
+            filtersRef.current.forEach((filter, i) => {
+                const gain = equalizerSettings.enabled ? equalizerSettings.gains[i] : 0;
+                filter.gain.setTargetAtTime(gain, contextRef.current!.currentTime, 0.1);
+            });
+        }
+    }, [equalizerSettings]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

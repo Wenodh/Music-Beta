@@ -12,6 +12,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SettingsDrawer from './components/SettingsDrawer';
 import Queue from './components/Queue';
+import Equalizer from './components/Equalizer';
 import ToastContainer from './components/toast/ToastContainer';
 import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
 import { showToast, removeToast, closePlaylistModal } from './features/ui/uiSlice';
@@ -89,6 +90,7 @@ export const AppContent = () => {
                 <Player />
                 <SettingsDrawer />
                 <Queue />
+                <Equalizer />
                 <ToastContainer
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}

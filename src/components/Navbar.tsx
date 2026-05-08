@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
+import { IoSearchOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
