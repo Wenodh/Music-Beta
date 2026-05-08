@@ -8,10 +8,11 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoShareSocialOutline } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { shareContent, getAlbumUrl, getPlaylistUrl, getArtistUrl } from '../utils/share';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -60,6 +61,31 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         dispatch(openPlaylistModal(song));
     };
 
+    const handleSharePage = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!details) return;
+
+        let shareUrl = '';
+        const id = (details as any).id;
+        const currentPath = window.location.pathname;
+
+        if (currentPath.includes('/albums/')) shareUrl = getAlbumUrl(id);
+        else if (currentPath.includes('/playlists/')) shareUrl = getPlaylistUrl(id);
+        else if (currentPath.includes('/artists/')) shareUrl = getArtistUrl(id);
+
+        if (!shareUrl) return;
+
+        const result = await shareContent(
+            decodeHtmlEntities(details.name),
+            `Check out ${decodeHtmlEntities(details.name)} on VibeOn!`,
+            shareUrl
+        );
+
+        if (result.success && result.method === 'clipboard') {
+            dispatch(showToast({ message: 'Link copied to clipboard!' }));
+        }
+    };
+
     if (loading) return (
         <div className="flex justify-center items-center h-[60vh]">
             <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
@@ -90,7 +116,18 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
+                    <div className="flex items-center gap-3 mt-4 sm:mt-6">
+                        <h1 className="text-2xl sm:text-3xl font-black text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={handleSharePage}
+                            className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-400 hover:text-red-500 transition-colors"
+                            title="Share"
+                        >
+                            <IoShareSocialOutline size={20} />
+                        </motion.button>
+                    </div>
                     <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-sm sm:text-base line-clamp-2 px-4 lg:px-0">
                         {decodeHtmlEntities(Array.isArray((details as any)?.artists)
                             ? (details as any).artists.map((a: any) => a.name).join(', ')

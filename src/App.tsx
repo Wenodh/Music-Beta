@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
@@ -14,17 +14,20 @@ import SettingsDrawer from './components/SettingsDrawer';
 import Queue from './components/Queue';
 import ToastContainer from './components/toast/ToastContainer';
 import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
+import KeyboardShortcuts from './components/modals/KeyboardShortcuts';
 import AuthModal from './components/auth/AuthModal';
 import { showToast, removeToast, closePlaylistModal } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { supabase } from './lib/supabase';
 import { setSession } from './features/auth/authSlice';
 import { syncLibrary } from './features/library/libraryActions';
+import { setSettingsOpen } from './features/musicplayer/musicPlayerSlice';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
 const Library = lazy(() => import('./pages/Library'));
+const SongPage = lazy(() => import('./pages/SongPage'));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -75,6 +78,14 @@ const AnimatedRoutes = () => {
                         </Suspense>
                     }
                 />
+                <Route
+                    path="/song/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Song...</div>}>
+                            <PageWrapper><SongPage /></PageWrapper>
+                        </Suspense>
+                    }
+                />
             </Routes>
         </AnimatePresence>
     );
@@ -84,6 +95,24 @@ export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal } = useAppSelector(state => state.ui);
     const { user } = useAppSelector(state => state.auth);
+    const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+            if (e.key === '?' || (e.code === 'Slash' && e.shiftKey)) {
+                setShortcutsOpen((prev: boolean) => !prev);
+            } else if (e.key === 'Escape') {
+                setShortcutsOpen(false);
+                dispatch(setSettingsOpen(false));
+                dispatch(closePlaylistModal());
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     useEffect(() => {
         // Initialize Supabase session
@@ -125,6 +154,10 @@ export const AppContent = () => {
                     onClose={() => dispatch(closePlaylistModal())}
                     onSuccess={(name) => dispatch(showToast({ message: `Added to ${name}` }))}
                     onError={(msg) => dispatch(showToast({ message: msg, type: 'error' }))}
+                />
+                <KeyboardShortcuts
+                    isOpen={shortcutsOpen}
+                    onClose={() => setShortcutsOpen(false)}
                 />
             </BrowserRouter>
         </div>

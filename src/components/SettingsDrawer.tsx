@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen, setAutoPlay } from '../features/musicplayer/musicPlayerSlice';
 import { logout as logoutAction } from '../features/auth/authSlice';
 import { clearLibrary } from '../features/library/librarySlice';
 import ThemeToggle from './ThemeToggle';
@@ -14,7 +14,7 @@ const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { preferredQuality, isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { preferredQuality, isSettingsOpen, autoPlay } = useAppSelector((state) => state.musicPlayer);
     const { user } = useAppSelector((state) => state.auth);
 
     const languages = [
@@ -128,6 +128,21 @@ const SettingsDrawer: React.FC = () => {
                                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
                                             <span className="text-sm font-medium">Dark Mode</span>
                                             <ThemeToggle />
+                                        </div>
+                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                            <div>
+                                                <span className="text-sm font-medium block">Autoplay</span>
+                                                <span className="text-[10px] text-gray-500">Keep the music going</span>
+                                            </div>
+                                            <button
+                                                onClick={() => dispatch(setAutoPlay(!autoPlay))}
+                                                className={`w-12 h-6 rounded-full transition-colors relative ${autoPlay ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                            >
+                                                <motion.div
+                                                    animate={{ x: autoPlay ? 26 : 2 }}
+                                                    className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm"
+                                                />
+                                            </button>
                                         </div>
                                         <button
                                             onClick={() => {

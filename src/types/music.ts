@@ -26,4 +26,5 @@ export interface MusicPlayerState {
     preferredQuality: '12kbps' | '48kbps' | '96kbps' | '160kbps' | '320kbps';
     isSettingsOpen: boolean;
     isQueueOpen: boolean;
+    autoPlay: boolean;
 }

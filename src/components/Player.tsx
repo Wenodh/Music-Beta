@@ -27,17 +27,21 @@ import { toggleCloudFavorite, addToCloudPlaylist } from '../features/library/lib
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
+import { shareContent, getSongUrl } from '../utils/share';
+import { showToast } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
 
 const Player = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [prevVolume, setPrevVolume] = useState(0.5);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isLyricsOpen, setIsLyricsOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-    const { currentSong, isPlaying, songs, sleepTimer, isQueueOpen } = useAppSelector(
+    const { currentSong, isPlaying, songs, sleepTimer, isQueueOpen, recommendations, autoPlay } = useAppSelector(
         (state) => state.musicPlayer
     );
     const { favorites, playlists } = useAppSelector((state) => state.library);
@@ -56,24 +60,36 @@ const Player = () => {
     }, []);
 
     const nextSong = useCallback(() => {
-        if (currentSong && songs.length > 0) {
+        if (currentSong && (songs.length > 0 || (autoPlay && recommendations.length > 0))) {
             const index = songs.findIndex((song) => song.id === currentSong.id);
-            const nextIndex = (index + 1) % songs.length;
+
+            if (index === songs.length - 1 && autoPlay && recommendations.length > 0) {
+                // Play from recommendations if at end of queue
+                // Pick a random song from the top 5 recommendations for variety
+                const topRecs = recommendations.slice(0, 5);
+                const next = topRecs[Math.floor(Math.random() * topRecs.length)];
+                dispatch(playMusic(next));
+                return;
+            }
+
+            const nextIndex = (index + 1) % (songs.length || 1);
             const next = songs[nextIndex];
 
-            dispatch(
-                playMusic({
-                    music: next.downloadUrl,
-                    name: next.name,
-                    duration: next.duration,
-                    image: next.image,
-                    id: next.id,
-                    primaryArtists: next.primaryArtists,
-                    albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
-                })
-            );
+            if (next) {
+                dispatch(
+                    playMusic({
+                        music: next.downloadUrl,
+                        name: next.name,
+                        duration: next.duration,
+                        image: next.image,
+                        id: next.id,
+                        primaryArtists: next.primaryArtists,
+                        albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
+                    })
+                );
+            }
         }
-    }, [currentSong, songs, dispatch]);
+    }, [currentSong, songs, recommendations, autoPlay, dispatch]);
 
     const prevSong = useCallback(() => {
         if (currentSong && songs.length > 0) {
@@ -110,7 +126,7 @@ const Player = () => {
                     if (e.ctrlKey || e.metaKey) prevSong();
                     break;
                 case 'KeyM':
-                    // Volume toggle could be here
+                    handleToggleMute();
                     break;
             }
         };
@@ -240,21 +256,30 @@ const Player = () => {
         dispatch(playMusic(currentSong));
     };
 
-    const handleShare = async () => {
-        const songUrl = window.location.origin + `/albums/${currentSong?.albumId}`;
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: currentSong?.name,
-                    text: `Check out ${currentSong?.name} by ${currentSong?.primaryArtists} on VibeOn!`,
-                    url: songUrl,
-                });
-            } catch (error) {
-                console.log('Error sharing', error);
+    const handleToggleMute = () => {
+        if (audioRef.current) {
+            if (isMuted) {
+                audioRef.current.volume = prevVolume;
+                setIsMuted(false);
+            } else {
+                setPrevVolume(audioRef.current.volume);
+                audioRef.current.volume = 0;
+                setIsMuted(true);
             }
-        } else {
-            navigator.clipboard.writeText(songUrl);
-            alert('Link copied to clipboard!');
+        }
+    };
+
+    const handleShare = async () => {
+        if (!currentSong) return;
+        const songUrl = getSongUrl(currentSong.id);
+        const result = await shareContent(
+            decodeHtmlEntities(currentSong.name),
+            `Check out ${decodeHtmlEntities(currentSong.name)} by ${decodeHtmlEntities(currentSong.primaryArtists)} on VibeOn!`,
+            songUrl
+        );
+
+        if (result.success && result.method === 'clipboard') {
+            dispatch(showToast({ message: 'Link copied to clipboard!' }));
         }
     };
 

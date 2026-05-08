@@ -7,8 +7,9 @@ import { LuHardDriveDownload } from 'react-icons/lu';
 import { useState } from 'react';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { motion } from 'framer-motion';
-import { IoAdd, IoHeart, IoHeartOutline } from 'react-icons/io5';
+import { IoAdd, IoHeart, IoHeartOutline, IoShareSocialOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
+import { shareContent, getSongUrl } from '../utils/share';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface SongsListProps {
@@ -62,6 +63,20 @@ const SongsList: React.FC<SongsListProps> = ({
             image, downloadUrl, album
         };
         dispatch(openPlaylistModal(songData));
+    };
+
+    const handleShare = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const songUrl = getSongUrl(id);
+        const result = await shareContent(
+            decodeHtmlEntities(name),
+            `Check out ${decodeHtmlEntities(name)} by ${decodeHtmlEntities(parsedArtists)} on VibeOn!`,
+            songUrl
+        );
+
+        if (result.success && result.method === 'clipboard') {
+            dispatch(showToast({ message: 'Link copied to clipboard!' }));
+        }
     };
 
     const handleDownload = async (e: React.MouseEvent) => {
@@ -144,6 +159,16 @@ const SongsList: React.FC<SongsListProps> = ({
                 </span>
 
                 <div className="flex items-center gap-1">
+                    <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleShare}
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                        title="Share Song"
+                    >
+                        <IoShareSocialOutline size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    </motion.button>
+
                     <motion.button
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}

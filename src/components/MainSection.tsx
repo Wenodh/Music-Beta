@@ -4,6 +4,7 @@ import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import { motion } from 'framer-motion';
 import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
+import CommunityActivity from './CommunityActivity';
 
 const MainSection: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
@@ -104,6 +105,10 @@ const MainSection: React.FC = () => {
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
+
+            <motion.div variants={itemVariants}>
+                <CommunityActivity />
+            </motion.div>
         </motion.div>
     );
 };

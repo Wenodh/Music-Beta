@@ -12,6 +12,7 @@ const initialState: MusicPlayerState = {
     preferredQuality: '320kbps',
     isSettingsOpen: false,
     isQueueOpen: false,
+    autoPlay: true,
 };
 
 const musicPlayerSlice = createSlice({
@@ -118,6 +119,9 @@ const musicPlayerSlice = createSlice({
                 state.isSettingsOpen = false;
             }
         },
+        setAutoPlay: (state, action: PayloadAction<boolean>) => {
+            state.autoPlay = action.payload;
+        },
     },
 });
 
@@ -136,6 +140,7 @@ export const {
     setRecommendations,
     setSettingsOpen,
     setQueueOpen,
+    setAutoPlay,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
