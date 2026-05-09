@@ -4,7 +4,7 @@ import { PiShuffleBold } from 'react-icons/pi';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { HiSpeakerWave } from 'react-icons/hi2';
 import { LuHardDriveDownload } from 'react-icons/lu';
-import { AiOutlineLoading3Quarters } from 'react-icons/ai'; // For spinner
+import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { IoEllipsisVertical } from 'react-icons/io5';
 import { RiShareForwardLine } from 'react-icons/ri';
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -17,17 +17,17 @@ import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
 import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
-import { setPreferredQuality } from '../features/musicplayer/musicPlayerSlice';
 import { HiQueueList } from 'react-icons/hi2';
 import { MdOutlineGraphicEq } from 'react-icons/md';
 import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
-import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
+import { toggleFavorite } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen } from '../features/ui/uiSlice';
+import { Song } from '../types/music';
 
 const Player = () => {
     const navigate = useNavigate();
@@ -36,111 +36,75 @@ const Player = () => {
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-    const { currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen } = useAppSelector(
-        (state) => state.musicPlayer
-    );
+    const [userVolume, setUserVolume] = useState(0.7);
+
+    const {
+        currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
+        isGaplessEnabled, crossfadeDuration
+    } = useAppSelector((state) => state.musicPlayer);
+
     const { isLyricsOpen } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
-
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
-    const audioRef = useRef(new Audio(''));
+
+    // Dual buffer system
+    const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
+    const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
+    const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
+    const [isCrossfading, setIsCrossfading] = useState(false);
+
+    const getActiveAudio = () => activeBuffer === 'A' ? audioRefA.current : audioRefB.current;
+    const getInactiveAudio = () => activeBuffer === 'A' ? audioRefB.current : audioRefA.current;
 
     useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.crossOrigin = 'anonymous';
-        }
+        [audioRefA.current, audioRefB.current].forEach(audio => {
+            audio.crossOrigin = 'anonymous';
+            audio.preload = 'auto';
+        });
     }, []);
 
-    const nextSong = useCallback(() => {
+    const getSongUrl = useCallback((song: Song | null) => {
+        if (!song) return '';
+        const musicData = song.music || song.downloadUrl;
+        if (Array.isArray(musicData)) {
+            return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
+        }
+        return musicData || '';
+    }, [preferredQuality]);
+
+    const playNextInQueue = useCallback((isManual = true) => {
         if (currentSong && songs.length > 0) {
             const index = songs.findIndex((song) => song.id === currentSong.id);
             const nextIndex = (index + 1) % songs.length;
             const next = songs[nextIndex];
 
-            dispatch(
-                playMusic({
-                    music: next.downloadUrl,
-                    name: next.name,
-                    duration: next.duration,
-                    image: next.image,
-                    id: next.id,
-                    primaryArtists: next.primaryArtists,
-                    albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
-                })
-            );
+            if (!isManual && isGaplessEnabled && !isCrossfading) {
+                // Crossfade logic handled in timeupdate
+                return;
+            }
+
+            dispatch(playMusic({
+                ...next,
+                albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
+            }));
         }
-    }, [currentSong, songs, dispatch]);
+    }, [currentSong, songs, dispatch, isGaplessEnabled, isCrossfading]);
 
     const prevSong = useCallback(() => {
         if (currentSong && songs.length > 0) {
             const index = songs.findIndex((song) => song.id === currentSong.id);
             const prevIndex = (index - 1 + songs.length) % songs.length;
             const prev = songs[prevIndex];
-            dispatch(
-                playMusic({
-                    music: prev.downloadUrl,
-                    name: prev.name,
-                    duration: prev.duration,
-                    image: prev.image,
-                    id: prev.id,
-                    primaryArtists: prev.primaryArtists,
-                    albumId: prev?.album && typeof prev.album !== 'string' ? prev.album.id : undefined,
-                })
-            );
+            dispatch(playMusic({
+                ...prev,
+                albumId: prev?.album && typeof prev.album !== 'string' ? prev.album.id : undefined,
+            }));
         }
     }, [currentSong, songs, dispatch]);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-            switch (e.code) {
-                case 'Space':
-                    e.preventDefault();
-                    handlePlayPause();
-                    break;
-                case 'ArrowRight':
-                    if (e.ctrlKey || e.metaKey) nextSong();
-                    break;
-                case 'ArrowLeft':
-                    if (e.ctrlKey || e.metaKey) prevSong();
-                    break;
-                case 'KeyM':
-                    // Volume toggle could be here
-                    break;
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPlaying, currentSong, nextSong, prevSong]);
-
-    useEffect(() => {
-        if (currentSong) {
-            // Fetch recommendations
-            fetch(suggestions(currentSong.id))
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'SUCCESS' && data.data) {
-                        dispatch(setRecommendations(data.data));
-                    }
-                })
-                .catch(err => console.error('Error fetching recommendations:', err));
-        }
-    }, [currentSong, dispatch]);
-
-    useEffect(() => {
-        let interval: any;
-        if (isPlaying && sleepTimer !== null && sleepTimer > 0) {
-            interval = setInterval(() => {
-                dispatch(decrementSleepTimer());
-            }, 60000);
-        }
-        return () => clearInterval(interval);
-    }, [isPlaying, sleepTimer, dispatch]);
-
+    // Handle Metadata & Recommendations
     useEffect(() => {
         if (currentSong) {
             if ('mediaSession' in navigator) {
@@ -148,66 +112,164 @@ const Player = () => {
                   title: currentSong?.name,
                   artist: currentSong?.primaryArtists,
                   album: typeof currentSong?.album === 'string' ? currentSong?.album : currentSong?.album?.name,
-                  artwork: [
-                    { src: typeof currentSong.image === 'string' ? currentSong.image : currentSong.image[currentSong.image.length - 1].url , sizes: '512x512', type: 'image/png' }
-                  ]
+                  artwork: [{ src: imageUrl || '', sizes: '512x512', type: 'image/png' }]
                 });
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
-                navigator.mediaSession.setActionHandler('nexttrack', nextSong);
-            }
-            if (audioRef.current) {
-                const musicData = currentSong?.music || currentSong?.downloadUrl;
-                const songUrl = Array.isArray(musicData) ? musicData[musicData.length - 1]?.url : musicData;
-                if (songUrl && audioRef.current.src !== songUrl) {
-                    audioRef.current.src = songUrl;
-                }
+                navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
             }
 
-            if (isPlaying) {
-                audioRef.current?.play().catch(e => console.log("Playback failed", e));
-            } else {
-                audioRef.current?.pause();
-            }
-
-            const handleTimeUpdate = () => {
-                const duration = Number(currentSong.duration);
-                const currentTime = audioRef.current.currentTime;
-                const progress = (currentTime / duration) * 100;
-                const progressElement = document.getElementById('progress') as HTMLInputElement;
-                if (progressElement) {
-                    progressElement.value = progress.toString();
-                    const value = (progress - 0) / (100 - 0) * 100;
-                    progressElement.style.background = `linear-gradient(to right, #ef4444 0%, #ef4444 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
-                }
-            };
-
-            const handleSongEnd = () => nextSong();
-            const currentAudio = audioRef.current;
-            currentAudio?.addEventListener('timeupdate', handleTimeUpdate);
-            currentAudio?.addEventListener('ended', handleSongEnd);
-
-            return () => {
-                currentAudio?.removeEventListener('timeupdate', handleTimeUpdate);
-                currentAudio?.removeEventListener('ended', handleSongEnd);
-            };
+            fetch(suggestions(currentSong.id))
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'SUCCESS' && data.data) {
+                        dispatch(setRecommendations(data.data));
+                    }
+                }).catch(err => console.error('Error fetching recommendations:', err));
         }
-    }, [currentSong, isPlaying, nextSong, prevSong]);
+    }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue]);
+
+    // Handle Playback State
+    useEffect(() => {
+        const activeAudio = getActiveAudio();
+        const songUrl = getSongUrl(currentSong);
+
+        if (songUrl && activeAudio.src !== songUrl) {
+            activeAudio.src = songUrl;
+            setIsCrossfading(false);
+        }
+
+        if (isPlaying) {
+            activeAudio.play().catch(e => console.warn("Playback failed", e));
+        } else {
+            activeAudio.pause();
+            getInactiveAudio().pause();
+        }
+    }, [currentSong, isPlaying, activeBuffer, getSongUrl]);
+
+    // Preload next song
+    useEffect(() => {
+        if (isGaplessEnabled && currentSong && songs.length > 0) {
+            const index = songs.findIndex((song) => song.id === currentSong.id);
+            const nextIndex = (index + 1) % songs.length;
+            const nextSong = songs[nextIndex];
+            const nextUrl = getSongUrl(nextSong);
+
+            const inactiveAudio = getInactiveAudio();
+            if (nextUrl && inactiveAudio.src !== nextUrl) {
+                inactiveAudio.src = nextUrl;
+                inactiveAudio.load();
+            }
+        }
+    }, [currentSong, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
+
+    // Crossfade Logic
+    useEffect(() => {
+        const activeAudio = getActiveAudio();
+        const inactiveAudio = getInactiveAudio();
+
+        const handleTimeUpdate = () => {
+            if (!currentSong) return;
+            const duration = activeAudio.duration;
+            const currentTime = activeAudio.currentTime;
+
+            // Update Progress Bar
+            const progress = (currentTime / (duration || 1)) * 100;
+            const progressElement = document.getElementById('progress') as HTMLInputElement;
+            if (progressElement) {
+                progressElement.value = progress.toString();
+                const value = progress;
+                progressElement.style.background = `linear-gradient(to right, #ef4444 0%, #ef4444 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+            }
+
+            // Crossfade Trigger
+            if (isGaplessEnabled && !isCrossfading && duration > 0 && currentTime > (duration - crossfadeDuration)) {
+                setIsCrossfading(true);
+                startCrossfade();
+            }
+        };
+
+        const startCrossfade = () => {
+            const nextIndex = (songs.findIndex(s => s.id === currentSong?.id) + 1) % songs.length;
+            const next = songs[nextIndex];
+
+            inactiveAudio.volume = 0;
+            inactiveAudio.play().then(() => {
+                // Ramp volumes
+                const steps = 20;
+                const interval = (crossfadeDuration * 1000) / steps;
+                let step = 0;
+
+                const fade = setInterval(() => {
+                    step++;
+                    const progress = step / steps;
+
+                    // Simple linear fade for now
+                    activeAudio.volume = userVolume * (1 - progress);
+                    inactiveAudio.volume = userVolume * progress;
+
+                    if (step >= steps) {
+                        clearInterval(fade);
+                        // Complete transition
+                        activeAudio.pause();
+                        activeAudio.currentTime = 0;
+                        setActiveBuffer(activeBuffer === 'A' ? 'B' : 'A');
+                        setIsCrossfading(false);
+
+                        // Update Redux state to the new song
+                        dispatch(playMusic({
+                            ...next,
+                            albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
+                        }));
+                    }
+                }, interval);
+            }).catch(err => {
+                console.error("Crossfade play failed", err);
+                setIsCrossfading(false);
+            });
+        };
+
+        const handleSongEnd = () => {
+            if (!isCrossfading) {
+                playNextInQueue(true);
+            }
+        };
+
+        activeAudio.addEventListener('timeupdate', handleTimeUpdate);
+        activeAudio.addEventListener('ended', handleSongEnd);
+
+        return () => {
+            activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
+            activeAudio.removeEventListener('ended', handleSongEnd);
+        };
+    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue]);
+
+    // Update individual audio volumes based on user global volume
+    useEffect(() => {
+        if (!isCrossfading) {
+            audioRefA.current.volume = userVolume;
+            audioRefB.current.volume = userVolume;
+        }
+    }, [userVolume, isCrossfading]);
 
     const handleProgressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const activeAudio = getActiveAudio();
         const newPercentage = parseFloat(event.target.value);
-        const newTime = (newPercentage / 100) * Number(currentSong?.duration || 0);
+        const newTime = (newPercentage / 100) * (activeAudio.duration || 0);
         if (newTime >= 0) {
-            audioRef.current.currentTime = newTime;
+            activeAudio.currentTime = newTime;
         }
     };
 
+    const handlePlayPause = () => {
+        dispatch(playMusic(currentSong));
+    };
+
     const handleDoubleTap = (side: 'left' | 'right') => {
+        const activeAudio = getActiveAudio();
         const seekAmount = side === 'left' ? -10 : 10;
-        if (audioRef.current) {
-            audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.duration, audioRef.current.currentTime + seekAmount));
-            setSeekAnimation(side === 'left' ? 'backward' : 'forward');
-            setTimeout(() => setSeekAnimation(null), 500);
-        }
+        activeAudio.currentTime = Math.max(0, Math.min(activeAudio.duration, activeAudio.currentTime + seekAmount));
+        setSeekAnimation(side === 'left' ? 'backward' : 'forward');
+        setTimeout(() => setSeekAnimation(null), 500);
     };
 
     const handleDownloadSong = async (url: string) => {
@@ -223,19 +285,10 @@ const Player = () => {
             link.click();
             document.body.removeChild(link);
         } catch (error) {
-            console.log('Error downloading the song', error);
+            console.warn('Error downloading the song', error);
         } finally {
             setIsDownloading(false);
         }
-    };
-
-    const handlePlayPause = () => {
-        if (isPlaying) {
-            audioRef.current?.pause();
-        } else {
-            audioRef.current?.play().catch(e => console.log("Playback failed", e));
-        }
-        dispatch(playMusic(currentSong));
     };
 
     const handleShare = async () => {
@@ -247,9 +300,7 @@ const Player = () => {
                     text: `Check out ${currentSong?.name} by ${currentSong?.primaryArtists} on VibeOn!`,
                     url: songUrl,
                 });
-            } catch (error) {
-                console.log('Error sharing', error);
-            }
+            } catch (error) { console.log('Error sharing', error); }
         } else {
             navigator.clipboard.writeText(songUrl);
             alert('Link copied to clipboard!');
@@ -266,7 +317,7 @@ const Player = () => {
                     className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-50"
                 >
                     <div className="absolute inset-0 z-0 pointer-events-none">
-                        <Visualizer audioRef={audioRef} isPlaying={isPlaying} />
+                        <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
                     </div>
                     <input
                         type="range"
@@ -286,7 +337,7 @@ const Player = () => {
                                 dragConstraints={{ left: 0, right: 0 }}
                                 onDragEnd={(_, info) => {
                                     if (info.offset.x > 100) prevSong();
-                                    else if (info.offset.x < -100) nextSong();
+                                    else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
                                 className="relative group cursor-grab active:cursor-grabbing"
                             >
@@ -383,7 +434,7 @@ const Player = () => {
 
                             <motion.div whileTap={{ scale: 0.9 }}>
                                 <IoMdSkipForward
-                                    onClick={nextSong}
+                                    onClick={() => playNextInQueue(true)}
                                     className="text-gray-700 dark:text-gray-200 hover:text-red-500 cursor-pointer transition-colors"
                                 />
                             </motion.div>
@@ -437,7 +488,7 @@ const Player = () => {
 
                                             <button
                                                 onClick={() => {
-                                                    dispatch(toggleFavorite(currentSong));
+                                                    dispatch(toggleFavorite(currentSong!));
                                                     setIsMoreMenuOpen(false);
                                                 }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -499,7 +550,7 @@ const Player = () => {
                                             ) : (
                                                 <button
                                                     onClick={() => {
-                                                        const songUrl = Array.isArray(currentSong?.music) ? currentSong?.music[currentSong?.music?.length - 1]?.url : currentSong?.music;
+                                                        const songUrl = getSongUrl(currentSong);
                                                         handleDownloadSong(songUrl || '');
                                                         setIsMoreMenuOpen(false);
                                                     }}
@@ -519,7 +570,25 @@ const Player = () => {
                                 onMouseLeave={() => setIsVolumeVisible(false)}
                             >
                                 <HiSpeakerWave className="text-gray-700 dark:text-gray-200 hover:text-red-500 text-2xl lg:text-3xl cursor-pointer hidden lg:block transition-colors" />
-                                <VolumeController isVolumeVisible={isVolumeVisible} audioRef={audioRef} />
+                                <div
+                                    className={`absolute bottom-full right-0 mb-4 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-xl rounded-2xl border border-white/20 transition-all duration-300 ${
+                                        isVolumeVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+                                    }`}
+                                >
+                                    <div className="h-24 flex flex-col items-center gap-2">
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="1"
+                                            step="0.01"
+                                            value={userVolume}
+                                            onChange={(e) => setUserVolume(parseFloat(e.target.value))}
+                                            className="h-20 appearance-none bg-gray-200 dark:bg-gray-700 rounded-lg cursor-pointer"
+                                            style={{ writingMode: 'bt-lr', appearance: 'slider-vertical' } as any}
+                                        />
+                                        <span className="text-[10px] font-bold text-gray-500">{Math.round(userVolume * 100)}%</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

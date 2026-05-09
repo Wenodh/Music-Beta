@@ -28,6 +28,8 @@ export interface MusicPlayerState {
     isSettingsOpen: boolean;
     isQueueOpen: boolean;
     equalizerSettings: EqualizerSettings;
+    isGaplessEnabled: boolean;
+    crossfadeDuration: number;
 }
 
 export interface EqualizerSettings {

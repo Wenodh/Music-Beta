@@ -18,6 +18,8 @@ const initialState: MusicPlayerState = {
         bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         preset: 'Normal',
     },
+    isGaplessEnabled: false,
+    crossfadeDuration: 5,
 };
 
 const musicPlayerSlice = createSlice({
@@ -143,6 +145,12 @@ const musicPlayerSlice = createSlice({
             state.equalizerSettings.preset = action.payload.name;
             state.equalizerSettings.bands = [...action.payload.bands];
         },
+        setGaplessEnabled: (state, action: PayloadAction<boolean>) => {
+            state.isGaplessEnabled = action.payload;
+        },
+        setCrossfadeDuration: (state, action: PayloadAction<number>) => {
+            state.crossfadeDuration = action.payload;
+        },
     },
 });
 
@@ -165,6 +173,8 @@ export const {
     setEqualizerEnabled,
     setEqualizerBand,
     setEqualizerPreset,
+    setGaplessEnabled,
+    setCrossfadeDuration,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;

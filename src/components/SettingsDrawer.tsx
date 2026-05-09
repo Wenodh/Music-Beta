@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration } from '../features/musicplayer/musicPlayerSlice';
 import { setEqualizerOpen } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +12,7 @@ const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { preferredQuality, isSettingsOpen, equalizerSettings } = useAppSelector((state) => state.musicPlayer);
+    const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration } = useAppSelector((state) => state.musicPlayer);
 
     const languages = [
         { name: 'Telugu', value: 'telugu' },
@@ -121,12 +121,39 @@ const SettingsDrawer: React.FC = () => {
                                 <section>
                                     <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Playback Settings</h3>
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl opacity-60">
-                                            <div>
-                                                <p className="text-sm font-medium">Gapless Playback</p>
-                                                <p className="text-[10px] text-gray-500">Coming soon</p>
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-medium">Gapless (Crossfade)</p>
+                                                    <p className="text-[10px] text-gray-500">Smooth transitions between songs</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => dispatch(setGaplessEnabled(!isGaplessEnabled))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${isGaplessEnabled ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                >
+                                                    <motion.div
+                                                        animate={{ x: isGaplessEnabled ? 20 : 2 }}
+                                                        className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                    />
+                                                </button>
                                             </div>
-                                            <div className="w-10 h-5 bg-gray-300 dark:bg-gray-700 rounded-full" />
+
+                                            {isGaplessEnabled && (
+                                                <div className="pt-2">
+                                                    <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                                                        <span>Crossfade Duration</span>
+                                                        <span>{crossfadeDuration}s</span>
+                                                    </div>
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="12"
+                                                        value={crossfadeDuration}
+                                                        onChange={(e) => dispatch(setCrossfadeDuration(parseInt(e.target.value)))}
+                                                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                         <button
                                             onClick={() => {

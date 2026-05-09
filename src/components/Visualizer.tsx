@@ -3,41 +3,33 @@ import { useAppSelector } from '../hooks/redux';
 import { FREQUENCIES } from '../constants/equalizer';
 
 interface VisualizerProps {
-    audioRef: React.RefObject<HTMLAudioElement>;
+    audioRefs: React.RefObject<HTMLAudioElement>[];
     isPlaying: boolean;
 }
 
-const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
+const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number>();
     const analyserRef = useRef<AnalyserNode | null>(null);
     const contextRef = useRef<AudioContext | null>(null);
-    const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const filtersRef = useRef<BiquadFilterNode[]>([]);
     const { equalizerSettings } = useAppSelector(state => state.musicPlayer);
 
     useEffect(() => {
-        if (!audioRef.current) return;
-
         const initAudio = () => {
             if (analyserRef.current) return;
+
             try {
-                const audioEl = audioRef.current as any;
-                let context: AudioContext;
-                let source: MediaElementAudioSourceNode;
+                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                const context = new AudioContextClass();
+                contextRef.current = context;
 
-                if (audioEl._visualizerContext) {
-                    context = audioEl._visualizerContext;
-                    source = audioEl._visualizerSource;
-                } else {
-                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                    context = new AudioContextClass();
-                    source = context.createMediaElementSource(audioRef.current!);
-                    audioEl._visualizerContext = context;
-                    audioEl._visualizerSource = source;
-                }
+                const analyser = context.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.8;
+                analyserRef.current = analyser;
 
-                // Create filters
+                // Create shared filters (EQ)
                 const filters = FREQUENCIES.map((freq, i) => {
                     const filter = context.createBiquadFilter();
                     filter.type = 'peaking';
@@ -48,29 +40,46 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
                 });
                 filtersRef.current = filters;
 
-                const analyser = context.createAnalyser();
+                // Connect filters in series
+                for (let i = 0; i < filters.length - 1; i++) {
+                    filters[i].connect(filters[i + 1]);
+                }
 
-                // Connect source -> filter1 -> filter2 -> ... -> filter10 -> analyser -> destination
-                let lastNode: AudioNode = source;
-                filters.forEach(filter => {
-                    lastNode.connect(filter);
-                    lastNode = filter;
-                });
-
-                lastNode.connect(analyser);
+                // Last filter connects to analyser
+                filters[filters.length - 1].connect(analyser);
                 analyser.connect(context.destination);
 
-                analyser.fftSize = 512;
-                analyser.smoothingTimeConstant = 0.8;
-                contextRef.current = context;
-                analyserRef.current = analyser;
-                sourceRef.current = source;
+                // Initialize each audio element
+                audioRefs.forEach(ref => {
+                    if (ref.current) {
+                        setupAudioSource(ref.current, context, filters[0]);
+                    }
+                });
+
             } catch (err) {
                 console.warn('Failed to initialize audio visualizer:', err);
             }
         };
 
-        // Initialize immediately if it's already playing or when it starts playing
+        const setupAudioSource = (audioEl: HTMLAudioElement, context: AudioContext, firstFilter: BiquadFilterNode) => {
+            const el = audioEl as any;
+            if (el._visualizerSource) return;
+
+            try {
+                const source = context.createMediaElementSource(audioEl);
+                const gainNode = context.createGain();
+
+                source.connect(gainNode);
+                gainNode.connect(firstFilter);
+
+                el._visualizerSource = source;
+                el._gainNode = gainNode;
+                el._visualizerContext = context;
+            } catch (e) {
+                console.error("Error setting up audio source", e);
+            }
+        };
+
         if (isPlaying) {
             initAudio();
             if (contextRef.current?.state === 'suspended') {
@@ -88,10 +97,17 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
 
         document.addEventListener('click', handleFirstInteraction);
 
+        // Re-check refs on update in case they were added later
+        audioRefs.forEach(ref => {
+            if (ref.current && contextRef.current && filtersRef.current[0]) {
+                setupAudioSource(ref.current, contextRef.current, filtersRef.current[0]);
+            }
+        });
+
         return () => {
             document.removeEventListener('click', handleFirstInteraction);
         };
-    }, [audioRef, isPlaying]);
+    }, [audioRefs, isPlaying]);
 
     useEffect(() => {
         if (filtersRef.current.length > 0) {
@@ -115,7 +131,6 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
             requestRef.current = requestAnimationFrame(draw);
             analyserRef.current!.getByteFrequencyData(dataArray);
 
-            // High DPI adjustment
             const dpr = window.devicePixelRatio || 1;
             if (canvas.width !== canvas.clientWidth * dpr || canvas.height !== canvas.clientHeight * dpr) {
                 canvas.width = canvas.clientWidth * dpr;
@@ -134,16 +149,11 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRef, isPlaying }) => {
 
             for (let i = 0; i < bufferLength; i++) {
                 barHeight = (dataArray[i] / 255) * height * 0.9;
-
-                // Smooth Red to Orange gradient (brand matched)
                 const hue = 10 + (i / bufferLength) * 40;
                 ctx.fillStyle = `hsla(${hue}, 90%, 55%, 0.7)`;
-
-                // Rounded bars
                 ctx.beginPath();
                 ctx.roundRect(x, height - barHeight, barWidth - 1.5, barHeight, [6, 6, 0, 0]);
                 ctx.fill();
-
                 x += barWidth;
             }
         };
