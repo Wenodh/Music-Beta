@@ -14,6 +14,7 @@ interface UIState {
         song: Song | null;
     };
     isEqualizerOpen: boolean;
+    isLyricsOpen: boolean;
 }
 
 const initialState: UIState = {
@@ -23,6 +24,7 @@ const initialState: UIState = {
         song: null,
     },
     isEqualizerOpen: false,
+    isLyricsOpen: false,
 };
 
 const uiSlice = createSlice({
@@ -50,8 +52,11 @@ const uiSlice = createSlice({
         setEqualizerOpen: (state, action: PayloadAction<boolean>) => {
             state.isEqualizerOpen = action.payload;
         },
+        setLyricsOpen: (state, action: PayloadAction<boolean>) => {
+            state.isLyricsOpen = action.payload;
+        },
     },
 });
 
-export const { showToast, removeToast, openPlaylistModal, closePlaylistModal, setEqualizerOpen } = uiSlice.actions;
+export const { showToast, removeToast, openPlaylistModal, closePlaylistModal, setEqualizerOpen, setLyricsOpen } = uiSlice.actions;
 export default uiSlice.reducer;

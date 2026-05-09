@@ -20,16 +20,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { setPreferredQuality } from '../features/musicplayer/musicPlayerSlice';
 import { HiQueueList } from 'react-icons/hi2';
 import { MdOutlineGraphicEq } from 'react-icons/md';
-import Queue from './Queue';
 import { MdOutlineLyrics } from 'react-icons/md';
-import Lyrics from './Lyrics';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { toggleFavorite, addToPlaylist } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
-import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
+import { openPlaylistModal, setEqualizerOpen, setLyricsOpen } from '../features/ui/uiSlice';
 
 const Player = () => {
     const navigate = useNavigate();
@@ -37,11 +35,11 @@ const Player = () => {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
-    const [isLyricsOpen, setIsLyricsOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const { currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen } = useAppSelector(
         (state) => state.musicPlayer
     );
+    const { isLyricsOpen } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
@@ -396,7 +394,7 @@ const Player = () => {
                         <div className="flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
                             <motion.div whileTap={{ scale: 0.9 }} className="hidden lg:block">
                                 <MdOutlineLyrics
-                                    onClick={() => setIsLyricsOpen(!isLyricsOpen)}
+                                    onClick={() => dispatch(setLyricsOpen(!isLyricsOpen))}
                                     className={`text-2xl cursor-pointer hover:text-red-500 transition-colors ${isLyricsOpen ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
                             </motion.div>
@@ -471,7 +469,7 @@ const Player = () => {
 
                                             <button
                                                 onClick={() => {
-                                                    setIsLyricsOpen(true);
+                                                    dispatch(setLyricsOpen(true));
                                                     setIsMoreMenuOpen(false);
                                                 }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors lg:hidden"
@@ -525,13 +523,6 @@ const Player = () => {
                             </div>
                         </div>
                     </div>
-                    <Lyrics
-                        isOpen={isLyricsOpen}
-                        onClose={() => setIsLyricsOpen(false)}
-                        songId={currentSong?.id || ''}
-                        songName={currentSong?.name || ''}
-                        artistName={currentSong?.primaryArtists || ''}
-                    />
                 </motion.div>
             )}
         </AnimatePresence>
