@@ -80,7 +80,7 @@ const Navbar: React.FC = () => {
                     onClick={() => navigate('/')}
                 >
                     <div className="text-lg md:text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight leading-none">
-                        Vibe<span className="font-light italic text-red-500">On</span>
+                        Vibe<span className="font-light italic text-primary">On</span>
                     </div>
                     <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">
                         by <span className="text-red-400/80">WENODH</span>
@@ -89,7 +89,8 @@ const Navbar: React.FC = () => {
                 <div className="absolute right-0 md:hidden">
                     <button
                         onClick={() => dispatch(setSettingsOpen(true))}
-                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-red-500/20"
+                        aria-label="Settings"
+                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20"
                     >
                         <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     </button>
@@ -115,7 +116,8 @@ const Navbar: React.FC = () => {
             <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-red-500/10"
+                    aria-label="Settings"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10"
                 >
                     <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
                     <span className="text-sm font-bold uppercase tracking-tight">Account</span>

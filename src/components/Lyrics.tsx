@@ -79,7 +79,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                         <div className="max-w-4xl mx-auto w-full">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                                    <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                                     <p className="text-gray-400">Searching for lyrics...</p>
                                 </div>
                             ) : (

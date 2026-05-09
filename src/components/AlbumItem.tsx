@@ -50,13 +50,13 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
                     loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                    <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
                         ▶
                     </div>
                 </div>
             </div>
             <div className="w-full px-1">
-                <p className="font-bold text-sm truncate group-hover:text-red-500 transition-colors leading-tight">{decodeHtmlEntities(name)}</p>
+                <p className="font-bold text-sm truncate group-hover:text-primary transition-colors leading-tight">{decodeHtmlEntities(name)}</p>
                 {artists && (
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{decodeHtmlEntities(artists)}</p>
                 )}

@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../../hooks/redux';
-import { addToPlaylist, createPlaylist } from '../../features/library/librarySlice';
+import { addToPlaylist, addBulkToPlaylist, createPlaylist } from '../../features/library/librarySlice';
 import { Song } from '../../types/music';
 import { IoAdd, IoClose, IoMusicalNote } from 'react-icons/io5';
 
 interface AddToPlaylistModalProps {
     song: Song | null;
+    bulkSongs?: Song[];
     onClose: () => void;
     onSuccess: (playlistName: string) => void;
     onError: (message: string) => void;
 }
 
-const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, onSuccess, onError }) => {
+const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs, onClose, onSuccess, onError }) => {
     const { playlists } = useAppSelector((state) => state.library);
     const dispatch = useAppDispatch();
     const [isCreating, setIsCreating] = useState(false);
@@ -21,23 +22,33 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
     if (!song) return null;
 
     const handleAddToPlaylist = (playlistId: string, playlistName: string) => {
-        const playlist = playlists.find(p => p.id === playlistId);
-        if (playlist && playlist.songs.find(s => s.id === song.id)) {
-            onError(`Already in ${playlistName}`);
-            return;
+        if (bulkSongs && bulkSongs.length > 0) {
+            dispatch(addBulkToPlaylist({ playlistId, songs: bulkSongs }));
+            onSuccess(`${bulkSongs.length} songs added to ${playlistName}`);
+        } else {
+            const playlist = playlists.find(p => p.id === playlistId);
+            if (playlist && playlist.songs.find(s => s.id === song.id)) {
+                onError(`Already in ${playlistName}`);
+                return;
+            }
+            dispatch(addToPlaylist({ playlistId, song }));
+            onSuccess(playlistName);
         }
-        dispatch(addToPlaylist({ playlistId, song }));
-        onSuccess(playlistName);
         onClose();
     };
 
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            dispatch(createPlaylist({ name: newPlaylistName.trim(), song }));
+            if (bulkSongs && bulkSongs.length > 0) {
+                dispatch(createPlaylist({ name: newPlaylistName.trim(), songs: bulkSongs }));
+                onSuccess(`${bulkSongs.length} songs added to ${newPlaylistName.trim()}`);
+            } else {
+                dispatch(createPlaylist({ name: newPlaylistName.trim(), song }));
+                onSuccess(newPlaylistName.trim());
+            }
             setNewPlaylistName('');
             setIsCreating(false);
-            onSuccess(newPlaylistName.trim());
             onClose();
         }
     };
@@ -105,7 +116,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
                                     placeholder="Playlist Name"
                                     value={newPlaylistName}
                                     onChange={(e) => setNewPlaylistName(e.target.value)}
-                                    className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-xl px-4 py-2 mb-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                                    className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-xl px-4 py-2 mb-2 focus:ring-2 focus:ring-primary outline-none text-sm"
                                 />
                                 <div className="flex gap-2">
                                     <button
@@ -117,7 +128,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 py-2 bg-red-500 text-white text-xs font-bold rounded-lg"
+                                        className="flex-1 py-2 bg-primary text-white text-xs font-bold rounded-lg"
                                     >
                                         Create
                                     </button>
@@ -126,7 +137,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, onClose, 
                         ) : (
                             <button
                                 onClick={() => setIsCreating(true)}
-                                className="w-full flex items-center gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-colors text-red-500 font-semibold text-sm"
+                                className="w-full flex items-center gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-colors text-primary font-semibold text-sm"
                             >
                                 <div className="w-10 h-10 border-2 border-dashed border-red-200 dark:border-red-900/30 rounded-lg flex items-center justify-center">
                                     <IoAdd size={20} />

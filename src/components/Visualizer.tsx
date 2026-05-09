@@ -14,6 +14,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const contextRef = useRef<AudioContext | null>(null);
     const filtersRef = useRef<BiquadFilterNode[]>([]);
     const { equalizerSettings } = useAppSelector(state => state.musicPlayer);
+    const [mode, setMode] = React.useState<'bars' | 'circular' | 'particles'>('bars');
 
     useEffect(() => {
         const initAudio = () => {
@@ -143,18 +144,36 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
             ctx.clearRect(0, 0, width, height);
 
-            const barWidth = (width / bufferLength) * 2;
-            let barHeight;
-            let x = 0;
-
-            for (let i = 0; i < bufferLength; i++) {
-                barHeight = (dataArray[i] / 255) * height * 0.9;
-                const hue = 10 + (i / bufferLength) * 40;
-                ctx.fillStyle = `hsla(${hue}, 90%, 55%, 0.7)`;
-                ctx.beginPath();
-                ctx.roundRect(x, height - barHeight, barWidth - 1.5, barHeight, [6, 6, 0, 0]);
-                ctx.fill();
-                x += barWidth;
+            if (mode === 'bars') {
+                const barWidth = (width / bufferLength) * 2;
+                let x = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * height * 0.9;
+                    const hue = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ef4444';
+                    ctx.fillStyle = `${hue}80`;
+                    ctx.beginPath();
+                    ctx.roundRect(x, height - barHeight, barWidth - 1.5, barHeight, [6, 6, 0, 0]);
+                    ctx.fill();
+                    x += barWidth;
+                }
+            } else if (mode === 'circular') {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = Math.min(width, height) / 4;
+                for (let i = 0; i < bufferLength; i++) {
+                    const angle = (i / bufferLength) * Math.PI * 2;
+                    const value = (dataArray[i] / 255) * radius * 0.5;
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    const x2 = centerX + Math.cos(angle) * (radius + value);
+                    const y2 = centerY + Math.sin(angle) * (radius + value);
+                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ef4444';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
             }
         };
 
@@ -177,12 +196,25 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     }, [isPlaying]);
 
     return (
-        <canvas
-            ref={canvasRef}
-            width={100}
-            height={40}
-            className="w-full h-full opacity-50 pointer-events-none"
-        />
+        <div className="relative w-full h-full">
+            <canvas
+                ref={canvasRef}
+                width={100}
+                height={40}
+                className="w-full h-full opacity-50 pointer-events-none"
+            />
+            <div className="absolute top-2 left-2 flex gap-1 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                {(['bars', 'circular'] as const).map(m => (
+                    <button
+                        key={m}
+                        onClick={() => setMode(m)}
+                        className={`text-[8px] font-bold uppercase px-2 py-1 rounded bg-black/50 text-white ${mode === m ? 'text-primary' : ''}`}
+                    >
+                        {m}
+                    </button>
+                ))}
+            </div>
+        </div>
     );
 };
 

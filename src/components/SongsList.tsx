@@ -19,6 +19,9 @@ interface SongsListProps {
     image: any;
     id: string;
     album: any;
+    isSelected?: boolean;
+    onSelect?: (id: string) => void;
+    isSelectionMode?: boolean;
 }
 
 const SongsList: React.FC<SongsListProps> = ({
@@ -29,6 +32,9 @@ const SongsList: React.FC<SongsListProps> = ({
     image,
     id,
     album,
+    isSelected,
+    onSelect,
+    isSelectionMode
 }) => {
     const dispatch = useAppDispatch();
     const { currentSong } = useAppSelector((state) => state.musicPlayer);
@@ -113,11 +119,19 @@ const SongsList: React.FC<SongsListProps> = ({
             }
             className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
                 isCurrent
-                    ? 'bg-red-50/50 dark:bg-red-900/10 border-red-200/50 dark:border-red-800/50 text-red-600'
+                    ? 'bg-primary/10/50 dark:bg-red-900/10 border-red-200/50 dark:border-red-800/50 text-red-600'
                     : 'hover:border-gray-200 dark:hover:border-gray-800'
             }`}
         >
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
+                {isSelectionMode && (
+                    <div
+                        onClick={(e) => { e.stopPropagation(); onSelect?.(id); }}
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-gray-400'}`}
+                    >
+                        {isSelected && <span className="text-white text-[10px]">✓</span>}
+                    </div>
+                )}
                 <div className="relative group/song flex-shrink-0">
                     <img
                         src={Array.isArray(image) ? image[0]?.url : image}
@@ -148,7 +162,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleFavorite}
-                        className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                        className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
                         title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                     >
                         {isFavorite ? <IoHeart size={16} className="sm:w-[18px] sm:h-[18px]" /> : <IoHeartOutline size={16} className="sm:w-[18px] sm:h-[18px]" />}
@@ -158,7 +172,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleAddToPlaylist}
-                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
                         title="Add to Playlist"
                     >
                         <IoAdd size={18} className="sm:w-[20px] sm:h-[20px]" />
@@ -168,7 +182,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleDownload}
-                        className="p-1.5 sm:p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                        className="p-1.5 sm:p-2 text-gray-500 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
                         aria-label="Download song"
                     >
                         {isDownloading ? (

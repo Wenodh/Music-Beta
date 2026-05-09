@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
+import DailyMix from './DailyMix';
 import { motion } from 'framer-motion';
 import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
 
@@ -52,7 +53,7 @@ const MainSection: React.FC = () => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-[60vh]">
-                <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -79,6 +80,10 @@ const MainSection: React.FC = () => {
             animate="visible"
             className="pb-32 pt-8"
         >
+            <motion.div variants={itemVariants}>
+                <DailyMix />
+            </motion.div>
+
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants}>
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />

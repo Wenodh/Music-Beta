@@ -29,13 +29,13 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
                     showLabel
                         ? 'px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700'
                         : 'p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                } ${sleepTimer ? 'text-red-500' : ''}`}
+                } ${sleepTimer ? 'text-primary' : ''}`}
                 title="Sleep Timer"
             >
                 <div className="relative">
                     <MdOutlineTimer className="text-2xl" />
                     {sleepTimer && !showLabel && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">
                             {sleepTimer}
                         </span>
                     )}
@@ -61,7 +61,7 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
                                     setIsOpen(false);
                                 }}
                                 className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                                    sleepTimer === option.value ? 'text-red-500 font-medium' : ''
+                                    sleepTimer === option.value ? 'text-primary font-medium' : ''
                                 }`}
                             >
                                 {option.label}

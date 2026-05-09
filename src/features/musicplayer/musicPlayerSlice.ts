@@ -99,6 +99,9 @@ const musicPlayerSlice = createSlice({
         reorderQueue: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload;
         },
+        clearQueue: (state) => {
+            state.songs = state.currentSong ? [state.currentSong] : [];
+        },
         setRecommendations: (state, action: PayloadAction<Song[]>) => {
             state.recommendations = action.payload;
         },
@@ -168,6 +171,7 @@ export const {
     reorderQueue,
     setRecommendations,
     addRecentlyPlayedAlbum,
+    clearQueue,
     setSettingsOpen,
     setQueueOpen,
     setEqualizerEnabled,

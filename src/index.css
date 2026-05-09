@@ -4,8 +4,7 @@
 
 @layer base {
   :root {
-    --primary-dynamic: #ef4444;
-    --primary-dynamic-rgb: 239, 68, 68;
+    --primary-dynamic: var(--accent-color, #ef4444);
   }
   body {
     @apply transition-colors duration-300 bg-gray-50 dark:bg-gray-950;
@@ -22,12 +21,12 @@
   }
 
   .btn-primary {
-    @apply px-6 py-2 rounded-full bg-red-500 text-white font-semibold hover:bg-red-600 active:scale-95 transition-all shadow-lg hover:shadow-red-500/40;
+    @apply px-6 py-2 rounded-full bg-primary text-white font-semibold hover:opacity-90 active:scale-95 transition-all shadow-lg;
   }
 }
 
 input[type='range'] {
-  @apply accent-red-500 cursor-pointer;
+  @apply accent-primary cursor-pointer;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -45,7 +44,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 }
 
 input[type="range"]::-webkit-slider-thumb {
-  @apply w-3 h-3 bg-red-600 rounded-full appearance-none mt-[-4px] shadow-md;
+  @apply w-3 h-3 bg-primary rounded-full appearance-none mt-[-4px] shadow-md;
 }
 
 /* Animations */

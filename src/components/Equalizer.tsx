@@ -46,11 +46,11 @@ const Equalizer: React.FC = () => {
                                     className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-sm font-medium transition-colors"
                                 >
                                     {equalizerSettings.enabled ? (
-                                        <IoToggle className="text-red-500 text-2xl" />
+                                        <IoToggle className="text-primary text-2xl" />
                                     ) : (
                                         <IoToggleOutline className="text-gray-400 text-2xl" />
                                     )}
-                                    <span className={equalizerSettings.enabled ? 'text-red-500' : 'text-gray-500'}>
+                                    <span className={equalizerSettings.enabled ? 'text-primary' : 'text-gray-500'}>
                                         {equalizerSettings.enabled ? 'ON' : 'OFF'}
                                     </span>
                                 </button>
@@ -74,7 +74,7 @@ const Equalizer: React.FC = () => {
                                             onClick={() => dispatch(setEqualizerPreset({ name, bands: PRESETS[name] }))}
                                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                                                 equalizerSettings.preset === name
-                                                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
                                                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                             }`}
                                         >
@@ -98,11 +98,11 @@ const Equalizer: React.FC = () => {
                                                     value={value}
                                                     disabled={!equalizerSettings.enabled}
                                                     onChange={(e) => dispatch(setEqualizerBand({ index, value: parseFloat(e.target.value) }))}
-                                                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 -rotate-90 appearance-none bg-transparent cursor-pointer disabled:cursor-not-allowed [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 dark:[&::-webkit-slider-runnable-track]:bg-gray-800 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-red-500/50 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white dark:[&::-webkit-slider-thumb]:border-gray-900 ${!equalizerSettings.enabled && 'opacity-50'}`}
+                                                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 -rotate-90 appearance-none bg-transparent cursor-pointer disabled:cursor-not-allowed [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 dark:[&::-webkit-slider-runnable-track]:bg-gray-800 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-primary/50 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white dark:[&::-webkit-slider-thumb]:border-gray-900 ${!equalizerSettings.enabled && 'opacity-50'}`}
                                                 />
                                             </div>
                                             <div className="text-center space-y-1">
-                                                <p className="text-[10px] font-bold text-red-500">{value > 0 ? `+${value}` : value}dB</p>
+                                                <p className="text-[10px] font-bold text-primary">{value > 0 ? `+${value}` : value}dB</p>
                                                 <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{formatFreq(FREQUENCIES[index])}</p>
                                             </div>
                                         </div>
