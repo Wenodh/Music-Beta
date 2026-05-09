@@ -8,10 +8,18 @@ const initialState: MusicPlayerState = {
     currentSong: null,
     searchedSongs: [],
     recentlyPlayed: [],
+    recentlyPlayedAlbums: [],
     sleepTimer: null,
     preferredQuality: '320kbps',
     isSettingsOpen: false,
     isQueueOpen: false,
+    equalizerSettings: {
+        enabled: false,
+        bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        preset: 'Normal',
+    },
+    isGaplessEnabled: false,
+    crossfadeDuration: 5,
 };
 
 const musicPlayerSlice = createSlice({
@@ -42,6 +50,7 @@ const musicPlayerSlice = createSlice({
 
                 state.currentSong = {
                     ...song,
+                    type: 'song',
                     image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
                     downloadUrl: downloadUrl,
                     music: musicUrl,
@@ -93,6 +102,13 @@ const musicPlayerSlice = createSlice({
         setRecommendations: (state, action: PayloadAction<Song[]>) => {
             state.recommendations = action.payload;
         },
+        addRecentlyPlayedAlbum: (state, action: PayloadAction<any>) => {
+            const album = action.payload;
+            state.recentlyPlayedAlbums = [
+                { ...album, type: 'album' },
+                ...state.recentlyPlayedAlbums.filter((a: any) => a.id !== album.id),
+            ].slice(0, 20);
+        },
         setPreferredQuality: (state, action: PayloadAction<MusicPlayerState['preferredQuality']>) => {
             state.preferredQuality = action.payload;
             if (state.currentSong) {
@@ -118,6 +134,23 @@ const musicPlayerSlice = createSlice({
                 state.isSettingsOpen = false;
             }
         },
+        setEqualizerEnabled: (state, action: PayloadAction<boolean>) => {
+            state.equalizerSettings.enabled = action.payload;
+        },
+        setEqualizerBand: (state, action: PayloadAction<{ index: number; value: number }>) => {
+            state.equalizerSettings.bands[action.payload.index] = action.payload.value;
+            state.equalizerSettings.preset = 'Custom';
+        },
+        setEqualizerPreset: (state, action: PayloadAction<{ name: string; bands: number[] }>) => {
+            state.equalizerSettings.preset = action.payload.name;
+            state.equalizerSettings.bands = [...action.payload.bands];
+        },
+        setGaplessEnabled: (state, action: PayloadAction<boolean>) => {
+            state.isGaplessEnabled = action.payload;
+        },
+        setCrossfadeDuration: (state, action: PayloadAction<number>) => {
+            state.crossfadeDuration = action.payload;
+        },
     },
 });
 
@@ -134,8 +167,14 @@ export const {
     removeFromQueue,
     reorderQueue,
     setRecommendations,
+    addRecentlyPlayedAlbum,
     setSettingsOpen,
     setQueueOpen,
+    setEqualizerEnabled,
+    setEqualizerBand,
+    setEqualizerPreset,
+    setGaplessEnabled,
+    setCrossfadeDuration,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;

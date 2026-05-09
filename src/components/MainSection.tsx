@@ -7,7 +7,7 @@ import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../con
 
 const MainSection: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
-    const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
+    const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
     const [data, setData] = useState<{
         albums: any[];
         songs: any[];
@@ -81,7 +81,12 @@ const MainSection: React.FC = () => {
         >
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants}>
-                    <Slider data={recentlyPlayed} title="Recently Played" />
+                    <Slider data={recentlyPlayed} title="Recently Played Songs" />
+                </motion.div>
+            )}
+            {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
+                <motion.div variants={itemVariants}>
+                    <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
                 </motion.div>
             )}
             {data.songs && data.songs.length > 0 && (

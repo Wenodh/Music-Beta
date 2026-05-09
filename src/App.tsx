@@ -12,9 +12,11 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SettingsDrawer from './components/SettingsDrawer';
 import Queue from './components/Queue';
+import Equalizer from './components/Equalizer';
+import Lyrics from './components/Lyrics';
 import ToastContainer from './components/toast/ToastContainer';
 import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
-import { showToast, removeToast, closePlaylistModal } from './features/ui/uiSlice';
+import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
@@ -78,7 +80,8 @@ const AnimatedRoutes = () => {
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
-    const { toasts, playlistModal } = useAppSelector(state => state.ui);
+    const { toasts, playlistModal, isLyricsOpen } = useAppSelector(state => state.ui);
+    const { currentSong } = useAppSelector(state => state.musicPlayer);
 
     return (
         <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-28 md:pt-20">
@@ -89,6 +92,14 @@ export const AppContent = () => {
                 <Player />
                 <SettingsDrawer />
                 <Queue />
+                <Equalizer />
+                <Lyrics
+                    isOpen={isLyricsOpen}
+                    onClose={() => dispatch(setLyricsOpen(false))}
+                    songId={currentSong?.id || ''}
+                    songName={currentSong?.name || ''}
+                    artistName={currentSong?.primaryArtists || ''}
+                />
                 <ToastContainer
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}
