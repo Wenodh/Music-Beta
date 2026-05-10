@@ -178,7 +178,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (progressElement) {
                 progressElement.value = progress.toString();
                 const value = progress;
-                progressElement.style.background = `linear-gradient(to right, #ef4444 0%, #ef4444 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#ef4444';
+                progressElement.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
             }
 
             // Crossfade Trigger

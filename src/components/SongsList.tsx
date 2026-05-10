@@ -103,7 +103,7 @@ const SongsList: React.FC<SongsListProps> = ({
 
     return (
         <motion.div
-            whileHover={{ x: 4, backgroundColor: "rgba(239, 68, 68, 0.05)" }}
+            whileHover={{ x: 4 }}
             onClick={() =>
                 dispatch(
                     playMusic({
@@ -117,9 +117,9 @@ const SongsList: React.FC<SongsListProps> = ({
                     })
                 )
             }
-            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
+            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border border-transparent hover:bg-primary/5 ${
                 isCurrent
-                    ? 'bg-primary/10/50 dark:bg-red-900/10 border-red-200/50 dark:border-red-800/50 text-red-600'
+                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/20 text-primary'
                     : 'hover:border-gray-200 dark:hover:border-gray-800'
             }`}
         >

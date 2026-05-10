@@ -26,11 +26,24 @@ const MainSection: React.FC = () => {
         const fetchData = async () => {
             try {
                 setLoading(true);
+
+                // For artists, searching just by language gives poor results.
+                // We use a curated list of top artists per language to get better "Featured Artists"
+                const artistQueries: Record<string, string> = {
+                    telugu: 'Sid Sriram, Thaman S, Devi Sri Prasad, Mani Sharma, M. M. Keeravani, S. P. Balasubrahmanyam',
+                    hindi: 'Arijit Singh, Shreya Ghoshal, Badshah, Pritam, Neha Kakkar, Sonu Nigam, Atif Aslam',
+                    punjabi: 'Sidhu Moose Wala, Diljit Dosanjh, Karan Aujla, AP Dhillon, Guru Randhawa',
+                    tamil: 'Anirudh Ravichander, A. R. Rahman, Yuvan Shankar Raja, Santhosh Narayanan, G. V. Prakash',
+                    english: 'Taylor Swift, The Weeknd, Drake, Ed Sheeran, Justin Bieber, Bruno Mars, Dua Lipa'
+                };
+
+                const artistQuery = artistQueries[language.toLowerCase()] || language;
+
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
                     axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
-                    axios.get(`${searchArtist}${language}`)
+                    axios.get(`${searchArtist}${artistQuery}&limit=15`)
                 ]);
 
                 const [albumsRes, songsRes, playlistsRes, artistsRes] = results;

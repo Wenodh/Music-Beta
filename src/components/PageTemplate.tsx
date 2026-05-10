@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import useFetchDetails from '../hooks/useFetchDetails';
 import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
@@ -12,6 +13,7 @@ import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeart
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { search as searchUrl, album as albumSearchUrl, playlistSearch as playlistSearchUrl } from '../constants';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -28,6 +30,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const [isBioExpanded, setIsBioExpanded] = useState(false);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [recommendations, setRecommendations] = useState<{
+        moreByArtist: any[];
+        similarCollections: any[];
+    }>({ moreByArtist: [], similarCollections: [] });
 
     const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
@@ -38,6 +44,34 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         if (details && (details as any).type === 'album') {
             dispatch(addRecentlyPlayedAlbum(details));
         }
+
+        const fetchRecommendations = async () => {
+            if (!details) return;
+
+            try {
+                if (details.type === 'album') {
+                    const artistName = (details as any).artists?.primary?.[0]?.name || (details as any).primaryArtists;
+                    if (artistName) {
+                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${artistName}&limit=10`);
+                        setRecommendations(prev => ({
+                            ...prev,
+                            moreByArtist: (moreByRes.data.data.results || []).filter((a: any) => a.id !== details.id)
+                        }));
+                    }
+                } else if (details.type === 'playlist') {
+                    const playlistName = details.name;
+                    const similarRes = await axios.get(`${playlistSearchUrl}${playlistName}&limit=10`);
+                    setRecommendations(prev => ({
+                        ...prev,
+                        similarCollections: (similarRes.data.data.results || []).filter((p: any) => p.id !== details.id)
+                    }));
+                }
+            } catch (error) {
+                console.error('Error fetching recommendations:', error);
+            }
+        };
+
+        fetchRecommendations();
     }, [rawSongs, details, dispatch]);
 
     const songs = [...rawSongs].sort((a: any, b: any) => {
@@ -387,6 +421,14 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
                 {(details as any)?.similarArtists && (details as any).similarArtists.length > 0 && (
                     <Slider data={(details as any).similarArtists} title="Fans Also Like" />
+                )}
+
+                {recommendations.moreByArtist.length > 0 && (
+                    <Slider data={recommendations.moreByArtist} title={`More by ${(details as any).artists?.primary?.[0]?.name || (details as any).primaryArtists}`} />
+                )}
+
+                {recommendations.similarCollections.length > 0 && (
+                    <Slider data={recommendations.similarCollections} title="Similar Playlists" />
                 )}
             </div>
         </div>

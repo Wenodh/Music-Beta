@@ -9,10 +9,18 @@ const DailyMix: React.FC = () => {
     const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
     const [mixedSongs, setMixedSongs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
+    const COOLDOWN = 30 * 60 * 1000; // 30 minutes cooldown
 
     useEffect(() => {
         const fetchMix = async () => {
             if (!recentlyPlayed || recentlyPlayed.length === 0) return;
+
+            const now = Date.now();
+            // Only update if cooldown has passed or if we have no songs yet
+            if (mixedSongs.length > 0 && now - lastUpdateTime < COOLDOWN) {
+                return;
+            }
 
             setLoading(true);
             try {
@@ -37,6 +45,7 @@ const DailyMix: React.FC = () => {
                 const shuffled = uniqueSuggestions.slice(0, 20);
 
                 setMixedSongs(shuffled);
+                setLastUpdateTime(now);
             } catch (error) {
                 console.error('Error fetching Daily Mix:', error);
             } finally {
