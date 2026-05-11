@@ -31,6 +31,7 @@ export interface MusicPlayerState {
     isGaplessEnabled: boolean;
     crossfadeDuration: number;
     currentTime: number;
+    isSongRadioEnabled: boolean;
 }
 
 export interface EqualizerSettings {

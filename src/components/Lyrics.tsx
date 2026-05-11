@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { lyrics as lyricsUrl } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose } from 'react-icons/io5';
-import { useAppSelector } from '../hooks/redux';
+import { IoClose, IoPlay, IoPause, IoPlaySkipBack, IoPlaySkipForward } from 'react-icons/io5';
+import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { parseLRC, LyricLine } from '../utils/lrcParser';
+import { playMusic, nextSong, prevSong } from '../features/musicplayer/musicPlayerSlice';
 
 interface LyricsProps {
     songId: string;
@@ -15,12 +16,14 @@ interface LyricsProps {
 }
 
 const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose }) => {
+    const dispatch = useAppDispatch();
     const [rawLyrics, setRawLyrics] = useState<string | null>(null);
     const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeLineIndex, setActiveLineIndex] = useState(-1);
 
-    const { currentTime } = useAppSelector(state => state.musicPlayer);
+    const { currentTime, isPlaying, currentSong } = useAppSelector(state => state.musicPlayer);
+    const { theme } = useAppSelector(state => state.ui);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -146,11 +149,10 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                                 animate={{
                                                     opacity: activeLineIndex === index ? 1 : 0.3,
                                                     scale: activeLineIndex === index ? 1.05 : 1,
-                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(1px)'
+                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(1px)',
+                                                    color: activeLineIndex === index ? theme.accentColor : 'rgba(255, 255, 255, 0.4)'
                                                 }}
-                                                className={`text-3xl md:text-5xl font-extrabold leading-tight cursor-pointer transition-all duration-500 origin-left ${
-                                                    activeLineIndex === index ? 'text-white' : 'text-white/40 hover:text-white/60'
-                                                }`}
+                                                className="text-3xl md:text-5xl font-extrabold leading-tight cursor-pointer transition-all duration-500 origin-left"
                                                 onClick={() => {
                                                     const audio = document.querySelector('audio');
                                                     if (audio) audio.currentTime = line.time;
@@ -173,12 +175,40 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                         </div>
                     </div>
 
-                    {/* Progress indicator */}
-                    <div className="h-1.5 w-full bg-white/10">
-                        <motion.div
-                            className="h-full bg-primary"
-                            style={{ width: `${(currentTime / (parseFloat(document.querySelector('audio')?.duration?.toString() || '1') || 1)) * 100}%` }}
-                        />
+                    {/* Compact Player Controls */}
+                    <div className="p-8 md:px-12 bg-black/40 backdrop-blur-xl border-t border-white/10 relative z-10">
+                        <div className="max-w-4xl mx-auto">
+                            {/* Progress bar */}
+                            <div className="w-full mb-6">
+                                <div className="relative h-1.5 w-full bg-white/10 rounded-full overflow-hidden mb-2">
+                                    <motion.div
+                                        className="absolute inset-y-0 left-0"
+                                        style={{ width: `${(currentTime / (parseFloat(currentSong?.duration?.toString() || '1') || 1)) * 100}%`, backgroundColor: theme.accentColor }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-center gap-12">
+                                <button
+                                    onClick={() => dispatch(prevSong())}
+                                    className="p-2 text-white/60 hover:text-white transition-colors"
+                                >
+                                    <IoPlaySkipBack size={32} />
+                                </button>
+                                <button
+                                    onClick={() => dispatch(playMusic(currentSong))}
+                                    className="w-16 h-16 flex items-center justify-center rounded-full bg-white text-black shadow-xl"
+                                >
+                                    {isPlaying ? <IoPause size={32} /> : <IoPlay size={32} className="ml-1" />}
+                                </button>
+                                <button
+                                    onClick={() => dispatch(nextSong())}
+                                    className="p-2 text-white/60 hover:text-white transition-colors"
+                                >
+                                    <IoPlaySkipForward size={32} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </motion.div>
             )}

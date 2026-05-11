@@ -30,6 +30,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const [isBioExpanded, setIsBioExpanded] = useState(false);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [visibleSongsCount, setVisibleSongsCount] = useState(10);
     const [recommendations, setRecommendations] = useState<{
         moreByArtist: any[];
         similarCollections: any[];
@@ -99,7 +100,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         fetchRecommendations();
     }, [details?.id, details?.type]);
 
-    const songs = [...rawSongs].sort((a: any, b: any) => {
+    const sortedSongs = [...rawSongs].sort((a: any, b: any) => {
         if (sortBy === 'name') {
             const nameA = a.name || '';
             const nameB = b.name || '';
@@ -119,8 +120,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     });
 
     const handlePlayAll = () => {
-        if (songs.length > 0) {
-            dispatch(playMusic(songs[0]));
+        if (sortedSongs.length > 0) {
+            dispatch(playMusic(sortedSongs[0]));
         }
     };
 
@@ -146,10 +147,12 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
     const handleBulkAddToPlaylist = () => {
         if (selectedSongs.length === 0) return;
-        const songsToBulkAdd = songs.filter(s => selectedSongs.includes(s.id));
+        const songsToBulkAdd = sortedSongs.filter(s => selectedSongs.includes(s.id));
         dispatch(openPlaylistModal(songsToBulkAdd));
         dispatch(showToast({ message: `Ready to add ${selectedSongs.length} songs` }));
     };
+
+    const songs = sortedSongs.slice(0, visibleSongsCount);
 
     if (loading) return (
         <div className="flex justify-center items-center h-[60vh]">
@@ -219,7 +222,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                     initial={{ scale: 0 }}
                                     animate={{ scale: 1 }}
                                     onClick={handleBulkAddToPlaylist}
-                                    className="bg-primary text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-lg"
+                                    className="bg-primary text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-lg whitespace-nowrap"
                                 >
                                     Add {selectedSongs.length} to Playlist
                                 </motion.button>
@@ -363,6 +366,17 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                             ))}
                         </AnimatePresence>
                     </div>
+
+                    {visibleSongsCount < sortedSongs.length && (
+                        <div className="mt-8 flex justify-center">
+                            <button
+                                onClick={() => setVisibleSongsCount(prev => prev + 10)}
+                                className="px-8 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-xl transition-colors"
+                            >
+                                Load More Songs
+                            </button>
+                        </div>
+                    )}
                 </div>
             </FlexLayout>
 
@@ -408,7 +422,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     </div>
 
                     {/* Biography */}
-                    {((details as any).bio || (details as any).wiki) && (
+                    {((details as any).bio?.length > 0 || (details as any).wiki?.length > 0) && (
                         <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 sm:p-8">
                             <h3 className="text-xl font-black mb-4">About the Artist</h3>
                             <div className="relative">

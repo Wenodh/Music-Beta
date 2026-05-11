@@ -127,7 +127,7 @@ const SongsList: React.FC<SongsListProps> = ({
                 {isSelectionMode && (
                     <div
                         onClick={(e) => { e.stopPropagation(); onSelect?.(id); }}
-                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-gray-400'}`}
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-gray-400'}`}
                     >
                         {isSelected && <span className="text-white text-[10px]">✓</span>}
                     </div>

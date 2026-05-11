@@ -13,6 +13,7 @@ import {
     playMusic,
     decrementSleepTimer,
     setCurrentTime,
+    setSongRadioEnabled,
 } from '../features/musicplayer/musicPlayerSlice';
 import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
@@ -28,8 +29,9 @@ import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
-import { openPlaylistModal, setEqualizerOpen, setLyricsOpen } from '../features/ui/uiSlice';
+import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
+import { getDominantColor } from '../utils/colorExtractor';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const navigate = useNavigate();
@@ -43,7 +45,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
-        isGaplessEnabled, crossfadeDuration
+        isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen } = useAppSelector((state) => state.ui);
@@ -107,9 +109,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [currentSong, songs, dispatch]);
 
-    // Handle Metadata & Recommendations
+    // Handle Metadata, Recommendations & Theme
     useEffect(() => {
         if (currentSong) {
+            // Update Theme Color
+            if (imageUrl) {
+                getDominantColor(imageUrl).then(color => {
+                    dispatch(setAccentColor(color));
+                });
+            }
+
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new window.MediaMetadata({
                   title: currentSong?.name,
@@ -236,7 +245,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         const handleSongEnd = () => {
             if (!isCrossfading) {
-                playNextInQueue(true);
+                const index = songs.findIndex((song) => song.id === currentSong?.id);
+                if (index === songs.length - 1 && isSongRadioEnabled && recommendations.length > 0) {
+                    // Last song in queue and radio is enabled
+                    const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
+                    dispatch(playMusic(randomSong));
+                } else {
+                    playNextInQueue(true);
+                }
             }
         };
 
@@ -335,7 +351,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         onChange={handleProgressChange}
                         className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
                     />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8" onClick={() => window.innerWidth < 768 && setIsMobilePlayerOpen(true)}>
+                    <div className="flex justify-between items-center py-3 px-4 lg:px-8" onClick={(e) => {
+                        // Prevent opening mobile player if a button was clicked
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                        window.innerWidth < 768 && setIsMobilePlayerOpen(true);
+                    }}>
                         {/* 1st div */}
                         <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
                             <motion.div
@@ -552,6 +572,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                             >
                                                 <RiShareForwardLine size={20} /> Share Song
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    dispatch(setSongRadioEnabled(!isSongRadioEnabled));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <PiShuffleBold className={isSongRadioEnabled ? 'text-primary' : ''} size={20} />
+                                                Song Radio: {isSongRadioEnabled ? 'ON' : 'OFF'}
                                             </button>
 
                                             <div className="lg:hidden border-t border-gray-100 dark:border-gray-700 mt-1">
