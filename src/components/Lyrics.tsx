@@ -111,11 +111,10 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    initial={{ opacity: 0, y: '100%' }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: '100%', opacity: 0 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed inset-0 z-[100] bg-gray-950 flex flex-col text-white overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="min-h-[calc(100vh-160px)] flex flex-col text-white overflow-hidden relative rounded-3xl"
                 >
                     {/* Immersive Background */}
                     <div className="absolute inset-0 z-0">
@@ -133,20 +132,21 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                     {/* Header */}
                     <div className="flex items-center justify-between p-6 md:p-10 z-10">
                         <div className="flex flex-col">
-                            <h2 className="text-sm font-medium text-gray-400 uppercase tracking-widest">Now Playing</h2>
+                            <h2 className="text-sm font-medium text-gray-400 uppercase tracking-widest">Lyrics</h2>
                             <p className="text-xl font-bold truncate max-w-[200px] md:max-w-md">{songName}</p>
                         </div>
                         <button
                             onClick={onClose}
                             className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors border border-white/10"
+                            title="Close Lyrics"
                         >
-                            <IoClose size={28} />
+                            <IoClose size={24} />
                         </button>
                     </div>
 
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 overflow-y-auto px-6 md:px-12 py-12 custom-scrollbar scroll-smooth"
+                        className="flex-1 overflow-y-auto px-6 md:px-12 py-8 custom-scrollbar scroll-smooth z-10"
                     >
                         <div className="max-w-4xl mx-auto w-full">
                             {loading ? (

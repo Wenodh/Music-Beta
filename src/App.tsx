@@ -94,7 +94,21 @@ export const AppContent = () => {
             <BrowserRouter>
                 <Navbar />
                 <SearchSection />
-                <AnimatedRoutes />
+                <main className="max-w-7xl mx-auto px-4">
+                    <AnimatePresence mode="wait">
+                        {isLyricsOpen ? (
+                            <Lyrics
+                                isOpen={isLyricsOpen}
+                                onClose={() => dispatch(setLyricsOpen(false))}
+                                songId={currentSong?.id || ''}
+                                songName={currentSong?.name || ''}
+                                artistName={currentSong?.primaryArtists || ''}
+                            />
+                        ) : (
+                            <AnimatedRoutes />
+                        )}
+                    </AnimatePresence>
+                </main>
                 <Player onShowMiniPlayer={() => setIsMiniPlayerOpen(true)} />
                 <AnimatePresence>
                     {isMiniPlayerOpen && <MiniPlayer onClose={() => setIsMiniPlayerOpen(false)} />}
@@ -102,13 +116,6 @@ export const AppContent = () => {
                 <SettingsDrawer />
                 <Queue />
                 <Equalizer />
-                <Lyrics
-                    isOpen={isLyricsOpen}
-                    onClose={() => dispatch(setLyricsOpen(false))}
-                    songId={currentSong?.id || ''}
-                    songName={currentSong?.name || ''}
-                    artistName={currentSong?.primaryArtists || ''}
-                />
                 <ToastContainer
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}
