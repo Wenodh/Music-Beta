@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { lyrics as lyricsUrl } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose } from 'react-icons/io5';
-import { useAppSelector } from '../hooks/redux';
+import { IoClose, IoPlay, IoPause, IoPlaySkipBack, IoPlaySkipForward } from 'react-icons/io5';
+import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { parseLRC, LyricLine } from '../utils/lrcParser';
+import { playMusic, nextSong, prevSong } from '../features/musicplayer/musicPlayerSlice';
 
 interface LyricsProps {
     songId: string;
@@ -15,14 +16,18 @@ interface LyricsProps {
 }
 
 const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose }) => {
+    const dispatch = useAppDispatch();
     const [rawLyrics, setRawLyrics] = useState<string | null>(null);
     const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeLineIndex, setActiveLineIndex] = useState(-1);
 
-    const { currentTime } = useAppSelector(state => state.musicPlayer);
+    const { currentTime, isPlaying, currentSong } = useAppSelector(state => state.musicPlayer);
+    const { theme } = useAppSelector(state => state.ui);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
+    const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
     useEffect(() => {
         if (isOpen && songId) {
@@ -30,6 +35,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                 setLoading(true);
                 setActiveLineIndex(-1);
                 setParsedLyrics([]);
+                lineRefs.current.clear();
 
                 try {
                     // Try primary source (JioSaavn API)
@@ -87,14 +93,16 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                 setActiveLineIndex(index);
 
                 // Scroll into view
-                const activeElement = lineRefs.current[index];
+                const activeElement = lineRefs.current.get(index);
                 if (activeElement && scrollContainerRef.current) {
                     const container = scrollContainerRef.current;
-                    const offsetTop = activeElement.offsetTop;
-                    const containerHeight = container.offsetHeight;
+
+                    const containerHeight = container.clientHeight;
+                    const elementTop = activeElement.offsetTop;
+                    const elementHeight = activeElement.offsetHeight;
 
                     container.scrollTo({
-                        top: offsetTop - containerHeight / 2 + activeElement.offsetHeight / 2,
+                        top: elementTop - (containerHeight / 2) + (elementHeight / 2),
                         behavior: 'smooth'
                     });
                 }
@@ -106,29 +114,42 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    initial={{ opacity: 0, y: '100%' }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: '100%', opacity: 0 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-3xl flex flex-col text-white overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="h-[calc(100vh-200px)] md:h-[calc(100vh-250px)] flex flex-col text-white overflow-hidden relative rounded-3xl"
                 >
+                    {/* Immersive Background */}
+                    <div className="absolute inset-0 z-0">
+                        <motion.img
+                            key={imageUrl}
+                            initial={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 0.3, scale: 1 }}
+                            src={imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover blur-[100px] saturate-[1.5]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/40 via-gray-950/80 to-gray-950" />
+                    </div>
+
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 md:px-12 z-10">
+                    <div className="flex items-center justify-between p-6 md:p-10 z-10">
                         <div className="flex flex-col">
-                            <h2 className="text-sm font-medium text-gray-400 uppercase tracking-widest">Now Playing</h2>
+                            <h2 className="text-sm font-medium text-gray-400 uppercase tracking-widest">Lyrics</h2>
                             <p className="text-xl font-bold truncate max-w-[200px] md:max-w-md">{songName}</p>
                         </div>
                         <button
                             onClick={onClose}
                             className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors border border-white/10"
+                            title="Close Lyrics"
                         >
-                            <IoClose size={28} />
+                            <IoClose size={24} />
                         </button>
                     </div>
 
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 overflow-y-auto px-6 md:px-12 py-12 custom-scrollbar scroll-smooth"
+                        className="flex-1 overflow-y-auto px-6 md:px-12 py-12 custom-scrollbar scroll-smooth z-10 relative"
                     >
                         <div className="max-w-4xl mx-auto w-full">
                             {loading ? (
@@ -142,15 +163,14 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                         parsedLyrics.map((line, index) => (
                                             <motion.div
                                                 key={index}
-                                                ref={el => lineRefs.current[index] = el}
+                                                ref={el => { if (el) lineRefs.current.set(index, el); }}
                                                 animate={{
-                                                    opacity: activeLineIndex === index ? 1 : 0.3,
-                                                    scale: activeLineIndex === index ? 1.05 : 1,
-                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(1px)'
+                                                    opacity: activeLineIndex === index ? 1 : 0.2,
+                                                    scale: activeLineIndex === index ? 1 : 0.95,
+                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(2px)',
+                                                    color: activeLineIndex === index ? theme.accentColor : 'rgba(255, 255, 255, 1)'
                                                 }}
-                                                className={`text-3xl md:text-5xl font-extrabold leading-tight cursor-pointer transition-all duration-500 origin-left ${
-                                                    activeLineIndex === index ? 'text-white' : 'text-white/40 hover:text-white/60'
-                                                }`}
+                                                className="text-3xl md:text-6xl font-black leading-tight cursor-pointer transition-all duration-700 origin-left tracking-tight"
                                                 onClick={() => {
                                                     const audio = document.querySelector('audio');
                                                     if (audio) audio.currentTime = line.time;
@@ -171,15 +191,10 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                 </div>
                             )}
                         </div>
+                        {/* Spacer for player visibility */}
+                        <div className="h-32 flex-shrink-0" />
                     </div>
 
-                    {/* Progress indicator */}
-                    <div className="h-1.5 w-full bg-white/10">
-                        <motion.div
-                            className="h-full bg-primary"
-                            style={{ width: `${(currentTime / (parseFloat(document.querySelector('audio')?.duration?.toString() || '1') || 1)) * 100}%` }}
-                        />
-                    </div>
                 </motion.div>
             )}
         </AnimatePresence>

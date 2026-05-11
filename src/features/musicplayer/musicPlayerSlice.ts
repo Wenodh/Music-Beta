@@ -21,6 +21,7 @@ const initialState: MusicPlayerState = {
     isGaplessEnabled: false,
     crossfadeDuration: 5,
     currentTime: 0,
+    isSongRadioEnabled: true,
 };
 
 const musicPlayerSlice = createSlice({
@@ -158,6 +159,9 @@ const musicPlayerSlice = createSlice({
         setCurrentTime: (state, action: PayloadAction<number>) => {
             state.currentTime = action.payload;
         },
+        setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
+            state.isSongRadioEnabled = action.payload;
+        },
         nextSong: (state) => {
             if (state.currentSong && state.songs.length > 0) {
                 const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
@@ -231,6 +235,7 @@ export const {
     setGaplessEnabled,
     setCrossfadeDuration,
     setCurrentTime,
+    setSongRadioEnabled,
     nextSong,
     prevSong,
 } = musicPlayerSlice.actions;
