@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { search as searchUrl } from '../constants';
@@ -11,6 +12,7 @@ import _ from 'lodash';
 import { setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
 
 const Navbar: React.FC = () => {
+    const { t } = useTranslation();
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
@@ -108,7 +110,7 @@ const Navbar: React.FC = () => {
                         onChange={handleSearchChange}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
-                        placeholder="Search for songs, albums, artists..."
+                        placeholder={t('common.search')}
                         className="w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50 border-2 border-transparent focus:border-primary/50 focus:bg-white dark:focus:bg-gray-900 focus:outline-none transition-all shadow-inner"
                     />
                     <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
@@ -140,7 +142,7 @@ const Navbar: React.FC = () => {
                     className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10"
                 >
                     <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
-                    <span className="text-sm font-bold uppercase tracking-tight">Account</span>
+                    <span className="text-sm font-bold uppercase tracking-tight">{t('common.account')}</span>
                 </button>
             </div>
         </motion.nav>

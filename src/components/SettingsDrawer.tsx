@@ -7,8 +7,10 @@ import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const SettingsDrawer: React.FC = () => {
+    const { t, i18n } = useTranslation();
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
@@ -55,7 +57,7 @@ const SettingsDrawer: React.FC = () => {
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-8">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <IoSettingsOutline /> Settings
+                                    <IoSettingsOutline /> {t('common.settings')}
                                 </h2>
                                 <button onClick={() => dispatch(setSettingsOpen(false))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                                     <IoCloseOutline size={28} />
@@ -65,13 +67,16 @@ const SettingsDrawer: React.FC = () => {
                             <div className="space-y-8">
                                 <section>
                                     <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
-                                        <IoGlobeOutline /> Language
+                                        <IoGlobeOutline /> {t('settings.language')}
                                     </h3>
                                     <div className="grid grid-cols-2 gap-2">
                                         {languages.map((lang) => (
                                             <button
                                                 key={lang.value}
-                                                onClick={() => dispatch(setLanguage(lang.value))}
+                                                onClick={() => {
+                                                    dispatch(setLanguage(lang.value));
+                                                    i18n.changeLanguage(lang.value);
+                                                }}
                                                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                                                     language === lang.value
                                                         ? 'bg-primary text-white shadow-md'
@@ -86,7 +91,7 @@ const SettingsDrawer: React.FC = () => {
 
                                 <section>
                                     <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
-                                        <IoMusicalNotesOutline /> Audio Quality
+                                        <IoMusicalNotesOutline /> {t('settings.audio_quality')}
                                     </h3>
                                     <div className="grid grid-cols-2 gap-2">
                                         {qualities.map((q) => (
@@ -106,10 +111,10 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Personalization</h3>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">{t('settings.personalization')}</h3>
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-                                            <span className="text-sm font-medium">Dark Mode</span>
+                                            <span className="text-sm font-medium">{t('settings.dark_mode')}</span>
                                             <ThemeToggle />
                                         </div>
                                         <button
@@ -121,14 +126,14 @@ const SettingsDrawer: React.FC = () => {
                                         >
                                             <div className="flex items-center gap-3">
                                                 <IoLibraryOutline className="text-primary" size={20} />
-                                                <span className="text-sm font-medium">My Library</span>
+                                                <span className="text-sm font-medium">{t('common.my_library')}</span>
                                             </div>
-                                            <span className="text-gray-400 text-xs">View all</span>
+                                            <span className="text-gray-400 text-xs">{t('common.view_all')}</span>
                                         </button>
                                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
                                             <div>
-                                                <p className="text-sm font-medium">OLED Mode</p>
-                                                <p className="text-[10px] text-gray-500">Pure black background</p>
+                                                <p className="text-sm font-medium">{t('settings.oled_mode')}</p>
+                                                <p className="text-[10px] text-gray-500">{t('settings.oled_desc')}</p>
                                             </div>
                                             <button
                                                 onClick={() => dispatch(setOledMode(!theme.isOled))}
@@ -144,7 +149,7 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Accent Color</h3>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">{t('settings.accent_color')}</h3>
                                     <div className="flex flex-wrap gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
                                         {accentColors.map((color) => (
                                             <button
@@ -163,13 +168,13 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Playback Settings</h3>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">{t('settings.playback')}</h3>
                                     <div className="space-y-3">
                                         <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <p className="text-sm font-medium">Gapless (Crossfade)</p>
-                                                    <p className="text-[10px] text-gray-500">Smooth transitions between songs</p>
+                                                    <p className="text-sm font-medium">{t('settings.gapless')}</p>
+                                                    <p className="text-[10px] text-gray-500">{t('settings.gapless_desc')}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => dispatch(setGaplessEnabled(!isGaplessEnabled))}
@@ -185,7 +190,7 @@ const SettingsDrawer: React.FC = () => {
                                             {isGaplessEnabled && (
                                                 <div className="pt-2">
                                                     <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                                                        <span>Crossfade Duration</span>
+                                                        <span>{t('settings.crossfade_duration')}</span>
                                                         <span>{crossfadeDuration}s</span>
                                                     </div>
                                                     <input
@@ -209,7 +214,7 @@ const SettingsDrawer: React.FC = () => {
                                             <div className="flex items-center gap-3">
                                                 <IoOptionsOutline className="text-primary" size={20} />
                                                 <div>
-                                                    <p className="text-sm font-medium text-left">Equalizer</p>
+                                                    <p className="text-sm font-medium text-left">{t('settings.equalizer')}</p>
                                                     <p className="text-[10px] text-gray-500 text-left">
                                                         {equalizerSettings.enabled ? equalizerSettings.preset : 'Disabled'}
                                                     </p>
@@ -222,8 +227,8 @@ const SettingsDrawer: React.FC = () => {
                             </div>
 
                             <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800 text-center">
-                                <p className="text-xs text-gray-400">VibeOn Version 1.2.0</p>
-                                <p className="text-[10px] text-gray-500 mt-1">Made with ❤️ by WENODH</p>
+                                <p className="text-xs text-gray-400">{t('settings.version')} 1.2.0</p>
+                                <p className="text-[10px] text-gray-500 mt-1">{t('settings.made_with')}</p>
                             </div>
                         </div>
                     </motion.div>

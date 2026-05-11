@@ -73,6 +73,11 @@ const musicPlayerSlice = createSlice({
         pauseMusic: (state) => {
             state.isPlaying = false;
         },
+        togglePlay: (state) => {
+            if (state.currentSong) {
+                state.isPlaying = !state.isPlaying;
+            }
+        },
         setCurrentSong: (state, action: PayloadAction<any>) => {
             state.currentSong = action.payload;
         },
@@ -233,6 +238,7 @@ export const {
     setCurrentTime,
     nextSong,
     prevSong,
+    togglePlay,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
