@@ -173,43 +173,10 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                 </div>
                             )}
                         </div>
+                        {/* Spacer for player visibility */}
+                        <div className="h-32 flex-shrink-0" />
                     </div>
 
-                    {/* Compact Player Controls */}
-                    <div className="p-8 md:px-12 bg-black/40 backdrop-blur-xl border-t border-white/10 relative z-10">
-                        <div className="max-w-4xl mx-auto">
-                            {/* Progress bar */}
-                            <div className="w-full mb-6">
-                                <div className="relative h-1.5 w-full bg-white/10 rounded-full overflow-hidden mb-2">
-                                    <motion.div
-                                        className="absolute inset-y-0 left-0"
-                                        style={{ width: `${(currentTime / (parseFloat(currentSong?.duration?.toString() || '1') || 1)) * 100}%`, backgroundColor: theme.accentColor }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-center gap-12">
-                                <button
-                                    onClick={() => dispatch(prevSong())}
-                                    className="p-2 text-white/60 hover:text-white transition-colors"
-                                >
-                                    <IoPlaySkipBack size={32} />
-                                </button>
-                                <button
-                                    onClick={() => dispatch(playMusic(currentSong))}
-                                    className="w-16 h-16 flex items-center justify-center rounded-full bg-white text-black shadow-xl"
-                                >
-                                    {isPlaying ? <IoPause size={32} /> : <IoPlay size={32} className="ml-1" />}
-                                </button>
-                                <button
-                                    onClick={() => dispatch(nextSong())}
-                                    className="p-2 text-white/60 hover:text-white transition-colors"
-                                >
-                                    <IoPlaySkipForward size={32} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </motion.div>
             )}
         </AnimatePresence>
