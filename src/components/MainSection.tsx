@@ -43,7 +43,13 @@ const MainSection: React.FC = () => {
                     axios.get(`${modules}${language}&page=0&limit=25`),
                     axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
-                    ...artistsToFetch.map(name => axios.get(`${searchArtist}${encodeURIComponent(name)}&limit=1`))
+                    ...artistsToFetch.map(name => {
+                        // Remove limit from searchArtist if it already contains it
+                        const baseUrl = searchArtist.includes('limit=')
+                            ? searchArtist.split('limit=')[0].slice(0, -1)
+                            : searchArtist;
+                        return axios.get(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
+                    })
                 ]);
 
                 const albumsRes = results[0];
@@ -125,16 +131,16 @@ const MainSection: React.FC = () => {
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
+            {data.artists && data.artists.length > 0 && (
+                <motion.div variants={itemVariants}>
+                    <Slider data={data.artists} title="Featured Artists" />
+                </motion.div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4">
                 <div className="lg:col-span-2 space-y-8">
                     {data.playlists && data.playlists.length > 0 && (
                         <motion.div variants={itemVariants}>
                             <Slider data={data.playlists} title="Top Playlists" />
-                        </motion.div>
-                    )}
-                    {data.artists && data.artists.length > 0 && (
-                        <motion.div variants={itemVariants}>
-                            <Slider data={data.artists} title="Featured Artists" />
                         </motion.div>
                     )}
                 </div>
