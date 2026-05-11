@@ -38,7 +38,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
                 toast.type === 'success'
                     ? 'bg-green-500/90 border-green-400 text-white'
                     : toast.type === 'error'
-                    ? 'bg-red-500/90 border-red-400 text-white'
+                    ? 'bg-primary/90 border-red-400 text-white'
                     : 'bg-gray-800/90 border-gray-700 text-white'
             }`}>
                 <span className="text-sm font-medium">{toast.message}</span>

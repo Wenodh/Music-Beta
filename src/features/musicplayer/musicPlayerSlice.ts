@@ -20,6 +20,7 @@ const initialState: MusicPlayerState = {
     },
     isGaplessEnabled: false,
     crossfadeDuration: 5,
+    currentTime: 0,
 };
 
 const musicPlayerSlice = createSlice({
@@ -99,6 +100,9 @@ const musicPlayerSlice = createSlice({
         reorderQueue: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload;
         },
+        clearQueue: (state) => {
+            state.songs = state.currentSong ? [state.currentSong] : [];
+        },
         setRecommendations: (state, action: PayloadAction<Song[]>) => {
             state.recommendations = action.payload;
         },
@@ -151,6 +155,56 @@ const musicPlayerSlice = createSlice({
         setCrossfadeDuration: (state, action: PayloadAction<number>) => {
             state.crossfadeDuration = action.payload;
         },
+        setCurrentTime: (state, action: PayloadAction<number>) => {
+            state.currentTime = action.payload;
+        },
+        nextSong: (state) => {
+            if (state.currentSong && state.songs.length > 0) {
+                const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
+                const nextIndex = (index + 1) % state.songs.length;
+                const next = state.songs[nextIndex];
+
+                // Reuse playMusic logic internally if possible, but here we just update state
+                const downloadUrl = next.downloadUrl || next.music;
+                let musicUrl = downloadUrl;
+                if (Array.isArray(downloadUrl)) {
+                    musicUrl = downloadUrl.find((d: any) => d.quality === state.preferredQuality)?.url ||
+                               downloadUrl[downloadUrl.length - 1]?.url;
+                }
+
+                state.currentSong = {
+                    ...next,
+                    type: 'song',
+                    image: Array.isArray(next.image) ? next.image[next.image.length - 1]?.url : next.image,
+                    downloadUrl: downloadUrl,
+                    music: musicUrl,
+                } as Song;
+                state.isPlaying = true;
+            }
+        },
+        prevSong: (state) => {
+            if (state.currentSong && state.songs.length > 0) {
+                const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
+                const prevIndex = (index - 1 + state.songs.length) % state.songs.length;
+                const prev = state.songs[prevIndex];
+
+                const downloadUrl = prev.downloadUrl || prev.music;
+                let musicUrl = downloadUrl;
+                if (Array.isArray(downloadUrl)) {
+                    musicUrl = downloadUrl.find((d: any) => d.quality === state.preferredQuality)?.url ||
+                               downloadUrl[downloadUrl.length - 1]?.url;
+                }
+
+                state.currentSong = {
+                    ...prev,
+                    type: 'song',
+                    image: Array.isArray(prev.image) ? prev.image[prev.image.length - 1]?.url : prev.image,
+                    downloadUrl: downloadUrl,
+                    music: musicUrl,
+                } as Song;
+                state.isPlaying = true;
+            }
+        },
     },
 });
 
@@ -168,6 +222,7 @@ export const {
     reorderQueue,
     setRecommendations,
     addRecentlyPlayedAlbum,
+    clearQueue,
     setSettingsOpen,
     setQueueOpen,
     setEqualizerEnabled,
@@ -175,6 +230,9 @@ export const {
     setEqualizerPreset,
     setGaplessEnabled,
     setCrossfadeDuration,
+    setCurrentTime,
+    nextSong,
+    prevSong,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;

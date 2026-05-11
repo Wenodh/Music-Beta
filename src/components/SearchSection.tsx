@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { useNavigate } from 'react-router-dom';
+import { playMusic, setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 const SearchSection: React.FC = () => {
     const { searchedSongs } = useAppSelector((state) => state.musicPlayer);
     const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Close search on navigation
+    useEffect(() => {
+        dispatch(setSearchedSongs([]));
+    }, [location.pathname, dispatch]);
 
     if (!searchedSongs || (Array.isArray(searchedSongs) && searchedSongs.length === 0)) return null;
 
@@ -41,7 +48,7 @@ const SearchSection: React.FC = () => {
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
                                     activeTab === tab.id
-                                        ? 'bg-red-500 text-white shadow-lg'
+                                        ? 'bg-primary text-white shadow-lg'
                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
                                 }`}
                             >
@@ -51,7 +58,7 @@ const SearchSection: React.FC = () => {
                     </div>
                     <button
                         onClick={() => dispatch({ type: 'musicPlayer/setSearchedSongs', payload: [] })}
-                        className="text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 px-3 py-1.5 rounded-full transition-all"
+                        className="text-xs font-bold text-primary hover:bg-primary/10 dark:hover:bg-red-900/10 px-3 py-1.5 rounded-full transition-all"
                     >
                         CLEAR
                     </button>
@@ -70,7 +77,7 @@ const SearchSection: React.FC = () => {
                                 whileHover={{ y: -5 }}
                                 key={song.id}
                                 onClick={() => dispatch(playMusic(song))}
-                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
+                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all"
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
                                     <img
@@ -79,13 +86,13 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
+                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
                                             <span>▶</span>
                                         </div>
                                     </div>
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{song.name}</p>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{song.primaryArtists}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(song.name)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(song.primaryArtists)}</p>
                             </motion.div>
                         ))}
 
@@ -94,7 +101,7 @@ const SearchSection: React.FC = () => {
                                 whileHover={{ y: -5 }}
                                 key={album.id}
                                 onClick={() => navigate(`/albums/${album.id}`)}
-                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
+                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all"
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
                                     <img
@@ -103,8 +110,8 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{album.name}</p>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Album • {album.artist}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(album.name)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Album • {decodeHtmlEntities(album.artist)}</p>
                             </motion.div>
                         ))}
 
@@ -113,7 +120,7 @@ const SearchSection: React.FC = () => {
                                 whileHover={{ y: -5 }}
                                 key={artist.id}
                                 onClick={() => navigate(`/artists/${artist.id}`)}
-                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all flex flex-col items-center text-center"
+                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all flex flex-col items-center text-center"
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-full w-full max-w-[120px]">
                                     <img
@@ -122,7 +129,7 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors w-full">{artist.name}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors w-full">{decodeHtmlEntities(artist.name)}</p>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">{artist.role}</p>
                             </motion.div>
                         ))}
@@ -132,7 +139,7 @@ const SearchSection: React.FC = () => {
                                 whileHover={{ y: -5 }}
                                 key={playlist.id}
                                 onClick={() => navigate(`/playlists/${playlist.id}`)}
-                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all"
+                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all"
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
                                     <img
@@ -141,7 +148,7 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{playlist.name}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(playlist.name)}</p>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Playlist</p>
                             </motion.div>
                         ))}

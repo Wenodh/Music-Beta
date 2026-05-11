@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { reorderQueue, removeFromQueue, playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
+import { reorderQueue, removeFromQueue, playMusic, clearQueue } from '../features/musicplayer/musicPlayerSlice';
 import { motion, Reorder, AnimatePresence, useDragControls } from 'framer-motion';
 import { IoClose, IoReorderThreeOutline, IoTrashOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
@@ -26,7 +26,7 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className={`flex items-center gap-3 p-2 rounded-xl group mb-1 transition-colors ${
-                isActive ? 'bg-red-500/10 dark:bg-red-500/20 text-red-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
+                isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
             }`}
         >
             <div
@@ -94,10 +94,10 @@ const Queue: React.FC = () => {
                                     <button
                                         onClick={() => {
                                             if (window.confirm('Clear all songs from queue?')) {
-                                                dispatch(setSongs([]));
+                                                dispatch(clearQueue());
                                             }
                                         }}
-                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                        className="p-2 text-gray-400 hover:text-primary transition-colors"
                                         title="Clear Queue"
                                     >
                                         <IoTrashOutline size={20} />
@@ -149,7 +149,7 @@ const Queue: React.FC = () => {
                                                 e.stopPropagation();
                                                 dispatch(reorderQueue([...songs, song]));
                                             }}
-                                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-red-50 dark:bg-red-900/20 md:bg-transparent text-red-500 rounded transition-opacity text-xs font-bold"
+                                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-primary/10 dark:bg-red-900/20 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
                                         >
                                         ADD
                                         </button>

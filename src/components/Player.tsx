@@ -12,13 +12,14 @@ import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import {
     playMusic,
     decrementSleepTimer,
+    setCurrentTime,
 } from '../features/musicplayer/musicPlayerSlice';
 import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
 import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiQueueList } from 'react-icons/hi2';
-import { MdOutlineGraphicEq } from 'react-icons/md';
+import { MdOutlineGraphicEq, MdOutlineCloseFullscreen } from 'react-icons/md';
 import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { toggleFavorite } from '../features/library/librarySlice';
@@ -26,10 +27,11 @@ import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
+import MobileNowPlaying from './MobileNowPlaying';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 
-const Player = () => {
+const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const [isDownloading, setIsDownloading] = useState(false);
@@ -37,6 +39,7 @@ const Player = () => {
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [userVolume, setUserVolume] = useState(0.7);
+    const [isMobilePlayerOpen, setIsMobilePlayerOpen] = useState(false);
 
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
@@ -172,13 +175,16 @@ const Player = () => {
             const duration = activeAudio.duration;
             const currentTime = activeAudio.currentTime;
 
+            dispatch(setCurrentTime(currentTime));
+
             // Update Progress Bar
             const progress = (currentTime / (duration || 1)) * 100;
             const progressElement = document.getElementById('progress') as HTMLInputElement;
             if (progressElement) {
                 progressElement.value = progress.toString();
                 const value = progress;
-                progressElement.style.background = `linear-gradient(to right, #ef4444 0%, #ef4444 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#ef4444';
+                progressElement.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
             }
 
             // Crossfade Trigger
@@ -329,7 +335,7 @@ const Player = () => {
                         onChange={handleProgressChange}
                         className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
                     />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8">
+                    <div className="flex justify-between items-center py-3 px-4 lg:px-8" onClick={() => window.innerWidth < 768 && setIsMobilePlayerOpen(true)}>
                         {/* 1st div */}
                         <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
                             <motion.div
@@ -390,12 +396,12 @@ const Player = () => {
                                         {isFavorite ? (
                                             <IoHeart
                                                 onClick={() => dispatch(toggleFavorite(currentSong))}
-                                                className="text-red-500 cursor-pointer text-xl"
+                                                className="text-primary cursor-pointer text-xl"
                                             />
                                         ) : (
                                             <IoHeartOutline
                                                 onClick={() => dispatch(toggleFavorite(currentSong))}
-                                                className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
+                                                className="text-gray-500 hover:text-primary cursor-pointer text-xl"
                                             />
                                         )}
                                     </motion.div>
@@ -405,7 +411,7 @@ const Player = () => {
                                                 e.stopPropagation();
                                                 dispatch(openPlaylistModal(currentSong!));
                                             }}
-                                            className="text-gray-500 hover:text-red-500 cursor-pointer text-xl"
+                                            className="text-gray-500 hover:text-primary cursor-pointer text-xl"
                                             title="Add to Playlist"
                                         />
                                     </div>
@@ -419,7 +425,7 @@ const Player = () => {
                             <motion.div whileTap={{ scale: 0.9 }}>
                                 <IoMdSkipBackward
                                     onClick={prevSong}
-                                    className="text-gray-700 dark:text-gray-200 hover:text-red-500 cursor-pointer transition-colors"
+                                    className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer transition-colors"
                                 />
                             </motion.div>
 
@@ -427,7 +433,7 @@ const Player = () => {
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={handlePlayPause}
-                                className="w-12 h-12 flex items-center justify-center rounded-full bg-red-500 text-white shadow-lg hover:bg-red-600 transition-colors"
+                                className="w-12 h-12 flex items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-red-600 transition-colors"
                             >
                                 {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
                             </motion.button>
@@ -435,7 +441,7 @@ const Player = () => {
                             <motion.div whileTap={{ scale: 0.9 }}>
                                 <IoMdSkipForward
                                     onClick={() => playNextInQueue(true)}
-                                    className="text-gray-700 dark:text-gray-200 hover:text-red-500 cursor-pointer transition-colors"
+                                    className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer transition-colors"
                                 />
                             </motion.div>
                             <PiShuffleBold className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors hidden sm:block" />
@@ -446,13 +452,13 @@ const Player = () => {
                             <motion.div whileTap={{ scale: 0.9 }} className="hidden lg:block">
                                 <MdOutlineLyrics
                                     onClick={() => dispatch(setLyricsOpen(!isLyricsOpen))}
-                                    className={`text-2xl cursor-pointer hover:text-red-500 transition-colors ${isLyricsOpen ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}
+                                    className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isLyricsOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
                             </motion.div>
                             <motion.div whileTap={{ scale: 0.9 }}>
                                 <HiQueueList
                                     onClick={() => dispatch(setQueueOpen(!isQueueOpen))}
-                                    className={`text-2xl cursor-pointer hover:text-red-500 transition-colors ${isQueueOpen ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}
+                                    className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isQueueOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
                             </motion.div>
                             <div className="hidden lg:block">
@@ -493,8 +499,18 @@ const Player = () => {
                                                 }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                             >
-                                                {isFavorite ? <IoHeart className="text-red-500" size={20} /> : <IoHeartOutline size={20} />}
+                                                {isFavorite ? <IoHeart className="text-primary" size={20} /> : <IoHeartOutline size={20} />}
                                                 {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    onShowMiniPlayer?.();
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors hidden lg:flex"
+                                            >
+                                                <MdOutlineCloseFullscreen size={20} /> Mini Player
                                             </button>
 
                                             <button
@@ -544,7 +560,7 @@ const Player = () => {
 
                                             {isDownloading ? (
                                                 <div className="px-4 py-3 flex items-center gap-3 text-sm text-gray-400">
-                                                    <AiOutlineLoading3Quarters className="animate-spin text-red-500" />
+                                                    <AiOutlineLoading3Quarters className="animate-spin text-primary" />
                                                     Downloading...
                                                 </div>
                                             ) : (
@@ -569,7 +585,7 @@ const Player = () => {
                                 onMouseEnter={() => setIsVolumeVisible(true)}
                                 onMouseLeave={() => setIsVolumeVisible(false)}
                             >
-                                <HiSpeakerWave className="text-gray-700 dark:text-gray-200 hover:text-red-500 text-2xl lg:text-3xl cursor-pointer hidden lg:block transition-colors" />
+                                <HiSpeakerWave className="text-gray-700 dark:text-gray-200 hover:text-primary text-2xl lg:text-3xl cursor-pointer hidden lg:block transition-colors" />
                                 <div
                                     className={`absolute bottom-full right-0 mb-4 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-xl rounded-2xl border border-white/20 transition-all duration-300 ${
                                         isVolumeVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
@@ -592,6 +608,15 @@ const Player = () => {
                             </div>
                         </div>
                     </div>
+                    <MobileNowPlaying
+                        isOpen={isMobilePlayerOpen}
+                        onClose={() => setIsMobilePlayerOpen(false)}
+                        prevSong={prevSong}
+                        nextSong={() => playNextInQueue(true)}
+                        handlePlayPause={handlePlayPause}
+                        imageUrl={imageUrl || ''}
+                        audioRefs={[audioRefA, audioRefB]}
+                    />
                 </motion.div>
             )}
         </AnimatePresence>

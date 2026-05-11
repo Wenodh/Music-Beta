@@ -12,9 +12,14 @@ interface UIState {
     playlistModal: {
         isOpen: boolean;
         song: Song | null;
+        bulkSongs?: Song[];
     };
     isEqualizerOpen: boolean;
     isLyricsOpen: boolean;
+    theme: {
+        accentColor: string;
+        isOled: boolean;
+    };
 }
 
 const initialState: UIState = {
@@ -25,6 +30,10 @@ const initialState: UIState = {
     },
     isEqualizerOpen: false,
     isLyricsOpen: false,
+    theme: {
+        accentColor: '#ef4444', // Default red-500
+        isOled: false,
+    },
 };
 
 const uiSlice = createSlice({
@@ -41,13 +50,20 @@ const uiSlice = createSlice({
         removeToast: (state, action: PayloadAction<string>) => {
             state.toasts = state.toasts.filter((t) => t.id !== action.payload);
         },
-        openPlaylistModal: (state, action: PayloadAction<Song>) => {
+        openPlaylistModal: (state, action: PayloadAction<Song | Song[]>) => {
             state.playlistModal.isOpen = true;
-            state.playlistModal.song = action.payload;
+            if (Array.isArray(action.payload)) {
+                state.playlistModal.bulkSongs = action.payload;
+                state.playlistModal.song = action.payload[0] || null;
+            } else {
+                state.playlistModal.song = action.payload;
+                state.playlistModal.bulkSongs = undefined;
+            }
         },
         closePlaylistModal: (state) => {
             state.playlistModal.isOpen = false;
             state.playlistModal.song = null;
+            state.playlistModal.bulkSongs = undefined;
         },
         setEqualizerOpen: (state, action: PayloadAction<boolean>) => {
             state.isEqualizerOpen = action.payload;
@@ -55,8 +71,23 @@ const uiSlice = createSlice({
         setLyricsOpen: (state, action: PayloadAction<boolean>) => {
             state.isLyricsOpen = action.payload;
         },
+        setAccentColor: (state, action: PayloadAction<string>) => {
+            state.theme.accentColor = action.payload;
+        },
+        setOledMode: (state, action: PayloadAction<boolean>) => {
+            state.theme.isOled = action.payload;
+        },
     },
 });
 
-export const { showToast, removeToast, openPlaylistModal, closePlaylistModal, setEqualizerOpen, setLyricsOpen } = uiSlice.actions;
+export const {
+    showToast,
+    removeToast,
+    openPlaylistModal,
+    closePlaylistModal,
+    setEqualizerOpen,
+    setLyricsOpen,
+    setAccentColor,
+    setOledMode
+} = uiSlice.actions;
 export default uiSlice.reducer;

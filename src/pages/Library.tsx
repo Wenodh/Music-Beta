@@ -34,17 +34,17 @@ const Library: React.FC = () => {
                 <div className="flex gap-4">
                     <button
                         onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-red-500' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Favorites
-                        {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />}
+                        {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
                         onClick={() => setActiveTab('playlists')}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-red-500' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Playlists
-                        {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />}
+                        {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                 </div>
 
@@ -52,13 +52,13 @@ const Library: React.FC = () => {
                     <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}
                         >
                             <IoGridOutline size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}
                         >
                             <IoListOutline size={18} />
                         </button>
@@ -105,7 +105,7 @@ const Library: React.FC = () => {
                                         className="w-full h-full object-cover"
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <IoHeart className="text-red-500 text-xl" />
+                                        <IoHeart className="text-primary text-xl" />
                                     </div>
                                 </div>
                                 <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
@@ -132,7 +132,7 @@ const Library: React.FC = () => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setIsCreating(true)}
-                        className={`${viewMode === 'list' ? 'flex items-center gap-4 p-3 w-full border-2 border-dashed' : 'aspect-square border-2 border-dashed flex flex-col items-center justify-center gap-2'} rounded-xl border-gray-200 dark:border-gray-800 hover:border-red-500 hover:text-red-500 transition-colors`}
+                        className={`${viewMode === 'list' ? 'flex items-center gap-4 p-3 w-full border-2 border-dashed' : 'aspect-square border-2 border-dashed flex flex-col items-center justify-center gap-2'} rounded-xl border-gray-200 dark:border-gray-800 hover:border-primary hover:text-primary transition-colors`}
                     >
                         <IoAdd size={viewMode === 'list' ? 24 : 32} />
                         <span className="font-semibold text-sm">New Playlist</span>
@@ -169,7 +169,7 @@ const Library: React.FC = () => {
                                         e.stopPropagation();
                                         dispatch(deletePlaylist(playlist.id));
                                     }}
-                                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 rounded-full transition-all"
+                                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
                                 >
                                     <IoTrash size={14} />
                                 </button>
@@ -183,7 +183,7 @@ const Library: React.FC = () => {
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                     <button
                         onClick={() => setSelectedPlaylist(null)}
-                        className="mb-6 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                        className="mb-6 text-sm text-gray-500 hover:text-primary transition-colors"
                     >
                         ← Back to Playlists
                     </button>
@@ -214,7 +214,7 @@ const Library: React.FC = () => {
                                             e.stopPropagation();
                                             dispatch(toggleFavorite(song));
                                         }}
-                                        className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                                        className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
                                     >
                                         {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeart size={18} className="opacity-40" />}
                                     </button>
@@ -223,7 +223,7 @@ const Library: React.FC = () => {
                                             e.stopPropagation();
                                             dispatch(removeFromPlaylist({ playlistId: selectedPlaylist, songId: song.id }));
                                         }}
-                                        className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all"
+                                        className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-all"
                                     >
                                         <IoTrash size={18} />
                                     </button>
@@ -261,7 +261,7 @@ const Library: React.FC = () => {
                                 placeholder="Playlist Name"
                                 value={newPlaylistName}
                                 onChange={(e) => setNewPlaylistName(e.target.value)}
-                                className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-xl px-4 py-3 mb-6 focus:ring-2 focus:ring-red-500 outline-none"
+                                className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-xl px-4 py-3 mb-6 focus:ring-2 focus:ring-primary outline-none"
                             />
                             <div className="flex gap-4">
                                 <button
@@ -273,7 +273,7 @@ const Library: React.FC = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/30 transition-all"
+                                    className="flex-1 py-3 bg-primary hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-primary/30 transition-all"
                                 >
                                     Create
                                 </button>

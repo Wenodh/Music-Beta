@@ -23,7 +23,7 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
 
     return (
         <div className="relative group mb-8">
-            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 px-4">{title}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">{title}</h2>
             <div className="relative">
                 <button
                     onClick={() => scroll('left')}
@@ -33,7 +33,7 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
                 </button>
                 <div
                     ref={scrollRef}
-                    className="flex overflow-x-auto gap-4 px-4 scrollbar-hide no-scrollbar"
+                    className="flex overflow-x-auto gap-4 scrollbar-hide no-scrollbar"
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                     {data?.map((item: any) => (

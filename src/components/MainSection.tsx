@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
+import DailyMix from './DailyMix';
+import CommunityFeed from './CommunityFeed';
 import { motion } from 'framer-motion';
 import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
 
@@ -25,20 +27,46 @@ const MainSection: React.FC = () => {
         const fetchData = async () => {
             try {
                 setLoading(true);
+
+                // Curated artists per language
+                const curatedArtists: Record<string, string[]> = {
+                    telugu: ['Sid Sriram', 'Thaman S', 'Devi Sri Prasad', 'Mani Sharma', 'S. P. Balasubrahmanyam'],
+                    hindi: ['Arijit Singh', 'Shreya Ghoshal', 'Badshah', 'Pritam', 'Anirudh Ravichander'],
+                    punjabi: ['Sidhu Moose Wala', 'Diljit Dosanjh', 'Karan Aujla', 'AP Dhillon', 'Guru Randhawa'],
+                    tamil: ['Anirudh Ravichander', 'A. R. Rahman', 'Yuvan Shankar Raja', 'Santhosh Narayanan', 'G. V. Prakash'],
+                    english: ['Taylor Swift', 'The Weeknd', 'Drake', 'Ed Sheeran', 'Justin Bieber', 'Dua Lipa']
+                };
+
+                const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
+
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
                     axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
-                    axios.get(`${searchArtist}${language}`)
+                    ...artistsToFetch.map(name => {
+                        // Remove limit from searchArtist if it already contains it
+                        const baseUrl = searchArtist.includes('limit=')
+                            ? searchArtist.split('limit=')[0].slice(0, -1)
+                            : searchArtist;
+                        return axios.get(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
+                    })
                 ]);
 
-                const [albumsRes, songsRes, playlistsRes, artistsRes] = results;
+                const albumsRes = results[0];
+                const songsRes = results[1];
+                const playlistsRes = results[2];
+                const artistsResults = results.slice(3);
+
+                const artistList = artistsResults
+                    .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+                    .map(r => r.value.data.data.results?.[0])
+                    .filter(Boolean);
 
                 setData({
                     albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
                     songs: songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [],
                     playlists: playlistsRes.status === 'fulfilled' ? (playlistsRes.value.data.data.results || []) : [],
-                    artists: artistsRes.status === 'fulfilled' ? (artistsRes.value.data.data.results || []) : []
+                    artists: artistList
                 });
             } catch (error) {
                 console.error('Error in fetchData:', error);
@@ -52,7 +80,7 @@ const MainSection: React.FC = () => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-[60vh]">
-                <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -77,8 +105,12 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-8"
+            className="pb-32 pt-8 px-4"
         >
+            <motion.div variants={itemVariants}>
+                <DailyMix />
+            </motion.div>
+
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants}>
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />
@@ -99,16 +131,25 @@ const MainSection: React.FC = () => {
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
-            {data.playlists && data.playlists.length > 0 && (
-                <motion.div variants={itemVariants}>
-                    <Slider data={data.playlists} title="Top Playlists" />
-                </motion.div>
-            )}
             {data.artists && data.artists.length > 0 && (
                 <motion.div variants={itemVariants}>
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                    {data.playlists && data.playlists.length > 0 && (
+                        <motion.div variants={itemVariants}>
+                            <Slider data={data.playlists} title="Top Playlists" />
+                        </motion.div>
+                    )}
+                </div>
+                <div className="lg:col-span-1">
+                    <motion.div variants={itemVariants} className="sticky top-24">
+                        <CommunityFeed />
+                    </motion.div>
+                </div>
+            </div>
         </motion.div>
     );
 };

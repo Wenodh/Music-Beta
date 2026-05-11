@@ -9,6 +9,7 @@ export default {
     extend: {
       colors: {
         primary: {
+          DEFAULT: 'var(--accent-color, #ef4444)',
           light: '#ef4444',
           dark: '#f87171',
         }

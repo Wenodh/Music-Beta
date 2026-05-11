@@ -29,11 +29,11 @@ const librarySlice = createSlice({
                 state.favorites.push(action.payload);
             }
         },
-        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song }>) => {
+        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; songs?: Song[] }>) => {
             state.playlists.push({
                 id: Date.now().toString(),
                 name: action.payload.name,
-                songs: action.payload.song ? [action.payload.song] : [],
+                songs: action.payload.songs ? action.payload.songs : (action.payload.song ? [action.payload.song] : []),
             });
         },
         deletePlaylist: (state, action: PayloadAction<string>) => {
@@ -43,6 +43,16 @@ const librarySlice = createSlice({
             const playlist = state.playlists.find(p => p.id === action.payload.playlistId);
             if (playlist && !playlist.songs.find(s => s.id === action.payload.song.id)) {
                 playlist.songs.push(action.payload.song);
+            }
+        },
+        addBulkToPlaylist: (state, action: PayloadAction<{ playlistId: string; songs: Song[] }>) => {
+            const playlist = state.playlists.find(p => p.id === action.payload.playlistId);
+            if (playlist) {
+                action.payload.songs.forEach(song => {
+                    if (!playlist.songs.find(s => s.id === song.id)) {
+                        playlist.songs.push(song);
+                    }
+                });
             }
         },
         removeFromPlaylist: (state, action: PayloadAction<{ playlistId: string; songId: string }>) => {
@@ -59,6 +69,7 @@ export const {
     createPlaylist,
     deletePlaylist,
     addToPlaylist,
+    addBulkToPlaylist,
     removeFromPlaylist,
 } = librarySlice.actions;
 

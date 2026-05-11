@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline } from 'react-icons/io5';
@@ -12,7 +12,17 @@ const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
+    const { theme } = useAppSelector((state) => state.ui);
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration } = useAppSelector((state) => state.musicPlayer);
+
+    const accentColors = [
+        { name: 'Red', value: '#ef4444' },
+        { name: 'Blue', value: '#3b82f6' },
+        { name: 'Green', value: '#10b981' },
+        { name: 'Purple', value: '#a855f7' },
+        { name: 'Pink', value: '#ec4899' },
+        { name: 'Orange', value: '#f97316' },
+    ];
 
     const languages = [
         { name: 'Telugu', value: 'telugu' },
@@ -64,7 +74,7 @@ const SettingsDrawer: React.FC = () => {
                                                 onClick={() => dispatch(setLanguage(lang.value))}
                                                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                                                     language === lang.value
-                                                        ? 'bg-red-500 text-white shadow-md'
+                                                        ? 'bg-primary text-white shadow-md'
                                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                                 }`}
                                             >
@@ -85,7 +95,7 @@ const SettingsDrawer: React.FC = () => {
                                                 onClick={() => dispatch(setPreferredQuality(q as any))}
                                                 className={`px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${
                                                     preferredQuality === q
-                                                        ? 'bg-red-500 text-white shadow-md'
+                                                        ? 'bg-primary text-white shadow-md'
                                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                                 }`}
                                             >
@@ -110,11 +120,45 @@ const SettingsDrawer: React.FC = () => {
                                             className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <IoLibraryOutline className="text-red-500" size={20} />
+                                                <IoLibraryOutline className="text-primary" size={20} />
                                                 <span className="text-sm font-medium">My Library</span>
                                             </div>
                                             <span className="text-gray-400 text-xs">View all</span>
                                         </button>
+                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                            <div>
+                                                <p className="text-sm font-medium">OLED Mode</p>
+                                                <p className="text-[10px] text-gray-500">Pure black background</p>
+                                            </div>
+                                            <button
+                                                onClick={() => dispatch(setOledMode(!theme.isOled))}
+                                                className={`w-10 h-5 rounded-full transition-colors relative ${theme.isOled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                            >
+                                                <motion.div
+                                                    animate={{ x: theme.isOled ? 20 : 2 }}
+                                                    className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Accent Color</h3>
+                                    <div className="flex flex-wrap gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                        {accentColors.map((color) => (
+                                            <button
+                                                key={color.value}
+                                                onClick={() => dispatch(setAccentColor(color.value))}
+                                                className={`w-8 h-8 rounded-full border-2 transition-all ${
+                                                    theme.accentColor === color.value
+                                                        ? 'border-white scale-110 shadow-lg'
+                                                        : 'border-transparent hover:scale-105'
+                                                }`}
+                                                style={{ backgroundColor: color.value }}
+                                                title={color.name}
+                                            />
+                                        ))}
                                     </div>
                                 </section>
 
@@ -129,7 +173,7 @@ const SettingsDrawer: React.FC = () => {
                                                 </div>
                                                 <button
                                                     onClick={() => dispatch(setGaplessEnabled(!isGaplessEnabled))}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${isGaplessEnabled ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${isGaplessEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
                                                 >
                                                     <motion.div
                                                         animate={{ x: isGaplessEnabled ? 20 : 2 }}
@@ -150,7 +194,7 @@ const SettingsDrawer: React.FC = () => {
                                                         max="12"
                                                         value={crossfadeDuration}
                                                         onChange={(e) => dispatch(setCrossfadeDuration(parseInt(e.target.value)))}
-                                                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+                                                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                                                     />
                                                 </div>
                                             )}
@@ -163,7 +207,7 @@ const SettingsDrawer: React.FC = () => {
                                             className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <IoOptionsOutline className="text-red-500" size={20} />
+                                                <IoOptionsOutline className="text-primary" size={20} />
                                                 <div>
                                                     <p className="text-sm font-medium text-left">Equalizer</p>
                                                     <p className="text-[10px] text-gray-500 text-left">

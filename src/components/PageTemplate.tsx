@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import useFetchDetails from '../hooks/useFetchDetails';
 import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
@@ -8,10 +9,11 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic, addRecentlyPlayedAlbum } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd } from 'react-icons/io5';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { search as searchUrl, album as albumSearchUrl, playlistSearch as playlistSearchUrl } from '../constants';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -25,6 +27,13 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+    const [isBioExpanded, setIsBioExpanded] = useState(false);
+    const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [recommendations, setRecommendations] = useState<{
+        moreByArtist: any[];
+        similarCollections: any[];
+    }>({ moreByArtist: [], similarCollections: [] });
 
     const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
@@ -32,10 +41,63 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         if (rawSongs.length > 0) {
             dispatch(setSongs(rawSongs));
         }
+    }, [rawSongs, dispatch]);
+
+    useEffect(() => {
         if (details && (details as any).type === 'album') {
             dispatch(addRecentlyPlayedAlbum(details));
         }
-    }, [rawSongs, details, dispatch]);
+    }, [details, dispatch]);
+
+    useEffect(() => {
+        const fetchRecommendations = async () => {
+            if (!details || !(details as any).id) return;
+
+            const type = (details as any).type;
+            const id = (details as any).id;
+
+            console.log(`[Recommendations] Fetching for ${type}: ${id}`);
+
+            try {
+                if (type === 'album') {
+                    let artistName = '';
+                    const artists = (details as any).artists;
+
+                    // Priority extraction of primary artist
+                    if (Array.isArray(artists)) {
+                        artistName = artists.find(a => a.role === 'music' || a.role === 'singer')?.name || artists[0]?.name;
+                    } else if (artists && typeof artists === 'object') {
+                        artistName = artists.primary?.[0]?.name || artists.all?.[0]?.name;
+                    }
+
+                    if (!artistName) artistName = (details as any).primaryArtists || (details as any).artist;
+
+                    if (artistName) {
+                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`);
+                        if (moreByRes.data?.data?.results) {
+                            const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
+                            setRecommendations(prev => ({ ...prev, moreByArtist: results }));
+                        }
+                    }
+                } else if (type === 'playlist') {
+                    const playlistName = (details as any).name;
+                    if (playlistName) {
+                        // Clean playlist name for better search (remove common bracketed info)
+                        const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
+                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`);
+                        if (similarRes.data?.data?.results) {
+                            const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
+                            setRecommendations(prev => ({ ...prev, similarCollections: results }));
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching recommendations:', error);
+            }
+        };
+
+        fetchRecommendations();
+    }, [details?.id, details?.type]);
 
     const songs = [...rawSongs].sort((a: any, b: any) => {
         if (sortBy === 'name') {
@@ -76,18 +138,31 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         dispatch(openPlaylistModal(song));
     };
 
+    const handleBulkSelect = (id: string) => {
+        setSelectedSongs(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkAddToPlaylist = () => {
+        if (selectedSongs.length === 0) return;
+        const songsToBulkAdd = songs.filter(s => selectedSongs.includes(s.id));
+        dispatch(openPlaylistModal(songsToBulkAdd));
+        dispatch(showToast({ message: `Ready to add ${selectedSongs.length} songs` }));
+    };
+
     if (loading) return (
         <div className="flex justify-center items-center h-[60vh]">
-            <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
     );
 
     if (error) return (
         <div className="p-10 text-center">
-            <p className="text-red-500 font-medium">{error}</p>
+            <p className="text-primary font-medium">{error}</p>
             <button
                 onClick={() => window.location.reload()}
-                className="mt-4 px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                className="mt-4 px-6 py-2 bg-primary text-white rounded-full hover:bg-red-600 transition-colors"
             >
                 Retry
             </button>
@@ -101,12 +176,15 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>
                         <ImageComponent src={image} alt={details?.name || 'Album/Artist'} />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <button className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
+                            <button className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
                                 <span className="text-3xl">▶</span>
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2">{decodeHtmlEntities(details?.name || '')}</h1>
+                    <h1 className="text-xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2 flex items-center gap-2">
+                        {decodeHtmlEntities(details?.name || '')}
+                        {(details as any)?.isVerified && <IoCheckmarkCircle className="text-blue-500" size={24} />}
+                    </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center lg:text-left font-medium text-xs sm:text-base line-clamp-2 px-4 lg:px-0">
                         {decodeHtmlEntities(Array.isArray((details as any)?.artists)
                             ? (details as any).artists.map((a: any) => a.name).join(', ')
@@ -122,22 +200,43 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
                 <div className="flex-1 w-full lg:pl-10 mt-4 lg:mt-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
-                        <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
-                            Songs
-                            <span className="text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{songs.length}</span>
-                        </h2>
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
+                                Songs
+                                <span className="text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{songs.length}</span>
+                            </h2>
+                            <button
+                                onClick={() => {
+                                    setIsSelectionMode(!isSelectionMode);
+                                    setSelectedSongs([]);
+                                }}
+                                className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border transition-all ${isSelectionMode ? 'bg-primary text-white border-primary' : 'border-gray-300 dark:border-gray-700'}`}
+                            >
+                                {isSelectionMode ? 'Cancel' : 'Select'}
+                            </button>
+                            {isSelectionMode && selectedSongs.length > 0 && (
+                                <motion.button
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    onClick={handleBulkAddToPlaylist}
+                                    className="bg-primary text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-lg"
+                                >
+                                    Add {selectedSongs.length} to Playlist
+                                </motion.button>
+                            )}
+                        </div>
 
                         <div className="flex items-center gap-4">
                             <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                                 <button
                                     onClick={() => setViewMode('grid')}
-                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}
                                 >
                                     <IoGridOutline size={18} />
                                 </button>
                                 <button
                                     onClick={() => setViewMode('list')}
-                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}
+                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}
                                 >
                                     <IoListOutline size={18} />
                                 </button>
@@ -148,7 +247,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                     onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
                                     className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
                                 >
-                                    <IoFilterOutline className={`group-hover:text-red-500 transition-colors ${sortBy !== 'default' ? 'text-red-500' : ''}`} />
+                                    <IoFilterOutline className={`group-hover:text-primary transition-colors ${sortBy !== 'default' ? 'text-primary' : ''}`} />
                                     <span className="font-bold text-[11px] uppercase tracking-wider">
                                         {sortBy === 'default' ? 'Sort' : sortBy === 'name' ? 'Name' : sortBy === 'artist' ? 'Artist' : 'Duration'}
                                     </span>
@@ -181,7 +280,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                                         }}
                                                         className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${
                                                             sortBy === option.id
-                                                                ? 'text-red-500 bg-red-50 dark:bg-red-500/10'
+                                                                ? 'text-primary bg-primary/10 dark:bg-primary/10'
                                                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                         }`}
                                                     >
@@ -212,6 +311,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                         image={song.image}
                                         id={song.id}
                                         album={song.album || details}
+                                        isSelectionMode={isSelectionMode}
+                                        isSelected={selectedSongs.includes(song.id)}
+                                        onSelect={handleBulkSelect}
                                     />
                                 ) : (
                                     <motion.div
@@ -221,7 +323,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.9 }}
                                         whileHover={{ y: -5 }}
-                                        className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-red-500/30 transition-all relative"
+                                        className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all relative"
                                         onClick={() => dispatch(playMusic(song))}
                                     >
                                         <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-md">
@@ -235,26 +337,26 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => handleFavorite(e, song)}
-                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-primary transition-colors"
                                                     title={favorites.some(s => s.id === song.id) ? "Remove from Favorites" : "Add to Favorites"}
                                                 >
                                                     {favorites.some(s => s.id === song.id) ? <IoHeart size={14} /> : <IoHeartOutline size={14} />}
                                                 </motion.button>
-                                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg">
+                                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
                                                     <IoPlay size={16} />
                                                 </div>
                                                 <motion.button
                                                     whileHover={{ scale: 1.1 }}
                                                     whileTap={{ scale: 0.9 }}
                                                     onClick={(e) => handleAddToPlaylist(e, song)}
-                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-primary transition-colors"
                                                     title="Add to Playlist"
                                                 >
                                                     <IoAdd size={16} />
                                                 </motion.button>
                                             </div>
                                         </div>
-                                        <p className="text-sm font-bold truncate group-hover:text-red-500 transition-colors">{decodeHtmlEntities(song.name)}</p>
+                                        <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(song.name)}</p>
                                         <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(song.primaryArtists)}</p>
                                     </motion.div>
                                 )
@@ -264,11 +366,96 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                 </div>
             </FlexLayout>
 
-            {(details as any)?.topAlbums && (
-                <div className="mt-20">
-                    <Slider data={(details as any).topAlbums} title="Top Albums" />
+            {/* Artist Deep-Dive Sections */}
+            {(details as any)?.type === 'artist' && (
+                <div className="mt-16 space-y-16">
+                    {/* Stats & Socials */}
+                    <div className="flex flex-wrap gap-4">
+                        {(details as any).followerCount && (
+                            <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                    <IoPeopleOutline size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Followers</p>
+                                    <p className="text-lg font-black">{Number((details as any).followerCount).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        )}
+                        {(details as any).fanCount && (
+                            <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
+                                    <IoPeopleOutline size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Fans</p>
+                                    <p className="text-lg font-black">{Number((details as any).fanCount).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex gap-2">
+                            {(details as any).twitter && (
+                                <a href={(details as any).twitter} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-500 hover:bg-sky-500 hover:text-white transition-all border border-sky-500/20">
+                                    <IoLogoTwitter size={20} />
+                                </a>
+                            )}
+                            {(details as any).fb && (
+                                <a href={(details as any).fb} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600 hover:bg-blue-600 hover:text-white transition-all border border-blue-600/20">
+                                    <IoLogoFacebook size={20} />
+                                </a>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Biography */}
+                    {((details as any).bio || (details as any).wiki) && (
+                        <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 sm:p-8">
+                            <h3 className="text-xl font-black mb-4">About the Artist</h3>
+                            <div className="relative">
+                                <motion.div
+                                    animate={{ height: isBioExpanded ? 'auto' : '100px' }}
+                                    className="overflow-hidden text-gray-400 leading-relaxed text-sm sm:text-base whitespace-pre-wrap"
+                                >
+                                    {decodeHtmlEntities(Array.isArray((details as any).bio)
+                                        ? (details as any).bio.map((b: any) => b.text).join('\n')
+                                        : (details as any).bio || '')}
+                                </motion.div>
+                                {!isBioExpanded && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/5 dark:from-gray-900/50 to-transparent" />
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setIsBioExpanded(!isBioExpanded)}
+                                className="mt-4 text-primary font-bold text-sm hover:underline"
+                            >
+                                {isBioExpanded ? 'Show Less' : 'Read More'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
+
+            <div className="mt-20 space-y-16">
+                {(details as any)?.singles && (details as any).singles.length > 0 && (
+                    <Slider data={(details as any).singles} title="Singles & EPs" />
+                )}
+
+                {(details as any)?.topAlbums && (details as any).topAlbums.length > 0 && (
+                    <Slider data={(details as any).topAlbums} title="Top Albums" />
+                )}
+
+                {(details as any)?.similarArtists && (details as any).similarArtists.length > 0 && (
+                    <Slider data={(details as any).similarArtists} title="Fans Also Like" />
+                )}
+
+                {recommendations.moreByArtist.length > 0 && (
+                    <Slider data={recommendations.moreByArtist} title={`More by ${(details as any).artists?.primary?.[0]?.name || (details as any).primaryArtists}`} />
+                )}
+
+                {recommendations.similarCollections.length > 0 && (
+                    <Slider data={recommendations.similarCollections} title="Similar Playlists" />
+                )}
+            </div>
         </div>
     );
 };

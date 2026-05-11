@@ -16,8 +16,10 @@ import Equalizer from './components/Equalizer';
 import Lyrics from './components/Lyrics';
 import ToastContainer from './components/toast/ToastContainer';
 import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
+import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
+import { useState } from 'react';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -80,16 +82,23 @@ const AnimatedRoutes = () => {
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
-    const { toasts, playlistModal, isLyricsOpen } = useAppSelector(state => state.ui);
+    const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong } = useAppSelector(state => state.musicPlayer);
+    const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
     return (
-        <div className="dark:bg-gray-950 dark:text-white min-h-screen font-sans selection:bg-red-500 selection:text-white pt-28 md:pt-20">
+        <div
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-950'}`}
+            style={{ '--accent-color': theme.accentColor } as React.CSSProperties}
+        >
             <BrowserRouter>
                 <Navbar />
                 <SearchSection />
                 <AnimatedRoutes />
-                <Player />
+                <Player onShowMiniPlayer={() => setIsMiniPlayerOpen(true)} />
+                <AnimatePresence>
+                    {isMiniPlayerOpen && <MiniPlayer onClose={() => setIsMiniPlayerOpen(false)} />}
+                </AnimatePresence>
                 <SettingsDrawer />
                 <Queue />
                 <Equalizer />
@@ -106,6 +115,7 @@ export const AppContent = () => {
                 />
                 <AddToPlaylistModal
                     song={playlistModal.song}
+                    bulkSongs={playlistModal.bulkSongs}
                     onClose={() => dispatch(closePlaylistModal())}
                     onSuccess={(name) => dispatch(showToast({ message: `Added to ${name}` }))}
                     onError={(msg) => dispatch(showToast({ message: msg, type: 'error' }))}

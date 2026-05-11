@@ -80,7 +80,7 @@ const Navbar: React.FC = () => {
                     onClick={() => navigate('/')}
                 >
                     <div className="text-lg md:text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight leading-none">
-                        Vibe<span className="font-light italic text-red-500">On</span>
+                        Vibe<span className="font-light italic text-primary">On</span>
                     </div>
                     <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">
                         by <span className="text-red-400/80">WENODH</span>
@@ -89,7 +89,8 @@ const Navbar: React.FC = () => {
                 <div className="absolute right-0 md:hidden">
                     <button
                         onClick={() => dispatch(setSettingsOpen(true))}
-                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-red-500/20"
+                        aria-label="Settings"
+                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20"
                     >
                         <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                     </button>
@@ -100,22 +101,43 @@ const Navbar: React.FC = () => {
                 onSubmit={handleSearchSubmit}
                 className="relative flex items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0"
             >
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Search for songs..."
-                    className="w-full p-2 pl-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:border-red-400/50 focus:ring-2 focus:ring-red-400/20 focus:outline-none transition-all"
-                />
-                <IoSearchOutline className="absolute left-3 text-gray-500" />
+                <div className="relative w-full group">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                        placeholder="Search for songs, albums, artists..."
+                        className="w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50 border-2 border-transparent focus:border-primary/50 focus:bg-white dark:focus:bg-gray-900 focus:outline-none transition-all shadow-inner"
+                    />
+                    <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
+
+                    <AnimatePresence>
+                        {searchQuery && (
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                type="button"
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    dispatch(setSearchedSongs([]));
+                                }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                            >
+                                <IoSearchOutline className="rotate-45" size={18} />
+                            </motion.button>
+                        )}
+                    </AnimatePresence>
+                </div>
             </form>
 
             <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-red-500/10"
+                    aria-label="Settings"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10"
                 >
                     <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
                     <span className="text-sm font-bold uppercase tracking-tight">Account</span>
