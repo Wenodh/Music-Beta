@@ -27,7 +27,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
-    const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
     useEffect(() => {
         if (isOpen && songId) {
@@ -35,6 +35,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                 setLoading(true);
                 setActiveLineIndex(-1);
                 setParsedLyrics([]);
+                lineRefs.current.clear();
 
                 try {
                     // Try primary source (JioSaavn API)
@@ -92,14 +93,16 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                 setActiveLineIndex(index);
 
                 // Scroll into view
-                const activeElement = lineRefs.current[index];
+                const activeElement = lineRefs.current.get(index);
                 if (activeElement && scrollContainerRef.current) {
                     const container = scrollContainerRef.current;
-                    const offsetTop = activeElement.offsetTop;
-                    const containerHeight = container.offsetHeight;
+
+                    const containerHeight = container.clientHeight;
+                    const elementTop = activeElement.offsetTop;
+                    const elementHeight = activeElement.offsetHeight;
 
                     container.scrollTo({
-                        top: offsetTop - containerHeight / 2 + activeElement.offsetHeight / 2,
+                        top: elementTop - (containerHeight / 2) + (elementHeight / 2),
                         behavior: 'smooth'
                     });
                 }
@@ -114,7 +117,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="min-h-[calc(100vh-160px)] flex flex-col text-white overflow-hidden relative rounded-3xl"
+                    className="h-[calc(100vh-200px)] md:h-[calc(100vh-250px)] flex flex-col text-white overflow-hidden relative rounded-3xl"
                 >
                     {/* Immersive Background */}
                     <div className="absolute inset-0 z-0">
@@ -146,7 +149,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 overflow-y-auto px-6 md:px-12 py-8 custom-scrollbar scroll-smooth z-10"
+                        className="flex-1 overflow-y-auto px-6 md:px-12 py-12 custom-scrollbar scroll-smooth z-10 relative"
                     >
                         <div className="max-w-4xl mx-auto w-full">
                             {loading ? (
@@ -160,7 +163,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                         parsedLyrics.map((line, index) => (
                                             <motion.div
                                                 key={index}
-                                                ref={el => lineRefs.current[index] = el}
+                                                ref={el => { if (el) lineRefs.current.set(index, el); }}
                                                 animate={{
                                                     opacity: activeLineIndex === index ? 1 : 0.2,
                                                     scale: activeLineIndex === index ? 1 : 0.95,
