@@ -105,7 +105,7 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-8"
+            className="pb-32 pt-8 px-4"
         >
             <motion.div variants={itemVariants}>
                 <DailyMix />
@@ -136,7 +136,7 @@ const MainSection: React.FC = () => {
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
                     {data.playlists && data.playlists.length > 0 && (
                         <motion.div variants={itemVariants}>
