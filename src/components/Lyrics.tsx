@@ -25,6 +25,8 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
     const { currentTime, isPlaying, currentSong } = useAppSelector(state => state.musicPlayer);
     const { theme } = useAppSelector(state => state.ui);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
     const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
     useEffect(() => {
@@ -113,10 +115,23 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: '100%', opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-3xl flex flex-col text-white overflow-hidden"
+                    className="fixed inset-0 z-[100] bg-gray-950 flex flex-col text-white overflow-hidden"
                 >
+                    {/* Immersive Background */}
+                    <div className="absolute inset-0 z-0">
+                        <motion.img
+                            key={imageUrl}
+                            initial={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 0.3, scale: 1 }}
+                            src={imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover blur-[100px] saturate-[1.5]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/40 via-gray-950/80 to-gray-950" />
+                    </div>
+
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 md:px-12 z-10">
+                    <div className="flex items-center justify-between p-6 md:p-10 z-10">
                         <div className="flex flex-col">
                             <h2 className="text-sm font-medium text-gray-400 uppercase tracking-widest">Now Playing</h2>
                             <p className="text-xl font-bold truncate max-w-[200px] md:max-w-md">{songName}</p>
@@ -147,12 +162,12 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                                 key={index}
                                                 ref={el => lineRefs.current[index] = el}
                                                 animate={{
-                                                    opacity: activeLineIndex === index ? 1 : 0.3,
-                                                    scale: activeLineIndex === index ? 1.05 : 1,
-                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(1px)',
-                                                    color: activeLineIndex === index ? theme.accentColor : 'rgba(255, 255, 255, 0.4)'
+                                                    opacity: activeLineIndex === index ? 1 : 0.2,
+                                                    scale: activeLineIndex === index ? 1 : 0.95,
+                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(2px)',
+                                                    color: activeLineIndex === index ? theme.accentColor : 'rgba(255, 255, 255, 1)'
                                                 }}
-                                                className="text-3xl md:text-5xl font-extrabold leading-tight cursor-pointer transition-all duration-500 origin-left"
+                                                className="text-3xl md:text-6xl font-black leading-tight cursor-pointer transition-all duration-700 origin-left tracking-tight"
                                                 onClick={() => {
                                                     const audio = document.querySelector('audio');
                                                     if (audio) audio.currentTime = line.time;
