@@ -20,6 +20,7 @@ import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { useState } from 'react';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -81,6 +82,7 @@ const AnimatedRoutes = () => {
 };
 
 export const AppContent = () => {
+    useKeyboardShortcuts();
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong } = useAppSelector(state => state.musicPlayer);

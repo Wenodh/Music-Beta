@@ -1,0 +1,43 @@
+{
+  "common": {
+    "search": "Search for songs, albums, artists...",
+    "account": "Account",
+    "settings": "Settings",
+    "my_library": "My Library",
+    "recently_played": "Recently Played",
+    "trending": "Trending",
+    "top_playlists": "Top Playlists",
+    "featured_artists": "Featured Artists",
+    "moods": "Discover by Mood",
+    "loading": "Loading...",
+    "view_all": "View all",
+    "close": "Close"
+  },
+  "settings": {
+    "language": "Language",
+    "audio_quality": "Audio Quality",
+    "personalization": "Personalization",
+    "dark_mode": "Dark Mode",
+    "oled_mode": "OLED Mode",
+    "oled_desc": "Pure black background",
+    "accent_color": "Accent Color",
+    "playback": "Playback Settings",
+    "gapless": "Gapless (Crossfade)",
+    "gapless_desc": "Smooth transitions between songs",
+    "crossfade_duration": "Crossfade Duration",
+    "equalizer": "Equalizer",
+    "equalizer_desc": "Configure your sound",
+    "version": "VibeOn Version",
+    "made_with": "Made with ❤️ by WENODH"
+  },
+  "player": {
+    "now_playing": "Now Playing",
+    "queue": "Queue",
+    "lyrics": "Lyrics",
+    "download": "Download Song",
+    "share": "Share",
+    "favorite": "Favorite",
+    "sleep_timer": "Sleep Timer",
+    "radio": "Song Radio"
+  }
+}

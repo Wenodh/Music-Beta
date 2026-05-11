@@ -1,0 +1,43 @@
+{
+  "common": {
+    "search": "పాటలు, ఆల్బమ్‌లు, కళాకారుల కోసం వెతకండి...",
+    "account": "ఖాతా",
+    "settings": "సెట్టింగులు",
+    "my_library": "నా లైబ్రరీ",
+    "recently_played": "ఇటీవల ప్లే చేసినవి",
+    "trending": "ట్రెండింగ్",
+    "top_playlists": "టాప్ ప్లేలిస్ట్‌లు",
+    "featured_artists": "ప్రముఖ కళాకారులు",
+    "moods": "మూడ్ ప్రకారం అన్వేషించండి",
+    "loading": "లోడ్ అవుతోంది...",
+    "view_all": "అన్నీ చూడండి",
+    "close": "మూసివేయి"
+  },
+  "settings": {
+    "language": "భాష",
+    "audio_quality": "ఆడియో నాణ్యత",
+    "personalization": "వ్యక్తిగతీకరణ",
+    "dark_mode": "డార్క్ మోడ్",
+    "oled_mode": "OLED మోడ్",
+    "oled_desc": "స్వచ్ఛమైన నలుపు నేపథ్యం",
+    "accent_color": "యాక్సెంట్ రంగు",
+    "playback": "ప్లేబ్యాక్ సెట్టింగులు",
+    "gapless": "గ్యాప్‌లెస్ (క్రాస్‌ఫేడ్)",
+    "gapless_desc": "పాటల మధ్య మృదువైన మార్పు",
+    "crossfade_duration": "క్రాస్‌ఫేడ్ వ్యవధి",
+    "equalizer": "ఈక్వలైజర్",
+    "equalizer_desc": "ధ్వనిని కాన్ఫిగర్ చేయండి",
+    "version": "VibeOn వెర్షన్",
+    "made_with": "WENODH ద్వారా ❤️ తో రూపొందించబడింది"
+  },
+  "player": {
+    "now_playing": "ప్రస్తుతం ప్లే అవుతోంది",
+    "queue": "క్యూ",
+    "lyrics": "సాహిత్యం",
+    "download": "పాటను డౌన్‌లోడ్ చేయండి",
+    "share": "షేర్ చేయండి",
+    "favorite": "ఇష్టమైనవి",
+    "sleep_timer": "స్లీప్ టైమర్",
+    "radio": "సాంగ్ రేడియో"
+  }
+}

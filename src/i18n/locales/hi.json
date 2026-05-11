@@ -1,0 +1,43 @@
+{
+  "common": {
+    "search": "गाने, एल्बम, कलाकार खोजें...",
+    "account": "खाता",
+    "settings": "सेटिंग्स",
+    "my_library": "मेरी लाइब्रेरी",
+    "recently_played": "हाल ही में बजाया गया",
+    "trending": "ट्रेंडिंग",
+    "top_playlists": "टॉप प्लेलिस्ट",
+    "featured_artists": "प्रमुख कलाकार",
+    "moods": "मूड के अनुसार खोजें",
+    "loading": "लोड हो रहा है...",
+    "view_all": "सभी देखें",
+    "close": "बंद करें"
+  },
+  "settings": {
+    "language": "भाषा",
+    "audio_quality": "ऑडियो गुणवत्ता",
+    "personalization": "निजीकरण",
+    "dark_mode": "डार्क मोड",
+    "oled_mode": "OLED मोड",
+    "oled_desc": "शुद्ध काला बैकग्राउंड",
+    "accent_color": "एक्सेंट रंग",
+    "playback": "प्लेबैक सेटिंग्स",
+    "gapless": "गैपलेस (क्रॉसफ़ेड)",
+    "gapless_desc": "गानों के बीच सुचारु बदलाव",
+    "crossfade_duration": "क्रॉसफ़ेड अवधि",
+    "equalizer": "इक्वलाइज़र",
+    "equalizer_desc": "ध्वनि कॉन्फ़िगर करें",
+    "version": "VibeOn वर्शन",
+    "made_with": "WENODH द्वारा ❤️ के साथ बनाया गया"
+  },
+  "player": {
+    "now_playing": "अभी बज रहा है",
+    "queue": "कतार",
+    "lyrics": "बोल",
+    "download": "गाना डाउनलोड करें",
+    "share": "शेयर करें",
+    "favorite": "पसंदीदा",
+    "sleep_timer": "स्लीप टाइमर",
+    "radio": "सॉन्ग रेडियो"
+  }
+}

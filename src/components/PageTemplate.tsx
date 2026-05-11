@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { search as searchUrl, album as albumSearchUrl, playlistSearch as playlistSearchUrl } from '../constants';
+import { AlbumSkeleton, SongSkeleton } from './Skeleton';
 
 interface PageTemplateProps {
     apiUrl: string;
@@ -155,8 +156,22 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const songs = sortedSongs.slice(0, visibleSongsCount);
 
     if (loading) return (
-        <div className="flex justify-center items-center h-[60vh]">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="p-5 pb-32 max-w-7xl mx-auto space-y-12">
+            <div className="flex flex-col lg:flex-row gap-10">
+                <div className="w-full lg:w-72 flex flex-col items-center lg:items-start space-y-4">
+                    <AlbumSkeleton />
+                    <div className="w-full space-y-2">
+                        <div className="h-6 w-3/4 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+                        <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+                    </div>
+                </div>
+                <div className="flex-1 space-y-4">
+                    <div className="h-8 w-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse mb-6" />
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                        <SongSkeleton key={i} />
+                    ))}
+                </div>
+            </div>
         </div>
     );
 

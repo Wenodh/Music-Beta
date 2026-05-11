@@ -121,13 +121,24 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new window.MediaMetadata({
-                  title: currentSong?.name,
-                  artist: currentSong?.primaryArtists,
-                  album: typeof currentSong?.album === 'string' ? currentSong?.album : currentSong?.album?.name,
-                  artwork: [{ src: imageUrl || '', sizes: '512x512', type: 'image/png' }]
+                  title: decodeHtmlEntities(currentSong?.name),
+                  artist: decodeHtmlEntities(currentSong?.primaryArtists),
+                  album: decodeHtmlEntities(typeof currentSong?.album === 'string' ? currentSong?.album : currentSong?.album?.name || ''),
+                  artwork: [
+                    { src: imageUrl || '', sizes: '96x96', type: 'image/png' },
+                    { src: imageUrl || '', sizes: '128x128', type: 'image/png' },
+                    { src: imageUrl || '', sizes: '192x192', type: 'image/png' },
+                    { src: imageUrl || '', sizes: '256x256', type: 'image/png' },
+                    { src: imageUrl || '', sizes: '384x384', type: 'image/png' },
+                    { src: imageUrl || '', sizes: '512x512', type: 'image/png' },
+                  ]
                 });
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
                 navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
+                navigator.mediaSession.setActionHandler('play', () => dispatch(playMusic(currentSong)));
+                navigator.mediaSession.setActionHandler('pause', () => dispatch(pauseMusic()));
+                navigator.mediaSession.setActionHandler('seekbackward', () => handleDoubleTap('left'));
+                navigator.mediaSession.setActionHandler('seekforward', () => handleDoubleTap('right'));
             }
 
             fetch(suggestions(currentSong.id))
@@ -152,9 +163,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         if (isPlaying) {
             activeAudio.play().catch(e => console.warn("Playback failed", e));
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'playing';
+            }
         } else {
             activeAudio.pause();
             getInactiveAudio().pause();
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'paused';
+            }
         }
     }, [currentSong, isPlaying, activeBuffer, getSongUrl]);
 
