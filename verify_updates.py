@@ -5,87 +5,60 @@ from playwright.async_api import async_playwright
 async def verify():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        # Use a larger viewport to see more content
         context = await browser.new_context(viewport={'width': 1280, 'height': 2000})
         page = await context.new_page()
 
         print("Navigating to app...")
         try:
-            await page.goto("http://localhost:5173", wait_until="networkidle", timeout=30000)
+            await page.goto("http://localhost:5173", wait_until="networkidle", timeout=60000)
         except Exception as e:
-            print(f"Navigation failed: {e}")
-            # Try to continue anyway
+            print(f"Navigation failed or timed out: {e}")
 
-        # 1. Play a song to generate history for Daily Mix
-        print("Attempting to play a song for history...")
+        # Wait for any content to load
+        print("Waiting for content to load...")
+        await asyncio.sleep(5)
+
+        # 1. Check for Featured Artists specifically
+        print("Checking for Featured Artists section...")
         try:
-            # Wait for any song card or list item
-            song_item = page.locator("div.flex.items-center.justify-between.p-3.rounded-xl").first
-            await song_item.wait_for(timeout=15000)
-            await song_item.click()
-            print("Clicked a song.")
+            # The header is an h2
+            artist_header = page.locator("h2:has-text('Featured Artists')")
+            await artist_header.wait_for(timeout=20000)
+            print(f"✅ Found header: {await artist_header.inner_text()}")
 
-            # Wait for player to appear
-            await page.wait_for_selector(".fixed.bottom-0", timeout=10000)
-            print("Player appeared.")
-
-            # Wait a bit for 'recentlyPlayed' to be updated in Redux
-            await asyncio.sleep(5)
+            # Check if there are items under it
+            artist_items = page.locator("h2:has-text('Featured Artists') + div div.flex.overflow-x-auto div.group")
+            count = await artist_items.count()
+            print(f"Found {count} artists in the slider.")
         except Exception as e:
-            print(f"Error playing song: {e}")
+            print(f"❌ Featured Artists section not found: {e}")
+            # Take a diagnostic screenshot
+            await page.screenshot(path="/home/jules/verification/debug_main.png")
 
-        # 2. Refresh to see Daily Mix
-        print("Refreshing to check for Daily Mix...")
-        await page.reload(wait_until="networkidle")
-
-        # 3. Check for headers
-        headers = [
-            "Trending Songs",
-            "Trending Albums",
-            "Top Playlists",
-            "Featured Artists"
-        ]
-
-        for header in headers:
-            try:
-                # Use a more flexible selector for text
-                locator = page.get_by_text(header, exact=False).first
-                await locator.wait_for(timeout=10000)
-                print(f"✅ Found header: {header}")
-            except Exception:
-                print(f"❌ Could not find header: {header}")
-
-        # 4. Check for Daily Mix specifically
+        # 2. Check for Recommendations in Playlist page
+        print("Checking for Playlist recommendations...")
         try:
-            daily_mix = page.get_by_text("Daily Mix", exact=False).first
-            await daily_mix.wait_for(timeout=5000)
-            print("✅ Found Daily Mix!")
-        except Exception:
-            print("ℹ️ Daily Mix not found (might need more history or longer wait)")
-
-        # 5. Take screenshots
-        os.makedirs("/home/jules/verification", exist_ok=True)
-        await page.screenshot(path="/home/jules/verification/home_final.png", full_page=True)
-
-        # 6. Check Album Page Recommendations
-        print("Checking Album Page recommendations...")
-        try:
-            # Look for an album link
-            album_link = page.locator("a[href*='/album/']").first
-            if await album_link.count() > 0:
-                await album_link.click()
+            # Find a playlist link
+            playlist_link = page.locator("a[href*='/playlists/']").first
+            if await playlist_link.count() > 0:
+                print(f"Clicking playlist: {await playlist_link.get_attribute('href')}")
+                await playlist_link.click()
                 await page.wait_for_load_state("networkidle")
+                await asyncio.sleep(5) # Wait for recommendation fetch
 
-                # Check for "More by" or "Similar"
-                await asyncio.sleep(3) # Wait for recommendations to fetch
-                recommendation_header = page.locator("h2:has-text('More by'), h2:has-text('Similar')").first
-                await recommendation_header.wait_for(timeout=15000)
-                print(f"✅ Found recommendations: {await recommendation_header.inner_text()}")
-                await page.screenshot(path="/home/jules/verification/album_recommendations_final.png")
+                rec_header = page.locator("h2:has-text('Similar Playlists')")
+                await rec_header.wait_for(timeout=20000)
+                print(f"✅ Found recommendations on Playlist page: {await rec_header.inner_text()}")
+
+                # Check items
+                rec_items = page.locator("h2:has-text('Similar Playlists') + div div.flex.overflow-x-auto div.group")
+                print(f"Found {await rec_items.count()} similar playlists.")
+                await page.screenshot(path="/home/jules/verification/playlist_rec_check.png")
             else:
-                print("Skipping album recommendations check: No album link found.")
+                print("❌ No playlist link found on home page to test recommendations.")
         except Exception as e:
-            print(f"❌ Failed to verify recommendations: {e}")
+            print(f"❌ Failed to verify playlist recommendations: {e}")
+            await page.screenshot(path="/home/jules/verification/debug_playlist.png")
 
         await browser.close()
 

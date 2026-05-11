@@ -12,6 +12,7 @@ import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import {
     playMusic,
     decrementSleepTimer,
+    setCurrentTime,
 } from '../features/musicplayer/musicPlayerSlice';
 import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
@@ -26,6 +27,7 @@ import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import Visualizer from './Visualizer';
+import MobileNowPlaying from './MobileNowPlaying';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 
@@ -37,6 +39,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [userVolume, setUserVolume] = useState(0.7);
+    const [isMobilePlayerOpen, setIsMobilePlayerOpen] = useState(false);
 
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
@@ -171,6 +174,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (!currentSong) return;
             const duration = activeAudio.duration;
             const currentTime = activeAudio.currentTime;
+
+            dispatch(setCurrentTime(currentTime));
 
             // Update Progress Bar
             const progress = (currentTime / (duration || 1)) * 100;
@@ -330,7 +335,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         onChange={handleProgressChange}
                         className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
                     />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8">
+                    <div className="flex justify-between items-center py-3 px-4 lg:px-8" onClick={() => window.innerWidth < 768 && setIsMobilePlayerOpen(true)}>
                         {/* 1st div */}
                         <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
                             <motion.div
@@ -603,6 +608,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </div>
                         </div>
                     </div>
+                    <MobileNowPlaying
+                        isOpen={isMobilePlayerOpen}
+                        onClose={() => setIsMobilePlayerOpen(false)}
+                        prevSong={prevSong}
+                        nextSong={() => playNextInQueue(true)}
+                        handlePlayPause={handlePlayPause}
+                        imageUrl={imageUrl || ''}
+                        audioRefs={[audioRefA, audioRefB]}
+                    />
                 </motion.div>
             )}
         </AnimatePresence>

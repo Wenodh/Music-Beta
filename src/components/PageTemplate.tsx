@@ -41,30 +41,55 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         if (rawSongs.length > 0) {
             dispatch(setSongs(rawSongs));
         }
+    }, [rawSongs, dispatch]);
+
+    useEffect(() => {
         if (details && (details as any).type === 'album') {
             dispatch(addRecentlyPlayedAlbum(details));
         }
+    }, [details, dispatch]);
 
+    useEffect(() => {
         const fetchRecommendations = async () => {
-            if (!details) return;
+            if (!details || !(details as any).id) return;
+
+            const type = (details as any).type;
+            const id = (details as any).id;
+
+            console.log(`[Recommendations] Fetching for ${type}: ${id}`);
 
             try {
-                if (details.type === 'album') {
-                    const artistName = (details as any).artists?.primary?.[0]?.name || (details as any).primaryArtists;
-                    if (artistName) {
-                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${artistName}&limit=10`);
-                        setRecommendations(prev => ({
-                            ...prev,
-                            moreByArtist: (moreByRes.data.data.results || []).filter((a: any) => a.id !== details.id)
-                        }));
+                if (type === 'album') {
+                    let artistName = '';
+                    const artists = (details as any).artists;
+
+                    // Priority extraction of primary artist
+                    if (Array.isArray(artists)) {
+                        artistName = artists.find(a => a.role === 'music' || a.role === 'singer')?.name || artists[0]?.name;
+                    } else if (artists && typeof artists === 'object') {
+                        artistName = artists.primary?.[0]?.name || artists.all?.[0]?.name;
                     }
-                } else if (details.type === 'playlist') {
-                    const playlistName = details.name;
-                    const similarRes = await axios.get(`${playlistSearchUrl}${playlistName}&limit=10`);
-                    setRecommendations(prev => ({
-                        ...prev,
-                        similarCollections: (similarRes.data.data.results || []).filter((p: any) => p.id !== details.id)
-                    }));
+
+                    if (!artistName) artistName = (details as any).primaryArtists || (details as any).artist;
+
+                    if (artistName) {
+                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`);
+                        if (moreByRes.data?.data?.results) {
+                            const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
+                            setRecommendations(prev => ({ ...prev, moreByArtist: results }));
+                        }
+                    }
+                } else if (type === 'playlist') {
+                    const playlistName = (details as any).name;
+                    if (playlistName) {
+                        // Clean playlist name for better search (remove common bracketed info)
+                        const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
+                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`);
+                        if (similarRes.data?.data?.results) {
+                            const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
+                            setRecommendations(prev => ({ ...prev, similarCollections: results }));
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching recommendations:', error);
@@ -72,7 +97,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         };
 
         fetchRecommendations();
-    }, [rawSongs, details, dispatch]);
+    }, [details?.id, details?.type]);
 
     const songs = [...rawSongs].sort((a: any, b: any) => {
         if (sortBy === 'name') {

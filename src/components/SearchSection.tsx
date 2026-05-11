@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { useNavigate } from 'react-router-dom';
+import { playMusic, setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 const SearchSection: React.FC = () => {
     const { searchedSongs } = useAppSelector((state) => state.musicPlayer);
     const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Close search on navigation
+    useEffect(() => {
+        dispatch(setSearchedSongs([]));
+    }, [location.pathname, dispatch]);
 
     if (!searchedSongs || (Array.isArray(searchedSongs) && searchedSongs.length === 0)) return null;
 
@@ -84,8 +91,8 @@ const SearchSection: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{song.name}</p>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{song.primaryArtists}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(song.name)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(song.primaryArtists)}</p>
                             </motion.div>
                         ))}
 
@@ -103,8 +110,8 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{album.name}</p>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Album • {album.artist}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(album.name)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Album • {decodeHtmlEntities(album.artist)}</p>
                             </motion.div>
                         ))}
 
@@ -122,7 +129,7 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors w-full">{artist.name}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors w-full">{decodeHtmlEntities(artist.name)}</p>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">{artist.role}</p>
                             </motion.div>
                         ))}
@@ -141,7 +148,7 @@ const SearchSection: React.FC = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
-                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{playlist.name}</p>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(playlist.name)}</p>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Playlist</p>
                             </motion.div>
                         ))}

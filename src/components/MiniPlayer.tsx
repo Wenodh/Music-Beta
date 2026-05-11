@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { Song } from '../types/music';
-import { playMusic, pauseMusic } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, pauseMusic, nextSong, prevSong } from '../features/musicplayer/musicPlayerSlice';
 import { IoPlay, IoPause, IoPlaySkipBack, IoPlaySkipForward, IoClose } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
@@ -30,14 +30,24 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
             <div className="relative aspect-square group">
                 <img src={imageUrl} alt={currentSong.name} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <button className="text-white hover:scale-110 transition-transform"><IoPlaySkipBack size={24} /></button>
+                    <button
+                        onClick={() => dispatch(prevSong())}
+                        className="text-white hover:scale-110 transition-transform"
+                    >
+                        <IoPlaySkipBack size={24} />
+                    </button>
                     <button
                         onClick={() => isPlaying ? dispatch(pauseMusic()) : dispatch(playMusic(currentSong))}
                         className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
                     >
                         {isPlaying ? <IoPause size={24} /> : <IoPlay size={24} className="ml-1" />}
                     </button>
-                    <button className="text-white hover:scale-110 transition-transform"><IoPlaySkipForward size={24} /></button>
+                    <button
+                        onClick={() => dispatch(nextSong())}
+                        className="text-white hover:scale-110 transition-transform"
+                    >
+                        <IoPlaySkipForward size={24} />
+                    </button>
                 </div>
                 <button
                     onClick={onClose}

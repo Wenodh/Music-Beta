@@ -101,16 +101,36 @@ const Navbar: React.FC = () => {
                 onSubmit={handleSearchSubmit}
                 className="relative flex items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0"
             >
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Search for songs..."
-                    className="w-full p-2 pl-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 border border-transparent focus:border-red-400/50 focus:ring-2 focus:ring-red-400/20 focus:outline-none transition-all"
-                />
-                <IoSearchOutline className="absolute left-3 text-gray-500" />
+                <div className="relative w-full group">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                        placeholder="Search for songs, albums, artists..."
+                        className="w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50 border-2 border-transparent focus:border-primary/50 focus:bg-white dark:focus:bg-gray-900 focus:outline-none transition-all shadow-inner"
+                    />
+                    <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
+
+                    <AnimatePresence>
+                        {searchQuery && (
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                type="button"
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    dispatch(setSearchedSongs([]));
+                                }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                            >
+                                <IoSearchOutline className="rotate-45" size={18} />
+                            </motion.button>
+                        )}
+                    </AnimatePresence>
+                </div>
             </form>
 
             <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
