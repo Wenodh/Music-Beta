@@ -354,109 +354,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
                     />
                     <div className="flex justify-between items-center py-3 px-4 lg:px-8" onClick={(e) => {
-                        // Prevent opening mobile player if a button or the main control artwork is clicked
-                        const target = e.target as HTMLElement;
-                        if (target.closest('button') || target.closest('input') || (window.innerWidth < 768 && target.closest('img'))) return;
+                        // Prevent opening mobile player if a button was clicked
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
                         window.innerWidth < 768 && setIsMobilePlayerOpen(true);
                     }}>
-                        {/* Mobile Layout */}
-                        <motion.div
-                            drag="x"
-                            dragConstraints={{ left: 0, right: 0 }}
-                            onDragEnd={(_, info) => {
-                                if (info.offset.x > 100) prevSong();
-                                else if (info.offset.x < -100) playNextInQueue(true);
-                            }}
-                            className="flex md:hidden items-center justify-between w-full px-2 cursor-grab active:cursor-grabbing"
-                        >
-                            <motion.button
-                                whileTap={{ scale: 0.8 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch(setLyricsOpen(!isLyricsOpen));
-                                }}
-                                className={`p-2 rounded-full transition-colors ${isLyricsOpen ? 'bg-primary/10 text-primary' : 'text-gray-700 dark:text-gray-200'}`}
-                            >
-                                <MdOutlineLyrics size={24} />
-                            </motion.button>
-
-                            <motion.button
-                                whileTap={{ scale: 0.8 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    prevSong();
-                                }}
-                                className="p-2 text-gray-700 dark:text-gray-200"
-                            >
-                                <IoMdSkipBackward size={28} />
-                            </motion.button>
-
-                            <div className="relative">
-                                <motion.img
-                                    animate={{ rotate: isPlaying ? 360 : 0 }}
-                                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                                    src={imageUrl}
-                                    alt=""
-                                    className="w-14 h-14 rounded-full shadow-2xl border-2 border-primary/30 object-cover"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePlayPause();
-                                    }}
-                                    onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        currentSong?.albumId && navigate(`/albums/${currentSong.albumId}`);
-                                    }}
-                                />
-                                <AnimatePresence>
-                                    {seekAnimation && (
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.5 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.5 }}
-                                            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                                        >
-                                            <div className="bg-black/60 text-white px-2 py-0.5 rounded-full text-[8px] font-bold">
-                                                {seekAnimation === 'backward' ? '-10s' : '+10s'}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-
-                            <motion.button
-                                whileTap={{ scale: 0.8 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    playNextInQueue(true);
-                                }}
-                                className="p-2 text-gray-700 dark:text-gray-200"
-                            >
-                                <IoMdSkipForward size={28} />
-                            </motion.button>
-
-                            <motion.button
-                                whileTap={{ scale: 0.8 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsMoreMenuOpen(!isMoreMenuOpen);
-                                }}
-                                className={`p-2 rounded-full transition-colors ${isMoreMenuOpen ? 'bg-primary/10 text-primary' : 'text-gray-700 dark:text-gray-200'}`}
-                            >
-                                <IoEllipsisVertical size={24} />
-                            </motion.button>
-                        </motion.div>
-
-                        {/* Desktop Layout - 1st div */}
-                        <div className="hidden md:flex justify-start items-center gap-4 lg:w-[30vw]">
-                            <motion.div
-                                drag="x"
-                                dragConstraints={{ left: 0, right: 0 }}
-                                onDragEnd={(_, info) => {
-                                    if (info.offset.x > 100) prevSong();
-                                    else if (info.offset.x < -100) playNextInQueue(true);
-                                }}
-                                className="relative group cursor-grab active:cursor-grabbing"
-                            >
+                        {/* 1st div */}
+                        <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
+                            <div className="relative group">
                                 <motion.img
                                     animate={{ rotate: isPlaying ? 360 : 0 }}
                                     transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
@@ -490,10 +394,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 rounded-full transition-opacity flex items-center justify-center pointer-events-none">
-                                    <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
-                                </div>
-                            </motion.div>
+                            </div>
                             <div className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
                                 <p className="font-semibold text-sm sm:text-base truncate">{decodeHtmlEntities(currentSong?.name)}</p>
                                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -529,8 +430,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </div>
                         </div>
 
-                        {/* Desktop Layout - 2nd div */}
-                        <div className="hidden md:flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
+                        {/* 2nd div */}
+                        <div className="flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
                             <BiRepeat className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors hidden sm:block" />
                             <motion.div whileTap={{ scale: 0.9 }}>
                                 <IoMdSkipBackward
@@ -557,8 +458,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             <PiShuffleBold className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors hidden sm:block" />
                         </div>
 
-                        {/* Desktop Layout - 3rd div */}
-                        <div className="hidden md:flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
+                        {/* 3rd div */}
+                        <div className="flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
                             <motion.div whileTap={{ scale: 0.9 }} className="hidden lg:block">
                                 <MdOutlineLyrics
                                     onClick={() => dispatch(setLyricsOpen(!isLyricsOpen))}
