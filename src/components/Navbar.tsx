@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
+import { setSearchedSongs, addToSearchHistory, removeFromSearchHistory } from '../features/musicplayer/musicPlayerSlice';
+import { IoSearchOutline, IoPersonCircleOutline, IoTimeOutline, IoCloseOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -14,7 +14,8 @@ const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { theme } = useAppSelector((state) => state.ui);
+    const { isSettingsOpen, searchHistory } = useAppSelector((state) => state.musicPlayer);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -48,6 +49,7 @@ const Navbar: React.FC = () => {
             const res = await axios.get(`${searchUrl}${query}`);
             // Global search returns topQuery, songs, albums, artists, playlists
             dispatch(setSearchedSongs(res.data.data));
+            dispatch(addToSearchHistory(query));
         } catch (error) {
             console.error('Error fetching search results:', error);
         }
@@ -60,11 +62,16 @@ const Navbar: React.FC = () => {
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const query = e.target.value;
         setSearchQuery(query);
-        debouncedSearch(query);
+        if (query.trim()) {
+            debouncedSearch(query);
+        } else {
+            dispatch(setSearchedSongs([]));
+        }
     };
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        debouncedSearch.cancel();
         fetchSearchResults(searchQuery);
     };
 
@@ -72,7 +79,7 @@ const Navbar: React.FC = () => {
         <motion.nav
             animate={{ y: isVisible || isSearchFocused ? 0 : -200 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-3 md:p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-2 md:gap-4 md:flex-row md:justify-between transition-all"
+            className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-3 md:p-4 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-2 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'bg-white/80 dark:!bg-black/80' : 'bg-white/80 dark:bg-gray-900/80'}`}
         >
             <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div
@@ -109,11 +116,51 @@ const Navbar: React.FC = () => {
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         placeholder="Search for songs, albums, artists..."
-                        className="w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50 border-2 border-transparent focus:border-primary/50 focus:bg-white dark:focus:bg-gray-900 focus:outline-none transition-all shadow-inner"
+                        className={`w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 border-2 border-transparent focus:border-primary/50 focus:bg-white focus:outline-none transition-all shadow-inner ${theme.isOled ? 'dark:!bg-gray-900/50 dark:focus:!bg-black' : 'dark:bg-gray-800/50 dark:focus:bg-gray-900'}`}
                     />
                     <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
 
                     <AnimatePresence>
+                        {isSearchFocused && !searchQuery && searchHistory.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                className={`absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl shadow-2xl z-[100] border border-gray-100 dark:border-gray-800 ${theme.isOled ? 'bg-black' : 'bg-white dark:bg-gray-900'}`}
+                            >
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-3 py-2">Recent Searches</p>
+                                <div className="space-y-1">
+                                    {searchHistory.map((query, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center justify-between group/history hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                                        >
+                                            <button
+                                                type="button"
+                                                onMouseDown={() => {
+                                                    setSearchQuery(query);
+                                                    fetchSearchResults(query);
+                                                }}
+                                                className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm text-left"
+                                            >
+                                                <IoTimeOutline className="text-gray-400" size={18} />
+                                                <span className="truncate">{query}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    dispatch(removeFromSearchHistory(query));
+                                                }}
+                                                className="p-2 mr-1 text-gray-400 hover:text-primary opacity-0 group-hover/history:opacity-100 transition-opacity"
+                                            >
+                                                <IoCloseOutline size={18} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
                         {searchQuery && (
                             <motion.button
                                 initial={{ opacity: 0, scale: 0.8 }}

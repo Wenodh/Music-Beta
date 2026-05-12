@@ -4,9 +4,12 @@ import { playMusic, setSearchedSongs } from '../features/musicplayer/musicPlayer
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { AlbumSearchResult, ArtistSearchResult, PlaylistSearchResult, SearchResults } from '../types/api';
+import { Song } from '../types/music';
 
 const SearchSection: React.FC = () => {
     const { searchedSongs } = useAppSelector((state) => state.musicPlayer);
+    const { theme } = useAppSelector((state) => state.ui);
     const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
@@ -20,7 +23,11 @@ const SearchSection: React.FC = () => {
     if (!searchedSongs || (Array.isArray(searchedSongs) && searchedSongs.length === 0)) return null;
 
     // Handle both cases: old state (array of songs) and new state (object with categories)
-    const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
+    const data = Array.isArray(searchedSongs)
+        ? { songs: { results: searchedSongs } } as Partial<SearchResults>
+        : searchedSongs;
+
+    if (!data) return null;
 
     const songs = data.songs?.results || [];
     const albums = data.albums?.results || [];
@@ -38,7 +45,7 @@ const SearchSection: React.FC = () => {
     ].filter(t => t.count > 0);
 
     return (
-        <div className="p-4 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20">
+        <div className={`p-4 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20 ${theme.isOled ? 'bg-white/50 dark:!bg-black/50' : 'bg-white/50 dark:bg-gray-900/50'}`}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
@@ -72,7 +79,7 @@ const SearchSection: React.FC = () => {
                         exit={{ opacity: 0, y: -10 }}
                         className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6"
                     >
-                        {activeTab === 'songs' && songs.map((song: any) => (
+                        {activeTab === 'songs' && songs.map((song: Song) => (
                             <motion.div
                                 whileHover={{ y: -5 }}
                                 key={song.id}
@@ -81,7 +88,7 @@ const SearchSection: React.FC = () => {
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
                                     <img
-                                        src={song.image?.[2]?.url || song.image}
+                                        src={typeof song.image === 'string' ? song.image : (song.image?.[2]?.url || song.image?.[0]?.url)}
                                         alt={song.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
@@ -96,7 +103,7 @@ const SearchSection: React.FC = () => {
                             </motion.div>
                         ))}
 
-                        {activeTab === 'albums' && albums.map((album: any) => (
+                        {activeTab === 'albums' && albums.map((album: AlbumSearchResult) => (
                             <motion.div
                                 whileHover={{ y: -5 }}
                                 key={album.id}
@@ -105,7 +112,7 @@ const SearchSection: React.FC = () => {
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
                                     <img
-                                        src={album.image?.[2]?.url || album.image}
+                                        src={typeof album.image === 'string' ? album.image : (album.image?.[2]?.url || album.image?.[0]?.url)}
                                         alt={album.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
@@ -115,7 +122,7 @@ const SearchSection: React.FC = () => {
                             </motion.div>
                         ))}
 
-                        {activeTab === 'artists' && artists.map((artist: any) => (
+                        {activeTab === 'artists' && artists.map((artist: ArtistSearchResult) => (
                             <motion.div
                                 whileHover={{ y: -5 }}
                                 key={artist.id}
@@ -124,7 +131,7 @@ const SearchSection: React.FC = () => {
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-full w-full max-w-[120px]">
                                     <img
-                                        src={artist.image?.[2]?.url || artist.image}
+                                        src={typeof artist.image === 'string' ? artist.image : (artist.image?.[2]?.url || artist.image?.[0]?.url)}
                                         alt={artist.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
@@ -134,7 +141,7 @@ const SearchSection: React.FC = () => {
                             </motion.div>
                         ))}
 
-                        {activeTab === 'playlists' && playlists.map((playlist: any) => (
+                        {activeTab === 'playlists' && playlists.map((playlist: PlaylistSearchResult) => (
                             <motion.div
                                 whileHover={{ y: -5 }}
                                 key={playlist.id}
@@ -143,7 +150,7 @@ const SearchSection: React.FC = () => {
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
                                     <img
-                                        src={playlist.image?.[2]?.url || playlist.image}
+                                        src={typeof playlist.image === 'string' ? playlist.image : (playlist.image?.[2]?.url || playlist.image?.[0]?.url)}
                                         alt={playlist.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />

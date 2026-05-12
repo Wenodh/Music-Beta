@@ -1,3 +1,5 @@
+import { SearchResults } from './api';
+
 export interface Song {
     id: string;
     name: string;
@@ -20,7 +22,7 @@ export interface MusicPlayerState {
     recommendations: Song[];
     isPlaying: boolean;
     currentSong: Song | null;
-    searchedSongs: any;
+    searchedSongs: SearchResults | Song[] | null;
     recentlyPlayed: Song[];
     recentlyPlayedAlbums: any[];
     sleepTimer: number | null;
@@ -32,6 +34,7 @@ export interface MusicPlayerState {
     crossfadeDuration: number;
     currentTime: number;
     isSongRadioEnabled: boolean;
+    searchHistory: string[];
 }
 
 export interface EqualizerSettings {

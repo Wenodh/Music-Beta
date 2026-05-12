@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
 import SearchSection from './components/SearchSection';
@@ -80,15 +81,27 @@ const AnimatedRoutes = () => {
     );
 };
 
+import { useEffect } from 'react';
+
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
+    useEffect(() => {
+        if (theme.darkMode) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [theme.darkMode]);
+
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-950'}`}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{ '--accent-color': theme.accentColor } as React.CSSProperties}
         >
             <BrowserRouter>
@@ -137,8 +150,10 @@ export default function App() {
         <ErrorBoundary>
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
-                    <AppContent />
-                    <SpeedInsights />
+                    <HelmetProvider>
+                        <AppContent />
+                        <SpeedInsights />
+                    </HelmetProvider>
                 </PersistGate>
             </Provider>
         </ErrorBoundary>

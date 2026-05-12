@@ -1,12 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song, MusicPlayerState } from '../../types/music';
+import { SearchResults } from '../../types/api';
 
 const initialState: MusicPlayerState = {
     songs: [],
     recommendations: [],
     isPlaying: false,
     currentSong: null,
-    searchedSongs: [],
+    searchedSongs: null,
     recentlyPlayed: [],
     recentlyPlayedAlbums: [],
     sleepTimer: null,
@@ -22,6 +23,7 @@ const initialState: MusicPlayerState = {
     crossfadeDuration: 5,
     currentTime: 0,
     isSongRadioEnabled: true,
+    searchHistory: [],
 };
 
 const musicPlayerSlice = createSlice({
@@ -31,7 +33,7 @@ const musicPlayerSlice = createSlice({
         setSongs: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload.slice(0, 100);
         },
-        setSearchedSongs: (state, action: PayloadAction<any>) => {
+        setSearchedSongs: (state, action: PayloadAction<SearchResults | Song[] | null>) => {
             state.searchedSongs = action.payload;
         },
         playMusic: (state, action: PayloadAction<any>) => {
@@ -162,6 +164,25 @@ const musicPlayerSlice = createSlice({
         setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
             state.isSongRadioEnabled = action.payload;
         },
+        addToSearchHistory: (state, action: PayloadAction<string>) => {
+            const query = action.payload.trim();
+            if (!query) return;
+            state.searchHistory = [
+                query,
+                ...state.searchHistory.filter((q) => q.toLowerCase() !== query.toLowerCase()),
+            ].slice(0, 10);
+        },
+        clearSearchHistory: (state) => {
+            state.searchHistory = [];
+        },
+        removeFromSearchHistory: (state, action: PayloadAction<string>) => {
+            state.searchHistory = state.searchHistory.filter((q) => q !== action.payload);
+        },
+        resetPlayerData: (state) => {
+            state.recentlyPlayed = [];
+            state.recentlyPlayedAlbums = [];
+            state.searchHistory = [];
+        },
         nextSong: (state) => {
             if (state.currentSong && state.songs.length > 0) {
                 const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
@@ -236,6 +257,10 @@ export const {
     setCrossfadeDuration,
     setCurrentTime,
     setSongRadioEnabled,
+    addToSearchHistory,
+    clearSearchHistory,
+    removeFromSearchHistory,
+    resetPlayerData,
     nextSong,
     prevSong,
 } = musicPlayerSlice.actions;

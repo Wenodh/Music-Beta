@@ -6,20 +6,24 @@ import DailyMix from './DailyMix';
 import CommunityFeed from './CommunityFeed';
 import { motion } from 'framer-motion';
 import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
+import { AlbumSearchResult, ArtistSearchResult, PlaylistSearchResult } from '../types/api';
+import { Song } from '../types/music';
 
 const MainSection: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
     const [data, setData] = useState<{
-        albums: any[];
-        songs: any[];
-        playlists: any[];
-        artists: any[];
+        albums: AlbumSearchResult[];
+        songs: Song[];
+        playlists: PlaylistSearchResult[];
+        artists: ArtistSearchResult[];
+        moodPlaylists: PlaylistSearchResult[];
     }>({
         albums: [],
         songs: [],
         playlists: [],
-        artists: []
+        artists: [],
+        moodPlaylists: []
     });
     const [loading, setLoading] = useState(true);
 
@@ -39,10 +43,14 @@ const MainSection: React.FC = () => {
 
                 const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
 
+                const moods = ['Chill', 'Workout', 'Party', 'Romance', 'Focus'];
+                const selectedMood = moods[Math.floor(Math.random() * moods.length)];
+
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
                     axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
+                    axios.get(`${playlistSearch}${selectedMood}`),
                     ...artistsToFetch.map(name => {
                         // Remove limit from searchArtist if it already contains it
                         const baseUrl = searchArtist.includes('limit=')
@@ -55,7 +63,8 @@ const MainSection: React.FC = () => {
                 const albumsRes = results[0];
                 const songsRes = results[1];
                 const playlistsRes = results[2];
-                const artistsResults = results.slice(3);
+                const moodRes = results[3];
+                const artistsResults = results.slice(4);
 
                 const artistList = artistsResults
                     .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
@@ -66,7 +75,8 @@ const MainSection: React.FC = () => {
                     albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
                     songs: songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [],
                     playlists: playlistsRes.status === 'fulfilled' ? (playlistsRes.value.data.data.results || []) : [],
-                    artists: artistList
+                    artists: artistList,
+                    moodPlaylists: moodRes.status === 'fulfilled' ? (moodRes.value.data.data.results || []) : []
                 });
             } catch (error) {
                 console.error('Error in fetchData:', error);
@@ -134,6 +144,11 @@ const MainSection: React.FC = () => {
             {data.artists && data.artists.length > 0 && (
                 <motion.div variants={itemVariants}>
                     <Slider data={data.artists} title="Featured Artists" />
+                </motion.div>
+            )}
+            {data.moodPlaylists && data.moodPlaylists.length > 0 && (
+                <motion.div variants={itemVariants}>
+                    <Slider data={data.moodPlaylists} title="Discover by Mood" />
                 </motion.div>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

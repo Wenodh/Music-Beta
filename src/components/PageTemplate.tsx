@@ -9,8 +9,9 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic, addRecentlyPlayedAlbum } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle } from 'react-icons/io5';
-import { motion, AnimatePresence } from 'framer-motion';
+import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle, IoArrowUp } from 'react-icons/io5';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { search as searchUrl, album as albumSearchUrl, playlistSearch as playlistSearchUrl } from '../constants';
@@ -35,6 +36,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         moreByArtist: any[];
         similarCollections: any[];
     }>({ moreByArtist: [], similarCollections: [] });
+
+    const { scrollY } = useScroll();
+    const showScrollTop = useTransform(scrollY, [300, 400], [0, 1]);
 
     const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
@@ -172,8 +176,22 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
         </div>
     );
 
+    const title = details ? `${decodeHtmlEntities((details as any).name || (details as any).title)} | VibeOn` : 'VibeOn';
+    const description = details ? `Listen to ${decodeHtmlEntities((details as any).name || (details as any).title)} by ${decodeHtmlEntities((details as any).primaryArtists || (details as any).artist || 'VibeOn')} on VibeOn.` : 'VibeOn is a modern music streaming app.';
+
     return (
         <div className="p-5 pb-32 max-w-7xl mx-auto">
+            <Helmet>
+                <title>{title}</title>
+                <meta name="description" content={description} />
+                <meta property="og:title" content={title} />
+                <meta property="og:description" content={description} />
+                <meta property="og:image" content={image} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={title} />
+                <meta name="twitter:description" content={description} />
+                <meta name="twitter:image" content={image} />
+            </Helmet>
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>
@@ -470,6 +488,14 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     <Slider data={recommendations.similarCollections} title="Similar Playlists" />
                 )}
             </div>
+
+            <motion.button
+                style={{ opacity: showScrollTop, scale: showScrollTop }}
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="fixed bottom-24 right-6 sm:bottom-28 sm:right-10 w-12 h-12 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-50 hover:bg-red-600 transition-colors"
+            >
+                <IoArrowUp size={24} />
+            </motion.button>
         </div>
     );
 };

@@ -329,6 +329,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     };
 
+    const { theme } = useAppSelector(state => state.ui);
+
     return (
         <AnimatePresence>
             {currentSong && (
@@ -336,7 +338,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
-                    className="dark:bg-gray-900/80 dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-[210]"
+                    className={`dark:text-white fixed bottom-0 right-0 left-0 flex flex-col z-[210] ${theme.isOled ? 'dark:!bg-black/80' : 'dark:bg-gray-900/80'} bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20`}
                 >
                     <div className="absolute inset-0 z-0 pointer-events-none">
                         <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
@@ -358,15 +360,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     }}>
                         {/* 1st div */}
                         <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
-                            <motion.div
-                                drag="x"
-                                dragConstraints={{ left: 0, right: 0 }}
-                                onDragEnd={(_, info) => {
-                                    if (info.offset.x > 100) prevSong();
-                                    else if (info.offset.x < -100) playNextInQueue(true);
-                                }}
-                                className="relative group cursor-grab active:cursor-grabbing"
-                            >
+                            <div className="relative group">
                                 <motion.img
                                     animate={{ rotate: isPlaying ? 360 : 0 }}
                                     transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
@@ -400,10 +394,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 rounded-full transition-opacity flex items-center justify-center pointer-events-none">
-                                    <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
-                                </div>
-                            </motion.div>
+                            </div>
                             <div className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
                                 <p className="font-semibold text-sm sm:text-base truncate">{decodeHtmlEntities(currentSong?.name)}</p>
                                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -496,6 +487,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
                                 <AnimatePresence>
                                     {isMoreMenuOpen && (
+                                        <>
+                                        <div
+                                            className="fixed inset-0 z-50 md:hidden"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsMoreMenuOpen(false);
+                                            }}
+                                        />
                                         <motion.div
                                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -607,6 +606,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 </button>
                                             )}
                                         </motion.div>
+                                        </>
                                     )}
                                 </AnimatePresence>
                             </div>
