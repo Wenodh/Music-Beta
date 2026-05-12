@@ -15,6 +15,7 @@ const Navbar: React.FC = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { theme } = useAppSelector((state) => state.ui);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -72,7 +73,7 @@ const Navbar: React.FC = () => {
         <motion.nav
             animate={{ y: isVisible || isSearchFocused ? 0 : -200 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-3 md:p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-2 md:gap-4 md:flex-row md:justify-between transition-all"
+            className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-3 md:p-4 bg-white/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-2 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
         >
             <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div
@@ -109,7 +110,7 @@ const Navbar: React.FC = () => {
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         placeholder="Search for songs, albums, artists..."
-                        className="w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50 border-2 border-transparent focus:border-primary/50 focus:bg-white dark:focus:bg-gray-900 focus:outline-none transition-all shadow-inner"
+                        className={`w-full p-2.5 pl-11 rounded-2xl bg-gray-100/50 border-2 border-transparent focus:border-primary/50 focus:bg-white focus:outline-none transition-all shadow-inner ${theme.isOled ? 'dark:bg-black/50 dark:focus:bg-black' : 'dark:bg-gray-800/50 dark:focus:bg-gray-900'}`}
                     />
                     <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
 

@@ -80,15 +80,31 @@ const AnimatedRoutes = () => {
     );
 };
 
+import { useEffect } from 'react';
+
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
+    useEffect(() => {
+        if (theme.darkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        if (theme.isOled && theme.darkMode) {
+            document.body.classList.add('oled-mode');
+        } else {
+            document.body.classList.remove('oled-mode');
+        }
+    }, [theme.darkMode, theme.isOled]);
+
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-950'}`}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{ '--accent-color': theme.accentColor } as React.CSSProperties}
         >
             <BrowserRouter>

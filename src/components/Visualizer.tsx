@@ -254,6 +254,8 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 width={100}
                 height={40}
                 className="w-full h-full opacity-50 pointer-events-none"
+                aria-hidden="true"
+                role="presentation"
             />
             <div className="absolute top-2 left-2 flex gap-1 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
                 {(['bars', 'circular', 'waveform', 'particles'] as const).map(m => (

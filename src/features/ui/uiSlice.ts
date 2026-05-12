@@ -19,6 +19,7 @@ interface UIState {
     theme: {
         accentColor: string;
         isOled: boolean;
+        darkMode: boolean;
     };
 }
 
@@ -33,6 +34,7 @@ const initialState: UIState = {
     theme: {
         accentColor: '#ef4444', // Default red-500
         isOled: false,
+        darkMode: true,
     },
 };
 
@@ -76,6 +78,15 @@ const uiSlice = createSlice({
         },
         setOledMode: (state, action: PayloadAction<boolean>) => {
             state.theme.isOled = action.payload;
+            if (action.payload) {
+                state.theme.darkMode = true;
+            }
+        },
+        setDarkMode: (state, action: PayloadAction<boolean>) => {
+            state.theme.darkMode = action.payload;
+            if (!action.payload) {
+                state.theme.isOled = false;
+            }
         },
     },
 });
@@ -88,6 +99,7 @@ export const {
     setEqualizerOpen,
     setLyricsOpen,
     setAccentColor,
-    setOledMode
+    setOledMode,
+    setDarkMode
 } = uiSlice.actions;
 export default uiSlice.reducer;
