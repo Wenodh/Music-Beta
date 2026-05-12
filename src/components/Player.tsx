@@ -365,6 +365,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     if (info.offset.x > 100) prevSong();
                                     else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
+                                onClick={(e) => e.stopPropagation()}
                                 className="relative group cursor-grab active:cursor-grabbing"
                             >
                                 <motion.img
@@ -412,28 +413,36 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </div>
                             <div className="flex gap-2 items-center ml-2 lg:flex">
                                 <div className="hidden lg:flex gap-2">
-                                    <motion.div whileTap={{ scale: 0.8 }}>
+                                    <motion.button
+                                        whileTap={{ scale: 0.8 }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            dispatch(toggleFavorite(currentSong));
+                                        }}
+                                    >
                                         {isFavorite ? (
                                             <IoHeart
-                                                onClick={() => dispatch(toggleFavorite(currentSong))}
                                                 className="text-primary cursor-pointer text-xl"
                                             />
                                         ) : (
                                             <IoHeartOutline
-                                                onClick={() => dispatch(toggleFavorite(currentSong))}
                                                 className="text-gray-500 hover:text-primary cursor-pointer text-xl"
                                             />
                                         )}
-                                    </motion.div>
+                                    </motion.button>
                                     <div className="relative">
-                                        <IoAddCircleOutline
+                                        <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 dispatch(openPlaylistModal(currentSong!));
                                             }}
-                                            className="text-gray-500 hover:text-primary cursor-pointer text-xl"
-                                            title="Add to Playlist"
-                                        />
+                                            className="flex items-center"
+                                        >
+                                            <IoAddCircleOutline
+                                                className="text-gray-500 hover:text-primary cursor-pointer text-xl"
+                                                title="Add to Playlist"
+                                            />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -441,58 +450,95 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
                         {/* 2nd div */}
                         <div className="flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
-                            <BiRepeat className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors hidden sm:block" />
-                            <motion.div whileTap={{ scale: 0.9 }}>
+                            <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="hidden sm:block"
+                            >
+                                <BiRepeat className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors" />
+                            </button>
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    prevSong();
+                                }}
+                            >
                                 <IoMdSkipBackward
-                                    onClick={prevSong}
                                     className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer transition-colors"
                                 />
-                            </motion.div>
+                            </motion.button>
 
                             <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={handlePlayPause}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePlayPause();
+                                }}
                                 className="w-12 h-12 flex items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-red-600 transition-colors"
                             >
                                 {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
                             </motion.button>
 
-                            <motion.div whileTap={{ scale: 0.9 }}>
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    playNextInQueue(true);
+                                }}
+                            >
                                 <IoMdSkipForward
-                                    onClick={() => playNextInQueue(true)}
                                     className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer transition-colors"
                                 />
-                            </motion.div>
-                            <PiShuffleBold className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors hidden sm:block" />
+                            </motion.button>
+                            <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="hidden sm:block"
+                            >
+                                <PiShuffleBold className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors" />
+                            </button>
                         </div>
 
                         {/* 3rd div */}
                         <div className="flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
-                            <motion.div whileTap={{ scale: 0.9 }} className="hidden lg:block">
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                className="hidden lg:block"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch(setLyricsOpen(!isLyricsOpen));
+                                }}
+                            >
                                 <MdOutlineLyrics
-                                    onClick={() => dispatch(setLyricsOpen(!isLyricsOpen))}
                                     className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isLyricsOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
-                            </motion.div>
-                            <motion.div whileTap={{ scale: 0.9 }}>
+                            </motion.button>
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch(setQueueOpen(!isQueueOpen));
+                                }}
+                            >
                                 <HiQueueList
-                                    onClick={() => dispatch(setQueueOpen(!isQueueOpen))}
                                     className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isQueueOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
-                            </motion.div>
-                            <div className="hidden lg:block">
+                            </motion.button>
+                            <div className="hidden lg:block" onClick={(e) => e.stopPropagation()}>
                                 <SleepTimer />
                             </div>
 
                             <div className="relative">
-                                <motion.div
+                                <motion.button
                                     whileTap={{ scale: 0.9 }}
-                                    onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full cursor-pointer transition-colors"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsMoreMenuOpen(!isMoreMenuOpen);
+                                    }}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full cursor-pointer transition-colors flex items-center justify-center"
                                 >
                                     <IoEllipsisVertical className="text-xl text-gray-700 dark:text-gray-200" />
-                                </motion.div>
+                                </motion.button>
 
                                 <AnimatePresence>
                                     {isMoreMenuOpen && (
@@ -615,6 +661,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 className="relative"
                                 onMouseEnter={() => setIsVolumeVisible(true)}
                                 onMouseLeave={() => setIsVolumeVisible(false)}
+                                onClick={(e) => e.stopPropagation()}
                             >
                                 <HiSpeakerWave className="text-gray-700 dark:text-gray-200 hover:text-primary text-2xl lg:text-3xl cursor-pointer hidden lg:block transition-colors" />
                                 <div

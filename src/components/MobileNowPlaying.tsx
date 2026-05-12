@@ -110,23 +110,27 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Controls */}
-                        <div className="w-full flex items-center justify-between">
-                            <PiShuffleBold className="text-gray-500 text-xl" />
+                        <div className="w-full flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                            <button className="p-2">
+                                <PiShuffleBold className="text-gray-500 text-xl" />
+                            </button>
                             <div className="flex items-center gap-8">
-                                <button onClick={prevSong} className="p-2">
+                                <button onClick={(e) => { e.stopPropagation(); prevSong(); }} className="p-2">
                                     <IoMdSkipBackward size={32} />
                                 </button>
                                 <button
-                                    onClick={handlePlayPause}
+                                    onClick={(e) => { e.stopPropagation(); handlePlayPause(); }}
                                     className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl"
                                 >
                                     {isPlaying ? <FaPause size={28} /> : <FaPlay size={28} className="ml-1" />}
                                 </button>
-                                <button onClick={nextSong} className="p-2">
+                                <button onClick={(e) => { e.stopPropagation(); nextSong(); }} className="p-2">
                                     <IoMdSkipForward size={32} />
                                 </button>
                             </div>
-                            <BiRepeat className="text-gray-500 text-xl" />
+                            <button className="p-2">
+                                <BiRepeat className="text-gray-500 text-xl" />
+                            </button>
                         </div>
                     </div>
 

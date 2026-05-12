@@ -24,6 +24,7 @@
     "redux-persist": "^6.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/colorthief": "^2.6.1",
     "@types/lodash": "^4.17.24",
     "@types/node": "^22.19.17",
