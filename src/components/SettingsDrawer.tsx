@@ -1,19 +1,24 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode } from '../features/ui/uiSlice';
+import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { getDownloadStorageInfo, deleteAllDownloads } from '../utils/db';
+import { setDownloadedIds } from '../features/library/librarySlice';
 
 const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
     const { theme } = useAppSelector((state) => state.ui);
-    const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration } = useAppSelector((state) => state.musicPlayer);
+    const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
+
+    const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
 
     const accentColors = [
         { name: 'Red', value: '#ef4444' },
@@ -33,6 +38,34 @@ const SettingsDrawer: React.FC = () => {
     ];
 
     const qualities = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+
+    useEffect(() => {
+        if (isSettingsOpen) {
+            updateStorageInfo();
+        }
+    }, [isSettingsOpen]);
+
+    const updateStorageInfo = async () => {
+        const info = await getDownloadStorageInfo();
+        setStorageInfo(info);
+    };
+
+    const formatSize = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const handleDeleteAll = async () => {
+        if (window.confirm('Delete all downloaded songs?')) {
+            await deleteAllDownloads();
+            dispatch(setDownloadedIds([]));
+            updateStorageInfo();
+            dispatch(showToast({ message: 'All downloads deleted' }));
+        }
+    };
 
     return (
         <AnimatePresence>
@@ -139,6 +172,49 @@ const SettingsDrawer: React.FC = () => {
                                                     className="w-4 h-4 bg-white rounded-full absolute top-0.5"
                                                 />
                                             </button>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
+                                        <IoCloudDownloadOutline /> Offline Storage
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <p className="text-sm font-medium">Download over Wi-Fi only</p>
+                                                    <p className="text-[10px] text-gray-500">Save mobile data</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => dispatch(setWifiOnly(!downloadSettings.wifiOnly))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${downloadSettings.wifiOnly ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                >
+                                                    <motion.div
+                                                        animate={{ x: downloadSettings.wifiOnly ? 20 : 2 }}
+                                                        className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                    />
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+                                                <div>
+                                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                                                        {storageInfo.count} songs
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-500">
+                                                        Using {formatSize(storageInfo.totalSize)}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={handleDeleteAll}
+                                                    disabled={storageInfo.count === 0}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <IoTrashOutline /> Delete All
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>

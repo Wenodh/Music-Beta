@@ -2,18 +2,42 @@ import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } from '../features/library/librarySlice';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline } from 'react-icons/io5';
+import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect } from 'react';
+import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
+import { removeDownloadedId } from '../features/library/librarySlice';
+import { showToast } from '../features/ui/uiSlice';
 
 const Library: React.FC = () => {
     const { favorites, playlists } = useAppSelector((state) => state.library);
     const dispatch = useAppDispatch();
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists'>('favorites');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline'>('favorites');
+    const [offlineSongs, setOfflineSongs] = useState<OfflineSong[]>([]);
     const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
+
+    useEffect(() => {
+        if (activeTab === 'offline') {
+            loadOfflineSongs();
+        }
+    }, [activeTab]);
+
+    const loadOfflineSongs = async () => {
+        const songs = await getOfflineSongs();
+        setOfflineSongs(songs);
+    };
+
+    const handleDeleteOffline = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        await deleteOfflineSong(id);
+        dispatch(removeDownloadedId(id));
+        dispatch(showToast({ message: 'Removed from offline' }));
+        loadOfflineSongs();
+    };
 
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,6 +69,13 @@ const Library: React.FC = () => {
                     >
                         Playlists
                         {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('offline'); setSelectedPlaylist(null); }}
+                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'offline' ? 'text-primary' : 'text-gray-500'}`}
+                    >
+                        Offline
+                        {activeTab === 'offline' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                 </div>
 
@@ -78,6 +109,61 @@ const Library: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {activeTab === 'offline' && (
+                <div className={viewMode === 'grid'
+                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                    : "space-y-2"
+                }>
+                    {offlineSongs.length > 0 ? (
+                        [...offlineSongs].sort((a, b) => {
+                            if (sortBy === 'name') return a.name.localeCompare(b.name);
+                            if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
+                            return 0;
+                        }).map((song) => (
+                            <motion.div
+                                key={song.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
+                                onClick={() => dispatch(playMusic(song))}
+                            >
+                                <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
+                                    <img
+                                        src={URL.createObjectURL(song.imageBlob)}
+                                        alt={song.name}
+                                        className="w-full h-full object-cover"
+                                        onLoad={(e) => {
+                                            // Optional: Clean up URL after load if needed, but for images it's tricky
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <IoMusicalNote className="text-white text-xl" />
+                                    </div>
+                                </div>
+                                <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+                                    <div className="min-w-0">
+                                        <p className="font-semibold truncate text-sm">{song.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                    </div>
+                                    <button
+                                        onClick={(e) => handleDeleteOffline(e, song.id)}
+                                        className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                    >
+                                        <IoTrash size={14} />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))
+                    ) : (
+                        <div className="col-span-full py-20 text-center text-gray-500">
+                            <IoCloudDownload size={48} className="mx-auto mb-4 opacity-20" />
+                            <p>No offline songs yet.</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {activeTab === 'favorites' && !selectedPlaylist && (
                 <div className={viewMode === 'grid'

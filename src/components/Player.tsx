@@ -27,6 +27,7 @@ import { toggleFavorite } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
+import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor } from '../features/ui/uiSlice';
@@ -51,7 +52,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { isLyricsOpen } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
-    const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
+    const [imageUrl, setImageUrl] = useState<string>('');
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
     // Dual buffer system
@@ -70,8 +71,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         });
     }, []);
 
-    const getSongUrl = useCallback((song: Song | null) => {
+    const getSongUrl = useCallback(async (song: Song | null) => {
         if (!song) return '';
+
+        // Check if song is offline
+        const offlineSong = await getOfflineSong(song.id);
+        if (offlineSong?.audioBlob) {
+            return URL.createObjectURL(offlineSong.audioBlob);
+        }
+
         const musicData = song.music || song.downloadUrl;
         if (Array.isArray(musicData)) {
             return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
@@ -112,12 +120,27 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Handle Metadata, Recommendations & Theme
     useEffect(() => {
         if (currentSong) {
+            // Resolve Image URL (Offline first)
+            getOfflineSong(currentSong.id).then(offlineSong => {
+                let url = '';
+                if (offlineSong?.imageBlob) {
+                    url = URL.createObjectURL(offlineSong.imageBlob);
+                } else {
+                    url = typeof currentSong.image === 'string'
+                        ? currentSong.image
+                        : currentSong.image?.[currentSong.image?.length - 1]?.url || '';
+                }
+                setImageUrl(url);
+            });
+        }
+    }, [currentSong]);
+
+    useEffect(() => {
+        if (currentSong && imageUrl) {
             // Update Theme Color
-            if (imageUrl) {
-                getDominantColor(imageUrl).then(color => {
-                    dispatch(setAccentColor(color));
-                });
-            }
+            getDominantColor(imageUrl).then(color => {
+                dispatch(setAccentColor(color));
+            });
 
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new window.MediaMetadata({
@@ -143,19 +166,21 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Handle Playback State
     useEffect(() => {
         const activeAudio = getActiveAudio();
-        const songUrl = getSongUrl(currentSong);
 
-        if (songUrl && activeAudio.src !== songUrl) {
-            activeAudio.src = songUrl;
-            setIsCrossfading(false);
-        }
+        getSongUrl(currentSong).then(songUrl => {
+            if (songUrl && activeAudio.src !== songUrl) {
+                // If it's a blob URL, we should revoke the old one if needed, but managing blob URLs is tricky
+                activeAudio.src = songUrl;
+                setIsCrossfading(false);
+            }
 
-        if (isPlaying) {
-            activeAudio.play().catch(e => console.warn("Playback failed", e));
-        } else {
-            activeAudio.pause();
-            getInactiveAudio().pause();
-        }
+            if (isPlaying) {
+                activeAudio.play().catch(e => console.warn("Playback failed", e));
+            } else {
+                activeAudio.pause();
+                getInactiveAudio().pause();
+            }
+        });
     }, [currentSong, isPlaying, activeBuffer, getSongUrl]);
 
     // Preload next song
@@ -164,13 +189,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const index = songs.findIndex((song) => song.id === currentSong.id);
             const nextIndex = (index + 1) % songs.length;
             const nextSong = songs[nextIndex];
-            const nextUrl = getSongUrl(nextSong);
 
-            const inactiveAudio = getInactiveAudio();
-            if (nextUrl && inactiveAudio.src !== nextUrl) {
-                inactiveAudio.src = nextUrl;
-                inactiveAudio.load();
-            }
+            getSongUrl(nextSong).then(nextUrl => {
+                const inactiveAudio = getInactiveAudio();
+                if (nextUrl && inactiveAudio.src !== nextUrl) {
+                    inactiveAudio.src = nextUrl;
+                    inactiveAudio.load();
+                }
+            });
         }
     }, [currentSong, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
 
@@ -642,8 +668,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 </div>
                                             ) : (
                                                 <button
-                                                    onClick={() => {
-                                                        const songUrl = getSongUrl(currentSong);
+                                                    onClick={async () => {
+                                                        const songUrl = await getSongUrl(currentSong);
                                                         handleDownloadSong(songUrl || '');
                                                         setIsMoreMenuOpen(false);
                                                     }}

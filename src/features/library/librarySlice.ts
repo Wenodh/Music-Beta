@@ -10,17 +10,30 @@ interface Playlist {
 interface LibraryState {
     favorites: Song[];
     playlists: Playlist[];
+    downloadedIds: string[];
 }
 
 const initialState: LibraryState = {
     favorites: [],
     playlists: [],
+    downloadedIds: [],
 };
 
 const librarySlice = createSlice({
     name: 'library',
     initialState,
     reducers: {
+        setDownloadedIds: (state, action: PayloadAction<string[]>) => {
+            state.downloadedIds = action.payload;
+        },
+        addDownloadedId: (state, action: PayloadAction<string>) => {
+            if (!state.downloadedIds.includes(action.payload)) {
+                state.downloadedIds.push(action.payload);
+            }
+        },
+        removeDownloadedId: (state, action: PayloadAction<string>) => {
+            state.downloadedIds = state.downloadedIds.filter(id => id !== action.payload);
+        },
         toggleFavorite: (state, action: PayloadAction<Song>) => {
             const index = state.favorites.findIndex(s => s.id === action.payload.id);
             if (index >= 0) {
@@ -65,6 +78,9 @@ const librarySlice = createSlice({
 });
 
 export const {
+    setDownloadedIds,
+    addDownloadedId,
+    removeDownloadedId,
     toggleFavorite,
     createPlaylist,
     deletePlaylist,
