@@ -1,12 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song, MusicPlayerState } from '../../types/music';
+import { SearchResults } from '../../types/api';
 
 const initialState: MusicPlayerState = {
     songs: [],
     recommendations: [],
     isPlaying: false,
     currentSong: null,
-    searchedSongs: [],
+    searchedSongs: null,
     recentlyPlayed: [],
     recentlyPlayedAlbums: [],
     sleepTimer: null,
@@ -31,7 +32,7 @@ const musicPlayerSlice = createSlice({
         setSongs: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload.slice(0, 100);
         },
-        setSearchedSongs: (state, action: PayloadAction<any>) => {
+        setSearchedSongs: (state, action: PayloadAction<SearchResults | Song[] | null>) => {
             state.searchedSongs = action.payload;
         },
         playMusic: (state, action: PayloadAction<any>) => {

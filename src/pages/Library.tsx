@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } from '../features/library/librarySlice';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline } from 'react-icons/io5';
+import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoSearch } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
+import { useNavigate } from 'react-router-dom';
 
 const Library: React.FC = () => {
     const { favorites, playlists } = useAppSelector((state) => state.library);
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [activeTab, setActiveTab] = useState<'favorites' | 'playlists'>('favorites');
@@ -28,6 +31,10 @@ const Library: React.FC = () => {
 
     return (
         <div className="p-4 lg:p-8 max-w-7xl mx-auto pb-32">
+            <Helmet>
+                <title>My Library | VibeOn</title>
+                <meta name="description" content="View your favorite songs and personalized playlists on VibeOn." />
+            </Helmet>
             <h1 className="text-3xl font-bold mb-8">My Library</h1>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-gray-800">
@@ -115,9 +122,19 @@ const Library: React.FC = () => {
                             </motion.div>
                         ))
                     ) : (
-                        <div className="col-span-full py-20 text-center text-gray-500">
-                            <IoHeart size={48} className="mx-auto mb-4 opacity-20" />
-                            <p>No favorite songs yet.</p>
+                        <div className="col-span-full py-20 flex flex-col items-center text-center">
+                            <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                                <IoHeart size={40} className="text-gray-400 opacity-50" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-2">Your favorites is empty</h3>
+                            <p className="text-gray-500 max-w-xs mb-8 text-sm">Save your favorite songs to find them easily later.</p>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="flex items-center gap-2 px-8 py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all"
+                            >
+                                <IoSearch size={20} />
+                                Explore Music
+                            </button>
                         </div>
                     )}
                 </div>

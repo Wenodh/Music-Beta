@@ -8,6 +8,22 @@ interface FetchDetailsResult<T> {
     image: string;
 }
 
+/**
+ * In-memory cache for API responses to avoid redundant network requests.
+ * Stores data with a timestamp for expiration.
+ */
+const cache: Record<string, { data: any; timestamp: number }> = {};
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
+
+/**
+ * Custom hook to fetch details for albums, artists, or playlists.
+ * Includes built-in caching and automatic image URL extraction.
+ *
+ * @template T - The type of data expected from the API.
+ * @param {string} apiUrl - The full URL to fetch data from.
+ * @param {(data: T) => string} getImageUrl - Callback function to extract the image URL from the response data.
+ * @returns {FetchDetailsResult<T>} An object containing the fetched details, loading state, error state, and extracted image URL.
+ */
 const useFetchDetails = <T extends { name?: string; title?: string }>(
     apiUrl: string,
     getImageUrl: (data: T) => string
@@ -21,10 +37,23 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
 
     useEffect(() => {
         const fetchDetails = async () => {
+            // Check cache
+            const cachedItem = cache[apiUrl];
+            if (cachedItem && Date.now() - cachedItem.timestamp < CACHE_DURATION) {
+                setDetails(cachedItem.data);
+                setImage(stableGetImageUrl(cachedItem.data));
+                setLoading(false);
+                return;
+            }
+
             try {
                 setLoading(true);
                 const response = await axios.get(apiUrl);
                 const data = response.data.data;
+
+                // Update cache
+                cache[apiUrl] = { data, timestamp: Date.now() };
+
                 setDetails(data);
                 setImage(stableGetImageUrl(data));
             } catch (err) {

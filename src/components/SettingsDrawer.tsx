@@ -50,7 +50,7 @@ const SettingsDrawer: React.FC = () => {
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[110] overflow-y-auto"
+                        className={`fixed right-0 top-0 bottom-0 w-full xs:w-80 shadow-2xl z-[110] overflow-y-auto ${theme.isOled ? 'bg-white dark:!bg-black' : 'bg-white dark:bg-gray-900'}`}
                     >
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-8">

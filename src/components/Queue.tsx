@@ -64,6 +64,7 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
 
 const Queue: React.FC = () => {
     const { songs, currentSong, recommendations, isQueueOpen } = useAppSelector((state) => state.musicPlayer);
+    const { theme } = useAppSelector((state) => state.ui);
     const dispatch = useAppDispatch();
 
     return (
@@ -82,7 +83,7 @@ const Queue: React.FC = () => {
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[110] border-l border-gray-200 dark:border-gray-800 flex flex-col"
+                        className={`fixed right-0 top-0 bottom-0 w-full xs:w-80 shadow-2xl z-[110] border-l border-gray-200 dark:border-gray-800 flex flex-col ${theme.isOled ? 'bg-white dark:!bg-black' : 'bg-white dark:bg-gray-900'}`}
                     >
                         <div className="p-5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
                             <div>
