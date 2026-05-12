@@ -8,13 +8,14 @@ I’m a firm believer that our smartphones are the workstations of the future. W
 
 In just over a week, I’ve transformed the application with:
 
-🎼 **Gapless Playback & Crossfade**: Engineered a dual-buffer system to ensure seamless transitions and zero silence between tracks.
-🎛️ **10-Band Graphic Equalizer**: Leveraged the Web Audio API and BiquadFilterNodes to give users studio-quality control over their sound.
-☁️ **Cloud Sync & Auth**: Integrated **Supabase** for real-time synchronization of playlists and favorites across all devices.
-🎨 **Immersive UI**: Implemented a dynamic theme engine using ColorThief to adapt the app's accent colors to album art in real-time.
-🚀 **PWA Excellence**: Fully optimized as a Progressive Web App for a native-level experience on any OS.
+🎤 **Synced Lyrics**: Integrated real-time, time-synced lyrics so you can sing along to every beat.
+🎼 **Dynamic Queue Management**: Smooth drag-and-drop reordering and bulk actions to curate your perfect session.
+✨ **Visual Audio Bars**: Built a high-performance visualizer using the Canvas API that dances in real-time to your music.
+🎨 **Personalized Experience**: Added a Dynamic Theme engine that adapts the app's accent colors to match the album art of the song you're playing.
+📂 **Library Management**: Full support for "Favorites" and custom "Playlists" to keep your music organized.
+🚀 **PWA Excellence**: Fully optimized as a Progressive Web App—install it on your home screen for a seamless, native-level experience.
 
-**Tech Stack:** React 18, TypeScript, Redux Toolkit, Supabase, Tailwind CSS, and Framer Motion.
+**Tech Stack:** React 18, TypeScript, Redux Toolkit, Tailwind CSS, Framer Motion, and the Web Audio API.
 
 This journey has taught me that high-level engineering isn't about *where* you sit, but the tools you master and the vision you chase.
 
@@ -23,4 +24,4 @@ Check out the progress and let me know what you think!
 🚀 **Live Demo:** [INSERT_LIVE_DEMO_URL]
 💻 **GitHub:** [INSERT_GITHUB_REPO_URL]
 
-#ReactJS #TypeScript #WebDevelopment #MobileDevelopment #Supabase #MusicTech #BuildInPublic #SoftwareEngineering #FutureOfWork #PWA
+#ReactJS #TypeScript #WebDevelopment #MobileDevelopment #MusicTech #BuildInPublic #SoftwareEngineering #FutureOfWork #PWA #WebAudioAPI
