@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSleepTimer } from '../features/musicplayer/musicPlayerSlice';
 import { MdOutlineTimer } from 'react-icons/md';
+import { motion } from 'framer-motion';
 
 interface SleepTimerProps {
     showLabel?: boolean;
@@ -11,6 +12,15 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
     const dispatch = useAppDispatch();
     const { sleepTimer } = useAppSelector((state) => state.musicPlayer);
     const [isOpen, setIsOpen] = useState(false);
+    const [initialTime, setInitialTime] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (sleepTimer !== null && initialTime === null) {
+            setInitialTime(sleepTimer);
+        } else if (sleepTimer === null) {
+            setInitialTime(null);
+        }
+    }, [sleepTimer]);
 
     const options = [
         { label: 'Off', value: null },
@@ -33,9 +43,34 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
                 title="Sleep Timer"
             >
                 <div className="relative">
-                    <MdOutlineTimer className="text-2xl" />
+                    {sleepTimer && initialTime && (
+                        <svg className="absolute -inset-1 w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+                            <circle
+                                cx="16"
+                                cy="16"
+                                r="14"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-gray-100 dark:text-gray-800"
+                            />
+                            <motion.circle
+                                cx="16"
+                                cy="16"
+                                r="14"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeDasharray="88"
+                                initial={{ strokeDashoffset: 88 }}
+                                animate={{ strokeDashoffset: 88 - (88 * (sleepTimer / initialTime)) }}
+                                className="text-primary"
+                            />
+                        </svg>
+                    )}
+                    <MdOutlineTimer className="text-2xl relative z-10" />
                     {sleepTimer && !showLabel && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white z-20">
                             {sleepTimer}
                         </span>
                     )}

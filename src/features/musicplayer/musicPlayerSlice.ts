@@ -23,6 +23,7 @@ const initialState: MusicPlayerState = {
     crossfadeDuration: 5,
     currentTime: 0,
     isSongRadioEnabled: true,
+    searchHistory: [],
 };
 
 const musicPlayerSlice = createSlice({
@@ -163,6 +164,25 @@ const musicPlayerSlice = createSlice({
         setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
             state.isSongRadioEnabled = action.payload;
         },
+        addToSearchHistory: (state, action: PayloadAction<string>) => {
+            const query = action.payload.trim();
+            if (!query) return;
+            state.searchHistory = [
+                query,
+                ...state.searchHistory.filter((q) => q.toLowerCase() !== query.toLowerCase()),
+            ].slice(0, 10);
+        },
+        clearSearchHistory: (state) => {
+            state.searchHistory = [];
+        },
+        removeFromSearchHistory: (state, action: PayloadAction<string>) => {
+            state.searchHistory = state.searchHistory.filter((q) => q !== action.payload);
+        },
+        resetPlayerData: (state) => {
+            state.recentlyPlayed = [];
+            state.recentlyPlayedAlbums = [];
+            state.searchHistory = [];
+        },
         nextSong: (state) => {
             if (state.currentSong && state.songs.length > 0) {
                 const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
@@ -237,6 +257,10 @@ export const {
     setCrossfadeDuration,
     setCurrentTime,
     setSongRadioEnabled,
+    addToSearchHistory,
+    clearSearchHistory,
+    removeFromSearchHistory,
+    resetPlayerData,
     nextSong,
     prevSong,
 } = musicPlayerSlice.actions;

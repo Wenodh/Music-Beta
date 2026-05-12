@@ -96,6 +96,7 @@ const SongsList: React.FC<SongsListProps> = ({
     };
 
     const isCurrent = currentSong?.id === id;
+    const { isPlaying } = useAppSelector((state) => state.musicPlayer);
 
     const parsedArtists = typeof artists === 'object'
         ? (artists as any).primary?.map((a: any) => a.name).join(', ') || (artists as any).all?.map((a: any) => a.name).join(', ')
@@ -136,11 +137,28 @@ const SongsList: React.FC<SongsListProps> = ({
                     <img
                         src={Array.isArray(image) ? image[0]?.url : image}
                         alt={name}
-                        className="w-12 h-12 rounded-lg object-cover shadow-sm"
+                        className={`w-12 h-12 rounded-lg object-cover shadow-sm transition-transform ${isCurrent && isPlaying ? 'scale-90' : ''}`}
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/song:opacity-100 transition-opacity rounded-lg">
-                        <span className="text-white text-xs">▶</span>
+                        {isCurrent && isPlaying ? (
+                             <div className="playing-bars">
+                                <div />
+                                <div />
+                                <div />
+                            </div>
+                        ) : (
+                            <span className="text-white text-xs">▶</span>
+                        )}
                     </div>
+                    {isCurrent && isPlaying && (
+                        <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-0.5 shadow-lg border border-primary/20">
+                            <div className="playing-bars !gap-[1px] !w-2.5 !h-2.5">
+                                <div className="!w-[1.5px]" />
+                                <div className="!w-[1.5px]" />
+                                <div className="!w-[1.5px]" />
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="flex flex-col min-w-0">
                     <p className="font-semibold text-xs sm:text-sm truncate">

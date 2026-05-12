@@ -61,6 +61,10 @@ const librarySlice = createSlice({
                 playlist.songs = playlist.songs.filter(s => s.id !== action.payload.songId);
             }
         },
+        clearLibrary: (state) => {
+            state.favorites = [];
+            state.playlists = [];
+        },
     },
 });
 
@@ -71,6 +75,7 @@ export const {
     addToPlaylist,
     addBulkToPlaylist,
     removeFromPlaylist,
+    clearLibrary,
 } = librarySlice.actions;
 
 export default librarySlice.reducer;

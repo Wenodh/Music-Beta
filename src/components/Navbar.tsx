@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
+import { setSearchedSongs, addToSearchHistory, removeFromSearchHistory } from '../features/musicplayer/musicPlayerSlice';
+import { IoSearchOutline, IoPersonCircleOutline, IoTimeOutline, IoCloseOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -15,7 +15,7 @@ const Navbar: React.FC = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const { theme } = useAppSelector((state) => state.ui);
-    const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { isSettingsOpen, searchHistory } = useAppSelector((state) => state.musicPlayer);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -49,6 +49,7 @@ const Navbar: React.FC = () => {
             const res = await axios.get(`${searchUrl}${query}`);
             // Global search returns topQuery, songs, albums, artists, playlists
             dispatch(setSearchedSongs(res.data.data));
+            dispatch(addToSearchHistory(query));
         } catch (error) {
             console.error('Error fetching search results:', error);
         }
@@ -120,6 +121,46 @@ const Navbar: React.FC = () => {
                     <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
 
                     <AnimatePresence>
+                        {isSearchFocused && !searchQuery && searchHistory.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                className={`absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl shadow-2xl z-[100] border border-gray-100 dark:border-gray-800 ${theme.isOled ? 'bg-black' : 'bg-white dark:bg-gray-900'}`}
+                            >
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-3 py-2">Recent Searches</p>
+                                <div className="space-y-1">
+                                    {searchHistory.map((query, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center justify-between group/history hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                                        >
+                                            <button
+                                                type="button"
+                                                onMouseDown={() => {
+                                                    setSearchQuery(query);
+                                                    fetchSearchResults(query);
+                                                }}
+                                                className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm text-left"
+                                            >
+                                                <IoTimeOutline className="text-gray-400" size={18} />
+                                                <span className="truncate">{query}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    dispatch(removeFromSearchHistory(query));
+                                                }}
+                                                className="p-2 mr-1 text-gray-400 hover:text-primary opacity-0 group-hover/history:opacity-100 transition-opacity"
+                                            >
+                                                <IoCloseOutline size={18} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
                         {searchQuery && (
                             <motion.button
                                 initial={{ opacity: 0, scale: 0.8 }}

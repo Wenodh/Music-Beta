@@ -1,11 +1,12 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode } from '../features/ui/uiSlice';
+import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, resetPlayerData } from '../features/musicplayer/musicPlayerSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast } from '../features/ui/uiSlice';
+import { clearLibrary } from '../features/library/librarySlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoTrashOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 
 const SettingsDrawer: React.FC = () => {
@@ -216,6 +217,30 @@ const SettingsDrawer: React.FC = () => {
                                                 </div>
                                             </div>
                                             <span className="text-gray-400 text-xs">Configure</span>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
+                                        <IoTrashOutline /> Danger Zone
+                                    </h3>
+                                    <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl">
+                                        <p className="text-[10px] text-red-600 dark:text-red-400 mb-3 font-medium">
+                                            This will permanently clear your favorites, playlists, and recently played history.
+                                        </p>
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm('Are you sure you want to reset all app data? This cannot be undone.')) {
+                                                    dispatch(clearLibrary());
+                                                    dispatch(resetPlayerData());
+                                                    dispatch(showToast({ message: 'All app data has been reset', type: 'info' }));
+                                                    dispatch(setSettingsOpen(false));
+                                                }
+                                            }}
+                                            className="w-full py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <IoTrashOutline size={16} /> Reset All Data
                                         </button>
                                     </div>
                                 </section>
