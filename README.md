@@ -1,99 +1,108 @@
-# VibeCloud - Modern Music Application
+# VibeOn - Modern Music Experience
 
-VibeCloud is a high-performance, modern music streaming application built with React, TypeScript, and Tailwind CSS. It leverages the Saavn API to provide a seamless music listening experience with a focus on design, responsiveness, and speed.
+VibeOn is a high-performance, modern music streaming application designed for the web. Built with React, TypeScript, and Tailwind CSS, it offers a premium listening experience with a focus on speed, aesthetics, and advanced audio features.
 
----
-
-## ✨ Key Features
-
-- **Modern Glassmorphism UI**: A premium, "frosted glass" design aesthetic with fluid animations powered by Framer Motion.
-- **TypeScript Powered**: Fully migrated to TypeScript for better maintainability and type safety.
-- **Sleep Timer**: Set a timer to automatically pause your music, perfect for listening before bed.
-- **Responsive Design**: Optimized for both mobile and desktop experiences.
-- **Real-time Music Data**: Integrated with the Saavn API for a vast library of songs, albums, and playlists.
-- **Download Support**: High-quality song downloads for offline listening.
-- **PWA Ready**: Installable on mobile and desktop as a Progressive Web App.
-- **Dynamic Search**: Enhanced search results including playlists, artists, and albums.
+Developed with ❤️ by **WENODH**.
 
 ---
 
-## 🛠️ Technical Stack
+## ✨ User Features
 
-- **Frontend**: React 18 (Vite)
-- **Language**: TypeScript
-- **State Management**: Redux Toolkit & Redux Persist
-- **Styling**: Tailwind CSS
-- **Animations**: Framer Motion
-- **Icons**: React Icons
-- **Deployment**: Vercel
+### 🎧 Immersive Playback
+- **Gapless Playback & Crossfade**: Enjoy smooth transitions between tracks with adjustable crossfade duration (up to 12s).
+- **10-Band Equalizer**: Fine-tune your audio with a professional-grade graphic equalizer and curated presets (Pop, Rock, Jazz, etc.).
+- **Smart Queue**: Easily manage your upcoming tracks with drag-and-drop reordering and "Clear Queue" functionality.
+- **Song Radio**: Automatically discover similar tracks based on your current playback.
+- **Sleep Timer**: Fall asleep to your favorite tunes with a customizable countdown timer.
+
+### 🔍 Discovery & Personalization
+- **Dynamic Search**: Real-time results for songs, albums, artists, and playlists.
+- **Daily Mix**: Personalized recommendations generated based on your listening history.
+- **Artist Deep-Dive**: Explore artist biographies, top songs, and "Fans Also Like" suggestions.
+- **Mood-based Playlists**: Discover music curated for different moods and activities.
+- **Community Pulse**: A live feed of what others in the community are listening to.
+
+### 🎨 Premium UI/UX
+- **Glassmorphism Design**: A sleek, modern "frosted glass" aesthetic with fluid animations.
+- **Dynamic Theme Engine**: The application's accent color automatically adapts to the artwork of the currently playing song.
+- **OLED Mode**: A pure black theme option for battery savings on mobile devices and improved contrast.
+- **Responsive & Mobile-First**: Fully optimized for Desktop, Tablet, and Mobile devices.
+- **Progressive Web App (PWA)**: Install VibeOn on your device for a native-like app experience.
+
+### 📁 Library & Social
+- **Cloud Sync (Planned)**: Seamlessly sync your library across devices (currently using persistent local storage).
+- **Personal Playlists**: Create, edit, and manage your own music collections.
+- **High-Quality Downloads**: Download your favorite tracks for offline listening.
+- **Web Share Integration**: Share your favorite songs, albums, or artists directly through system share dialogs.
+
+---
+
+## 🛠️ Technical Details
+
+### Frontend Architecture
+- **React 18**: Leveraging the latest features including Concurrent Mode and Suspense for code splitting.
+- **TypeScript**: Full type safety across the application for robust development and maintenance.
+- **Redux Toolkit**: Centralized state management for the player, library, UI, and settings.
+- **Redux Persist**: Persistent storage of user preferences, recently played, and library data.
+- **Framer Motion**: High-performance animations and layout transitions.
+
+### Audio Engineering
+- **Web Audio API**: Custom implementation of a 10-band `BiquadFilterNode` chain for the Equalizer.
+- **Canvas API Visualizer**: Real-time audio visualization with multiple modes (Bars, Circular, Waveform, Particles).
+- **Dual-Buffer System**: Orchestrates gapless playback and crossfading using multiple `HTMLAudioElement` instances.
+- **Color Extraction**: Uses `colorthief` to analyze album art and update the `--accent-color` CSS variable in real-time.
+
+### Integration
+- **JioSaavn API**: Powering the vast library of over 80 million tracks.
+- **LRCLib**: Integration for high-quality, synchronized lyrics.
+- **Media Session API**: Support for hardware media keys and OS-level playback notifications.
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-
-- Node.js (v16 or higher)
+- Node.js (v18 or higher)
 - npm or yarn
 
 ### Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/Wenodh/Music-Beta.git
-    cd Music-Beta
-    ```
-
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
-
-3.  **Run the development server**:
-    ```bash
-    npm run dev
-    ```
-
-4.  **Build for production**:
-    ```bash
-    npm run build
-    ```
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Wenodh/Music-Beta.git
+   cd Music-Beta
+   ```
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
+4. **Build for production**:
+   ```bash
+   npm run build
+   ```
 
 ---
 
-## 📖 New Features Documentation
+## 📸 Screenshots & Visuals
 
-### Sleep Timer
-The Sleep Timer can be found in the bottom music player. Click the timer icon to choose a duration (5m, 15m, 30m, 1h). The music will automatically pause once the time is up.
+> [!NOTE]
+> *Placeholders for actual application screenshots.*
 
-### TypeScript Integration
-The project now uses TypeScript. All interfaces for music data (Songs, Albums, Artists) can be found in `src/types/music.ts`. This ensures that data throughout the app is handled safely and consistently.
-
-### Glassmorphism & Animations
-The UI has been updated with a "Glass" effect. You'll notice `backdrop-blur` and translucent backgrounds on the Navbar and Player. Framer Motion is used for:
-- **Page Transitions**: Smooth transitions when moving between Home, Albums, and Artist pages.
-- **Micro-interactions**: Buttons and cards scale and react to user input.
-- **Entrance Animations**: Content staggers in gracefully when the app loads.
+| Home Dashboard | Mobile Player | Equalizer |
+| :---: | :---: | :---: |
+| ![Home](https://via.placeholder.com/800x450?text=VibeOn+Home+Dashboard) | ![Player](https://via.placeholder.com/300x600?text=Mobile+Now+Playing) | ![EQ](https://via.placeholder.com/400x300?text=10-Band+Equalizer) |
 
 ---
 
 ## 🤝 Contributing
-
-Contributions are welcome! If you have suggestions for new features or improvements, feel free to open an issue or submit a pull request.
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Contributions are welcome! If you'd like to improve VibeOn, feel free to fork the repository and submit a pull request.
 
 ---
 
 ## 🙏 Acknowledgments
-
-- Inspired by [Raj Padval](https://www.linkedin.com/in/raj-padval-10869125b/)'s tutorial.
+- Inspired by the modern music streaming landscape.
 - Powered by the [Saavn API](https://saavn.dev/).
-
----
-
-Made with ❤️ by [Wenodh](https://github.com/Wenodh)
+- Built with ❤️ by [Wenodh](https://github.com/Wenodh)
