@@ -20,6 +20,8 @@ import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { useState } from 'react';
+import { getOfflineSongs } from './utils/db';
+import { setDownloadedIds } from './features/library/librarySlice';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -87,6 +89,14 @@ export const AppContent = () => {
     const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
+
+    useEffect(() => {
+        // Sync Offline Downloads
+        getOfflineSongs().then(songs => {
+            const ids = songs.map(s => s.id);
+            dispatch(setDownloadedIds(ids));
+        });
+    }, [dispatch]);
 
     useEffect(() => {
         if (theme.darkMode) {

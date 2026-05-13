@@ -55,6 +55,29 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [imageUrl, setImageUrl] = useState<string>('');
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
+    const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
+
+    const revokeAudioBlob = useCallback(() => {
+        if (currentBlobUrlsRef.current.audio) {
+            URL.revokeObjectURL(currentBlobUrlsRef.current.audio);
+            currentBlobUrlsRef.current.audio = undefined;
+        }
+    }, []);
+
+    const revokeImageBlob = useCallback(() => {
+        if (currentBlobUrlsRef.current.image) {
+            URL.revokeObjectURL(currentBlobUrlsRef.current.image);
+            currentBlobUrlsRef.current.image = undefined;
+        }
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            revokeAudioBlob();
+            revokeImageBlob();
+        };
+    }, [revokeAudioBlob, revokeImageBlob]);
+
     // Dual buffer system
     const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
     const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
@@ -71,13 +94,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         });
     }, []);
 
-    const getSongUrl = useCallback(async (song: Song | null) => {
+    const getSongUrl = useCallback(async (song: Song | null, isPreload = false) => {
         if (!song) return '';
 
         // Check if song is offline
         const offlineSong = await getOfflineSong(song.id);
         if (offlineSong?.audioBlob) {
-            return URL.createObjectURL(offlineSong.audioBlob);
+            const url = URL.createObjectURL(offlineSong.audioBlob);
+            if (!isPreload) {
+                revokeAudioBlob();
+                currentBlobUrlsRef.current.audio = url;
+            }
+            return url;
         }
 
         const musicData = song.music || song.downloadUrl;
@@ -85,7 +113,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
         }
         return musicData || '';
-    }, [preferredQuality]);
+    }, [preferredQuality, revokeAudioBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
         if (currentSong && songs.length > 0) {
@@ -124,7 +152,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             getOfflineSong(currentSong.id).then(offlineSong => {
                 let url = '';
                 if (offlineSong?.imageBlob) {
+                    revokeImageBlob();
                     url = URL.createObjectURL(offlineSong.imageBlob);
+                    currentBlobUrlsRef.current.image = url;
                 } else {
                     url = typeof currentSong.image === 'string'
                         ? currentSong.image
@@ -133,7 +163,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 setImageUrl(url);
             });
         }
-    }, [currentSong]);
+    }, [currentSong?.id, revokeImageBlob]);
 
     useEffect(() => {
         if (currentSong && imageUrl) {
@@ -161,7 +191,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     }
                 }).catch(err => console.error('Error fetching recommendations:', err));
         }
-    }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue]);
+    }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue]);
 
     // Handle Playback State
     useEffect(() => {
@@ -169,7 +199,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         getSongUrl(currentSong).then(songUrl => {
             if (songUrl && activeAudio.src !== songUrl) {
-                // If it's a blob URL, we should revoke the old one if needed, but managing blob URLs is tricky
                 activeAudio.src = songUrl;
                 setIsCrossfading(false);
             }
@@ -181,7 +210,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 getInactiveAudio().pause();
             }
         });
-    }, [currentSong, isPlaying, activeBuffer, getSongUrl]);
+    }, [currentSong?.id, activeBuffer, getSongUrl]);
+
+    useEffect(() => {
+        const activeAudio = getActiveAudio();
+        if (isPlaying) {
+            activeAudio.play().catch(e => console.warn("Playback failed", e));
+        } else {
+            activeAudio.pause();
+            getInactiveAudio().pause();
+        }
+    }, [isPlaying]);
 
     // Preload next song
     useEffect(() => {
@@ -190,7 +229,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const nextIndex = (index + 1) % songs.length;
             const nextSong = songs[nextIndex];
 
-            getSongUrl(nextSong).then(nextUrl => {
+            getSongUrl(nextSong, true).then(nextUrl => {
                 const inactiveAudio = getInactiveAudio();
                 if (nextUrl && inactiveAudio.src !== nextUrl) {
                     inactiveAudio.src = nextUrl;
@@ -198,7 +237,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 }
             });
         }
-    }, [currentSong, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
+    }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
 
     // Crossfade Logic
     useEffect(() => {
@@ -669,6 +708,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                             ) : (
                                                 <button
                                                     onClick={async () => {
+                                                        // For simple browser download, we can use the resolved URL
                                                         const songUrl = await getSongUrl(currentSong);
                                                         handleDownloadSong(songUrl || '');
                                                         setIsMoreMenuOpen(false);

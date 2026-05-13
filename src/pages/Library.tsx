@@ -4,7 +4,7 @@ import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } fr
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { removeDownloadedId } from '../features/library/librarySlice';
@@ -17,7 +17,18 @@ const Library: React.FC = () => {
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline'>('favorites');
-    const [offlineSongs, setOfflineSongs] = useState<OfflineSong[]>([]);
+    const [offlineSongs, setOfflineSongs] = useState<(OfflineSong & { imageUrl?: string })[]>([]);
+
+    const blobUrlsRef = useRef<Set<string>>(new Set());
+
+    const revokeAllBlobUrls = useCallback(() => {
+        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+        blobUrlsRef.current.clear();
+    }, []);
+
+    useEffect(() => {
+        return () => revokeAllBlobUrls();
+    }, [revokeAllBlobUrls]);
     const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
@@ -36,8 +47,14 @@ const Library: React.FC = () => {
     }, [activeTab]);
 
     const loadOfflineSongs = async () => {
+        revokeAllBlobUrls();
         const songs = await getOfflineSongs();
-        setOfflineSongs(songs);
+        const songsWithUrls = songs.map(song => {
+            const url = URL.createObjectURL(song.imageBlob);
+            blobUrlsRef.current.add(url);
+            return { ...song, imageUrl: url };
+        });
+        setOfflineSongs(songsWithUrls);
     };
 
     const handleDeleteOffline = async (e: React.MouseEvent, id: string) => {
@@ -140,12 +157,9 @@ const Library: React.FC = () => {
                             >
                                 <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
                                     <img
-                                        src={URL.createObjectURL(song.imageBlob)}
+                                        src={song.imageUrl}
                                         alt={song.name}
                                         className="w-full h-full object-cover"
-                                        onLoad={(e) => {
-                                            // Optional: Clean up URL after load if needed, but for images it's tricky
-                                        }}
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <IoMusicalNote className="text-white text-xl" />
