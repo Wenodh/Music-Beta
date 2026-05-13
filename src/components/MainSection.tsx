@@ -5,9 +5,12 @@ import Slider from './Slider';
 import DailyMix from './DailyMix';
 import CommunityFeed from './CommunityFeed';
 import { motion } from 'framer-motion';
+import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
+import { useNavigate } from 'react-router-dom';
 import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
 
 const MainSection: React.FC = () => {
+    const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
     const [data, setData] = useState<{
@@ -22,8 +25,23 @@ const MainSection: React.FC = () => {
         artists: []
     });
     const [loading, setLoading] = useState(true);
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
     useEffect(() => {
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isOffline) return;
         const fetchData = async () => {
             try {
                 setLoading(true);
@@ -76,6 +94,32 @@ const MainSection: React.FC = () => {
         };
         fetchData();
     }, [language]);
+
+    if (isOffline) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[70vh] px-6 text-center">
+                <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 text-gray-400"
+                >
+                    <IoCloudOffline size={48} />
+                </motion.div>
+                <h2 className="text-2xl font-bold mb-2">You're Offline</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
+                    Check your internet connection or listen to your downloaded songs while you wait.
+                </p>
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate('/library?tab=offline')}
+                    className="flex items-center gap-2 bg-primary hover:bg-red-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 transition-all"
+                >
+                    Go to Downloads <IoArrowForward />
+                </motion.button>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

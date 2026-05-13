@@ -5,6 +5,7 @@ import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { removeDownloadedId } from '../features/library/librarySlice';
 import { showToast } from '../features/ui/uiSlice';
@@ -12,6 +13,7 @@ import { showToast } from '../features/ui/uiSlice';
 const Library: React.FC = () => {
     const { favorites, playlists } = useAppSelector((state) => state.library);
     const dispatch = useAppDispatch();
+    const location = useLocation();
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline'>('favorites');
@@ -19,6 +21,13 @@ const Library: React.FC = () => {
     const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        if (queryParams.get('tab') === 'offline') {
+            setActiveTab('offline');
+        }
+    }, [location]);
 
     useEffect(() => {
         if (activeTab === 'offline') {
