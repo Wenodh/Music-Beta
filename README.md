@@ -32,7 +32,8 @@ Developed with ❤️ by **WENODH**.
 ### 📁 Library & Social
 - **Cloud Sync (Planned)**: Seamlessly sync your library across devices (currently using persistent local storage).
 - **Personal Playlists**: Create, edit, and manage your own music collections.
-- **High-Quality Downloads**: Download your favorite tracks for offline listening.
+- **True Offline Mode**: Save songs directly to the app's internal database (IndexedDB) for playback without internet.
+- **Smart Data Saving**: Toggle "Download over Wi-Fi only" to protect your mobile data usage.
 - **Web Share Integration**: Share your favorite songs, albums, or artists directly through system share dialogs.
 
 ---
@@ -41,6 +42,7 @@ Developed with ❤️ by **WENODH**.
 
 ### Frontend Architecture
 - **React 18**: Leveraging the latest features including Concurrent Mode and Suspense for code splitting.
+- **IndexedDB**: High-performance internal storage for audio and image blobs, enabling the True Offline Mode.
 - **TypeScript**: Full type safety across the application for robust development and maintenance.
 - **Redux Toolkit**: Centralized state management for the player, library, UI, and settings.
 - **Redux Persist**: Persistent storage of user preferences, recently played, and library data.

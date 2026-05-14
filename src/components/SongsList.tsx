@@ -1,15 +1,16 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { toggleFavorite } from '../features/library/librarySlice';
+import { toggleFavorite, addDownloadedId, removeDownloadedId } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
-import { LuHardDriveDownload } from 'react-icons/lu';
+import { LuHardDriveDownload, LuCircleCheck } from 'react-icons/lu';
 import { useState } from 'react';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { motion } from 'framer-motion';
 import { IoAdd, IoHeart, IoHeartOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { saveSongOffline, deleteOfflineSong } from '../utils/db';
 
 interface SongsListProps {
     name: string;
@@ -37,11 +38,12 @@ const SongsList: React.FC<SongsListProps> = ({
     isSelectionMode
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong } = useAppSelector((state) => state.musicPlayer);
-    const { favorites } = useAppSelector((state) => state.library);
+    const { currentSong, downloadSettings, preferredQuality } = useAppSelector((state) => state.musicPlayer);
+    const { favorites, downloadedIds } = useAppSelector((state) => state.library);
     const [isDownloading, setIsDownloading] = useState(false);
 
     const isFavorite = favorites.some(s => s.id === id);
+    const isDownloaded = downloadedIds.includes(id);
 
     const formatDuration = (sec: string | number) => {
         const minutes = Math.floor(Number(sec) / 60);
@@ -72,24 +74,62 @@ const SongsList: React.FC<SongsListProps> = ({
 
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        const url = Array.isArray(downloadUrl) ? downloadUrl[downloadUrl.length - 1]?.url : downloadUrl;
+
+        if (isDownloaded) {
+            try {
+                await deleteOfflineSong(id);
+                dispatch(removeDownloadedId(id));
+                dispatch(showToast({ message: 'Removed from downloads' }));
+            } catch (error) {
+                console.error('Failed to remove download', error);
+            }
+            return;
+        }
+
+        // Check for WiFi setting
+        if (downloadSettings.wifiOnly) {
+            const connection = (navigator as any).connection;
+            if (connection && connection.type && connection.type !== 'wifi') {
+                dispatch(showToast({ message: 'Download waiting for Wi-Fi' }));
+                return;
+            }
+        }
+
+        let url = '';
+        if (Array.isArray(downloadUrl)) {
+            url = downloadUrl.find((d: any) => d.quality === preferredQuality)?.url ||
+                downloadUrl[downloadUrl.length - 1]?.url;
+        } else {
+            url = downloadUrl;
+        }
+
         if (!url) {
-            alert("Download URL not available for this song.");
+            dispatch(showToast({ message: 'Download URL not available' }));
             return;
         }
 
         setIsDownloading(true);
         try {
-            const res = await fetch(url);
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${name}.mp3`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Fetch audio
+            const audioRes = await fetch(url);
+            const audioBlob = await audioRes.blob();
+
+            // Fetch image
+            const imageUrl = Array.isArray(image) ? image[image.length - 1]?.url : image;
+            const imageRes = await fetch(imageUrl);
+            const imageBlob = await imageRes.blob();
+
+            const songData: Song = {
+                id, name, primaryArtists: parsedArtists, duration,
+                image, downloadUrl, album
+            };
+
+            await saveSongOffline(songData, audioBlob, imageBlob);
+            dispatch(addDownloadedId(id));
+            dispatch(showToast({ message: 'Saved for offline' }));
         } catch (error) {
             console.error('Download failed', error);
+            dispatch(showToast({ message: 'Download failed' }));
         } finally {
             setIsDownloading(false);
         }
@@ -182,11 +222,13 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleDownload}
-                        className="p-1.5 sm:p-2 text-gray-500 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
-                        aria-label="Download song"
+                        className={`p-1.5 sm:p-2 rounded-full transition-colors shrink-0 ${isDownloaded ? 'text-green-500' : 'text-gray-500 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
+                        aria-label={isDownloaded ? "Remove download" : "Download song"}
                     >
                         {isDownloading ? (
                             <AiOutlineLoading3Quarters className="animate-spin text-sm" />
+                        ) : isDownloaded ? (
+                            <LuCircleCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
                         ) : (
                             <LuHardDriveDownload size={16} className="sm:w-[18px] sm:h-[18px]" />
                         )}

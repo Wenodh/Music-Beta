@@ -27,6 +27,7 @@ import { toggleFavorite } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
+import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor } from '../features/ui/uiSlice';
@@ -51,8 +52,31 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { isLyricsOpen } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
-    const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
+    const [imageUrl, setImageUrl] = useState<string>('');
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
+
+    const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
+
+    const revokeAudioBlob = useCallback(() => {
+        if (currentBlobUrlsRef.current.audio) {
+            URL.revokeObjectURL(currentBlobUrlsRef.current.audio);
+            currentBlobUrlsRef.current.audio = undefined;
+        }
+    }, []);
+
+    const revokeImageBlob = useCallback(() => {
+        if (currentBlobUrlsRef.current.image) {
+            URL.revokeObjectURL(currentBlobUrlsRef.current.image);
+            currentBlobUrlsRef.current.image = undefined;
+        }
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            revokeAudioBlob();
+            revokeImageBlob();
+        };
+    }, [revokeAudioBlob, revokeImageBlob]);
 
     // Dual buffer system
     const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
@@ -70,14 +94,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         });
     }, []);
 
-    const getSongUrl = useCallback((song: Song | null) => {
+    const getSongUrl = useCallback(async (song: Song | null, isPreload = false) => {
         if (!song) return '';
+
+        // Check if song is offline
+        const offlineSong = await getOfflineSong(song.id);
+        if (offlineSong?.audioBlob) {
+            const url = URL.createObjectURL(offlineSong.audioBlob);
+            if (!isPreload) {
+                revokeAudioBlob();
+                currentBlobUrlsRef.current.audio = url;
+            }
+            return url;
+        }
+
         const musicData = song.music || song.downloadUrl;
         if (Array.isArray(musicData)) {
             return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
         }
         return musicData || '';
-    }, [preferredQuality]);
+    }, [preferredQuality, revokeAudioBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
         if (currentSong && songs.length > 0) {
@@ -112,12 +148,29 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Handle Metadata, Recommendations & Theme
     useEffect(() => {
         if (currentSong) {
+            // Resolve Image URL (Offline first)
+            getOfflineSong(currentSong.id).then(offlineSong => {
+                let url = '';
+                if (offlineSong?.imageBlob) {
+                    revokeImageBlob();
+                    url = URL.createObjectURL(offlineSong.imageBlob);
+                    currentBlobUrlsRef.current.image = url;
+                } else {
+                    url = typeof currentSong.image === 'string'
+                        ? currentSong.image
+                        : currentSong.image?.[currentSong.image?.length - 1]?.url || '';
+                }
+                setImageUrl(url);
+            });
+        }
+    }, [currentSong?.id, revokeImageBlob]);
+
+    useEffect(() => {
+        if (currentSong && imageUrl) {
             // Update Theme Color
-            if (imageUrl) {
-                getDominantColor(imageUrl).then(color => {
-                    dispatch(setAccentColor(color));
-                });
-            }
+            getDominantColor(imageUrl).then(color => {
+                dispatch(setAccentColor(color));
+            });
 
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new window.MediaMetadata({
@@ -138,25 +191,36 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     }
                 }).catch(err => console.error('Error fetching recommendations:', err));
         }
-    }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue]);
+    }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue]);
 
     // Handle Playback State
     useEffect(() => {
         const activeAudio = getActiveAudio();
-        const songUrl = getSongUrl(currentSong);
 
-        if (songUrl && activeAudio.src !== songUrl) {
-            activeAudio.src = songUrl;
-            setIsCrossfading(false);
-        }
+        getSongUrl(currentSong).then(songUrl => {
+            if (songUrl && activeAudio.src !== songUrl) {
+                activeAudio.src = songUrl;
+                setIsCrossfading(false);
+            }
 
+            if (isPlaying) {
+                activeAudio.play().catch(e => console.warn("Playback failed", e));
+            } else {
+                activeAudio.pause();
+                getInactiveAudio().pause();
+            }
+        });
+    }, [currentSong?.id, activeBuffer, getSongUrl]);
+
+    useEffect(() => {
+        const activeAudio = getActiveAudio();
         if (isPlaying) {
             activeAudio.play().catch(e => console.warn("Playback failed", e));
         } else {
             activeAudio.pause();
             getInactiveAudio().pause();
         }
-    }, [currentSong, isPlaying, activeBuffer, getSongUrl]);
+    }, [isPlaying]);
 
     // Preload next song
     useEffect(() => {
@@ -164,15 +228,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const index = songs.findIndex((song) => song.id === currentSong.id);
             const nextIndex = (index + 1) % songs.length;
             const nextSong = songs[nextIndex];
-            const nextUrl = getSongUrl(nextSong);
 
-            const inactiveAudio = getInactiveAudio();
-            if (nextUrl && inactiveAudio.src !== nextUrl) {
-                inactiveAudio.src = nextUrl;
-                inactiveAudio.load();
-            }
+            getSongUrl(nextSong, true).then(nextUrl => {
+                const inactiveAudio = getInactiveAudio();
+                if (nextUrl && inactiveAudio.src !== nextUrl) {
+                    inactiveAudio.src = nextUrl;
+                    inactiveAudio.load();
+                }
+            });
         }
-    }, [currentSong, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
+    }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
 
     // Crossfade Logic
     useEffect(() => {
@@ -642,8 +707,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 </div>
                                             ) : (
                                                 <button
-                                                    onClick={() => {
-                                                        const songUrl = getSongUrl(currentSong);
+                                                    onClick={async () => {
+                                                        // For simple browser download, we can use the resolved URL
+                                                        const songUrl = await getSongUrl(currentSong);
                                                         handleDownloadSong(songUrl || '');
                                                         setIsMoreMenuOpen(false);
                                                     }}

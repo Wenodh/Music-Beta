@@ -22,6 +22,9 @@ const initialState: MusicPlayerState = {
     crossfadeDuration: 5,
     currentTime: 0,
     isSongRadioEnabled: true,
+    downloadSettings: {
+        wifiOnly: false,
+    },
 };
 
 const musicPlayerSlice = createSlice({
@@ -35,7 +38,8 @@ const musicPlayerSlice = createSlice({
             state.searchedSongs = action.payload;
         },
         playMusic: (state, action: PayloadAction<any>) => {
-            const song = action.payload;
+            // Remove any potential non-serializable blobs if they were accidentally passed
+            const { audioBlob, imageBlob, ...song } = action.payload;
             const id = song.id;
 
             // Toggle play/pause if current song is clicked again
@@ -162,6 +166,9 @@ const musicPlayerSlice = createSlice({
         setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
             state.isSongRadioEnabled = action.payload;
         },
+        setWifiOnly: (state, action: PayloadAction<boolean>) => {
+            state.downloadSettings.wifiOnly = action.payload;
+        },
         nextSong: (state) => {
             if (state.currentSong && state.songs.length > 0) {
                 const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
@@ -236,6 +243,7 @@ export const {
     setCrossfadeDuration,
     setCurrentTime,
     setSongRadioEnabled,
+    setWifiOnly,
     nextSong,
     prevSong,
 } = musicPlayerSlice.actions;

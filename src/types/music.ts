@@ -32,6 +32,11 @@ export interface MusicPlayerState {
     crossfadeDuration: number;
     currentTime: number;
     isSongRadioEnabled: boolean;
+    downloadSettings: DownloadSettings;
+}
+
+export interface DownloadSettings {
+    wifiOnly: boolean;
 }
 
 export interface EqualizerSettings {
