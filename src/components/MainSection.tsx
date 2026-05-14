@@ -81,11 +81,11 @@ const MainSection: React.FC = () => {
                     axios.get(`${modules}${language}&page=0&limit=25`),
                     axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Meditation&limit=15`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Work&limit=15`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
                     axios.get(`${playlistById}158224644`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Chill&limit=15`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Workout&limit=15`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
                     ...artistsToFetch.map(name => {
                         return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
@@ -186,36 +186,6 @@ const MainSection: React.FC = () => {
                 <DailyMix />
             </motion.div>
 
-            {data.meditation && data.meditation.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
-                    <Slider data={data.meditation} title="Mood: Meditation" />
-                </motion.div>
-            )}
-
-            {data.work && data.work.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
-                    <Slider data={data.work} title="Mood: Work" />
-                </motion.div>
-            )}
-
-            {data.devPicks && data.devPicks.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
-                    <Slider data={data.devPicks} title="Developer's Picks" />
-                </motion.div>
-            )}
-
-            {data.chill && data.chill.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
-                    <Slider data={data.chill} title="Mood: Chill" />
-                </motion.div>
-            )}
-
-            {data.workout && data.workout.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
-                    <Slider data={data.workout} title="Mood: Workout" />
-                </motion.div>
-            )}
-
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-12">
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />
@@ -255,6 +225,36 @@ const MainSection: React.FC = () => {
                     </motion.div>
                 </div>
             </div>
+
+            {data.meditation && data.meditation.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.meditation} title="Meditation" />
+                </motion.div>
+            )}
+
+            {data.work && data.work.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.work} title="Work" />
+                </motion.div>
+            )}
+
+            {data.devPicks && data.devPicks.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.devPicks} title="Developer's Picks" />
+                </motion.div>
+            )}
+
+            {data.chill && data.chill.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.chill} title="Chill" />
+                </motion.div>
+            )}
+
+            {data.workout && data.workout.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.workout} title="Workout" />
+                </motion.div>
+            )}
 
         </motion.div>
     );

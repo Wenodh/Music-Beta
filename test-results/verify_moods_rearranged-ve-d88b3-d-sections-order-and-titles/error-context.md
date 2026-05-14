@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: tests/mobile-player.spec.ts >> mobile player expansion logic
-- Location: tests/mobile-player.spec.ts:8:1
+- Name: verify_moods_rearranged.spec.js >> verify mood sections order and titles
+- Location: verify_moods_rearranged.spec.js:3:1
 
 # Error details
 
