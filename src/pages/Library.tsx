@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } from '../features/library/librarySlice';
-import { playMusic } from '../features/musicplayer/musicPlayerSlice';
-import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload } from 'react-icons/io5';
+import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
+import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -63,6 +63,23 @@ const Library: React.FC = () => {
         dispatch(removeDownloadedId(id));
         dispatch(showToast({ message: 'Removed from offline' }));
         loadOfflineSongs();
+    };
+
+    const playOfflineCollection = (startWithId?: string, shuffle = false) => {
+        if (offlineSongs.length === 0) return;
+
+        let songsToPlay = [...offlineSongs];
+        if (shuffle) {
+            songsToPlay = [...songsToPlay].sort(() => Math.random() - 0.5);
+        }
+
+        dispatch(setSongs(songsToPlay));
+
+        const firstSong = startWithId
+            ? songsToPlay.find(s => s.id === startWithId) || songsToPlay[0]
+            : songsToPlay[0];
+
+        dispatch(playMusic(firstSong));
     };
 
     const handleCreatePlaylist = (e: React.FormEvent) => {
@@ -137,98 +154,144 @@ const Library: React.FC = () => {
             </div>
 
             {activeTab === 'offline' && (
-                <div className={viewMode === 'grid'
-                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-                    : "space-y-2"
-                }>
-                    {offlineSongs.length > 0 ? (
-                        [...offlineSongs].sort((a, b) => {
-                            if (sortBy === 'name') return a.name.localeCompare(b.name);
-                            if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-                            return 0;
-                        }).map((song) => (
-                            <motion.div
-                                key={song.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
-                                onClick={() => dispatch(playMusic(song))}
+                <div className="space-y-6">
+                    {offlineSongs.length > 0 && (
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => playOfflineCollection()}
+                                className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all"
                             >
-                                <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
-                                    <img
-                                        src={song.imageUrl}
-                                        alt={song.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <IoMusicalNote className="text-white text-xl" />
-                                    </div>
-                                </div>
-                                <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
-                                    <div className="min-w-0">
-                                        <p className="font-semibold truncate text-sm">{song.name}</p>
-                                        <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
-                                    </div>
-                                    <button
-                                        onClick={(e) => handleDeleteOffline(e, song.id)}
-                                        className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
-                                    >
-                                        <IoTrash size={14} />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))
-                    ) : (
-                        <div className="col-span-full py-20 text-center text-gray-500">
-                            <IoCloudDownload size={48} className="mx-auto mb-4 opacity-20" />
-                            <p>No offline songs yet.</p>
+                                <IoPlay /> Play All
+                            </button>
+                            <button
+                                onClick={() => playOfflineCollection(undefined, true)}
+                                className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                            >
+                                <IoShuffle /> Shuffle
+                            </button>
                         </div>
                     )}
+                    <div className={viewMode === 'grid'
+                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                        : "space-y-2"
+                    }>
+                        {offlineSongs.length > 0 ? (
+                            [...offlineSongs].sort((a, b) => {
+                                if (sortBy === 'name') return a.name.localeCompare(b.name);
+                                if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
+                                return 0;
+                            }).map((song) => (
+                                <motion.div
+                                    key={song.id}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
+                                    onClick={() => playOfflineCollection(song.id)}
+                                >
+                                    <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
+                                        <img
+                                            src={song.imageUrl}
+                                            alt={song.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <IoMusicalNote className="text-white text-xl" />
+                                        </div>
+                                    </div>
+                                    <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold truncate text-sm">{song.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => handleDeleteOffline(e, song.id)}
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                        >
+                                            <IoTrash size={14} />
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="col-span-full py-20 text-center text-gray-500">
+                                <IoCloudDownload size={48} className="mx-auto mb-4 opacity-20" />
+                                <p>No offline songs yet.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
             {activeTab === 'favorites' && !selectedPlaylist && (
-                <div className={viewMode === 'grid'
-                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-                    : "space-y-2"
-                }>
-                    {favorites.length > 0 ? (
-                        [...favorites].sort((a, b) => {
-                            if (sortBy === 'name') return a.name.localeCompare(b.name);
-                            if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-                            return 0; // Default is date, but favorites aren't timestamped, so we keep order
-                        }).map((song) => (
-                            <motion.div
-                                key={song.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
-                                onClick={() => dispatch(playMusic(song))}
+                <div className="space-y-6">
+                    {favorites.length > 0 && (
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => {
+                                    dispatch(setSongs(favorites));
+                                    dispatch(playMusic(favorites[0]));
+                                }}
+                                className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all"
                             >
-                                <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
-                                    <img
-                                        src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
-                                        alt={song.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <IoHeart className="text-primary text-xl" />
-                                    </div>
-                                </div>
-                                <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
-                                    <p className="font-semibold truncate text-sm">{song.name}</p>
-                                    <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
-                                </div>
-                            </motion.div>
-                        ))
-                    ) : (
-                        <div className="col-span-full py-20 text-center text-gray-500">
-                            <IoHeart size={48} className="mx-auto mb-4 opacity-20" />
-                            <p>No favorite songs yet.</p>
+                                <IoPlay /> Play All
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const shuffled = [...favorites].sort(() => Math.random() - 0.5);
+                                    dispatch(setSongs(shuffled));
+                                    dispatch(playMusic(shuffled[0]));
+                                }}
+                                className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                            >
+                                <IoShuffle /> Shuffle
+                            </button>
                         </div>
                     )}
+                    <div className={viewMode === 'grid'
+                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                        : "space-y-2"
+                    }>
+                        {favorites.length > 0 ? (
+                            [...favorites].sort((a, b) => {
+                                if (sortBy === 'name') return a.name.localeCompare(b.name);
+                                if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
+                                return 0; // Default is date, but favorites aren't timestamped, so we keep order
+                            }).map((song) => (
+                                <motion.div
+                                    key={song.id}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
+                                    onClick={() => {
+                                        dispatch(setSongs(favorites));
+                                        dispatch(playMusic(song));
+                                    }}
+                                >
+                                    <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
+                                        <img
+                                            src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
+                                            alt={song.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <IoHeart className="text-primary text-xl" />
+                                        </div>
+                                    </div>
+                                    <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
+                                        <p className="font-semibold truncate text-sm">{song.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                    </div>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="col-span-full py-20 text-center text-gray-500">
+                                <IoHeart size={48} className="mx-auto mb-4 opacity-20" />
+                                <p>No favorite songs yet.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -301,12 +364,37 @@ const Library: React.FC = () => {
                         <span className="text-gray-500">{currentPlaylist.songs.length} songs</span>
                     </div>
 
+                    <div className="flex gap-4 mb-8">
+                        <button
+                            onClick={() => {
+                                dispatch(setSongs(currentPlaylist.songs));
+                                dispatch(playMusic(currentPlaylist.songs[0]));
+                            }}
+                            className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all"
+                        >
+                            <IoPlay /> Play All
+                        </button>
+                        <button
+                            onClick={() => {
+                                const shuffled = [...currentPlaylist.songs].sort(() => Math.random() - 0.5);
+                                dispatch(setSongs(shuffled));
+                                dispatch(playMusic(shuffled[0]));
+                            }}
+                            className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                        >
+                            <IoShuffle /> Shuffle
+                        </button>
+                    </div>
+
                     <div className="space-y-2">
                         {currentPlaylist.songs.map((song) => (
                             <div
                                 key={song.id}
                                 className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 group cursor-pointer"
-                                onClick={() => dispatch(playMusic(song))}
+                                onClick={() => {
+                                    dispatch(setSongs(currentPlaylist.songs));
+                                    dispatch(playMusic(song));
+                                }}
                             >
                                 <img
                                     src={Array.isArray(song.image) ? song.image[0].url : song.image}
