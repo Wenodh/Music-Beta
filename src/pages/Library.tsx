@@ -156,16 +156,16 @@ const Library: React.FC = () => {
             {activeTab === 'offline' && (
                 <div className="space-y-6">
                     {offlineSongs.length > 0 && (
-                        <div className="flex gap-4">
+                        <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
                             <button
                                 onClick={() => playOfflineCollection()}
-                                className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all"
+                                className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
                             >
                                 <IoPlay /> Play All
                             </button>
                             <button
                                 onClick={() => playOfflineCollection(undefined, true)}
-                                className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                                className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
                             >
                                 <IoShuffle /> Shuffle
                             </button>
@@ -226,13 +226,13 @@ const Library: React.FC = () => {
             {activeTab === 'favorites' && !selectedPlaylist && (
                 <div className="space-y-6">
                     {favorites.length > 0 && (
-                        <div className="flex gap-4">
+                        <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
                             <button
                                 onClick={() => {
                                     dispatch(setSongs(favorites));
                                     dispatch(playMusic(favorites[0]));
                                 }}
-                                className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all"
+                                className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
                             >
                                 <IoPlay /> Play All
                             </button>
@@ -242,7 +242,7 @@ const Library: React.FC = () => {
                                     dispatch(setSongs(shuffled));
                                     dispatch(playMusic(shuffled[0]));
                                 }}
-                                className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                                className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
                             >
                                 <IoShuffle /> Shuffle
                             </button>
@@ -364,13 +364,13 @@ const Library: React.FC = () => {
                         <span className="text-gray-500">{currentPlaylist.songs.length} songs</span>
                     </div>
 
-                    <div className="flex gap-4 mb-8">
+                    <div className="flex gap-2 sm:gap-4 mb-8 overflow-x-auto pb-2 scrollbar-hide">
                         <button
                             onClick={() => {
                                 dispatch(setSongs(currentPlaylist.songs));
                                 dispatch(playMusic(currentPlaylist.songs[0]));
                             }}
-                            className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all"
+                            className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
                         >
                             <IoPlay /> Play All
                         </button>
@@ -380,7 +380,7 @@ const Library: React.FC = () => {
                                 dispatch(setSongs(shuffled));
                                 dispatch(playMusic(shuffled[0]));
                             }}
-                            className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
                         >
                             <IoShuffle /> Shuffle
                         </button>
