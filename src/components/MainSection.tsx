@@ -7,7 +7,7 @@ import CommunityFeed from './CommunityFeed';
 import { motion } from 'framer-motion';
 import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
-import { modules, songs as songsUrl, playlistSearch, searchArtist } from '../constants';
+import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
@@ -18,11 +18,21 @@ const MainSection: React.FC = () => {
         songs: any[];
         playlists: any[];
         artists: any[];
+        meditation: any[];
+        work: any[];
+        devPicks: any[];
+        chill: any[];
+        workout: any[];
     }>({
         albums: [],
         songs: [],
         playlists: [],
-        artists: []
+        artists: [],
+        meditation: [],
+        work: [],
+        devPicks: [],
+        chill: [],
+        workout: []
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -57,23 +67,39 @@ const MainSection: React.FC = () => {
 
                 const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
 
+                // Helper to sanitize base URLs for limit parameter
+                const getSanitizedUrl = (baseUrl: string) => {
+                    return baseUrl.includes('limit=')
+                        ? baseUrl.split('limit=')[0].slice(0, -1)
+                        : baseUrl;
+                };
+
+                const sanitizedPlaylistSearch = getSanitizedUrl(playlistSearch);
+                const sanitizedSearchArtist = getSanitizedUrl(searchArtist);
+
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
                     axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Meditation&limit=15`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Work&limit=15`),
+                    axios.get(`${playlistById}158224644`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Chill&limit=15`),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=Workout&limit=15`),
                     ...artistsToFetch.map(name => {
-                        // Remove limit from searchArtist if it already contains it
-                        const baseUrl = searchArtist.includes('limit=')
-                            ? searchArtist.split('limit=')[0].slice(0, -1)
-                            : searchArtist;
-                        return axios.get(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
+                        return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
                 ]);
 
                 const albumsRes = results[0];
                 const songsRes = results[1];
                 const playlistsRes = results[2];
-                const artistsResults = results.slice(3);
+                const meditationRes = results[3];
+                const workRes = results[4];
+                const devPicksRes = results[5];
+                const chillRes = results[6];
+                const workoutRes = results[7];
+                const artistsResults = results.slice(8);
 
                 const artistList = artistsResults
                     .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
@@ -84,7 +110,12 @@ const MainSection: React.FC = () => {
                     albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
                     songs: songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [],
                     playlists: playlistsRes.status === 'fulfilled' ? (playlistsRes.value.data.data.results || []) : [],
-                    artists: artistList
+                    artists: artistList,
+                    meditation: meditationRes.status === 'fulfilled' ? (meditationRes.value.data.data.results || []) : [],
+                    work: workRes.status === 'fulfilled' ? (workRes.value.data.data.results || []) : [],
+                    devPicks: devPicksRes.status === 'fulfilled' ? (devPicksRes.value.data.data.songs || []) : [],
+                    chill: chillRes.status === 'fulfilled' ? (chillRes.value.data.data.results || []) : [],
+                    workout: workoutRes.status === 'fulfilled' ? (workoutRes.value.data.data.results || []) : []
                 });
             } catch (error) {
                 console.error('Error in fetchData:', error);
@@ -151,36 +182,66 @@ const MainSection: React.FC = () => {
             animate="visible"
             className="pb-32 pt-8 px-4"
         >
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants} className="mb-12">
                 <DailyMix />
             </motion.div>
 
+            {data.meditation && data.meditation.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.meditation} title="Mood: Meditation" />
+                </motion.div>
+            )}
+
+            {data.work && data.work.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.work} title="Mood: Work" />
+                </motion.div>
+            )}
+
+            {data.devPicks && data.devPicks.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.devPicks} title="Developer's Picks" />
+                </motion.div>
+            )}
+
+            {data.chill && data.chill.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.chill} title="Mood: Chill" />
+                </motion.div>
+            )}
+
+            {data.workout && data.workout.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.workout} title="Mood: Workout" />
+                </motion.div>
+            )}
+
             {recentlyPlayed && recentlyPlayed.length > 0 && (
-                <motion.div variants={itemVariants}>
+                <motion.div variants={itemVariants} className="mb-12">
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />
                 </motion.div>
             )}
             {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
-                <motion.div variants={itemVariants}>
+                <motion.div variants={itemVariants} className="mb-12">
                     <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
                 </motion.div>
             )}
             {data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants}>
+                <motion.div variants={itemVariants} className="mb-12">
                     <Slider data={data.songs} title="Trending Songs" />
                 </motion.div>
             )}
             {data.albums && data.albums.length > 0 && (
-                <motion.div variants={itemVariants}>
+                <motion.div variants={itemVariants} className="mb-12">
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
             {data.artists && data.artists.length > 0 && (
-                <motion.div variants={itemVariants}>
+                <motion.div variants={itemVariants} className="mb-12">
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
                 <div className="lg:col-span-2 space-y-8">
                     {data.playlists && data.playlists.length > 0 && (
                         <motion.div variants={itemVariants}>
@@ -194,6 +255,7 @@ const MainSection: React.FC = () => {
                     </motion.div>
                 </div>
             </div>
+
         </motion.div>
     );
 };
