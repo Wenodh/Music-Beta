@@ -3,7 +3,6 @@ import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
-import CommunityFeed from './CommunityFeed';
 import { motion } from 'framer-motion';
 import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
@@ -211,20 +210,11 @@ const MainSection: React.FC = () => {
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                <div className="lg:col-span-2 space-y-8">
-                    {data.playlists && data.playlists.length > 0 && (
-                        <motion.div variants={itemVariants}>
-                            <Slider data={data.playlists} title="Top Playlists" />
-                        </motion.div>
-                    )}
-                </div>
-                <div className="lg:col-span-1">
-                    <motion.div variants={itemVariants} className="sticky top-24">
-                        <CommunityFeed />
-                    </motion.div>
-                </div>
-            </div>
+            {data.playlists && data.playlists.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-12">
+                    <Slider data={data.playlists} title="Top Playlists" />
+                </motion.div>
+            )}
 
             {data.meditation && data.meditation.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-12">
