@@ -99,6 +99,8 @@ export const AppContent = () => {
     }, [dispatch]);
 
     useEffect(() => {
+        if (!theme) return;
+
         if (theme.darkMode) {
             document.documentElement.classList.add('dark');
         } else {
@@ -110,12 +112,12 @@ export const AppContent = () => {
         } else {
             document.body.classList.remove('oled-mode');
         }
-    }, [theme.darkMode, theme.isOled]);
+    }, [theme?.darkMode, theme?.isOled]);
 
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
-            style={{ '--accent-color': theme.accentColor } as React.CSSProperties}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+            style={{ '--accent-color': theme?.accentColor || '#ef4444' } as React.CSSProperties}
         >
             <BrowserRouter>
                 <Navbar />

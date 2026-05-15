@@ -137,9 +137,9 @@ const SongsList: React.FC<SongsListProps> = ({
 
     const isCurrent = currentSong?.id === id;
 
-    const parsedArtists = typeof artists === 'object'
+    const parsedArtists = (artists && typeof artists === 'object')
         ? (artists as any).primary?.map((a: any) => a.name).join(', ') || (artists as any).all?.map((a: any) => a.name).join(', ')
-        : artists;
+        : (artists || '');
 
     return (
         <motion.div

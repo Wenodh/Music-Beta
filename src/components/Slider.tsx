@@ -36,13 +36,13 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
                     className="flex overflow-x-auto gap-4 scrollbar-hide no-scrollbar"
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
-                    {data?.map((item: any) => (
+                    {data && Array.isArray(data) && data.map((item: any) => (
                         <AlbumItem
                             key={item.id}
                             id={item.id}
-                            image={Array.isArray(item.image) ? (item.image[2]?.url || item.image[0]?.url) : item.image}
-                            name={item.name || item.title}
-                            artists={item.primaryArtists || item.artist || item.subtitle}
+                            image={Array.isArray(item.image) ? (item.image[2]?.url || item.image[0]?.url) : (item.image || '')}
+                            name={item.name || item.title || 'Unknown'}
+                            artists={item.primaryArtists || item.artist || item.subtitle || ''}
                             type={item.type}
                             data={item}
                         />
