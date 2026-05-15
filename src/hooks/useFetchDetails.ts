@@ -21,15 +21,20 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
 
     useEffect(() => {
         const fetchDetails = async () => {
+            if (!apiUrl) return;
             try {
                 setLoading(true);
+                setError(null);
                 const response = await axios.get(apiUrl);
-                const data = response.data.data;
+                const data = response.data?.data;
+                if (!data) {
+                    throw new Error('No data received from server');
+                }
                 setDetails(data);
                 setImage(stableGetImageUrl(data));
-            } catch (err) {
+            } catch (err: any) {
                 console.error(err);
-                setError('Failed to fetch details.');
+                setError(err.message || 'Failed to fetch details.');
             } finally {
                 setLoading(false);
             }

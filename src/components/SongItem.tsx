@@ -29,7 +29,7 @@ const SongItem: React.FC<SongItemProps> = ({
         }
     };
 
-    const imageUrl = Array.isArray(image) ? image[image.length - 1]?.url : image;
+    const imageUrl = Array.isArray(image) ? image[image.length - 1]?.url : (image || '');
 
     return (
         <div

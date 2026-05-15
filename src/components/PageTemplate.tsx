@@ -39,7 +39,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
     const rawSongs = (details as any)?.songs || (details as any)?.topSongs || [];
 
     useEffect(() => {
-        if (rawSongs.length > 0) {
+        if (rawSongs && Array.isArray(rawSongs) && rawSongs.length > 0) {
             dispatch(setSongs(rawSongs));
         }
     }, [rawSongs, dispatch]);
@@ -52,7 +52,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
     useEffect(() => {
         const fetchRecommendations = async () => {
-            if (!details || !(details as any).id) return;
+            if (!details || !(details as any).id || !(details as any).type) return;
 
             const type = (details as any).type;
             const id = (details as any).id;
@@ -75,7 +75,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
                     if (artistName) {
                         const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`);
-                        if (moreByRes.data?.data?.results) {
+                        if (moreByRes.data?.data?.results && Array.isArray(moreByRes.data.data.results)) {
                             const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
                             setRecommendations(prev => ({ ...prev, moreByArtist: results }));
                         }
@@ -86,7 +86,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                         // Clean playlist name for better search (remove common bracketed info)
                         const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
                         const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`);
-                        if (similarRes.data?.data?.results) {
+                        if (similarRes.data?.data?.results && Array.isArray(similarRes.data.data.results)) {
                             const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
                             setRecommendations(prev => ({ ...prev, similarCollections: results }));
                         }
@@ -422,7 +422,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
                     </div>
 
                     {/* Biography */}
-                    {((details as any).bio?.length > 0 || (details as any).wiki?.length > 0) && (
+                    {(Array.isArray((details as any).bio) ? (details as any).bio.length > 0 : ((details as any).bio?.length > 0 || (details as any).wiki?.length > 0)) && (
                         <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 sm:p-8">
                             <h3 className="text-xl font-black mb-4">About the Artist</h3>
                             <div className="relative">

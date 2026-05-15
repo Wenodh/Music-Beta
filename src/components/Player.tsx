@@ -49,7 +49,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled
     } = useAppSelector((state) => state.musicPlayer);
 
-    const { isLyricsOpen } = useAppSelector((state) => state.ui);
+    const { isLyricsOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
     const [imageUrl, setImageUrl] = useState<string>('');
@@ -401,7 +401,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
-                    className={`dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-[210] ${useAppSelector(state => state.ui.theme.isOled) ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
+                    className={`dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-[210] ${uiTheme?.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
                 >
                     <div className="absolute inset-0 z-0 pointer-events-none">
                         <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
