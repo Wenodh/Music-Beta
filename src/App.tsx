@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Player from './components/Player';
 import SearchSection from './components/SearchSection';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Provider } from 'react-redux';
@@ -167,6 +168,7 @@ export default function App() {
                 <PersistGate loading={null} persistor={persistor}>
                     <AppContent />
                     <SpeedInsights />
+                    <Analytics />
                 </PersistGate>
             </Provider>
         </ErrorBoundary>
