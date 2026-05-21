@@ -22,6 +22,8 @@ import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { useState } from 'react';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds } from './features/library/librarySlice';
+import { supabase } from './lib/supabase';
+import { setUser } from './features/auth/authSlice';
 
 const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazy(() => import('./pages/ArtistPage'));
@@ -96,6 +98,17 @@ export const AppContent = () => {
             const ids = songs.map(s => s.id);
             dispatch(setDownloadedIds(ids));
         });
+
+        // Supabase Auth Listener
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            dispatch(setUser(session?.user ?? null));
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            dispatch(setUser(session?.user ?? null));
+        });
+
+        return () => subscription.unsubscribe();
     }, [dispatch]);
 
     useEffect(() => {

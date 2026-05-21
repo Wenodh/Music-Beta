@@ -6,6 +6,7 @@ import musicPlayerReducer from './features/musicplayer/musicPlayerSlice';
 import languageReducer from './features/language/languageSlice';
 import libraryReducer from './features/library/librarySlice';
 import uiReducer from './features/ui/uiSlice';
+import authReducer from './features/auth/authSlice';
 
 // Combine reducers
 const rootReducer = combineReducers({
@@ -13,12 +14,13 @@ const rootReducer = combineReducers({
     language: languageReducer,
     library: libraryReducer,
     ui: uiReducer,
+    auth: authReducer,
 });
 
 const persistConfig = {
     key: 'root',
     storage,
-    whitelist: ['musicPlayer', 'language', 'library', 'ui'],
+    whitelist: ['musicPlayer', 'language', 'library', 'ui', 'auth'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
