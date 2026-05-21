@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { AppDispatch } from '../../store';
+import { clearLibrary } from '../library/librarySlice';
 import { setLoading, setError, setUser } from './authSlice';
 
 export const signInWithGoogle = () => async (dispatch: AppDispatch) => {
@@ -23,5 +24,6 @@ export const signOut = () => async (dispatch: AppDispatch) => {
         dispatch(setError(error.message));
     } else {
         dispatch(setUser(null));
+        dispatch(clearLibrary());
     }
 };

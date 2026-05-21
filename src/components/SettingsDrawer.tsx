@@ -111,7 +111,13 @@ const SettingsDrawer: React.FC = () => {
                                                         alt="Avatar"
                                                         className="w-10 h-10 rounded-full border-2 border-primary/20"
                                                     />
-                                                    <div className="overflow-hidden">
+                                                    <div
+                                                        className="overflow-hidden cursor-pointer hover:opacity-70 transition-opacity"
+                                                        onClick={() => {
+                                                            navigate('/profile');
+                                                            dispatch(setSettingsOpen(false));
+                                                        }}
+                                                    >
                                                         <p className="text-sm font-bold truncate">
                                                             {user.user_metadata?.full_name || 'User'}
                                                         </p>
