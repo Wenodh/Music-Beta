@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavorite, addDownloadedId, removeDownloadedId } from '../features/library/librarySlice';
+import { uploadFavorite, removeFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { LuHardDriveDownload, LuCircleCheck } from 'react-icons/lu';
 import { useState } from 'react';
@@ -58,6 +59,13 @@ const SongsList: React.FC<SongsListProps> = ({
             image, downloadUrl, album
         };
         dispatch(toggleFavorite(songData));
+
+        if (isFavorite) {
+            dispatch(removeFavoriteCloud(id) as any);
+        } else {
+            dispatch(uploadFavorite(songData) as any);
+        }
+
         dispatch(showToast({
             message: isFavorite ? 'Removed from favorites' : 'Added to favorites'
         }));

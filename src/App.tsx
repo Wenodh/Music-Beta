@@ -22,11 +22,28 @@ import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { useState } from 'react';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds } from './features/library/librarySlice';
+import { syncLibrary } from './features/library/libraryActions';
+import { supabase } from './lib/supabase';
+import { setUser } from './features/auth/authSlice';
 
-const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
-const ArtistPage = lazy(() => import('./pages/ArtistPage'));
-const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
-const Library = lazy(() => import('./pages/Library'));
+const lazyRetry = (componentImport: () => Promise<any>) => {
+    return lazy(async () => {
+        try {
+            return await componentImport();
+        } catch (error) {
+            // If the chunk load fails, try one reload
+            console.error('Chunk load failed, reloading...', error);
+            window.location.reload();
+            return { default: () => null };
+        }
+    });
+};
+
+const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
+const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
+const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
+const Library = lazyRetry(() => import('./pages/Library'));
+const Profile = lazyRetry(() => import('./pages/Profile'));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -77,6 +94,14 @@ const AnimatedRoutes = () => {
                         </Suspense>
                     }
                 />
+                <Route
+                    path="/profile"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
+                            <PageWrapper><Profile /></PageWrapper>
+                        </Suspense>
+                    }
+                />
             </Routes>
         </AnimatePresence>
     );
@@ -96,6 +121,20 @@ export const AppContent = () => {
             const ids = songs.map(s => s.id);
             dispatch(setDownloadedIds(ids));
         });
+
+        // Supabase Auth Listener
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            dispatch(setUser(session?.user ?? null));
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            dispatch(setUser(session?.user ?? null));
+            if (session?.user) {
+                dispatch(syncLibrary() as any);
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, [dispatch]);
 
     useEffect(() => {

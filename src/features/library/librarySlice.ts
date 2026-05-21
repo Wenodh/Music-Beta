@@ -26,6 +26,18 @@ const librarySlice = createSlice({
         setDownloadedIds: (state, action: PayloadAction<string[]>) => {
             state.downloadedIds = action.payload;
         },
+        setFavorites: (state, action: PayloadAction<Song[]>) => {
+            state.favorites = action.payload;
+        },
+        setPlaylists: (state, action: PayloadAction<Playlist[]>) => {
+            state.playlists = action.payload;
+        },
+        updatePlaylistSongs: (state, action: PayloadAction<{ id: string; songs: Song[] }>) => {
+            const playlist = state.playlists.find(p => p.id === action.payload.id);
+            if (playlist) {
+                playlist.songs = action.payload.songs;
+            }
+        },
         addDownloadedId: (state, action: PayloadAction<string>) => {
             if (!state.downloadedIds.includes(action.payload)) {
                 state.downloadedIds.push(action.payload);
@@ -42,9 +54,9 @@ const librarySlice = createSlice({
                 state.favorites.push(action.payload);
             }
         },
-        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; songs?: Song[] }>) => {
+        createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; songs?: Song[]; id?: string }>) => {
             state.playlists.push({
-                id: Date.now().toString(),
+                id: action.payload.id || Date.now().toString(),
                 name: action.payload.name,
                 songs: action.payload.songs ? action.payload.songs : (action.payload.song ? [action.payload.song] : []),
             });
@@ -74,11 +86,18 @@ const librarySlice = createSlice({
                 playlist.songs = playlist.songs.filter(s => s.id !== action.payload.songId);
             }
         },
+        clearLibrary: (state) => {
+            state.favorites = [];
+            state.playlists = [];
+        },
     },
 });
 
 export const {
     setDownloadedIds,
+    setFavorites,
+    setPlaylists,
+    updatePlaylistSongs,
     addDownloadedId,
     removeDownloadedId,
     toggleFavorite,
@@ -87,6 +106,7 @@ export const {
     addToPlaylist,
     addBulkToPlaylist,
     removeFromPlaylist,
+    clearLibrary,
 } = librarySlice.actions;
 
 export default librarySlice.reducer;

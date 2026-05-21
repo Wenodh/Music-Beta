@@ -16,12 +16,17 @@ import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { search as searchUrl, album as albumSearchUrl, playlistSearch as playlistSearchUrl } from '../constants';
 
 interface PageTemplateProps {
-    apiUrl: string;
-    getImageUrl: (data: any) => string;
+    apiUrl?: string;
+    getImageUrl?: (data: any) => string;
+    title?: string;
+    children?: React.ReactNode;
 }
 
-const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
-    const { details, loading, error, image } = useFetchDetails(apiUrl, getImageUrl);
+const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children }) => {
+    const { details, loading, error, image: fetchedImage } = useFetchDetails(
+        apiUrl || '',
+        getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))
+    );
     const dispatch = useAppDispatch();
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -154,6 +159,15 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
 
     const songs = sortedSongs.slice(0, visibleSongsCount);
 
+    if (children) {
+        return (
+            <div className="p-5 pb-32 max-w-7xl mx-auto">
+                {title && <h1 className="text-3xl font-black mb-8">{title}</h1>}
+                {children}
+            </div>
+        );
+    }
+
     if (loading) return (
         <div className="flex justify-center items-center h-[60vh]">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -177,7 +191,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl }) => {
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>
-                        <ImageComponent src={image} alt={details?.name || 'Album/Artist'} />
+                        <ImageComponent src={fetchedImage} alt={details?.name || 'Album/Artist'} />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                             <button className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
                                 <span className="text-3xl">▶</span>

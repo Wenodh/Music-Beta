@@ -5,9 +5,10 @@ import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDu
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { signInWithGoogle, signOut } from '../features/auth/authActions';
 import { getDownloadStorageInfo, deleteAllDownloads } from '../utils/db';
 import { setDownloadedIds } from '../features/library/librarySlice';
 
@@ -16,6 +17,7 @@ const SettingsDrawer: React.FC = () => {
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
     const { theme } = useAppSelector((state) => state.ui);
+    const { user, isAuthenticated, loading: authLoading } = useAppSelector((state) => state.auth);
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
@@ -83,7 +85,7 @@ const SettingsDrawer: React.FC = () => {
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className={`fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white shadow-2xl z-[110] overflow-y-auto ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-900'}`}
+                        className={`fixed right-0 top-0 bottom-0 w-full sm:max-w-sm md:max-w-md bg-white shadow-2xl z-[110] overflow-y-auto ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-900'}`}
                     >
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-8">
@@ -96,6 +98,58 @@ const SettingsDrawer: React.FC = () => {
                             </div>
 
                             <div className="space-y-8">
+                                <section>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
+                                        <IoPersonOutline /> Account
+                                    </h3>
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                        {isAuthenticated && user ? (
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <img
+                                                        src={user.user_metadata?.avatar_url || '/android/android-launchericon-192-192.png'}
+                                                        alt="Avatar"
+                                                        className="w-10 h-10 rounded-full border-2 border-primary/20"
+                                                    />
+                                                    <div
+                                                        className="overflow-hidden cursor-pointer hover:opacity-70 transition-opacity"
+                                                        onClick={() => {
+                                                            navigate('/profile');
+                                                            dispatch(setSettingsOpen(false));
+                                                        }}
+                                                    >
+                                                        <p className="text-sm font-bold truncate">
+                                                            {user.user_metadata?.full_name || 'User'}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-500 truncate">
+                                                            {user.email}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => dispatch(signOut() as any)}
+                                                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    title="Sign Out"
+                                                >
+                                                    <IoLogOutOutline size={20} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-2">
+                                                <p className="text-xs text-gray-500 mb-4">Sign in to sync your library across devices</p>
+                                                <button
+                                                    onClick={() => dispatch(signInWithGoogle() as any)}
+                                                    disabled={authLoading}
+                                                    className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                                                >
+                                                    <IoLogoGoogle className="text-red-500" size={18} />
+                                                    {authLoading ? 'Connecting...' : 'Sign in with Google'}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
                                 <section>
                                     <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
                                         <IoGlobeOutline /> Language
