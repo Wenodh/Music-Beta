@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAppSelector } from '../hooks/redux';
+import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import Slider from './Slider';
 import { suggestions } from '../constants';
 import { motion } from 'framer-motion';
+import { setDailyMix } from '../features/musicplayer/musicPlayerSlice';
 
 const DailyMix: React.FC = () => {
-    const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
-    const [mixedSongs, setMixedSongs] = useState<any[]>([]);
+    const dispatch = useAppDispatch();
+    const { recentlyPlayed, dailyMix, lastDailyMixUpdate } = useAppSelector((state) => state.musicPlayer);
     const [loading, setLoading] = useState(false);
-    const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
     const COOLDOWN = 30 * 60 * 1000; // 30 minutes cooldown
 
     useEffect(() => {
@@ -18,7 +18,7 @@ const DailyMix: React.FC = () => {
 
             const now = Date.now();
             // Only update if cooldown has passed or if we have no songs yet
-            if (mixedSongs.length > 0 && now - lastUpdateTime < COOLDOWN) {
+            if (dailyMix && dailyMix.length > 0 && (now - lastDailyMixUpdate < COOLDOWN)) {
                 return;
             }
 
@@ -44,8 +44,7 @@ const DailyMix: React.FC = () => {
                 }
                 const shuffled = uniqueSuggestions.slice(0, 20);
 
-                setMixedSongs(shuffled);
-                setLastUpdateTime(now);
+                dispatch(setDailyMix({ songs: shuffled, timestamp: now }));
             } catch (error) {
                 console.error('Error fetching Daily Mix:', error);
             } finally {
@@ -56,15 +55,15 @@ const DailyMix: React.FC = () => {
         fetchMix();
     }, [recentlyPlayed]);
 
-    if (loading || mixedSongs.length === 0) return null;
+    if (loading || !dailyMix || dailyMix.length === 0) return null;
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className="mb-12"
         >
-            <Slider data={mixedSongs} title="Made For You: Daily Mix" />
+            <Slider data={dailyMix} title="Made For You: Daily Mix" />
         </motion.div>
     );
 };

@@ -33,6 +33,8 @@ export interface MusicPlayerState {
     currentTime: number;
     isSongRadioEnabled: boolean;
     downloadSettings: DownloadSettings;
+    dailyMix: Song[];
+    lastDailyMixUpdate: number;
 }
 
 export interface DownloadSettings {
