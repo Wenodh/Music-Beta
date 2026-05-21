@@ -26,11 +26,24 @@ import { syncLibrary } from './features/library/libraryActions';
 import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
 
-const AlbumDetails = lazy(() => import('./pages/AlbumDetails'));
-const ArtistPage = lazy(() => import('./pages/ArtistPage'));
-const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
-const Library = lazy(() => import('./pages/Library'));
-const Profile = lazy(() => import('./pages/Profile'));
+const lazyRetry = (componentImport: () => Promise<any>) => {
+    return lazy(async () => {
+        try {
+            return await componentImport();
+        } catch (error) {
+            // If the chunk load fails, try one reload
+            console.error('Chunk load failed, reloading...', error);
+            window.location.reload();
+            return { default: () => null };
+        }
+    });
+};
+
+const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
+const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
+const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
+const Library = lazyRetry(() => import('./pages/Library'));
+const Profile = lazyRetry(() => import('./pages/Profile'));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite } from '../features/library/librarySlice';
+import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite, updatePlaylistSongs } from '../features/library/librarySlice';
+import { savePlaylistCloud, deletePlaylistCloud, uploadFavorite, removeFavoriteCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -85,7 +86,10 @@ const Library: React.FC = () => {
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            dispatch(createPlaylist({ name: newPlaylistName.trim() }));
+            const id = Date.now().toString();
+            const name = newPlaylistName.trim();
+            dispatch(createPlaylist({ id, name, songs: [] }));
+            dispatch(savePlaylistCloud({ id, name, songs: [] }) as any);
             setNewPlaylistName('');
             setIsCreating(false);
         }
@@ -339,7 +343,10 @@ const Library: React.FC = () => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        dispatch(deletePlaylist(playlist.id));
+                                        if (window.confirm(`Delete playlist "${playlist.name}"?`)) {
+                                            dispatch(deletePlaylist(playlist.id));
+                                            dispatch(deletePlaylistCloud(playlist.id) as any);
+                                        }
                                     }}
                                     className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
                                 >
@@ -409,7 +416,13 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
+                                            const isFavorite = favorites.some(s => s.id === song.id);
                                             dispatch(toggleFavorite(song));
+                                            if (isFavorite) {
+                                                dispatch(removeFavoriteCloud(song.id) as any);
+                                            } else {
+                                                dispatch(uploadFavorite(song) as any);
+                                            }
                                         }}
                                         className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
                                     >
@@ -418,7 +431,11 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            dispatch(removeFromPlaylist({ playlistId: selectedPlaylist, songId: song.id }));
+                                            if (selectedPlaylist && currentPlaylist) {
+                                                const updatedSongs = currentPlaylist.songs.filter(s => s.id !== song.id);
+                                                dispatch(removeFromPlaylist({ playlistId: selectedPlaylist, songId: song.id }));
+                                                dispatch(savePlaylistCloud({ ...currentPlaylist, songs: updatedSongs }) as any);
+                                            }
                                         }}
                                         className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-all"
                                     >
