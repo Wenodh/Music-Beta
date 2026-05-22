@@ -394,9 +394,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     };
 
     return (
+        <>
         <AnimatePresence>
             {currentSong && (
                 <motion.div
+                    key="mini-player"
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
