@@ -2,7 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { supabase } from '../../lib/supabase';
 import { RootState } from '../../store';
 import { Song } from '../../types/music';
-import { setFavorites, setPlaylists, setSyncing, setLastSynced, toggleFavorite } from './librarySlice';
+import { setFavorites, setPlaylists, setSyncing, setLastSynced, toggleFavorite, createPlaylist, addToPlaylist, addBulkToPlaylist, removeFromPlaylist } from './librarySlice';
 import { showToast } from '../ui/uiSlice';
 
 export const syncLibrary = createAsyncThunk(
@@ -154,12 +154,17 @@ export const savePlaylistCloud = createAsyncThunk(
         const user = state.auth.user;
         if (!user) return;
 
-        await supabase.from('playlists').upsert({
-            id: playlist.id,
-            user_id: user.id,
-            name: playlist.name,
-            songs_data: playlist.songs
-        });
+        try {
+            const { error } = await supabase.from('playlists').upsert({
+                id: playlist.id,
+                user_id: user.id,
+                name: playlist.name,
+                songs_data: playlist.songs
+            });
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error saving playlist to cloud:', error);
+        }
     }
 );
 
@@ -170,6 +175,77 @@ export const deletePlaylistCloud = createAsyncThunk(
         const user = state.auth.user;
         if (!user) return;
 
-        await supabase.from('playlists').delete().eq('user_id', user.id).eq('id', playlistId);
+        try {
+            const { error } = await supabase.from('playlists').delete().eq('user_id', user.id).eq('id', playlistId);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error deleting playlist from cloud:', error);
+        }
+    }
+);
+
+export const createPlaylistCloud = createAsyncThunk(
+    'library/createPlaylistCloud',
+    async (payload: { name: string; song?: Song; songs?: Song[]; id?: string }, { getState, dispatch }) => {
+        const id = payload.id || Date.now().toString();
+        const songs = payload.songs ? payload.songs : (payload.song ? [payload.song] : []);
+
+        // Update local state
+        dispatch(createPlaylist({ ...payload, id, songs }));
+
+        // Sync to cloud
+        dispatch(savePlaylistCloud({ id, name: payload.name, songs }) as any);
+    }
+);
+
+export const addToPlaylistCloud = createAsyncThunk(
+    'library/addToPlaylistCloud',
+    async (payload: { playlistId: string; song: Song }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const playlist = state.library.playlists.find(p => p.id === payload.playlistId);
+        if (!playlist) return;
+
+        if (playlist.songs.find(s => s.id === payload.song.id)) return;
+
+        // Update local state
+        dispatch(addToPlaylist(payload));
+
+        // Sync to cloud
+        const updatedPlaylist = { ...playlist, songs: [...playlist.songs, payload.song] };
+        dispatch(savePlaylistCloud(updatedPlaylist) as any);
+    }
+);
+
+export const addBulkToPlaylistCloud = createAsyncThunk(
+    'library/addBulkToPlaylistCloud',
+    async (payload: { playlistId: string; songs: Song[] }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const playlist = state.library.playlists.find(p => p.id === payload.playlistId);
+        if (!playlist) return;
+
+        // Update local state
+        dispatch(addBulkToPlaylist(payload));
+
+        // Sync to cloud
+        const existingSongIds = new Set(playlist.songs.map(s => s.id));
+        const newSongs = payload.songs.filter(s => !existingSongIds.has(s.id));
+        const updatedPlaylist = { ...playlist, songs: [...playlist.songs, ...newSongs] };
+        dispatch(savePlaylistCloud(updatedPlaylist) as any);
+    }
+);
+
+export const removeFromPlaylistCloud = createAsyncThunk(
+    'library/removeFromPlaylistCloud',
+    async (payload: { playlistId: string; songId: string }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const playlist = state.library.playlists.find(p => p.id === payload.playlistId);
+        if (!playlist) return;
+
+        // Update local state
+        dispatch(removeFromPlaylist(payload));
+
+        // Sync to cloud
+        const updatedPlaylist = { ...playlist, songs: playlist.songs.filter(s => s.id !== payload.songId) };
+        dispatch(savePlaylistCloud(updatedPlaylist) as any);
     }
 );

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../../hooks/redux';
-import { addToPlaylist, addBulkToPlaylist, createPlaylist } from '../../features/library/librarySlice';
-import { savePlaylistCloud } from '../../features/library/libraryActions';
+import { addToPlaylistCloud, addBulkToPlaylistCloud, createPlaylistCloud } from '../../features/library/libraryActions';
 import { Song } from '../../types/music';
 import { IoAdd, IoClose, IoMusicalNote } from 'react-icons/io5';
 
@@ -26,24 +25,18 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
         const playlist = playlists.find(p => p.id === playlistId);
         if (!playlist) return;
 
-        let updatedPlaylist;
         if (bulkSongs && bulkSongs.length > 0) {
-            dispatch(addBulkToPlaylist({ playlistId, songs: bulkSongs }));
-            const existingSongIds = playlist.songs.map(s => s.id);
-            const newSongs = bulkSongs.filter(s => !existingSongIds.includes(s.id));
-            updatedPlaylist = { ...playlist, songs: [...playlist.songs, ...newSongs] };
+            dispatch(addBulkToPlaylistCloud({ playlistId, songs: bulkSongs }) as any);
             onSuccess(`${bulkSongs.length} songs added to ${playlistName}`);
         } else {
             if (playlist.songs.find(s => s.id === song.id)) {
                 onError(`Already in ${playlistName}`);
                 return;
             }
-            dispatch(addToPlaylist({ playlistId, song }));
-            updatedPlaylist = { ...playlist, songs: [...playlist.songs, song] };
+            dispatch(addToPlaylistCloud({ playlistId, song }) as any);
             onSuccess(playlistName);
         }
 
-        dispatch(savePlaylistCloud(updatedPlaylist) as any);
         onClose();
     };
 
@@ -54,8 +47,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
             const name = newPlaylistName.trim();
             const songs = bulkSongs && bulkSongs.length > 0 ? bulkSongs : (song ? [song] : []);
 
-            dispatch(createPlaylist({ id, name, songs }));
-            dispatch(savePlaylistCloud({ id, name, songs }) as any);
+            dispatch(createPlaylistCloud({ id, name, songs }) as any);
 
             onSuccess(bulkSongs && bulkSongs.length > 0 ? `${songs.length} songs added to ${name}` : name);
             setNewPlaylistName('');

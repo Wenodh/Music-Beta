@@ -15,6 +15,7 @@ const Navbar: React.FC = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
+    const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { theme } = useAppSelector((state) => state.ui);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
@@ -91,9 +92,13 @@ const Navbar: React.FC = () => {
                     <button
                         onClick={() => dispatch(setSettingsOpen(true))}
                         aria-label="Settings"
-                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20"
+                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20 overflow-hidden"
                     >
-                        <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                        {isAuthenticated && user?.user_metadata?.avatar_url ? (
+                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                            <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                        )}
                     </button>
                 </div>
             </div>
@@ -138,9 +143,13 @@ const Navbar: React.FC = () => {
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
                     aria-label="Settings"
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
                 >
-                    <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+                    {isAuthenticated && user?.user_metadata?.avatar_url ? (
+                        <img src={user.user_metadata.avatar_url} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                        <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+                    )}
                     <span className="text-sm font-bold uppercase tracking-tight">Account</span>
                 </button>
             </div>
