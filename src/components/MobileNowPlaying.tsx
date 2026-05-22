@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { FaPlay, FaPause } from 'react-icons/fa';
@@ -163,7 +163,6 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             <div className="w-full flex items-center justify-between mb-10">
                                 <button
                                     className="p-2"
-                                    onClick={() => dispatch(setQueueOpen(!reduxQueueOpen))}
                                 >
                                     <PiShuffleBold className="text-gray-500 text-xl" />
                                 </button>
@@ -195,7 +194,6 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 </div>
                                 <button
                                     className="p-2"
-                                    onClick={() => dispatch(setQueueOpen(!reduxQueueOpen))}
                                 >
                                     <BiRepeat className="text-gray-500 text-xl" />
                                 </button>

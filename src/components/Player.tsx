@@ -431,7 +431,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     if (info.offset.x > 100) prevSong();
                                     else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
-                                onClick={(e) => e.stopPropagation()}
                                 className="relative group cursor-grab active:cursor-grabbing"
                             >
                                 <motion.img
@@ -443,13 +442,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     className="rounded-xl shadow-lg"
                                     loading="lazy"
                                     onDoubleClick={(e) => {
+                                        e.stopPropagation();
                                         const rect = e.currentTarget.getBoundingClientRect();
                                         const x = e.clientX - rect.left;
                                         handleDoubleTap(x < rect.width / 2 ? 'left' : 'right');
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        dispatch(setPlayerExpanded(true));
                                     }}
                                 />
                                 <AnimatePresence>
