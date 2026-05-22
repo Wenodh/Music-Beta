@@ -5,10 +5,11 @@ import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDu
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
+import { syncLibrary } from '../features/library/libraryActions';
 import { getDownloadStorageInfo, deleteAllDownloads } from '../utils/db';
 import { setDownloadedIds } from '../features/library/librarySlice';
 
@@ -18,6 +19,7 @@ const SettingsDrawer: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const { theme } = useAppSelector((state) => state.ui);
     const { user, isAuthenticated, loading: authLoading } = useAppSelector((state) => state.auth);
+    const { isSyncing, lastSynced } = useAppSelector((state) => state.library);
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
@@ -60,6 +62,16 @@ const SettingsDrawer: React.FC = () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    const formatLastSynced = (dateString: string | null) => {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        return date.toLocaleString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+
+    const handleSync = useCallback(() => {
+        dispatch(syncLibrary({ merge: true }) as any);
+    }, [dispatch]);
+
     const handleDeleteAll = async () => {
         if (window.confirm('Delete all downloaded songs?')) {
             await deleteAllDownloads();
@@ -87,7 +99,7 @@ const SettingsDrawer: React.FC = () => {
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         className={`fixed right-0 top-0 bottom-0 w-full sm:max-w-sm md:max-w-md bg-white shadow-2xl z-[110] overflow-y-auto ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-900'}`}
                     >
-                        <div className="p-6">
+                        <div className="p-6 pb-32">
                             <div className="flex justify-between items-center mb-8">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
                                     <IoSettingsOutline /> Settings
@@ -126,13 +138,23 @@ const SettingsDrawer: React.FC = () => {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => dispatch(signOut() as any)}
-                                                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                    title="Sign Out"
-                                                >
-                                                    <IoLogOutOutline size={20} />
-                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={handleSync}
+                                                        disabled={isSyncing}
+                                                        className={`p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors ${isSyncing ? 'animate-spin' : ''}`}
+                                                        title="Sync Library"
+                                                    >
+                                                        <IoSyncOutline size={20} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => dispatch(signOut() as any)}
+                                                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                        title="Sign Out"
+                                                    >
+                                                        <IoLogOutOutline size={20} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="text-center py-2">
@@ -148,6 +170,12 @@ const SettingsDrawer: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
+                                    {isAuthenticated && (
+                                        <div className="mt-2 px-4 flex justify-between items-center text-[10px] text-gray-500">
+                                            <span>Last Synced: {formatLastSynced(lastSynced)}</span>
+                                            {isSyncing && <span className="text-primary animate-pulse font-bold">Syncing...</span>}
+                                        </div>
+                                    )}
                                 </section>
 
                                 <section>

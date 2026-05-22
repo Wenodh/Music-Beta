@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite, updatePlaylistSongs } from '../features/library/librarySlice';
-import { savePlaylistCloud, deletePlaylistCloud, uploadFavorite, removeFavoriteCloud } from '../features/library/libraryActions';
+import { deletePlaylist, updatePlaylistSongs } from '../features/library/librarySlice';
+import { savePlaylistCloud, deletePlaylistCloud, toggleFavoriteCloud, createPlaylistCloud, removeFromPlaylistCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -88,8 +88,7 @@ const Library: React.FC = () => {
         if (newPlaylistName.trim()) {
             const id = Date.now().toString();
             const name = newPlaylistName.trim();
-            dispatch(createPlaylist({ id, name, songs: [] }));
-            dispatch(savePlaylistCloud({ id, name, songs: [] }) as any);
+            dispatch(createPlaylistCloud({ id, name, songs: [] }) as any);
             setNewPlaylistName('');
             setIsCreating(false);
         }
@@ -285,9 +284,20 @@ const Library: React.FC = () => {
                                             <IoHeart className="text-primary text-xl" />
                                         </div>
                                     </div>
-                                    <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
-                                        <p className="font-semibold truncate text-sm">{song.name}</p>
-                                        <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                    <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold truncate text-sm">{song.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                dispatch(toggleFavoriteCloud(song) as any);
+                                            }}
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                        >
+                                            <IoTrash size={14} />
+                                        </button>
                                     </div>
                                 </motion.div>
                             ))
@@ -420,13 +430,7 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            const isFavorite = favorites.some(s => s.id === song.id);
-                                            dispatch(toggleFavorite(song));
-                                            if (isFavorite) {
-                                                dispatch(removeFavoriteCloud(song.id) as any);
-                                            } else {
-                                                dispatch(uploadFavorite(song) as any);
-                                            }
+                                            dispatch(toggleFavoriteCloud(song) as any);
                                         }}
                                         className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
                                     >
@@ -435,10 +439,8 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (selectedPlaylist && currentPlaylist) {
-                                                const updatedSongs = currentPlaylist.songs.filter(s => s.id !== song.id);
-                                                dispatch(removeFromPlaylist({ playlistId: selectedPlaylist, songId: song.id }));
-                                                dispatch(savePlaylistCloud({ ...currentPlaylist, songs: updatedSongs }) as any);
+                                            if (selectedPlaylist) {
+                                                dispatch(removeFromPlaylistCloud({ playlistId: selectedPlaylist, songId: song.id }) as any);
                                             }
                                         }}
                                         className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-all"

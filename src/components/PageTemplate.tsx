@@ -7,8 +7,8 @@ import SongsList from './SongsList';
 import Slider from './Slider';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic, addRecentlyPlayedAlbum } from '../features/musicplayer/musicPlayerSlice';
-import { toggleFavorite } from '../features/library/librarySlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
+import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
@@ -133,7 +133,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
     const handleFavorite = (e: React.MouseEvent, song: Song) => {
         e.stopPropagation();
         const isFavorite = favorites.some(s => s.id === song.id);
-        dispatch(toggleFavorite(song));
+        dispatch(toggleFavoriteCloud(song) as any);
         dispatch(showToast({
             message: isFavorite ? 'Removed from favorites' : 'Added to favorites'
         }));
