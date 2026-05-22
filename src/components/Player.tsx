@@ -30,7 +30,7 @@ import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
-import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor } from '../features/ui/uiSlice';
+import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 
@@ -42,14 +42,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [userVolume, setUserVolume] = useState(0.7);
-    const [isMobilePlayerOpen, setIsMobilePlayerOpen] = useState(false);
 
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled
     } = useAppSelector((state) => state.musicPlayer);
 
-    const { isLyricsOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
+    const { isLyricsOpen, isPlayerExpanded, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
     const [imageUrl, setImageUrl] = useState<string>('');
@@ -416,10 +415,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         onChange={handleProgressChange}
                         className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
                     />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8" onClick={(e) => {
+                    <div className="flex justify-between items-center py-3 px-4 lg:px-8 cursor-pointer" onClick={(e) => {
                         // Prevent opening mobile player if a button was clicked
                         if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
-                        window.innerWidth < 768 && setIsMobilePlayerOpen(true);
+                        dispatch(setPlayerExpanded(true));
                     }}>
                         {/* 1st div */}
                         <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
@@ -434,13 +433,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 className="relative group cursor-grab active:cursor-grabbing"
                             >
                                 <motion.img
-                                    animate={{ rotate: isPlaying ? 360 : 0 }}
-                                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                                    layoutId="player-album-art"
                                     src={imageUrl}
                                     alt=""
                                     width={55}
                                     height={55}
-                                    className="rounded-full shadow-lg"
+                                    className="rounded-xl shadow-lg"
                                     loading="lazy"
                                     onDoubleClick={(e) => {
                                         const rect = e.currentTarget.getBoundingClientRect();
@@ -470,12 +468,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
                                 </div>
                             </motion.div>
-                            <div className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]">
+                            <motion.div
+                                layoutId="player-song-info"
+                                className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]"
+                            >
                                 <p className="font-semibold text-sm sm:text-base truncate">{decodeHtmlEntities(currentSong?.name)}</p>
                                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                                     {decodeHtmlEntities(currentSong?.primaryArtists)}
                                 </p>
-                            </div>
+                            </motion.div>
                             <div className="flex gap-2 items-center ml-2 lg:flex">
                                 <div className="hidden lg:flex gap-2">
                                     <motion.button
@@ -753,11 +754,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         </div>
                     </div>
                     <MobileNowPlaying
-                        isOpen={isMobilePlayerOpen}
-                        onClose={() => setIsMobilePlayerOpen(false)}
+                        isOpen={isPlayerExpanded}
+                        onClose={() => dispatch(setPlayerExpanded(false))}
                         prevSong={prevSong}
                         nextSong={() => playNextInQueue(true)}
                         handlePlayPause={handlePlayPause}
+                        handleProgressChange={handleProgressChange}
                         imageUrl={imageUrl || ''}
                         audioRefs={[audioRefA, audioRefB]}
                     />
