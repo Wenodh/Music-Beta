@@ -4,18 +4,12 @@ import Navbar from './components/Navbar';
 import Player from './components/Player';
 import SearchSection from './components/SearchSection';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import Home from './pages/Home';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Provider } from 'react-redux';
 import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import SettingsDrawer from './components/SettingsDrawer';
-import Queue from './components/Queue';
-import Equalizer from './components/Equalizer';
-import Lyrics from './components/Lyrics';
 import ToastContainer from './components/toast/ToastContainer';
-import AddToPlaylistModal from './components/modals/AddToPlaylistModal';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
@@ -39,11 +33,19 @@ const lazyRetry = (componentImport: () => Promise<any>) => {
     });
 };
 
+const Home = lazyRetry(() => import('./pages/Home'));
 const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
 const Library = lazyRetry(() => import('./pages/Library'));
 const Profile = lazyRetry(() => import('./pages/Profile'));
+
+// Lazy load UI components
+const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
+const Queue = lazyRetry(() => import('./components/Queue'));
+const Equalizer = lazyRetry(() => import('./components/Equalizer'));
+const Lyrics = lazyRetry(() => import('./components/Lyrics'));
+const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlaylistModal'));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -61,7 +63,14 @@ const AnimatedRoutes = () => {
     return (
         <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
-                <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
+                <Route
+                    path="/"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
                 <Route
                     path="/albums/:id"
                     element={
@@ -164,13 +173,15 @@ export const AppContent = () => {
                 <main className="max-w-7xl mx-auto px-4">
                     <AnimatePresence mode="wait">
                         {isLyricsOpen ? (
-                            <Lyrics
-                                isOpen={isLyricsOpen}
-                                onClose={() => dispatch(setLyricsOpen(false))}
-                                songId={currentSong?.id || ''}
-                                songName={currentSong?.name || ''}
-                                artistName={currentSong?.primaryArtists || ''}
-                            />
+                            <Suspense fallback={<div className="p-10 text-center">Loading Lyrics...</div>}>
+                                <Lyrics
+                                    isOpen={isLyricsOpen}
+                                    onClose={() => dispatch(setLyricsOpen(false))}
+                                    songId={currentSong?.id || ''}
+                                    songName={currentSong?.name || ''}
+                                    artistName={currentSong?.primaryArtists || ''}
+                                />
+                            </Suspense>
                         ) : (
                             <AnimatedRoutes />
                         )}
@@ -180,19 +191,23 @@ export const AppContent = () => {
                 <AnimatePresence>
                     {isMiniPlayerOpen && <MiniPlayer onClose={() => setIsMiniPlayerOpen(false)} />}
                 </AnimatePresence>
-                <SettingsDrawer />
-                <Queue />
-                <Equalizer />
+
+                <Suspense fallback={null}>
+                    <SettingsDrawer />
+                    <Queue />
+                    <Equalizer />
+                    <AddToPlaylistModal
+                        song={playlistModal.song}
+                        bulkSongs={playlistModal.bulkSongs}
+                        onClose={() => dispatch(closePlaylistModal())}
+                        onSuccess={(name) => dispatch(showToast({ message: `Added to ${name}` }))}
+                        onError={(msg) => dispatch(showToast({ message: msg, type: 'error' }))}
+                    />
+                </Suspense>
+
                 <ToastContainer
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}
-                />
-                <AddToPlaylistModal
-                    song={playlistModal.song}
-                    bulkSongs={playlistModal.bulkSongs}
-                    onClose={() => dispatch(closePlaylistModal())}
-                    onSuccess={(name) => dispatch(showToast({ message: `Added to ${name}` }))}
-                    onError={(msg) => dispatch(showToast({ message: msg, type: 'error' }))}
                 />
             </BrowserRouter>
         </div>

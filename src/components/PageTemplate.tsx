@@ -347,6 +347,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                             <img
                                                 src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
                                                 alt={song.name}
+                                                loading="lazy"
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 sm:gap-2">

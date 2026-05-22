@@ -83,6 +83,7 @@ const SearchSection: React.FC = () => {
                                     <img
                                         src={song.image?.[2]?.url || song.image}
                                         alt={song.name}
+                                        loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -107,6 +108,7 @@ const SearchSection: React.FC = () => {
                                     <img
                                         src={album.image?.[2]?.url || album.image}
                                         alt={album.name}
+                                        loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
@@ -126,6 +128,7 @@ const SearchSection: React.FC = () => {
                                     <img
                                         src={artist.image?.[2]?.url || artist.image}
                                         alt={artist.name}
+                                        loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
@@ -145,6 +148,7 @@ const SearchSection: React.FC = () => {
                                     <img
                                         src={playlist.image?.[2]?.url || playlist.image}
                                         alt={playlist.name}
+                                        loading="lazy"
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                 </div>
