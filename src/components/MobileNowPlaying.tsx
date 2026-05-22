@@ -9,7 +9,7 @@ import { PiShuffleBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setQueueOpen, setCurrentTime } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setQueueOpen, setCurrentTime, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -19,8 +19,6 @@ import Queue from './Queue';
 interface MobileNowPlayingProps {
     isOpen: boolean;
     onClose: () => void;
-    prevSong: () => void;
-    nextSong: () => void;
     handlePlayPause: () => void;
     handleProgressChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
     imageUrl: string;
@@ -30,8 +28,6 @@ interface MobileNowPlayingProps {
 const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     isOpen,
     onClose,
-    prevSong,
-    nextSong,
     handlePlayPause,
     handleProgressChange,
     imageUrl,
@@ -165,14 +161,17 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                             {/* Main Controls */}
                             <div className="w-full flex items-center justify-between mb-10">
-                                <button className="p-2">
+                                <button
+                                    className="p-2"
+                                    onClick={() => dispatch(setQueueOpen(!reduxQueueOpen))}
+                                >
                                     <PiShuffleBold className="text-gray-500 text-xl" />
                                 </button>
                                 <div className="flex items-center gap-6">
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={prevSong}
+                                        onClick={() => dispatch(prevSongAction())}
                                         className="p-2"
                                     >
                                         <IoMdSkipBackward size={36} />
@@ -188,13 +187,16 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={nextSong}
+                                        onClick={() => dispatch(nextSongAction())}
                                         className="p-2"
                                     >
                                         <IoMdSkipForward size={36} />
                                     </motion.button>
                                 </div>
-                                <button className="p-2">
+                                <button
+                                    className="p-2"
+                                    onClick={() => dispatch(setQueueOpen(!reduxQueueOpen))}
+                                >
                                     <BiRepeat className="text-gray-500 text-xl" />
                                 </button>
                             </div>

@@ -445,10 +445,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         const x = e.clientX - rect.left;
                                         handleDoubleTap(x < rect.width / 2 ? 'left' : 'right');
                                     }}
-                                    onClick={() =>
-                                        currentSong?.albumId &&
-                                        navigate(`/albums/${currentSong.albumId}`)
-                                    }
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(setPlayerExpanded(true));
+                                    }}
                                 />
                                 <AnimatePresence>
                                     {seekAnimation && (
@@ -753,19 +753,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </div>
                         </div>
                     </div>
-                    <MobileNowPlaying
-                        isOpen={isPlayerExpanded}
-                        onClose={() => dispatch(setPlayerExpanded(false))}
-                        prevSong={prevSong}
-                        nextSong={() => playNextInQueue(true)}
-                        handlePlayPause={handlePlayPause}
-                        handleProgressChange={handleProgressChange}
-                        imageUrl={imageUrl || ''}
-                        audioRefs={[audioRefA, audioRefB]}
-                    />
                 </motion.div>
             )}
         </AnimatePresence>
+        <MobileNowPlaying
+            isOpen={isPlayerExpanded}
+            onClose={() => dispatch(setPlayerExpanded(false))}
+            handlePlayPause={handlePlayPause}
+            handleProgressChange={handleProgressChange}
+            imageUrl={imageUrl || ''}
+            audioRefs={[audioRefA, audioRefB]}
+        />
+        </>
     );
 };
 
