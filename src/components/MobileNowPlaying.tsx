@@ -68,14 +68,15 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
-                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 200, mass: 0.8 }}
                     drag="y"
                     dragConstraints={{ top: 0 }}
-                    dragElastic={0.2}
+                    dragElastic={0.05}
+                    dragDirectionLock
                     onDragEnd={(_, info) => {
-                        if (info.offset.y > 150) onClose();
+                        if (info.offset.y > 100 || info.velocity.y > 500) onClose();
                     }}
-                    className="fixed inset-0 z-[220] bg-gray-950 flex flex-col text-white overflow-hidden"
+                    className="fixed inset-0 z-[220] bg-gray-950 flex flex-col text-white overflow-hidden touch-none"
                 >
                     {/* Background Gradient & Blur */}
                     <div className="absolute inset-0 z-0">
@@ -96,13 +97,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
                             <p className="text-xs font-bold truncate">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
                         </div>
-                        <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                            <IoEllipsisHorizontal size={24} />
-                        </button>
+                        <div className="w-10" /> {/* Spacer to keep title centered */}
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                    <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar flex flex-col pointer-events-auto">
                         <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
                             {/* Album Art with LayoutID */}
                             <div
