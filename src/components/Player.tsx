@@ -23,13 +23,13 @@ import { HiQueueList } from 'react-icons/hi2';
 import { MdOutlineGraphicEq, MdOutlineCloseFullscreen } from 'react-icons/md';
 import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
-import { toggleFavorite } from '../features/library/librarySlice';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
+import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
@@ -482,7 +482,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         whileTap={{ scale: 0.8 }}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            dispatch(toggleFavorite(currentSong));
+                                            dispatch(toggleFavoriteCloud(currentSong!) as any);
                                         }}
                                     >
                                         {isFavorite ? (
@@ -625,7 +625,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
                                             <button
                                                 onClick={() => {
-                                                    dispatch(toggleFavorite(currentSong!));
+                                                    dispatch(toggleFavoriteCloud(currentSong!) as any);
                                                     setIsMoreMenuOpen(false);
                                                 }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

@@ -11,12 +11,16 @@ interface LibraryState {
     favorites: Song[];
     playlists: Playlist[];
     downloadedIds: string[];
+    isSyncing: boolean;
+    lastSynced: string | null;
 }
 
 const initialState: LibraryState = {
     favorites: [],
     playlists: [],
     downloadedIds: [],
+    isSyncing: false,
+    lastSynced: null,
 };
 
 const librarySlice = createSlice({
@@ -89,6 +93,13 @@ const librarySlice = createSlice({
         clearLibrary: (state) => {
             state.favorites = [];
             state.playlists = [];
+            state.lastSynced = null;
+        },
+        setSyncing: (state, action: PayloadAction<boolean>) => {
+            state.isSyncing = action.payload;
+        },
+        setLastSynced: (state, action: PayloadAction<string>) => {
+            state.lastSynced = action.payload;
         },
     },
 });
@@ -107,6 +118,8 @@ export const {
     addBulkToPlaylist,
     removeFromPlaylist,
     clearLibrary,
+    setSyncing,
+    setLastSynced,
 } = librarySlice.actions;
 
 export default librarySlice.reducer;

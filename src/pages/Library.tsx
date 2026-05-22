@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { createPlaylist, deletePlaylist, removeFromPlaylist, toggleFavorite, updatePlaylistSongs } from '../features/library/librarySlice';
-import { savePlaylistCloud, deletePlaylistCloud, uploadFavorite, removeFavoriteCloud } from '../features/library/libraryActions';
+import { createPlaylist, deletePlaylist, removeFromPlaylist, updatePlaylistSongs } from '../features/library/librarySlice';
+import { savePlaylistCloud, deletePlaylistCloud, toggleFavoriteCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -285,9 +285,20 @@ const Library: React.FC = () => {
                                             <IoHeart className="text-primary text-xl" />
                                         </div>
                                     </div>
-                                    <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
-                                        <p className="font-semibold truncate text-sm">{song.name}</p>
-                                        <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                    <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold truncate text-sm">{song.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                dispatch(toggleFavoriteCloud(song) as any);
+                                            }}
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                        >
+                                            <IoTrash size={14} />
+                                        </button>
                                     </div>
                                 </motion.div>
                             ))
@@ -420,13 +431,7 @@ const Library: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            const isFavorite = favorites.some(s => s.id === song.id);
-                                            dispatch(toggleFavorite(song));
-                                            if (isFavorite) {
-                                                dispatch(removeFavoriteCloud(song.id) as any);
-                                            } else {
-                                                dispatch(uploadFavorite(song) as any);
-                                            }
+                                            dispatch(toggleFavoriteCloud(song) as any);
                                         }}
                                         className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
                                     >

@@ -136,10 +136,13 @@ export const AppContent = () => {
             dispatch(setUser(session?.user ?? null));
         });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             dispatch(setUser(session?.user ?? null));
-            if (session?.user) {
-                dispatch(syncLibrary() as any);
+            if (event === 'SIGNED_IN' && session?.user) {
+                // Merge local library with cloud on sign in
+                dispatch(syncLibrary({ merge: true }) as any);
+            } else if (session?.user) {
+                dispatch(syncLibrary({ silent: true }) as any);
             }
         });
 
