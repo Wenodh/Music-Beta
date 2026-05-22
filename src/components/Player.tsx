@@ -466,15 +466,22 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
                                 </div>
                             </motion.div>
-                            <motion.div
-                                layoutId="player-song-info"
+                            <div
                                 className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]"
                             >
-                                <p className="font-semibold text-sm sm:text-base truncate">{decodeHtmlEntities(currentSong?.name)}</p>
-                                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
+                                <motion.p
+                                    layoutId="player-song-name"
+                                    className="font-semibold text-sm sm:text-base truncate"
+                                >
+                                    {decodeHtmlEntities(currentSong?.name)}
+                                </motion.p>
+                                <motion.p
+                                    layoutId="player-song-artist"
+                                    className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate"
+                                >
                                     {decodeHtmlEntities(currentSong?.primaryArtists)}
-                                </p>
-                            </motion.div>
+                                </motion.p>
+                            </div>
                             <div className="flex gap-2 items-center ml-2 lg:flex">
                                 <div className="hidden lg:flex gap-2">
                                     <motion.button

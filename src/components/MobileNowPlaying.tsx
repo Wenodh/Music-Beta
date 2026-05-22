@@ -119,13 +119,22 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
 
                             {/* Song Info with LayoutID */}
-                            <motion.div
-                                layoutId="player-song-info"
+                            <div
                                 className="w-full text-left mb-8 flex justify-between items-end"
                             >
                                 <div className="flex-1 min-w-0 pr-4">
-                                    <h2 className="text-2xl md:text-3xl font-black mb-1 truncate">{decodeHtmlEntities(currentSong.name)}</h2>
-                                    <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                                    <motion.h2
+                                        layoutId="player-song-name"
+                                        className="text-2xl md:text-3xl font-black mb-1 truncate"
+                                    >
+                                        {decodeHtmlEntities(currentSong.name)}
+                                    </motion.h2>
+                                    <motion.p
+                                        layoutId="player-song-artist"
+                                        className="text-lg text-primary font-bold opacity-90 truncate"
+                                    >
+                                        {decodeHtmlEntities(currentSong.primaryArtists)}
+                                    </motion.p>
                                 </div>
                                 <div className="flex gap-4">
                                     <button
@@ -135,7 +144,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                         {isFavorite ? <IoHeart className="text-primary" size={28} /> : <IoHeartOutline size={28} />}
                                     </button>
                                 </div>
-                            </motion.div>
+                            </div>
 
                             {/* Progress Bar */}
                             <div className="w-full mb-8">
