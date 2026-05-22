@@ -197,6 +197,7 @@ const Library: React.FC = () => {
                                         <img
                                             src={song.imageUrl}
                                             alt={song.name}
+                                            loading="lazy"
                                             className="w-full h-full object-cover"
                                         />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -277,6 +278,7 @@ const Library: React.FC = () => {
                                         <img
                                             src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
                                             alt={song.name}
+                                            loading="lazy"
                                             className="w-full h-full object-cover"
                                         />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -329,6 +331,7 @@ const Library: React.FC = () => {
                                     <img
                                         src={Array.isArray(playlist.songs[0].image) ? playlist.songs[0].image[playlist.songs[0].image.length - 1].url : playlist.songs[0].image}
                                         className="w-full h-full object-cover"
+                                        loading="lazy"
                                         alt=""
                                     />
                                 ) : (
@@ -406,6 +409,7 @@ const Library: React.FC = () => {
                                 <img
                                     src={Array.isArray(song.image) ? song.image[0].url : song.image}
                                     alt=""
+                                    loading="lazy"
                                     className="w-12 h-12 rounded-lg object-cover"
                                 />
                                 <div className="flex-1 min-w-0">

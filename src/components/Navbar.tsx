@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { search as searchUrl } from '../constants';
-import _ from 'lodash';
+import debounce from 'lodash/debounce';
 
 import { setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
 
@@ -54,7 +54,7 @@ const Navbar: React.FC = () => {
         }
     };
 
-    const debouncedSearch = _.debounce((query: string) => {
+    const debouncedSearch = debounce((query: string) => {
         fetchSearchResults(query);
     }, 500);
 

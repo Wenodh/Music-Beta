@@ -40,6 +40,7 @@ const SongItem: React.FC<SongItemProps> = ({
                 <img
                     src={imageUrl}
                     alt={title}
+                    loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
             </div>

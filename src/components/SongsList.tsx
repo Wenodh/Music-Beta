@@ -184,6 +184,7 @@ const SongsList: React.FC<SongsListProps> = ({
                     <img
                         src={Array.isArray(image) ? image[0]?.url : image}
                         alt={name}
+                        loading="lazy"
                         className="w-12 h-12 rounded-lg object-cover shadow-sm"
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/song:opacity-100 transition-opacity rounded-lg">

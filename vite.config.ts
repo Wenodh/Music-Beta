@@ -5,6 +5,20 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+                    'vendor-redux': ['@reduxjs/toolkit', 'react-redux', 'redux-persist'],
+                    'vendor-framer': ['framer-motion'],
+                    'vendor-supabase': ['@supabase/supabase-js'],
+                    'vendor-utils': ['axios', 'lodash', 'colorthief'],
+                }
+            }
+        },
+        chunkSizeWarningLimit: 600,
+    },
     plugins: [
         react(),
         VitePWA({
