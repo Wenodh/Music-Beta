@@ -337,13 +337,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [userVolume, isCrossfading]);
 
+    const handleSeek = (time: number) => {
+        const activeAudio = getActiveAudio();
+        if (time >= 0) {
+            activeAudio.currentTime = time;
+        }
+    };
+
     const handleProgressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const activeAudio = getActiveAudio();
         const newPercentage = parseFloat(event.target.value);
         const newTime = (newPercentage / 100) * (activeAudio.duration || 0);
-        if (newTime >= 0) {
-            activeAudio.currentTime = newTime;
-        }
+        handleSeek(newTime);
     };
 
     const handlePlayPause = () => {
@@ -766,6 +771,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             onClose={() => dispatch(setPlayerExpanded(false))}
             handlePlayPause={handlePlayPause}
             handleProgressChange={handleProgressChange}
+            handleSeek={handleSeek}
             imageUrl={imageUrl || ''}
             audioRefs={[audioRefA, audioRefB]}
         />
