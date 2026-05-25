@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
+import { IoChevronDown, IoHeartOutline, IoHeart, IoAddCircleOutline, IoEllipsisHorizontal } from 'react-icons/io5';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';

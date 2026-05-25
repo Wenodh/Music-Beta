@@ -113,24 +113,23 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
     useEffect(() => {
         if (activeLineIndex !== -1) {
-                // Scroll into view
-                const activeElement = lineRefs.current.get(activeLineIndex);
-                if (activeElement && scrollContainerRef.current) {
-                    const container = scrollContainerRef.current;
+            // Scroll into view
+            const activeElement = lineRefs.current.get(activeLineIndex);
+            if (activeElement && scrollContainerRef.current) {
+                const container = scrollContainerRef.current;
 
-                    const containerHeight = container.clientHeight;
-                    const elementTop = activeElement.offsetTop;
-                    const elementHeight = activeElement.offsetHeight;
+                const containerHeight = container.clientHeight;
+                const elementTop = activeElement.offsetTop;
+                const elementHeight = activeElement.offsetHeight;
 
-                    // Standard Apple Music style: Keep active line at roughly 1/3 from top
-                    container.scrollTo({
-                        top: elementTop - (containerHeight * 0.3) + (elementHeight / 2),
-                        behavior: 'smooth'
-                    });
-                }
+                // Standard Apple Music style: Keep active line at roughly 1/3 from top
+                container.scrollTo({
+                    top: elementTop - (containerHeight * 0.3) + (elementHeight / 2),
+                    behavior: 'smooth'
+                });
             }
         }
-    }, [currentTime, parsedLyrics, activeLineIndex]);
+    }, [activeLineIndex]);
 
     return (
         <AnimatePresence mode="wait">
