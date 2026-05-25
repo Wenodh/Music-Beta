@@ -13,9 +13,10 @@ interface LyricsProps {
     artistName: string;
     isOpen: boolean;
     onClose: () => void;
+    onSeek?: (time: number) => void;
 }
 
-const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose }) => {
+const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose, onSeek }) => {
     const dispatch = useAppDispatch();
     const [rawLyrics, setRawLyrics] = useState<string | null>(null);
     const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
@@ -140,8 +141,12 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                                 }}
                                                 className="text-2xl md:text-4xl font-black leading-tight cursor-pointer transition-all duration-500 origin-left tracking-tight"
                                                 onClick={() => {
-                                                    const audio = document.querySelector('audio');
-                                                    if (audio) audio.currentTime = line.time;
+                                                    if (onSeek) {
+                                                        onSeek(line.time);
+                                                    } else {
+                                                        const audio = document.querySelector('audio');
+                                                        if (audio) audio.currentTime = line.time;
+                                                    }
                                                 }}
                                             >
                                                 {line.text}

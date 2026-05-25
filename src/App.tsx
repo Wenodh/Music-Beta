@@ -141,8 +141,6 @@ export const AppContent = () => {
             if (event === 'SIGNED_IN' && session?.user) {
                 // Merge local library with cloud on sign in
                 dispatch(syncLibrary({ merge: true }) as any);
-            } else if (session?.user) {
-                dispatch(syncLibrary({ silent: true }) as any);
             }
         });
 
