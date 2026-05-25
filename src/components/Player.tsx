@@ -22,13 +22,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiQueueList } from 'react-icons/hi2';
 import { MdOutlineGraphicEq, MdOutlineCloseFullscreen } from 'react-icons/md';
 import { MdOutlineLyrics } from 'react-icons/md';
-import { IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
+import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
+import Lyrics from './Lyrics';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
@@ -775,6 +776,48 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             imageUrl={imageUrl || ''}
             audioRefs={[audioRefA, audioRefB]}
         />
+
+        <AnimatePresence>
+            {isLyricsOpen && currentSong && !isPlayerExpanded && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className={`fixed inset-0 z-[150] bg-black/60 backdrop-blur-xl flex flex-col ${uiTheme?.isOled ? 'dark:bg-black/90' : 'dark:bg-gray-900/90'}`}
+                >
+                    <div className="flex justify-between items-center p-6 border-b border-white/10">
+                        <div className="flex items-center gap-4">
+                            <img src={imageUrl} alt="" className="w-12 h-12 rounded-lg shadow-lg" />
+                            <div>
+                                <h2 className="text-xl font-bold">{decodeHtmlEntities(currentSong.name)}</h2>
+                                <p className="text-sm text-gray-400">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => dispatch(setLyricsOpen(false))}
+                            className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
+                        >
+                            <IoClose size={32} />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-hidden relative">
+                         <div className="absolute inset-0 opacity-20 pointer-events-none">
+                             <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
+                         </div>
+                         <Lyrics
+                            isOpen={true}
+                            onClose={() => dispatch(setLyricsOpen(false))}
+                            songId={currentSong.id}
+                            songName={currentSong.name}
+                            artistName={currentSong.primaryArtists}
+                            onSeek={handleSeek}
+                        />
+                    </div>
+                    {/* Bottom bar space for player visibility */}
+                    <div className="h-24 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                </motion.div>
+            )}
+        </AnimatePresence>
         </>
     );
 };
