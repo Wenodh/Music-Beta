@@ -107,9 +107,14 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
             if (index !== -1 && index !== activeLineIndex) {
                 setActiveLineIndex(index);
+            }
+        }
+    }, [currentTime, parsedLyrics, activeLineIndex]);
 
+    useEffect(() => {
+        if (activeLineIndex !== -1) {
                 // Scroll into view
-                const activeElement = lineRefs.current.get(index);
+                const activeElement = lineRefs.current.get(activeLineIndex);
                 if (activeElement && scrollContainerRef.current) {
                     const container = scrollContainerRef.current;
 
@@ -139,7 +144,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 overflow-y-auto px-4 md:px-12 py-32 scroll-smooth z-10 relative no-scrollbar"
+                        className="flex-1 overflow-y-auto px-4 md:px-12 py-16 scroll-smooth z-10 relative no-scrollbar"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
                         <style>{`
@@ -154,7 +159,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                     <p className="text-gray-400 font-medium">Fetching synchronized lyrics...</p>
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-6 md:gap-10 pb-40">
+                                <div className="flex flex-col gap-4 md:gap-8 pb-32">
                                     {parsedLyrics.length > 0 ? (
                                         parsedLyrics.map((line, index) => (
                                             <motion.div
@@ -166,7 +171,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                                     color: activeLineIndex === index ? '#ffffff' : 'rgba(255, 255, 255, 0.4)',
                                                     filter: activeLineIndex === index ? 'blur(0px)' : 'blur(2px)'
                                                 }}
-                                                className={`text-4xl md:text-6xl font-black leading-tight cursor-pointer transition-all duration-700 origin-left tracking-tighter py-3 select-none ${activeLineIndex === index ? 'drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]' : ''}`}
+                                                className={`text-3xl md:text-5xl font-black leading-tight cursor-pointer transition-all duration-700 origin-left tracking-tighter py-2 select-none ${activeLineIndex === index ? 'drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]' : ''}`}
                                                 onClick={() => {
                                                     if (onSeek) {
                                                         onSeek(line.time);
@@ -183,7 +188,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                         <motion.div
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            className="whitespace-pre-line text-3xl md:text-5xl font-black leading-snug text-left opacity-40 hover:opacity-100 transition-opacity duration-500 tracking-tighter"
+                                            className="whitespace-pre-line text-2xl md:text-4xl font-black leading-snug text-left opacity-40 hover:opacity-100 transition-opacity duration-500 tracking-tighter"
                                         >
                                             {rawLyrics}
                                         </motion.div>
