@@ -341,8 +341,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const activeAudio = getActiveAudio();
         const newPercentage = parseFloat(event.target.value);
         const newTime = (newPercentage / 100) * (activeAudio.duration || 0);
-        if (newTime >= 0) {
-            activeAudio.currentTime = newTime;
+        handleSeek(newTime);
+    };
+
+    const handleSeek = (time: number) => {
+        const activeAudio = getActiveAudio();
+        if (time >= 0) {
+            activeAudio.currentTime = time;
         }
     };
 
@@ -599,6 +604,36 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 <SleepTimer />
                             </div>
 
+                            <AnimatePresence>
+                                {isLyricsOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 300 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 300 }}
+                                        className={`fixed top-0 right-0 w-[400px] h-full z-[300] shadow-2xl border-l border-white/10 ${uiTheme?.isOled ? 'bg-black' : 'bg-gray-900'}`}
+                                    >
+                                        <div className="absolute top-6 left-6 z-40">
+                                            <button
+                                                onClick={() => dispatch(setLyricsOpen(false))}
+                                                className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
+                                            >
+                                                <MdOutlineCloseFullscreen size={24} />
+                                            </button>
+                                        </div>
+                                        <div className="h-full pt-20">
+                                            <Lyrics
+                                                isOpen={true}
+                                                onClose={() => dispatch(setLyricsOpen(false))}
+                                                songId={currentSong?.id || ''}
+                                                songName={currentSong?.name || ''}
+                                                artistName={currentSong?.primaryArtists || ''}
+                                                onSeek={handleSeek}
+                                            />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             <div className="relative">
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
@@ -766,6 +801,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             onClose={() => dispatch(setPlayerExpanded(false))}
             handlePlayPause={handlePlayPause}
             handleProgressChange={handleProgressChange}
+            handleSeek={handleSeek}
             imageUrl={imageUrl || ''}
             audioRefs={[audioRefA, audioRefB]}
         />

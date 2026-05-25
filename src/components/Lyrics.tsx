@@ -13,9 +13,10 @@ interface LyricsProps {
     artistName: string;
     isOpen: boolean;
     onClose: () => void;
+    onSeek?: (time: number) => void;
 }
 
-const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose }) => {
+const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose, onSeek }) => {
     const dispatch = useAppDispatch();
     const [rawLyrics, setRawLyrics] = useState<string | null>(null);
     const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
@@ -37,45 +38,60 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                 setParsedLyrics([]);
                 lineRefs.current.clear();
 
-                try {
-                    // Try primary source (JioSaavn API)
-                    const res = await axios.get(`${lyricsUrl}${songId}/lyrics`);
-                    if (res.data?.data?.lyrics) {
-                        const lyricsText = res.data.data.lyrics;
-                        setRawLyrics(lyricsText);
-                        // Saavn usually provides plain text, but let's try parsing just in case
-                        const parsed = parseLRC(lyricsText);
-                        setParsedLyrics(parsed);
-                        setLoading(false);
-                        return;
-                    }
-                } catch (error) {
-                    console.warn('Saavn lyrics not found, trying LRCLib...');
-                }
+                let foundSynced = false;
 
+                // 1. Try LRCLib first for synced lyrics (Better quality for syncing)
                 try {
-                    // Try fallback source (LRCLib)
                     const query = encodeURIComponent(`${songName} ${artistName}`);
                     const lrcRes = await axios.get(`https://lrclib.net/api/search?q=${query}`);
 
                     if (lrcRes.data && lrcRes.data.length > 0) {
-                        // Find best match (synced prefered)
+                        // Sort results: syncedLyrics > plainLyrics
                         const bestMatch = lrcRes.data.find((l: any) => l.syncedLyrics) || lrcRes.data[0];
-                        const lyricsText = bestMatch.syncedLyrics || bestMatch.plainLyrics || 'Lyrics not available.';
-                        setRawLyrics(lyricsText);
-                        const parsed = parseLRC(lyricsText);
-                        setParsedLyrics(parsed);
-                    } else {
-                        setRawLyrics('Lyrics not available for this song.');
-                        setParsedLyrics([]);
+
+                        if (bestMatch.syncedLyrics) {
+                            const parsed = parseLRC(bestMatch.syncedLyrics);
+                            if (parsed.length > 0) {
+                                setRawLyrics(bestMatch.syncedLyrics);
+                                setParsedLyrics(parsed);
+                                foundSynced = true;
+                            }
+                        } else if (bestMatch.plainLyrics) {
+                            setRawLyrics(bestMatch.plainLyrics);
+                        }
                     }
                 } catch (error) {
-                    console.error('Lyrics fetch error:', error);
+                    console.warn('LRCLib fetch error:', error);
+                }
+
+                // 2. If no synced lyrics found, try JioSaavn (often plain text)
+                if (!foundSynced) {
+                    try {
+                        const res = await axios.get(`${lyricsUrl}${songId}/lyrics`);
+                        if (res.data?.data?.lyrics) {
+                            const lyricsText = res.data.data.lyrics;
+                            const parsed = parseLRC(lyricsText);
+
+                            if (parsed.length > 0) {
+                                setRawLyrics(lyricsText);
+                                setParsedLyrics(parsed);
+                                foundSynced = true;
+                            } else if (!rawLyrics) {
+                                // Only use if we don't already have plain lyrics from LRCLib
+                                setRawLyrics(lyricsText);
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Saavn lyrics fetch error:', error);
+                    }
+                }
+
+                if (!foundSynced && !rawLyrics) {
                     setRawLyrics('Lyrics not available for this song.');
                     setParsedLyrics([]);
-                } finally {
-                    setLoading(false);
                 }
+
+                setLoading(false);
             };
             fetchLyrics();
         }
@@ -91,35 +107,50 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
             if (index !== -1 && index !== activeLineIndex) {
                 setActiveLineIndex(index);
-
-                // Scroll into view
-                const activeElement = lineRefs.current.get(index);
-                if (activeElement && scrollContainerRef.current) {
-                    const container = scrollContainerRef.current;
-
-                    const containerHeight = container.clientHeight;
-                    const elementTop = activeElement.offsetTop;
-                    const elementHeight = activeElement.offsetHeight;
-
-                    container.scrollTo({
-                        top: elementTop - (containerHeight / 2) + (elementHeight / 2),
-                        behavior: 'smooth'
-                    });
-                }
             }
         }
     }, [currentTime, parsedLyrics, activeLineIndex]);
 
+    useEffect(() => {
+        if (activeLineIndex !== -1) {
+            // Scroll into view
+            const activeElement = lineRefs.current.get(activeLineIndex);
+            if (activeElement && scrollContainerRef.current) {
+                const container = scrollContainerRef.current;
+
+                const containerHeight = container.clientHeight;
+                const elementTop = activeElement.offsetTop;
+                const elementHeight = activeElement.offsetHeight;
+
+                // Standard Apple Music style: Keep active line at roughly 1/3 from top
+                container.scrollTo({
+                    top: elementTop - (containerHeight * 0.3) + (elementHeight / 2),
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }, [activeLineIndex]);
+
     return (
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
             {isOpen && (
                 <div
                     className="h-full flex flex-col text-white overflow-hidden relative"
                 >
+                    {/* Gradient Fades for Apple Music look */}
+                    <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-gray-950/50 to-transparent z-20 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-950/80 to-transparent z-20 pointer-events-none" />
+
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 overflow-y-auto px-2 md:px-4 py-8 custom-scrollbar scroll-smooth z-10 relative"
+                        className="flex-1 overflow-y-auto px-4 md:px-12 py-16 scroll-smooth z-10 relative no-scrollbar"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
+                        <style>{`
+                            .no-scrollbar::-webkit-scrollbar {
+                                display: none;
+                            }
+                        `}</style>
                         <div className="max-w-4xl mx-auto w-full">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
@@ -127,21 +158,26 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                     <p className="text-gray-400 font-medium">Fetching synchronized lyrics...</p>
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-4 md:gap-6 pb-20">
+                                <div className="flex flex-col gap-4 md:gap-8 pb-32">
                                     {parsedLyrics.length > 0 ? (
                                         parsedLyrics.map((line, index) => (
                                             <motion.div
                                                 key={index}
                                                 ref={el => { if (el) lineRefs.current.set(index, el); }}
                                                 animate={{
-                                                    opacity: activeLineIndex === index ? 1 : 0.2,
-                                                    scale: activeLineIndex === index ? 1 : 0.95,
-                                                    color: activeLineIndex === index ? theme.accentColor : 'rgba(255, 255, 255, 1)'
+                                                    opacity: activeLineIndex === index ? 1 : 0.3,
+                                                    scale: activeLineIndex === index ? 1 : 0.9,
+                                                    color: activeLineIndex === index ? '#ffffff' : 'rgba(255, 255, 255, 0.4)',
+                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(2px)'
                                                 }}
-                                                className="text-2xl md:text-4xl font-black leading-tight cursor-pointer transition-all duration-500 origin-left tracking-tight"
+                                                className={`text-3xl md:text-5xl font-black leading-tight cursor-pointer transition-all duration-700 origin-left tracking-tighter py-2 select-none ${activeLineIndex === index ? 'drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]' : ''}`}
                                                 onClick={() => {
-                                                    const audio = document.querySelector('audio');
-                                                    if (audio) audio.currentTime = line.time;
+                                                    if (onSeek) {
+                                                        onSeek(line.time);
+                                                    } else {
+                                                        const audio = document.querySelector('audio');
+                                                        if (audio) audio.currentTime = line.time;
+                                                    }
                                                 }}
                                             >
                                                 {line.text}
@@ -151,7 +187,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                         <motion.div
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            className="whitespace-pre-line text-2xl md:text-3xl font-bold leading-tight text-center bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent"
+                                            className="whitespace-pre-line text-2xl md:text-4xl font-black leading-snug text-left opacity-40 hover:opacity-100 transition-opacity duration-500 tracking-tighter"
                                         >
                                             {rawLyrics}
                                         </motion.div>
