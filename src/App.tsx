@@ -175,19 +175,7 @@ export const AppContent = () => {
                 <SearchSection />
                 <main className="max-w-7xl mx-auto px-4">
                     <AnimatePresence mode="wait">
-                        {isLyricsOpen ? (
-                            <Suspense fallback={<div className="p-10 text-center">Loading Lyrics...</div>}>
-                                <Lyrics
-                                    isOpen={isLyricsOpen}
-                                    onClose={() => dispatch(setLyricsOpen(false))}
-                                    songId={currentSong?.id || ''}
-                                    songName={currentSong?.name || ''}
-                                    artistName={currentSong?.primaryArtists || ''}
-                                />
-                            </Suspense>
-                        ) : (
-                            <AnimatedRoutes />
-                        )}
+                        <AnimatedRoutes />
                     </AnimatePresence>
                 </main>
                 <Player onShowMiniPlayer={() => setIsMiniPlayerOpen(true)} />

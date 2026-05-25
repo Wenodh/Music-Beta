@@ -113,43 +113,12 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
     return (
         <AnimatePresence>
             {isOpen && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="h-[calc(100vh-200px)] md:h-[calc(100vh-250px)] flex flex-col text-white overflow-hidden relative rounded-3xl"
+                <div
+                    className="h-full flex flex-col text-white overflow-hidden relative"
                 >
-                    {/* Immersive Background */}
-                    <div className="absolute inset-0 z-0">
-                        <motion.img
-                            key={imageUrl}
-                            initial={{ opacity: 0, scale: 1.1 }}
-                            animate={{ opacity: 0.3, scale: 1 }}
-                            src={imageUrl}
-                            alt=""
-                            className="w-full h-full object-cover blur-[100px] saturate-[1.5]"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/40 via-gray-950/80 to-gray-950" />
-                    </div>
-
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-6 md:p-10 z-10">
-                        <div className="flex flex-col">
-                            <h2 className="text-sm font-medium text-gray-400 uppercase tracking-widest">Lyrics</h2>
-                            <p className="text-xl font-bold truncate max-w-[200px] md:max-w-md">{songName}</p>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors border border-white/10"
-                            title="Close Lyrics"
-                        >
-                            <IoClose size={24} />
-                        </button>
-                    </div>
-
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 overflow-y-auto px-6 md:px-12 py-12 custom-scrollbar scroll-smooth z-10 relative"
+                        className="flex-1 overflow-y-auto px-2 md:px-4 py-8 custom-scrollbar scroll-smooth z-10 relative"
                     >
                         <div className="max-w-4xl mx-auto w-full">
                             {loading ? (
@@ -158,7 +127,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                     <p className="text-gray-400 font-medium">Fetching synchronized lyrics...</p>
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-6 md:gap-10 pb-40">
+                                <div className="flex flex-col gap-4 md:gap-6 pb-20">
                                     {parsedLyrics.length > 0 ? (
                                         parsedLyrics.map((line, index) => (
                                             <motion.div
@@ -167,10 +136,9 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                                 animate={{
                                                     opacity: activeLineIndex === index ? 1 : 0.2,
                                                     scale: activeLineIndex === index ? 1 : 0.95,
-                                                    filter: activeLineIndex === index ? 'blur(0px)' : 'blur(2px)',
                                                     color: activeLineIndex === index ? theme.accentColor : 'rgba(255, 255, 255, 1)'
                                                 }}
-                                                className="text-3xl md:text-6xl font-black leading-tight cursor-pointer transition-all duration-700 origin-left tracking-tight"
+                                                className="text-2xl md:text-4xl font-black leading-tight cursor-pointer transition-all duration-500 origin-left tracking-tight"
                                                 onClick={() => {
                                                     const audio = document.querySelector('audio');
                                                     if (audio) audio.currentTime = line.time;
@@ -183,7 +151,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                                         <motion.div
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            className="whitespace-pre-line text-3xl md:text-5xl font-bold leading-tight text-center bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent"
+                                            className="whitespace-pre-line text-2xl md:text-3xl font-bold leading-tight text-center bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent"
                                         >
                                             {rawLyrics}
                                         </motion.div>
@@ -195,7 +163,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                         <div className="h-32 flex-shrink-0" />
                     </div>
 
-                </motion.div>
+                </div>
             )}
         </AnimatePresence>
     );
