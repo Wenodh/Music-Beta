@@ -21,6 +21,7 @@ interface MobileNowPlayingProps {
     onClose: () => void;
     handlePlayPause: () => void;
     handleProgressChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    handleSeek?: (time: number) => void;
     imageUrl: string;
     audioRefs: React.RefObject<HTMLAudioElement>[];
 }
@@ -30,6 +31,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     onClose,
     handlePlayPause,
     handleProgressChange,
+    handleSeek,
     imageUrl,
     audioRefs
 }) => {
@@ -256,6 +258,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             songId={currentSong.id}
                                             songName={currentSong.name}
                                             artistName={currentSong.primaryArtists}
+                                            onSeek={handleSeek}
                                         />
                                     </div>
                                 </motion.div>
