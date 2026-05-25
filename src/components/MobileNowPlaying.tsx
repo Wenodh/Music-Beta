@@ -33,18 +33,19 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     imageUrl,
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, songs, isQueueOpen: reduxQueueOpen } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, songs, isQueueOpen: reduxQueueOpen, recommendations } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
-    const { theme } = useAppSelector(state => state.ui);
-    const [activeSection, setActiveSection] = useState<'player' | 'queue'>('player');
+    const { theme, isLyricsOpen: reduxLyricsOpen } = useAppSelector(state => state.ui);
+    const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue'>('player');
 
     // Sync with Redux flags when opening
     React.useEffect(() => {
         if (isOpen) {
-            if (reduxQueueOpen) setActiveSection('queue');
+            if (reduxLyricsOpen) setActiveSection('lyrics');
+            else if (reduxQueueOpen) setActiveSection('queue');
             else setActiveSection('player');
         }
-    }, [isOpen, reduxQueueOpen]);
+    }, [isOpen, reduxLyricsOpen, reduxQueueOpen]);
 
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
@@ -98,84 +99,134 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         <div className="w-10" />
                     </div>
 
-                    {/* Integrated Main Content Area - NO SCROLLING */}
+                    {/* Integrated Main Content Area */}
                     <div className="relative z-10 flex-1 flex flex-col pointer-events-auto overflow-hidden">
 
-                        {/* Compact Header Info */}
-                        <div className="px-6 py-4 flex items-center gap-4">
-                            <div className="relative w-20 h-20 shrink-0">
-                                <motion.img
-                                    layoutId="player-album-art"
-                                    src={imageUrl}
-                                    alt=""
-                                    className="w-full h-full object-cover rounded-xl shadow-lg border border-white/10"
-                                />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <motion.h2
-                                    layoutId="player-song-name"
-                                    className="text-lg font-black truncate"
+                        <AnimatePresence mode="wait">
+                            {activeSection === 'player' ? (
+                                <motion.div
+                                    key="player-view"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="flex-1 flex flex-col items-center justify-center px-8 py-4 overflow-y-auto custom-scrollbar no-scrollbar"
                                 >
-                                    {decodeHtmlEntities(currentSong.name)}
-                                </motion.h2>
-                                <motion.p
-                                    layoutId="player-song-artist"
-                                    className="text-sm text-primary font-bold opacity-90 truncate"
-                                >
-                                    {decodeHtmlEntities(currentSong.primaryArtists)}
-                                </motion.p>
-                            </div>
-                            <button
-                                onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
-                                className="p-2"
-                            >
-                                {isFavorite ? <IoHeart className="text-primary" size={24} /> : <IoHeartOutline size={24} />}
-                            </button>
-                        </div>
+                                    {/* Large Album Art */}
+                                    <div className="relative w-full aspect-square max-w-[320px] mb-8">
+                                        <motion.img
+                                            layoutId="player-album-art"
+                                            src={imageUrl}
+                                            alt=""
+                                            className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10"
+                                        />
+                                    </div>
 
-                        {/* Lyrics/Queue Section - Takes most of the space, has its own internal scrolling */}
-                        <div className="flex-1 min-h-0 px-6 py-2 relative">
-                            <div className="h-full bg-white/5 rounded-3xl overflow-hidden backdrop-blur-md border border-white/10 relative">
-                                <Lyrics
-                                    isOpen={activeSection === 'player'}
-                                    onClose={() => {}}
-                                    songId={currentSong.id}
-                                    songName={currentSong.name}
-                                    artistName={currentSong.primaryArtists}
-                                    onSeek={handleSeek}
-                                />
-                                <AnimatePresence>
-                                    {activeSection === 'queue' && (
-                                        <motion.div
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: 20 }}
-                                            className="absolute inset-0 bg-gray-950/90 backdrop-blur-xl z-30 flex flex-col"
+                                    {/* Large Song Info */}
+                                    <div className="w-full text-left mb-6 flex justify-between items-end">
+                                        <div className="flex-1 min-w-0 pr-4">
+                                            <motion.h2
+                                                layoutId="player-song-name"
+                                                className="text-2xl md:text-3xl font-black mb-1 truncate"
+                                            >
+                                                {decodeHtmlEntities(currentSong.name)}
+                                            </motion.h2>
+                                            <motion.p
+                                                layoutId="player-song-artist"
+                                                className="text-lg text-primary font-bold opacity-90 truncate"
+                                            >
+                                                {decodeHtmlEntities(currentSong.primaryArtists)}
+                                            </motion.p>
+                                        </div>
+                                        <button
+                                            onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
+                                            className="p-2"
                                         >
-                                            <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                                                <h3 className="font-bold">Next In Queue</h3>
-                                                <button onClick={() => setActiveSection('player')} className="text-xs text-primary font-bold">Back to Lyrics</button>
-                                            </div>
-                                            <div className="flex-1 overflow-y-auto p-2 custom-scrollbar no-scrollbar">
-                                                {songs.map((song, i) => (
-                                                    <div
-                                                        key={song.id + i}
-                                                        onClick={() => dispatch(playMusic(song))}
-                                                        className={`flex items-center gap-3 p-3 rounded-2xl transition-colors ${song.id === currentSong.id ? 'bg-primary/20 text-primary' : 'hover:bg-white/5'}`}
-                                                    >
-                                                        <img src={Array.isArray(song.image) ? song.image[0].url : song.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-bold truncate">{decodeHtmlEntities(song.name)}</p>
-                                                            <p className="text-xs opacity-60 truncate">{decodeHtmlEntities(song.primaryArtists)}</p>
-                                                        </div>
+                                            {isFavorite ? <IoHeart className="text-primary" size={28} /> : <IoHeartOutline size={28} />}
+                                        </button>
+                                    </div>
+
+                                    {/* Basic track info/stats */}
+                                    <div className="w-full bg-white/5 rounded-2xl p-4 mb-4 border border-white/5">
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Album</p>
+                                        <p className="text-sm font-bold truncate">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || 'Single')}</p>
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="content-view"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="flex-1 flex flex-col overflow-hidden"
+                                >
+                                    {/* Compact Header Info */}
+                                    <div className="px-6 py-4 flex items-center gap-4 border-b border-white/5">
+                                        <div className="relative w-14 h-14 shrink-0">
+                                            <motion.img
+                                                layoutId="player-album-art"
+                                                src={imageUrl}
+                                                alt=""
+                                                className="w-full h-full object-cover rounded-lg shadow-lg"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <motion.h2
+                                                layoutId="player-song-name"
+                                                className="text-base font-black truncate"
+                                            >
+                                                {decodeHtmlEntities(currentSong.name)}
+                                            </motion.h2>
+                                            <motion.p
+                                                layoutId="player-song-artist"
+                                                className="text-xs text-primary font-bold truncate"
+                                            >
+                                                {decodeHtmlEntities(currentSong.primaryArtists)}
+                                            </motion.p>
+                                        </div>
+                                        <button onClick={() => setActiveSection('player')} className="text-[10px] font-bold text-primary border border-primary/30 px-2 py-1 rounded-full">Player</button>
+                                    </div>
+
+                                    {/* Integration Area (Lyrics or Queue) */}
+                                    <div className="flex-1 min-h-0 px-4 py-2">
+                                        <div className="h-full bg-white/5 rounded-3xl overflow-hidden backdrop-blur-md border border-white/10 relative">
+                                            {activeSection === 'lyrics' && (
+                                                <Lyrics
+                                                    isOpen={true}
+                                                    onClose={() => setActiveSection('player')}
+                                                    songId={currentSong.id}
+                                                    songName={currentSong.name}
+                                                    artistName={currentSong.primaryArtists}
+                                                    onSeek={handleSeek}
+                                                />
+                                            )}
+                                            {activeSection === 'queue' && (
+                                                <div className="h-full flex flex-col">
+                                                    <div className="p-4 border-b border-white/10 flex justify-between items-center">
+                                                        <h3 className="font-bold">Next In Queue</h3>
+                                                        <span className="text-xs text-gray-400">{songs.length} tracks</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        </div>
+                                                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar no-scrollbar">
+                                                        {songs.map((song, i) => (
+                                                            <div
+                                                                key={song.id + i}
+                                                                onClick={() => dispatch(playMusic(song))}
+                                                                className={`flex items-center gap-3 p-3 rounded-2xl transition-colors ${song.id === currentSong.id ? 'bg-primary/20 text-primary' : 'hover:bg-white/5'}`}
+                                                            >
+                                                                <img src={Array.isArray(song.image) ? song.image[0].url : song.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-bold truncate">{decodeHtmlEntities(song.name)}</p>
+                                                                    <p className="text-xs opacity-60 truncate">{decodeHtmlEntities(song.primaryArtists)}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Integrated Controls & Progress - Fixed at bottom */}
                         <div className="px-8 pt-4 pb-12">
@@ -226,6 +277,13 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             {/* Secondary Actions */}
                             <div className="w-full flex justify-around items-center">
                                 <button
+                                    onClick={() => setActiveSection(activeSection === 'lyrics' ? 'player' : 'lyrics')}
+                                    className={`flex flex-col items-center gap-1 transition-colors ${activeSection === 'lyrics' ? 'text-primary' : 'text-gray-400'}`}
+                                >
+                                    <MdOutlineLyrics size={20} />
+                                    <span className="text-[10px] font-bold uppercase">Lyrics</span>
+                                </button>
+                                <button
                                     onClick={() => dispatch(setEqualizerOpen(true))}
                                     className="flex flex-col items-center gap-1 text-gray-400"
                                 >
@@ -246,10 +304,6 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <HiQueueList size={20} />
                                     <span className="text-[10px] font-bold uppercase">Queue</span>
                                 </button>
-                                <div className="flex flex-col items-center gap-1 text-gray-400">
-                                    <IoEllipsisHorizontal size={20} />
-                                    <span className="text-[10px] font-bold uppercase">More</span>
-                                </div>
                             </div>
                         </div>
                     </div>
