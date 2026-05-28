@@ -6,10 +6,10 @@ import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold } from 'react-icons/pi';
-import { MdOutlineLyrics, MdOutlineGraphicEq } from 'react-icons/md';
+import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setQueueOpen, setCurrentTime, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setQueueOpen, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -36,7 +36,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     audioRefs
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen, visualizerStyle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme, isLyricsOpen: reduxLyricsOpen } = useAppSelector(state => state.ui);
     const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue'>('player');
@@ -57,9 +57,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const songStack = React.useMemo(() => {
         if (!currentSong || songs.length === 0) return [];
         const stack = [];
+        const safeIndex = Math.max(0, currentIndex);
         for (let i = 0; i < Math.min(3, songs.length); i++) {
-            const index = (currentIndex + i) % songs.length;
-            stack.push(songs[index]);
+            const index = (safeIndex + i) % songs.length;
+            const song = songs[index];
+            if (song) stack.push(song);
         }
         return stack;
     }, [currentSong, songs, currentIndex]);
@@ -133,6 +135,31 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     {/* Main Content Area */}
                     <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar flex flex-col pointer-events-auto">
                         <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
+                            {/* Visualizer Style Selector */}
+                            <div className="flex bg-white/5 backdrop-blur-md rounded-full p-1 mb-6 border border-white/10">
+                                <button
+                                    onClick={() => dispatch(setVisualizerStyle('bars'))}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full transition-all ${visualizerStyle === 'bars' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    <MdBarChart size={18} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Bars</span>
+                                </button>
+                                <button
+                                    onClick={() => dispatch(setVisualizerStyle('waveform'))}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full transition-all ${visualizerStyle === 'waveform' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    <MdShowChart size={18} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Wave</span>
+                                </button>
+                                <button
+                                    onClick={() => dispatch(setVisualizerStyle('particles'))}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full transition-all ${visualizerStyle === 'particles' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    <MdBubbleChart size={18} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Particles</span>
+                                </button>
+                            </div>
+
                             {/* Album Art Card Stack */}
                             <div
                                 className="relative w-full aspect-square max-w-[340px] mb-12 group"

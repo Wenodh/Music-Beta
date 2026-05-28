@@ -14,13 +14,14 @@ import {
     decrementSleepTimer,
     setCurrentTime,
     setSongRadioEnabled,
+    setVisualizerStyle,
 } from '../features/musicplayer/musicPlayerSlice';
 import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
 import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiQueueList } from 'react-icons/hi2';
-import { MdOutlineGraphicEq, MdOutlineCloseFullscreen } from 'react-icons/md';
+import { MdOutlineGraphicEq, MdOutlineCloseFullscreen, MdBarChart, MdShowChart, MdBubbleChart } from 'react-icons/md';
 import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
@@ -46,7 +47,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
-        isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled
+        isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
+        visualizerStyle
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, theme: uiTheme } = useAppSelector((state) => state.ui);
@@ -578,6 +580,40 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
                         {/* 3rd div */}
                         <div className="flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
+                            {/* Desktop Visualizer Selector */}
+                            <div className="hidden xl:flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-1">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(setVisualizerStyle('bars'));
+                                    }}
+                                    className={`p-1.5 rounded-full transition-all ${visualizerStyle === 'bars' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-primary'}`}
+                                    title="Bars Visualizer"
+                                >
+                                    <MdBarChart size={18} />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(setVisualizerStyle('waveform'));
+                                    }}
+                                    className={`p-1.5 rounded-full transition-all ${visualizerStyle === 'waveform' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-primary'}`}
+                                    title="Waveform Visualizer"
+                                >
+                                    <MdShowChart size={18} />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(setVisualizerStyle('particles'));
+                                    }}
+                                    className={`p-1.5 rounded-full transition-all ${visualizerStyle === 'particles' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-primary'}`}
+                                    title="Particles Visualizer"
+                                >
+                                    <MdBubbleChart size={18} />
+                                </button>
+                            </div>
+
                             <motion.button
                                 whileTap={{ scale: 0.9 }}
                                 className="hidden lg:block"
@@ -676,6 +712,42 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                             >
                                                 <MdOutlineGraphicEq size={20} /> Equalizer
                                             </button>
+
+                                            <div className="xl:hidden border-t border-gray-100 dark:border-gray-700 my-1 pt-1">
+                                                <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase">Visualizer Mode</p>
+                                                <div className="flex px-4 py-2 gap-4">
+                                                    <button
+                                                        onClick={() => {
+                                                            dispatch(setVisualizerStyle('bars'));
+                                                            setIsMoreMenuOpen(false);
+                                                        }}
+                                                        className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${visualizerStyle === 'bars' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                    >
+                                                        <MdBarChart size={20} />
+                                                        <span className="text-[10px] font-bold uppercase">Bars</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            dispatch(setVisualizerStyle('waveform'));
+                                                            setIsMoreMenuOpen(false);
+                                                        }}
+                                                        className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${visualizerStyle === 'waveform' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                    >
+                                                        <MdShowChart size={20} />
+                                                        <span className="text-[10px] font-bold uppercase">Wave</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            dispatch(setVisualizerStyle('particles'));
+                                                            setIsMoreMenuOpen(false);
+                                                        }}
+                                                        className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${visualizerStyle === 'particles' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                    >
+                                                        <MdBubbleChart size={20} />
+                                                        <span className="text-[10px] font-bold uppercase">Particles</span>
+                                                    </button>
+                                                </div>
+                                            </div>
 
                                             <button
                                                 onClick={() => {
