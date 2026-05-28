@@ -124,7 +124,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-gray-950/80 to-gray-950" />
 
                         {/* Background Visualizer */}
-                        <div className="absolute inset-0 opacity-30 pointer-events-none">
+                        <div className="absolute inset-0 opacity-40 pointer-events-none">
                             <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                         </div>
                     </div>
@@ -146,7 +146,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
                             {/* Album Art with Tinder-style swipe */}
                             <div className="relative w-full aspect-square max-w-[340px] mb-8 group perspective-1000">
-                                <div className="absolute -inset-4 opacity-30">
+                                <div className="absolute -inset-8 opacity-50">
                                     <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                                 </div>
 

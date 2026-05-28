@@ -146,51 +146,58 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ef4444';
 
             if (visualizerStyle === 'bars') {
-                const barCount = 64; // Limit bars for better full-screen performance
+                const barCount = 64;
                 const barWidth = (width / barCount);
                 for (let i = 0; i < barCount; i++) {
                     const dataIndex = Math.floor((i / barCount) * bufferLength);
-                    const barHeight = (dataArray[dataIndex] / 255) * height * 0.9;
+                    const barHeight = (dataArray[dataIndex] / 255) * height * 0.8;
 
                     const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
-                    gradient.addColorStop(0, `${accentColor}20`);
+                    gradient.addColorStop(0, `${accentColor}10`);
+                    gradient.addColorStop(0.5, `${accentColor}80`);
                     gradient.addColorStop(1, accentColor);
 
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = accentColor;
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
-                    ctx.roundRect(i * barWidth, height - barHeight, barWidth - 4, barHeight, [8, 8, 0, 0]);
+                    ctx.roundRect(i * barWidth + 2, height - barHeight, barWidth - 4, barHeight, [12, 12, 0, 0]);
                     ctx.fill();
+                    ctx.shadowBlur = 0;
                 }
             } else if (visualizerStyle === 'circular') {
                 const centerX = width / 2;
                 const centerY = height / 2;
-                const baseRadius = Math.min(width, height) / 5;
+                const baseRadius = Math.min(width, height) / 6;
 
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = `${accentColor}20`;
-                ctx.stroke();
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = accentColor;
 
-                for (let i = 0; i < bufferLength; i++) {
+                for (let i = 0; i < bufferLength; i += 2) {
                     const angle = (i / bufferLength) * Math.PI * 2;
-                    const value = (dataArray[i] / 255) * baseRadius * 0.8;
+                    const value = (dataArray[i] / 255) * baseRadius * 1.5;
 
                     const x1 = centerX + Math.cos(angle) * baseRadius;
                     const y1 = centerY + Math.sin(angle) * baseRadius;
                     const x2 = centerX + Math.cos(angle) * (baseRadius + value);
                     const y2 = centerY + Math.sin(angle) * (baseRadius + value);
 
-                    ctx.strokeStyle = accentColor;
-                    ctx.lineWidth = 2;
+                    const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                    gradient.addColorStop(0, `${accentColor}40`);
+                    gradient.addColorStop(1, accentColor);
+
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 3;
                     ctx.lineCap = 'round';
                     ctx.beginPath();
                     ctx.moveTo(x1, y1);
                     ctx.lineTo(x2, y2);
                     ctx.stroke();
                 }
+                ctx.shadowBlur = 0;
             } else if (visualizerStyle === 'waveform') {
                 analyserRef.current!.getByteTimeDomainData(dataArray);
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 3;
                 ctx.strokeStyle = accentColor;
                 ctx.lineJoin = 'round';
                 ctx.beginPath();
@@ -212,26 +219,40 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 }
 
                 ctx.lineTo(width, height / 2);
+
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = accentColor;
                 ctx.stroke();
 
-                // Add a glow effect
-                ctx.globalAlpha = 0.3;
-                ctx.lineWidth = 12;
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
+                // Fill under waveform
+                ctx.lineTo(width, height);
+                ctx.lineTo(0, height);
+                const fillGradient = ctx.createLinearGradient(0, height/2, 0, height);
+                fillGradient.addColorStop(0, `${accentColor}40`);
+                fillGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = fillGradient;
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
             } else if (visualizerStyle === 'particles') {
-                for (let i = 0; i < bufferLength; i += 8) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = accentColor;
+                for (let i = 0; i < bufferLength; i += 6) {
                     const value = dataArray[i];
                     const percent = value / 255;
-                    const radius = percent * 15;
+                    const radius = percent * 20;
                     const x = (i / bufferLength) * width;
-                    const y = height - (percent * height);
+                    const y = height / 2 + (Math.sin(Date.now() / 1000 + i) * height / 4) - (percent * height / 2);
 
                     ctx.beginPath();
                     ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.fillStyle = `${accentColor}${Math.floor(percent * 255).toString(16).padStart(2, '0')}`;
+                    const particleGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                    particleGradient.addColorStop(0, accentColor);
+                    particleGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = particleGradient;
                     ctx.fill();
                 }
+                ctx.shadowBlur = 0;
             }
         };
 
@@ -251,7 +272,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 cancelAnimationFrame(requestRef.current);
             }
         };
-    }, [isPlaying]);
+    }, [isPlaying, visualizerStyle]);
 
     return (
         <div className="relative w-full h-full">
