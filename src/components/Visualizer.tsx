@@ -13,8 +13,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const analyserRef = useRef<AnalyserNode | null>(null);
     const contextRef = useRef<AudioContext | null>(null);
     const filtersRef = useRef<BiquadFilterNode[]>([]);
-    const { equalizerSettings } = useAppSelector(state => state.musicPlayer);
-    const [mode, setMode] = React.useState<'bars' | 'circular' | 'waveform' | 'particles'>('bars');
+    const { equalizerSettings, visualizerStyle } = useAppSelector(state => state.musicPlayer);
 
     useEffect(() => {
         const initAudio = () => {
@@ -146,53 +145,61 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ef4444';
 
-            if (mode === 'bars') {
-                const barWidth = (width / bufferLength) * 2.5;
-                let x = 0;
-                for (let i = 0; i < bufferLength; i++) {
-                    const barHeight = (dataArray[i] / 255) * height * 0.8;
+            if (visualizerStyle === 'bars') {
+                const barCount = 64;
+                const barWidth = (width / barCount);
+                for (let i = 0; i < barCount; i++) {
+                    const dataIndex = Math.floor((i / barCount) * bufferLength);
+                    const barHeight = (dataArray[dataIndex] / 255) * height * 0.8;
 
                     const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
-                    gradient.addColorStop(0, `${accentColor}40`);
+                    gradient.addColorStop(0, `${accentColor}10`);
+                    gradient.addColorStop(0.5, `${accentColor}80`);
                     gradient.addColorStop(1, accentColor);
 
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = accentColor;
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
-                    ctx.roundRect(x, height - barHeight, barWidth - 2, barHeight, [4, 4, 0, 0]);
+                    ctx.roundRect(i * barWidth + 2, height - barHeight, barWidth - 4, barHeight, [12, 12, 0, 0]);
                     ctx.fill();
-                    x += barWidth;
+                    ctx.shadowBlur = 0;
                 }
-            } else if (mode === 'circular') {
+            } else if (visualizerStyle === 'circular') {
                 const centerX = width / 2;
                 const centerY = height / 2;
-                const baseRadius = Math.min(width, height) / 5;
+                const baseRadius = Math.min(width, height) / 6;
 
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = `${accentColor}20`;
-                ctx.stroke();
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = accentColor;
 
-                for (let i = 0; i < bufferLength; i++) {
+                for (let i = 0; i < bufferLength; i += 2) {
                     const angle = (i / bufferLength) * Math.PI * 2;
-                    const value = (dataArray[i] / 255) * baseRadius * 0.8;
+                    const value = (dataArray[i] / 255) * baseRadius * 1.5;
 
                     const x1 = centerX + Math.cos(angle) * baseRadius;
                     const y1 = centerY + Math.sin(angle) * baseRadius;
                     const x2 = centerX + Math.cos(angle) * (baseRadius + value);
                     const y2 = centerY + Math.sin(angle) * (baseRadius + value);
 
-                    ctx.strokeStyle = accentColor;
-                    ctx.lineWidth = 2;
+                    const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                    gradient.addColorStop(0, `${accentColor}40`);
+                    gradient.addColorStop(1, accentColor);
+
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 3;
                     ctx.lineCap = 'round';
                     ctx.beginPath();
                     ctx.moveTo(x1, y1);
                     ctx.lineTo(x2, y2);
                     ctx.stroke();
                 }
-            } else if (mode === 'waveform') {
+                ctx.shadowBlur = 0;
+            } else if (visualizerStyle === 'waveform') {
                 analyserRef.current!.getByteTimeDomainData(dataArray);
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = accentColor;
+                ctx.lineJoin = 'round';
                 ctx.beginPath();
 
                 const sliceWidth = width / bufferLength;
@@ -212,20 +219,40 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 }
 
                 ctx.lineTo(width, height / 2);
+
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = accentColor;
                 ctx.stroke();
-            } else if (mode === 'particles') {
-                for (let i = 0; i < bufferLength; i += 8) {
+
+                // Fill under waveform
+                ctx.lineTo(width, height);
+                ctx.lineTo(0, height);
+                const fillGradient = ctx.createLinearGradient(0, height/2, 0, height);
+                fillGradient.addColorStop(0, `${accentColor}40`);
+                fillGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = fillGradient;
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+            } else if (visualizerStyle === 'particles') {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = accentColor;
+                for (let i = 0; i < bufferLength; i += 6) {
                     const value = dataArray[i];
                     const percent = value / 255;
-                    const radius = percent * 15;
+                    const radius = percent * 20;
                     const x = (i / bufferLength) * width;
-                    const y = height - (percent * height);
+                    const y = height / 2 + (Math.sin(Date.now() / 1000 + i) * height / 4) - (percent * height / 2);
 
                     ctx.beginPath();
                     ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.fillStyle = `${accentColor}${Math.floor(percent * 255).toString(16).padStart(2, '0')}`;
+                    const particleGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                    particleGradient.addColorStop(0, accentColor);
+                    particleGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = particleGradient;
                     ctx.fill();
                 }
+                ctx.shadowBlur = 0;
             }
         };
 
@@ -245,7 +272,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 cancelAnimationFrame(requestRef.current);
             }
         };
-    }, [isPlaying]);
+    }, [isPlaying, visualizerStyle]);
 
     return (
         <div className="relative w-full h-full">
@@ -257,17 +284,6 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 aria-hidden="true"
                 role="presentation"
             />
-            <div className="absolute top-2 left-2 flex gap-1 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                {(['bars', 'circular', 'waveform', 'particles'] as const).map(m => (
-                    <button
-                        key={m}
-                        onClick={() => setMode(m)}
-                        className={`text-[8px] font-bold uppercase px-2 py-1 rounded bg-black/50 text-white transition-colors hover:bg-black/70 ${mode === m ? 'text-primary ring-1 ring-primary/50' : ''}`}
-                    >
-                        {m}
-                    </button>
-                ))}
-            </div>
         </div>
     );
 };
