@@ -40,6 +40,34 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const { favorites } = useAppSelector(state => state.library);
     const { theme, isLyricsOpen: reduxLyricsOpen } = useAppSelector(state => state.ui);
     const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue'>('player');
+    const [exitDirection, setExitDirection] = useState<number>(0);
+
+    const handleNext = () => {
+        setExitDirection(-500);
+        dispatch(nextSongAction());
+    };
+
+    const handlePrev = () => {
+        setExitDirection(500);
+        dispatch(prevSongAction());
+    };
+
+    // Calculate song stack for Tinder-style swiping
+    const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
+    const songStack = React.useMemo(() => {
+        if (!currentSong || songs.length === 0) return [];
+        const stack = [];
+        for (let i = 0; i < Math.min(3, songs.length); i++) {
+            const index = (currentIndex + i) % songs.length;
+            stack.push(songs[index]);
+        }
+        return stack;
+    }, [currentSong, songs, currentIndex]);
+
+    const getSongImage = (song: any) => {
+        if (!song) return '';
+        return Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image;
+    };
 
     // Sync with Redux flags when opening
     React.useEffect(() => {
@@ -105,19 +133,69 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     {/* Main Content Area */}
                     <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar flex flex-col pointer-events-auto">
                         <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
-                            {/* Album Art with LayoutID */}
+                            {/* Album Art Card Stack */}
                             <div
-                                className="relative w-full aspect-square max-w-[340px] mb-8 group"
+                                className="relative w-full aspect-square max-w-[340px] mb-12 group"
+                                style={{ perspective: '1000px' }}
                             >
-                                <div className="absolute -inset-4 opacity-30">
+                                <div className="absolute -inset-8 opacity-30 pointer-events-none">
                                     <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                                 </div>
-                                <motion.img
-                                    layoutId="player-album-art"
-                                    src={imageUrl}
-                                    alt=""
-                                    className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 relative z-10"
-                                />
+
+                                <AnimatePresence mode="popLayout">
+                                    {songStack.slice().reverse().map((song, index) => {
+                                        const stackIndex = songStack.length - 1 - index; // 0 for top card, 1 for middle, 2 for bottom
+                                        const isTop = stackIndex === 0;
+
+                                        return (
+                                            <motion.div
+                                                key={song.id}
+                                                style={{
+                                                    zIndex: 50 - stackIndex,
+                                                }}
+                                                initial={{
+                                                    scale: 0.9 - stackIndex * 0.05,
+                                                    y: stackIndex * 20,
+                                                    opacity: 0
+                                                }}
+                                                animate={{
+                                                    scale: 1 - stackIndex * 0.05,
+                                                    y: stackIndex * 20,
+                                                    rotateX: stackIndex * -5,
+                                                    opacity: 1 - stackIndex * 0.3,
+                                                }}
+                                                exit={{
+                                                    x: isTop ? exitDirection : 0,
+                                                    opacity: 0,
+                                                    scale: 0.5,
+                                                    rotate: isTop ? (exitDirection > 0 ? 25 : -25) : 0,
+                                                    transition: { duration: 0.4 }
+                                                }}
+                                                transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                                                drag={isTop ? "x" : false}
+                                                dragConstraints={{ left: 0, right: 0 }}
+                                                onDragEnd={(_, info) => {
+                                                    if (isTop) {
+                                                        if (info.offset.x > 100) {
+                                                            handlePrev();
+                                                        }
+                                                        else if (info.offset.x < -100) {
+                                                            handleNext();
+                                                        }
+                                                    }
+                                                }}
+                                                className="absolute inset-0"
+                                            >
+                                                <motion.img
+                                                    layoutId={isTop ? "player-album-art" : undefined}
+                                                    src={getSongImage(song)}
+                                                    alt=""
+                                                    className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10"
+                                                />
+                                            </motion.div>
+                                        );
+                                    })}
+                                </AnimatePresence>
                             </div>
 
                             {/* Song Info with LayoutID */}
@@ -180,7 +258,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={() => dispatch(prevSongAction())}
+                                        onClick={handlePrev}
                                         className="p-2"
                                     >
                                         <IoMdSkipBackward size={36} />
@@ -196,7 +274,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={() => dispatch(nextSongAction())}
+                                        onClick={handleNext}
                                         className="p-2"
                                     >
                                         <IoMdSkipForward size={36} />

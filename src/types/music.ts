@@ -13,6 +13,7 @@ export interface Song {
         name: string;
     } | string;
     type?: string;
+    year?: string | number;
 }
 
 export interface MusicPlayerState {
