@@ -6,7 +6,7 @@ import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold } from 'react-icons/pi';
-import { MdOutlineLyrics, MdOutlineGraphicEq } from 'react-icons/md';
+import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdLensBlur } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { playMusic, setQueueOpen, setCurrentTime, nextSong as nextSongAction, prevSong as prevSongAction, setVisualizerStyle } from '../features/musicplayer/musicPlayerSlice';
@@ -122,6 +122,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         />
                         <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20 blur-3xl scale-150" />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-gray-950/80 to-gray-950" />
+
+                        {/* Background Visualizer */}
+                        <div className="absolute inset-0 opacity-30 pointer-events-none">
+                            <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
+                        </div>
                     </div>
 
                     {/* Header */}
@@ -210,16 +215,27 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                                 {/* Visualizer Style Selector */}
                                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 bg-black/40 backdrop-blur-md p-1.5 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {(['bars', 'circular', 'waveform', 'particles'] as const).map(style => (
-                                        <button
-                                            key={style}
-                                            onClick={() => dispatch(setVisualizerStyle(style))}
-                                            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${visualizerStyle === style ? 'bg-primary text-white scale-110' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
-                                            title={`${style} visualizer`}
-                                        >
-                                            <MdOutlineGraphicEq size={14} />
-                                        </button>
-                                    ))}
+                                    {(['bars', 'circular', 'waveform', 'particles'] as const).map(style => {
+                                        const getIcon = () => {
+                                            switch (style) {
+                                                case 'bars': return <MdBarChart size={18} />;
+                                                case 'circular': return <MdLensBlur size={18} />;
+                                                case 'waveform': return <MdShowChart size={18} />;
+                                                case 'particles': return <MdBubbleChart size={18} />;
+                                                default: return <MdOutlineGraphicEq size={18} />;
+                                            }
+                                        };
+                                        return (
+                                            <button
+                                                key={style}
+                                                onClick={() => dispatch(setVisualizerStyle(style))}
+                                                className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${visualizerStyle === style ? 'bg-primary text-white scale-110' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+                                                title={`${style} visualizer`}
+                                            >
+                                                {getIcon()}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 

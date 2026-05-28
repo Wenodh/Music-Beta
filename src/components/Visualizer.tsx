@@ -146,20 +146,20 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ef4444';
 
             if (visualizerStyle === 'bars') {
-                const barWidth = (width / bufferLength) * 2.5;
-                let x = 0;
-                for (let i = 0; i < bufferLength; i++) {
-                    const barHeight = (dataArray[i] / 255) * height * 0.8;
+                const barCount = 64; // Limit bars for better full-screen performance
+                const barWidth = (width / barCount);
+                for (let i = 0; i < barCount; i++) {
+                    const dataIndex = Math.floor((i / barCount) * bufferLength);
+                    const barHeight = (dataArray[dataIndex] / 255) * height * 0.9;
 
                     const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
-                    gradient.addColorStop(0, `${accentColor}40`);
+                    gradient.addColorStop(0, `${accentColor}20`);
                     gradient.addColorStop(1, accentColor);
 
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
-                    ctx.roundRect(x, height - barHeight, barWidth - 2, barHeight, [4, 4, 0, 0]);
+                    ctx.roundRect(i * barWidth, height - barHeight, barWidth - 4, barHeight, [8, 8, 0, 0]);
                     ctx.fill();
-                    x += barWidth;
                 }
             } else if (visualizerStyle === 'circular') {
                 const centerX = width / 2;
@@ -190,8 +190,9 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 }
             } else if (visualizerStyle === 'waveform') {
                 analyserRef.current!.getByteTimeDomainData(dataArray);
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 4;
                 ctx.strokeStyle = accentColor;
+                ctx.lineJoin = 'round';
                 ctx.beginPath();
 
                 const sliceWidth = width / bufferLength;
@@ -212,6 +213,12 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
                 ctx.lineTo(width, height / 2);
                 ctx.stroke();
+
+                // Add a glow effect
+                ctx.globalAlpha = 0.3;
+                ctx.lineWidth = 12;
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
             } else if (visualizerStyle === 'particles') {
                 for (let i = 0; i < bufferLength; i += 8) {
                     const value = dataArray[i];
