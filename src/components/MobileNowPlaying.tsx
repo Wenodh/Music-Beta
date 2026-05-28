@@ -9,12 +9,13 @@ import { PiShuffleBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setQueueOpen, setCurrentTime, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setQueueOpen, setCurrentTime, nextSong as nextSongAction, prevSong as prevSongAction, setVisualizerStyle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
 import Lyrics from './Lyrics';
 import Queue from './Queue';
+import { useMotionValue, useTransform } from 'framer-motion';
 
 interface MobileNowPlayingProps {
     isOpen: boolean;
@@ -36,10 +37,43 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     audioRefs
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen, visualizerStyle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme, isLyricsOpen: reduxLyricsOpen } = useAppSelector(state => state.ui);
     const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue'>('player');
+
+    // Tinder-style swipe state
+    const x = useMotionValue(0);
+    const rotate = useTransform(x, [-200, 200], [-25, 25]);
+    const mainCardOpacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
+
+    // Background card transforms
+    const bgCard1Scale = useTransform(x, [-200, 0, 200], [0.95, 0.9, 0.95]);
+    const bgCard1Opacity = useTransform(x, [-200, 0, 200], [0.3, 0.1, 0.3]);
+    const bgCard1Y = useTransform(x, [-200, 0, 200], [10, 20, 10]);
+
+    const bgCard2Scale = useTransform(x, [-200, 0, 200], [1, 0.95, 1]);
+    const bgCard2Opacity = useTransform(x, [-200, 0, 200], [0.8, 0.4, 0.8]);
+    const bgCard2Y = useTransform(x, [-200, 0, 200], [0, 10, 0]);
+
+    const nextImgOpacity = useTransform(x, [-200, 0, 200], [1, 1, 0]);
+    const prevImgOpacity = useTransform(x, [-200, 0, 200], [0, 1, 1]);
+
+    // Reset x position when song changes
+    React.useEffect(() => {
+        x.set(0);
+    }, [currentSong?.id, x]);
+
+    // Get next and previous songs for the stack
+    const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
+    const hasSongs = songs.length > 0;
+    const nextSong = hasSongs ? songs[(currentIndex + 1) % songs.length] : null;
+    const prevSong = hasSongs ? songs[(currentIndex - 1 + songs.length) % songs.length] : null;
+
+    const getImageUrl = (song: any) => {
+        if (!song) return '';
+        return Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image;
+    };
 
     // Sync with Redux flags when opening
     React.useEffect(() => {
@@ -105,19 +139,88 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     {/* Main Content Area */}
                     <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar flex flex-col pointer-events-auto">
                         <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
-                            {/* Album Art with LayoutID */}
-                            <div
-                                className="relative w-full aspect-square max-w-[340px] mb-8 group"
-                            >
+                            {/* Album Art with Tinder-style swipe */}
+                            <div className="relative w-full aspect-square max-w-[340px] mb-8 group perspective-1000">
                                 <div className="absolute -inset-4 opacity-30">
                                     <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                                 </div>
-                                <motion.img
-                                    layoutId="player-album-art"
-                                    src={imageUrl}
-                                    alt=""
-                                    className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 relative z-10"
-                                />
+
+                                {/* Background Cards (Stack) */}
+                                <div className="absolute inset-0 z-0 flex items-center justify-center">
+                                    {/* Second Background Card */}
+                                    <motion.div
+                                        style={{
+                                            scale: bgCard1Scale,
+                                            opacity: bgCard1Opacity,
+                                            y: bgCard1Y,
+                                        }}
+                                        className="absolute inset-0 w-full h-full bg-white/5 rounded-3xl blur-md"
+                                    />
+
+                                    {/* Immediate Background Card */}
+                                    <motion.div
+                                        style={{
+                                            scale: bgCard2Scale,
+                                            opacity: bgCard2Opacity,
+                                            y: bgCard2Y,
+                                        }}
+                                        className="absolute inset-0 w-full h-full"
+                                    >
+                                        {nextSong && (
+                                            <motion.img
+                                                src={getImageUrl(nextSong)}
+                                                style={{ opacity: nextImgOpacity }}
+                                                alt=""
+                                                className="absolute inset-0 w-full h-full object-cover rounded-3xl opacity-40 blur-[2px]"
+                                            />
+                                        )}
+                                        {prevSong && (
+                                            <motion.img
+                                                src={getImageUrl(prevSong)}
+                                                style={{ opacity: prevImgOpacity }}
+                                                alt=""
+                                                className="absolute inset-0 w-full h-full object-cover rounded-3xl opacity-40 blur-[2px]"
+                                            />
+                                        )}
+                                    </motion.div>
+                                </div>
+
+                                {/* Active Card */}
+                                <motion.div
+                                    style={{ x, rotate, opacity: mainCardOpacity }}
+                                    drag="x"
+                                    dragConstraints={{ left: 0, right: 0 }}
+                                    onDragEnd={(_, info) => {
+                                        const swipeThreshold = 100;
+                                        if (info.offset.x > swipeThreshold) {
+                                            dispatch(prevSongAction());
+                                        } else if (info.offset.x < -swipeThreshold) {
+                                            dispatch(nextSongAction());
+                                        }
+                                    }}
+                                    className="relative z-10 w-full h-full cursor-grab active:cursor-grabbing"
+                                >
+                                    <motion.img
+                                        layoutId="player-album-art"
+                                        src={imageUrl}
+                                        alt=""
+                                        className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10"
+                                    />
+                                </motion.div>
+
+                                {/* Visualizer Style Selector */}
+                                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 bg-black/40 backdrop-blur-md p-1.5 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {(['bars', 'circular', 'waveform', 'particles'] as const).map(style => (
+                                        <button
+                                            key={style}
+                                            onClick={() => dispatch(setVisualizerStyle(style))}
+                                            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${visualizerStyle === style ? 'bg-primary text-white scale-110' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+                                            title={`${style} visualizer`}
+                                        >
+                                            <MdOutlineGraphicEq size={14} />
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Song Info with LayoutID */}

@@ -13,8 +13,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const analyserRef = useRef<AnalyserNode | null>(null);
     const contextRef = useRef<AudioContext | null>(null);
     const filtersRef = useRef<BiquadFilterNode[]>([]);
-    const { equalizerSettings } = useAppSelector(state => state.musicPlayer);
-    const [mode, setMode] = React.useState<'bars' | 'circular' | 'waveform' | 'particles'>('bars');
+    const { equalizerSettings, visualizerStyle } = useAppSelector(state => state.musicPlayer);
 
     useEffect(() => {
         const initAudio = () => {
@@ -146,7 +145,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ef4444';
 
-            if (mode === 'bars') {
+            if (visualizerStyle === 'bars') {
                 const barWidth = (width / bufferLength) * 2.5;
                 let x = 0;
                 for (let i = 0; i < bufferLength; i++) {
@@ -162,7 +161,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                     ctx.fill();
                     x += barWidth;
                 }
-            } else if (mode === 'circular') {
+            } else if (visualizerStyle === 'circular') {
                 const centerX = width / 2;
                 const centerY = height / 2;
                 const baseRadius = Math.min(width, height) / 5;
@@ -189,7 +188,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                     ctx.lineTo(x2, y2);
                     ctx.stroke();
                 }
-            } else if (mode === 'waveform') {
+            } else if (visualizerStyle === 'waveform') {
                 analyserRef.current!.getByteTimeDomainData(dataArray);
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = accentColor;
@@ -213,7 +212,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
                 ctx.lineTo(width, height / 2);
                 ctx.stroke();
-            } else if (mode === 'particles') {
+            } else if (visualizerStyle === 'particles') {
                 for (let i = 0; i < bufferLength; i += 8) {
                     const value = dataArray[i];
                     const percent = value / 255;
@@ -257,17 +256,6 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 aria-hidden="true"
                 role="presentation"
             />
-            <div className="absolute top-2 left-2 flex gap-1 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                {(['bars', 'circular', 'waveform', 'particles'] as const).map(m => (
-                    <button
-                        key={m}
-                        onClick={() => setMode(m)}
-                        className={`text-[8px] font-bold uppercase px-2 py-1 rounded bg-black/50 text-white transition-colors hover:bg-black/70 ${mode === m ? 'text-primary ring-1 ring-primary/50' : ''}`}
-                    >
-                        {m}
-                    </button>
-                ))}
-            </div>
         </div>
     );
 };
