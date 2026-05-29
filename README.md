@@ -88,6 +88,19 @@ Developed with ❤️ by **WENODH**.
 
 ---
 
+## 📱 Android & Mobile
+VibeOn is optimized for Android using Capacitor.
+
+### Build Locally
+1. **Sync Capacitor**: `npx cap sync android`
+2. **Open in Android Studio**: `npx cap open android`
+3. **Build APK**: Use Android Studio to build the debug or release APK.
+
+### Automated Builds
+Every push to `main` triggers a GitHub Action that builds a debug APK, available in the "Actions" tab of the repository.
+
+---
+
 ## 📸 Screenshots & Visuals
 
 > [!NOTE]
