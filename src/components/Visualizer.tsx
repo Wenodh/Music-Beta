@@ -7,102 +7,98 @@ interface VisualizerProps {
     isPlaying: boolean;
 }
 
+// Singleton Audio Graph
+let sharedContext: AudioContext | null = null;
+let sharedAnalyser: AnalyserNode | null = null;
+let sharedFilters: BiquadFilterNode[] = [];
+let isInitialized = false;
+
 const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number>();
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const contextRef = useRef<AudioContext | null>(null);
-    const filtersRef = useRef<BiquadFilterNode[]>([]);
     const { equalizerSettings, visualizerStyle } = useAppSelector(state => state.musicPlayer);
 
+    const setupAudioSource = (audioEl: HTMLAudioElement, context: AudioContext, firstFilter: BiquadFilterNode) => {
+        const el = audioEl as any;
+        if (el._visualizerSource) return;
+
+        try {
+            const source = context.createMediaElementSource(audioEl);
+            const gainNode = context.createGain();
+
+            source.connect(gainNode);
+            gainNode.connect(firstFilter);
+
+            el._visualizerSource = source;
+            el._gainNode = gainNode;
+            el._visualizerContext = context;
+        } catch (e) {
+            console.error("Error setting up audio source", e);
+        }
+    };
+
+    const initAudio = () => {
+        if (isInitialized) return;
+
+        try {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            sharedContext = new AudioContextClass();
+
+            sharedAnalyser = sharedContext.createAnalyser();
+            sharedAnalyser.fftSize = 512;
+            sharedAnalyser.smoothingTimeConstant = 0.8;
+
+            // Create shared filters (EQ)
+            sharedFilters = FREQUENCIES.map((freq, i) => {
+                const filter = sharedContext!.createBiquadFilter();
+                filter.type = 'peaking';
+                filter.frequency.value = freq;
+                filter.Q.value = 1;
+                filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
+                return filter;
+            });
+
+            // Connect filters in series
+            for (let i = 0; i < sharedFilters.length - 1; i++) {
+                sharedFilters[i].connect(sharedFilters[i + 1]);
+            }
+
+            // Last filter connects to analyser
+            sharedFilters[sharedFilters.length - 1].connect(sharedAnalyser);
+            sharedAnalyser.connect(sharedContext.destination);
+
+            isInitialized = true;
+        } catch (err) {
+            console.warn('Failed to initialize audio visualizer singleton:', err);
+        }
+    };
+
     useEffect(() => {
-        const initAudio = () => {
-            if (analyserRef.current) return;
-
-            try {
-                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                const context = new AudioContextClass();
-                contextRef.current = context;
-
-                const analyser = context.createAnalyser();
-                analyser.fftSize = 512;
-                analyser.smoothingTimeConstant = 0.8;
-                analyserRef.current = analyser;
-
-                // Create shared filters (EQ)
-                const filters = FREQUENCIES.map((freq, i) => {
-                    const filter = context.createBiquadFilter();
-                    filter.type = 'peaking';
-                    filter.frequency.value = freq;
-                    filter.Q.value = 1;
-                    filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
-                    return filter;
-                });
-                filtersRef.current = filters;
-
-                // Connect filters in series
-                for (let i = 0; i < filters.length - 1; i++) {
-                    filters[i].connect(filters[i + 1]);
-                }
-
-                // Last filter connects to analyser
-                filters[filters.length - 1].connect(analyser);
-                analyser.connect(context.destination);
-
-                // Initialize each audio element
-                audioRefs.forEach(ref => {
-                    if (ref.current) {
-                        setupAudioSource(ref.current, context, filters[0]);
-                    }
-                });
-
-            } catch (err) {
-                console.warn('Failed to initialize audio visualizer:', err);
-            }
-        };
-
-        const setupAudioSource = (audioEl: HTMLAudioElement, context: AudioContext, firstFilter: BiquadFilterNode) => {
-            const el = audioEl as any;
-            if (el._visualizerSource) return;
-
-            try {
-                const source = context.createMediaElementSource(audioEl);
-                const gainNode = context.createGain();
-
-                source.connect(gainNode);
-                gainNode.connect(firstFilter);
-
-                el._visualizerSource = source;
-                el._gainNode = gainNode;
-                el._visualizerContext = context;
-            } catch (e) {
-                console.error("Error setting up audio source", e);
-            }
-        };
-
         if (isPlaying) {
             initAudio();
-            if (contextRef.current?.state === 'suspended') {
-                contextRef.current.resume();
+            if (sharedContext?.state === 'suspended') {
+                sharedContext.resume();
             }
         }
 
         const handleFirstInteraction = () => {
             initAudio();
-            if (contextRef.current?.state === 'suspended') {
-                contextRef.current.resume();
+            if (sharedContext?.state === 'suspended') {
+                sharedContext.resume();
             }
             document.removeEventListener('click', handleFirstInteraction);
         };
 
         document.addEventListener('click', handleFirstInteraction);
 
-        // Re-check refs on update in case they were added later
-        audioRefs.forEach(ref => {
-            if (ref.current && contextRef.current && filtersRef.current[0]) {
-                setupAudioSource(ref.current, contextRef.current, filtersRef.current[0]);
-            }
-        });
+        // Re-check refs on update
+        if (isInitialized && sharedContext && sharedFilters[0]) {
+            audioRefs.forEach(ref => {
+                if (ref.current) {
+                    setupAudioSource(ref.current, sharedContext!, sharedFilters[0]);
+                }
+            });
+        }
 
         return () => {
             document.removeEventListener('click', handleFirstInteraction);
@@ -110,8 +106,8 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     }, [audioRefs, isPlaying]);
 
     useEffect(() => {
-        if (filtersRef.current.length > 0) {
-            filtersRef.current.forEach((filter, i) => {
+        if (isInitialized && sharedFilters.length > 0) {
+            sharedFilters.forEach((filter, i) => {
                 filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
             });
         }
@@ -119,17 +115,17 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas || !analyserRef.current) return;
+        if (!canvas || !sharedAnalyser) return;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const bufferLength = analyserRef.current.frequencyBinCount;
+        const bufferLength = sharedAnalyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
         const draw = () => {
             requestRef.current = requestAnimationFrame(draw);
-            analyserRef.current!.getByteFrequencyData(dataArray);
+            sharedAnalyser!.getByteFrequencyData(dataArray);
 
             const dpr = window.devicePixelRatio || 1;
             if (canvas.width !== canvas.clientWidth * dpr || canvas.height !== canvas.clientHeight * dpr) {
@@ -162,7 +158,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                     x += barWidth;
                 }
             } else if (visualizerStyle === 'waveform') {
-                analyserRef.current!.getByteTimeDomainData(dataArray);
+                sharedAnalyser!.getByteTimeDomainData(dataArray);
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = accentColor;
                 ctx.beginPath();
@@ -198,12 +194,50 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                     ctx.fillStyle = `${accentColor}${Math.floor(percent * 255).toString(16).padStart(2, '0')}`;
                     ctx.fill();
                 }
+            } else if (visualizerStyle === 'circular') {
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = Math.min(width, height) * 0.2;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const angle = (i / bufferLength) * Math.PI * 2;
+                    const value = dataArray[i];
+                    const barHeight = (value / 255) * height * 0.2;
+
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                    const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+
+                    ctx.strokeStyle = accentColor;
+                    ctx.lineWidth = 4;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            } else if (visualizerStyle === 'pixel') {
+                const gridSize = 16;
+                const cols = Math.floor(width / gridSize);
+                const rows = Math.floor(height / gridSize);
+
+                for (let i = 0; i < cols; i++) {
+                    const dataIndex = Math.floor((i / cols) * bufferLength);
+                    const value = dataArray[dataIndex];
+                    const activeRows = Math.floor((value / 255) * rows);
+
+                    for (let j = 0; j < activeRows; j++) {
+                        ctx.fillStyle = `${accentColor}${Math.floor((j / rows) * 255).toString(16).padStart(2, '0')}`;
+                        ctx.fillRect(i * gridSize + 2, height - (j * gridSize) - gridSize + 2, gridSize - 4, gridSize - 4);
+                    }
+                }
             }
         };
 
         if (isPlaying) {
-            if (contextRef.current?.state === 'suspended') {
-                contextRef.current.resume();
+            if (sharedContext?.state === 'suspended') {
+                sharedContext.resume();
             }
             draw();
         } else {

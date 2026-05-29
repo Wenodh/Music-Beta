@@ -21,7 +21,7 @@ import SleepTimer from './SleepTimer';
 import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiQueueList } from 'react-icons/hi2';
-import { MdOutlineGraphicEq, MdOutlineCloseFullscreen, MdBarChart, MdShowChart, MdBubbleChart } from 'react-icons/md';
+import { MdOutlineGraphicEq, MdOutlineCloseFullscreen, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
@@ -612,6 +612,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 >
                                     <MdBubbleChart size={18} />
                                 </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(setVisualizerStyle('circular'));
+                                    }}
+                                    className={`p-1.5 rounded-full transition-all ${visualizerStyle === 'circular' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-primary'}`}
+                                    title="Circular Visualizer"
+                                >
+                                    <MdDonutLarge size={18} />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(setVisualizerStyle('pixel'));
+                                    }}
+                                    className={`p-1.5 rounded-full transition-all ${visualizerStyle === 'pixel' ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-primary'}`}
+                                    title="Pixel Visualizer"
+                                >
+                                    <MdApps size={18} />
+                                </button>
                             </div>
 
                             <motion.button
@@ -745,6 +765,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                     >
                                                         <MdBubbleChart size={20} />
                                                         <span className="text-[10px] font-bold uppercase">Particles</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            dispatch(setVisualizerStyle('circular'));
+                                                            setIsMoreMenuOpen(false);
+                                                        }}
+                                                        className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${visualizerStyle === 'circular' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                    >
+                                                        <MdDonutLarge size={20} />
+                                                        <span className="text-[10px] font-bold uppercase">Ring</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            dispatch(setVisualizerStyle('pixel'));
+                                                            setIsMoreMenuOpen(false);
+                                                        }}
+                                                        className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${visualizerStyle === 'pixel' ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                    >
+                                                        <MdApps size={20} />
+                                                        <span className="text-[10px] font-bold uppercase">Grid</span>
                                                     </button>
                                                 </div>
                                             </div>
