@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
+import { setAccentColor } from '../features/ui/uiSlice';
 import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold } from 'react-icons/pi';
-import { MdOutlineLyrics, MdOutlineGraphicEq } from 'react-icons/md';
+import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setQueueOpen, setCurrentTime, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setQueueOpen, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -36,10 +37,45 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     audioRefs
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen, visualizerStyle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme, isLyricsOpen: reduxLyricsOpen } = useAppSelector(state => state.ui);
     const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue'>('player');
+    const [exitDirection, setExitDirection] = useState<number>(0);
+    const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
+    const [isVisualizerSelectorOpen, setIsVisualizerSelectorOpen] = useState(false);
+
+    const handleNext = () => {
+        setExitDirection(-1000);
+        setMoveDirection('forward');
+        dispatch(nextSongAction());
+    };
+
+    const handlePrev = () => {
+        setExitDirection(1000);
+        setMoveDirection('backward');
+        dispatch(prevSongAction());
+    };
+
+    // Calculate song stack for Tinder-style swiping
+    const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
+    const songStack = useMemo(() => {
+        if (!currentSong || songs.length === 0) return [];
+        const stack = [];
+        const safeIndex = Math.max(0, currentIndex);
+        // Show up to 3 songs in the stack
+        for (let i = 0; i < Math.min(3, songs.length); i++) {
+            const index = (safeIndex + i) % songs.length;
+            const song = songs[index];
+            if (song) stack.push(song);
+        }
+        return stack;
+    }, [currentSong, songs, currentIndex]);
+
+    const getSongImage = (song: any) => {
+        if (!song) return '';
+        return Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image;
+    };
 
     // Sync with Redux flags when opening
     React.useEffect(() => {
@@ -103,37 +139,175 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar flex flex-col pointer-events-auto">
-                        <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
-                            {/* Album Art with LayoutID */}
+                    <div className="relative z-10 flex-1 overflow-y-auto lg:overflow-hidden custom-scrollbar flex flex-col lg:flex-row pointer-events-auto">
+                        {/* Left Column: Player Core */}
+                        <div className="w-full lg:w-[45%] flex flex-col items-center justify-center px-8 py-4 lg:px-12 lg:py-8 lg:border-r lg:border-white/5 relative">
+                            {/* Desktop Background Accent */}
+                            <div className="absolute inset-0 z-0 hidden lg:block opacity-20">
+                                <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
+                            </div>
+
+                            {/* Album Art Card Stack */}
                             <div
-                                className="relative w-full aspect-square max-w-[340px] mb-8 group"
+                                className="relative w-full aspect-square max-w-[320px] lg:max-w-[380px] mb-12 lg:mb-16 group z-10"
+                                style={{ perspective: '1200px' }}
                             >
-                                <div className="absolute -inset-4 opacity-30">
+                                <div className="absolute -inset-8 opacity-30 pointer-events-none">
                                     <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                                 </div>
-                                <motion.img
-                                    layoutId="player-album-art"
-                                    src={imageUrl}
-                                    alt=""
-                                    className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 relative z-10"
-                                />
+
+                                {/* Compact Visualizer Style Selector Overlay */}
+                                <div className="absolute top-4 right-4 z-[60] flex flex-col items-end gap-2">
+                                    <button
+                                        onClick={() => setIsVisualizerSelectorOpen(!isVisualizerSelectorOpen)}
+                                        className="p-3 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 text-white shadow-lg active:scale-95 transition-transform"
+                                    >
+                                        <MdOutlineGraphicEq size={24} className={isPlaying ? 'animate-pulse' : ''} />
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {isVisualizerSelectorOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                                exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                                                className="flex flex-col gap-2 bg-black/60 backdrop-blur-2xl p-1.5 rounded-2xl border border-white/10 shadow-2xl"
+                                            >
+                                                <button
+                                                    onClick={() => {
+                                                        dispatch(setVisualizerStyle('bars'));
+                                                        setIsVisualizerSelectorOpen(false);
+                                                    }}
+                                                    className={`p-3 rounded-xl transition-all flex items-center gap-3 ${visualizerStyle === 'bars' ? 'bg-primary text-white' : 'text-gray-300 hover:bg-white/10'}`}
+                                                >
+                                                    <MdBarChart size={20} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider pr-2">Bars</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        dispatch(setVisualizerStyle('waveform'));
+                                                        setIsVisualizerSelectorOpen(false);
+                                                    }}
+                                                    className={`p-3 rounded-xl transition-all flex items-center gap-3 ${visualizerStyle === 'waveform' ? 'bg-primary text-white' : 'text-gray-300 hover:bg-white/10'}`}
+                                                >
+                                                    <MdShowChart size={20} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider pr-2">Wave</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        dispatch(setVisualizerStyle('particles'));
+                                                        setIsVisualizerSelectorOpen(false);
+                                                    }}
+                                                    className={`p-3 rounded-xl transition-all flex items-center gap-3 ${visualizerStyle === 'particles' ? 'bg-primary text-white' : 'text-gray-300 hover:bg-white/10'}`}
+                                                >
+                                                    <MdBubbleChart size={20} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider pr-2">Dots</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        dispatch(setVisualizerStyle('circular'));
+                                                        setIsVisualizerSelectorOpen(false);
+                                                    }}
+                                                    className={`p-3 rounded-xl transition-all flex items-center gap-3 ${visualizerStyle === 'circular' ? 'bg-primary text-white' : 'text-gray-300 hover:bg-white/10'}`}
+                                                >
+                                                    <MdDonutLarge size={20} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider pr-2">Ring</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        dispatch(setVisualizerStyle('pixel'));
+                                                        setIsVisualizerSelectorOpen(false);
+                                                    }}
+                                                    className={`p-3 rounded-xl transition-all flex items-center gap-3 ${visualizerStyle === 'pixel' ? 'bg-primary text-white' : 'text-gray-300 hover:bg-white/10'}`}
+                                                >
+                                                    <MdApps size={20} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider pr-2">Grid</span>
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                <AnimatePresence mode="popLayout">
+                                    {songStack.slice().reverse().map((song, index) => {
+                                        const stackIndex = songStack.length - 1 - index; // 0 for top card, 1 for middle, 2 for bottom
+                                        const isTop = stackIndex === 0;
+
+                                        return (
+                                            <motion.div
+                                                key={song.id}
+                                                style={{
+                                                    zIndex: 50 - stackIndex,
+                                                }}
+                                                initial={moveDirection === 'backward' && isTop ? {
+                                                    x: -1000,
+                                                    rotate: -45,
+                                                    opacity: 0,
+                                                    scale: 1
+                                                } : {
+                                                    scale: 0.8 - stackIndex * 0.1,
+                                                    y: stackIndex * 20,
+                                                    z: -stackIndex * 100,
+                                                    opacity: 0,
+                                                    rotateX: -20
+                                                }}
+                                                animate={{
+                                                    scale: 1 - stackIndex * 0.08,
+                                                    y: stackIndex * 25,
+                                                    z: -stackIndex * 150,
+                                                    rotateX: stackIndex * -10,
+                                                    opacity: 1 - stackIndex * 0.25,
+                                                    x: 0,
+                                                    rotate: 0,
+                                                }}
+                                                exit={{
+                                                    x: isTop ? exitDirection : 0,
+                                                    opacity: 0,
+                                                    scale: 0.8,
+                                                    rotate: isTop ? (exitDirection > 0 ? 45 : -45) : 0,
+                                                    transition: { duration: 0.4, ease: "circOut" }
+                                                }}
+                                                transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                                                drag={isTop ? "x" : false}
+                                                dragConstraints={{ left: 0, right: 0 }}
+                                                onDragEnd={(_, info) => {
+                                                    if (isTop) {
+                                                        if (info.offset.x > 100) {
+                                                            handlePrev();
+                                                        }
+                                                        else if (info.offset.x < -100) {
+                                                            handleNext();
+                                                        }
+                                                    }
+                                                }}
+                                                className="absolute inset-0"
+                                            >
+                                                <motion.img
+                                                    layoutId={isTop ? "player-album-art" : undefined}
+                                                    src={getSongImage(song)}
+                                                    alt=""
+                                                    className="w-full h-full object-cover rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10"
+                                                />
+                                            </motion.div>
+                                        );
+                                    })}
+                                </AnimatePresence>
                             </div>
 
                             {/* Song Info with LayoutID */}
                             <div
-                                className="w-full text-left mb-8 flex justify-between items-end"
+                                className="w-full text-left mb-8 flex justify-between items-end lg:max-w-[420px] z-10"
                             >
                                 <div className="flex-1 min-w-0 pr-4">
                                     <motion.h2
                                         layoutId="player-song-name"
-                                        className="text-2xl md:text-3xl font-black mb-1 truncate"
+                                        className="text-2xl lg:text-4xl font-black mb-1 truncate"
                                     >
                                         {decodeHtmlEntities(currentSong.name)}
                                     </motion.h2>
                                     <motion.p
                                         layoutId="player-song-artist"
-                                        className="text-lg text-primary font-bold opacity-90 truncate"
+                                        className="text-lg lg:text-xl text-primary font-bold opacity-90 truncate"
                                     >
                                         {decodeHtmlEntities(currentSong.primaryArtists)}
                                     </motion.p>
@@ -141,15 +315,15 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 <div className="flex gap-4">
                                     <button
                                         onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
-                                        className="p-2"
+                                        className="p-2 hover:scale-110 transition-transform"
                                     >
-                                        {isFavorite ? <IoHeart className="text-primary" size={28} /> : <IoHeartOutline size={28} />}
+                                        {isFavorite ? <IoHeart className="text-primary" size={32} /> : <IoHeartOutline size={32} />}
                                     </button>
                                 </div>
                             </div>
 
                             {/* Progress Bar */}
-                            <div className="w-full mb-8">
+                            <div className="w-full mb-8 lg:max-w-[420px] z-10">
                                 <motion.input
                                     whileHover={{ scaleY: 1.5 }}
                                     type="range"
@@ -170,7 +344,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
 
                             {/* Main Controls */}
-                            <div className="w-full flex items-center justify-between mb-10">
+                            <div className="w-full flex items-center justify-between mb-10 lg:max-w-[420px] z-10">
                                 <button
                                     className="p-2"
                                 >
@@ -180,7 +354,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={() => dispatch(prevSongAction())}
+                                        onClick={handlePrev}
                                         className="p-2"
                                     >
                                         <IoMdSkipBackward size={36} />
@@ -196,7 +370,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={() => dispatch(nextSongAction())}
+                                        onClick={handleNext}
                                         className="p-2"
                                     >
                                         <IoMdSkipForward size={36} />
@@ -210,7 +384,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
 
                             {/* Secondary Actions */}
-                            <div className="w-full flex justify-between items-center px-4 mb-8">
+                            <div className="w-full flex justify-between items-center px-4 mb-8 lg:hidden">
                                 <button
                                     onClick={() => setActiveSection(activeSection === 'lyrics' ? 'player' : 'lyrics')}
                                     className={`flex flex-col items-center gap-1 transition-colors ${activeSection === 'lyrics' ? 'text-primary' : 'text-gray-400'}`}
@@ -242,6 +416,42 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
                         </div>
 
+                        {/* Right Column: Details (Lyrics, Queue, Discovery) */}
+                        <div className="w-full lg:w-[55%] flex flex-col overflow-y-auto custom-scrollbar px-8 py-4 lg:p-12 lg:bg-black/20 lg:backdrop-blur-3xl">
+                            {/* Desktop Exclusive Navigation */}
+                            <div className="hidden lg:flex items-center gap-4 mb-10 border-b border-white/10 pb-6">
+                                {[
+                                    { id: 'player', label: 'Discovery', icon: <MdApps size={20} /> },
+                                    { id: 'lyrics', label: 'Lyrics', icon: <MdOutlineLyrics size={20} /> },
+                                    { id: 'queue', label: 'Queue', icon: <HiQueueList size={20} /> }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveSection(tab.id as any)}
+                                        data-testid={`desktop-tab-${tab.id}`}
+                                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${activeSection === tab.id ? 'bg-primary text-white scale-105 shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                    >
+                                        {tab.icon}
+                                        <span>{tab.label}</span>
+                                    </button>
+                                ))}
+                                <div className="flex-1" />
+                                <button
+                                    onClick={() => dispatch(setEqualizerOpen(true))}
+                                    className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-gray-400"
+                                    title="Equalizer"
+                                >
+                                    <MdOutlineGraphicEq size={24} />
+                                </button>
+                                <button
+                                    onClick={() => dispatch(openPlaylistModal(currentSong!))}
+                                    className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-gray-400"
+                                    title="Add to Playlist"
+                                >
+                                    <IoAddCircleOutline size={24} />
+                                </button>
+                            </div>
+
                         {/* Expandable Sections (Lyrics/Queue) */}
                         <AnimatePresence mode="wait">
                             {activeSection === 'lyrics' && (
@@ -249,9 +459,9 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     initial={{ height: 0, opacity: 0 }}
                                     animate={{ height: 'auto', opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
-                                    className="px-6 pb-20"
+                                    className="px-0 lg:px-0 pb-20"
                                 >
-                                    <div className="bg-white/5 rounded-3xl p-6 backdrop-blur-md border border-white/10">
+                                    <div className="bg-white/5 rounded-3xl p-6 lg:p-8 backdrop-blur-md border border-white/10">
                                         <Lyrics
                                             isOpen={true}
                                             onClose={() => setActiveSection('player')}
@@ -269,7 +479,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     initial={{ height: 0, opacity: 0 }}
                                     animate={{ height: 'auto', opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
-                                    className="px-6 pb-20"
+                                    className="px-0 lg:px-0 pb-20"
                                 >
                                     <div className="bg-white/5 rounded-3xl overflow-hidden backdrop-blur-md border border-white/10">
                                         <div className="p-4 border-b border-white/10 flex justify-between items-center">
@@ -298,8 +508,8 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                         {/* Recommendations Section */}
                         {activeSection === 'player' && recommendations.length > 0 && (
-                            <div className="px-8 pb-20">
-                                <h3 className="text-lg font-black mb-4">You might also like</h3>
+                            <div className="px-0 lg:px-0 pb-20">
+                                <h3 className="text-lg font-black mb-4 lg:text-xl">You might also like</h3>
                                 <div className="grid grid-cols-1 gap-3">
                                     {recommendations.slice(0, 5).map(song => (
                                         <div
@@ -323,30 +533,36 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                         {/* Song Details Section */}
                         {activeSection === 'player' && (
-                            <div className="px-8 pb-32">
-                                <h3 className="text-lg font-black mb-4">About this track</h3>
-                                <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-4">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400 text-sm">Album</span>
-                                        <span className="text-sm font-bold text-right ml-4">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || 'Single')}</span>
+                            <div className="px-0 lg:px-0 pb-32">
+                                <h3 className="text-lg font-black mb-4 lg:text-xl">About this track</h3>
+                                <div className="bg-white/5 rounded-3xl p-6 lg:p-8 border border-white/5 space-y-4 lg:space-y-6">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400 text-sm lg:text-base">Album</span>
+                                        <span className="text-sm lg:text-base font-bold text-right ml-4">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || 'Single')}</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400 text-sm">Artists</span>
-                                        <span className="text-sm font-bold text-right ml-4">{decodeHtmlEntities(currentSong.primaryArtists)}</span>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400 text-sm lg:text-base">Artists</span>
+                                        <span className="text-sm lg:text-base font-bold text-right ml-4">{decodeHtmlEntities(currentSong.primaryArtists)}</span>
                                     </div>
                                     {currentSong.year && (
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400 text-sm">Release Year</span>
-                                            <span className="text-sm font-bold">{currentSong.year}</span>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-400 text-sm lg:text-base">Release Year</span>
+                                            <span className="text-sm lg:text-base font-bold">{currentSong.year}</span>
                                         </div>
                                     )}
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400 text-sm">Duration</span>
-                                        <span className="text-sm font-bold">{formatTime(duration)}</span>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400 text-sm lg:text-base">Duration</span>
+                                        <span className="text-sm lg:text-base font-bold">{formatTime(duration)}</span>
                                     </div>
                                 </div>
                             </div>
                         )}
+                        </div>
+                    </div>
+
+                    {/* Overflow Visualizer Fixed to Bottom */}
+                    <div className="absolute bottom-0 left-0 right-0 h-32 z-0 pointer-events-none opacity-40">
+                        <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                     </div>
                 </motion.div>
             )}

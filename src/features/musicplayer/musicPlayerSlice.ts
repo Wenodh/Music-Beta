@@ -27,6 +27,7 @@ const initialState: MusicPlayerState = {
     },
     dailyMix: [],
     lastDailyMixUpdate: 0,
+    visualizerStyle: 'bars',
 };
 
 const musicPlayerSlice = createSlice({
@@ -175,6 +176,9 @@ const musicPlayerSlice = createSlice({
             state.dailyMix = action.payload.songs;
             state.lastDailyMixUpdate = action.payload.timestamp;
         },
+        setVisualizerStyle: (state, action: PayloadAction<MusicPlayerState['visualizerStyle']>) => {
+            state.visualizerStyle = action.payload;
+        },
         nextSong: (state) => {
             if (state.currentSong && state.songs.length > 0) {
                 const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
@@ -251,6 +255,7 @@ export const {
     setSongRadioEnabled,
     setWifiOnly,
     setDailyMix,
+    setVisualizerStyle,
     nextSong,
     prevSong,
 } = musicPlayerSlice.actions;

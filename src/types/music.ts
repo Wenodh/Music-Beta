@@ -13,6 +13,7 @@ export interface Song {
         name: string;
     } | string;
     type?: string;
+    year?: string | number;
 }
 
 export interface MusicPlayerState {
@@ -35,6 +36,7 @@ export interface MusicPlayerState {
     downloadSettings: DownloadSettings;
     dailyMix: Song[];
     lastDailyMixUpdate: number;
+    visualizerStyle: 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
 }
 
 export interface DownloadSettings {

@@ -189,8 +189,8 @@ export const AppContent = () => {
                         song={playlistModal.song}
                         bulkSongs={playlistModal.bulkSongs}
                         onClose={() => dispatch(closePlaylistModal())}
-                        onSuccess={(name) => dispatch(showToast({ message: `Added to ${name}` }))}
-                        onError={(msg) => dispatch(showToast({ message: msg, type: 'error' }))}
+                        onSuccess={(name: string) => dispatch(showToast({ message: `Added to ${name}` }))}
+                        onError={(msg: string) => dispatch(showToast({ message: msg, type: 'error' }))}
                     />
                 </Suspense>
 
