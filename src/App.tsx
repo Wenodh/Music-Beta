@@ -19,6 +19,7 @@ import { setDownloadedIds } from './features/library/librarySlice';
 import { syncLibrary } from './features/library/libraryActions';
 import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
+import { useCapacitor } from './hooks/useCapacitor';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -121,6 +122,7 @@ import { useEffect } from 'react';
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
+    useCapacitor();
     const { currentSong } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
