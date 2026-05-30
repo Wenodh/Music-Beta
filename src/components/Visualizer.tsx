@@ -140,12 +140,13 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
             const width = canvas.clientWidth;
             const height = canvas.clientHeight;
 
-            const isOled = document.documentElement.classList.contains('dark') && getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)';
-
             // Clean background for the visualizer
             ctx.clearRect(0, 0, width, height);
 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#ef4444';
+
+            // Performance optimization: only apply shadow if absolutely needed and not too large
+            const shadowIntensity = 15;
 
             if (visualizerStyle === 'bars') {
                 const numBars = 64;
@@ -184,7 +185,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                     const barHeight = Math.max(2, smoothedValuesRef.current[i]);
 
                     // Glow Effect
-                    ctx.shadowBlur = 15;
+                    ctx.shadowBlur = shadowIntensity;
                     ctx.shadowColor = accentColor;
 
                     const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
@@ -197,7 +198,11 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                     // Symmetric bars from center look more "premium"
                     const centerY = height / 2;
                     const centeredBarHeight = Math.max(4, barHeight);
-                    ctx.roundRect(i * barWidth + 1, centerY - centeredBarHeight / 2, barWidth - 3, centeredBarHeight, [barWidth / 2]);
+                    if (ctx.roundRect) {
+                        ctx.roundRect(i * barWidth + 1, centerY - centeredBarHeight / 2, barWidth - 3, centeredBarHeight, [barWidth / 2]);
+                    } else {
+                        ctx.rect(i * barWidth + 1, centerY - centeredBarHeight / 2, barWidth - 3, centeredBarHeight);
+                    }
                     ctx.fill();
 
                     // Falling Peaks (adjusted for centered view)
@@ -224,7 +229,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 ctx.lineJoin = 'round';
 
                 // Add glow to waveform
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = shadowIntensity;
                 ctx.shadowColor = accentColor;
 
                 ctx.beginPath();
@@ -348,11 +353,11 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 }
                 ctx.shadowBlur = 0;
             } else if (visualizerStyle === 'pixel') {
-                const gridSize = 20;
+                const gridSize = 12; // Smaller grid for higher "quality"
                 const cols = Math.floor(width / gridSize);
                 const rows = Math.floor(height / gridSize);
 
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = 8; // Lower blur for pixel to keep it crisp
                 ctx.shadowColor = accentColor;
 
                 for (let i = 0; i < cols; i++) {
@@ -371,9 +376,10 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
                         if (rowIdx < 0 || rowIdx >= rows) continue;
 
-                        const opacity = Math.floor(Math.max(0.2, 1 - (j / activeRows)) * 255).toString(16).padStart(2, '0');
-                        ctx.fillStyle = `${accentColor}${opacity}`;
-                        ctx.fillRect(i * gridSize + 2, rowIdx * gridSize + 2, gridSize - 4, gridSize - 4);
+                        const intensity = 1 - (j / activeRows);
+                        ctx.fillStyle = `${accentColor}${Math.floor(Math.max(0.3, intensity) * 255).toString(16).padStart(2, '0')}`;
+                        // Add a small inner glow/gradient to each pixel for "world class" look
+                        ctx.fillRect(i * gridSize + 1, rowIdx * gridSize + 1, gridSize - 2, gridSize - 2);
                     }
                 }
                 ctx.shadowBlur = 0;

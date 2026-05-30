@@ -114,7 +114,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     onDragEnd={(_, info) => {
                         if (info.offset.y > 100 || info.velocity.y > 500) onClose();
                     }}
-                    className="fixed inset-0 z-[220] bg-gray-950 flex flex-col text-white overflow-hidden touch-none"
+                    className="fixed inset-0 z-[220] bg-gray-950 flex flex-col text-white overflow-hidden"
                 >
                     {/* Background Gradient & Blur */}
                     <div className="absolute inset-0 z-0">
@@ -126,8 +126,8 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-gray-950/80 to-gray-950" />
                     </div>
 
-                    {/* Header */}
-                    <div className="relative z-10 flex items-center justify-between p-6">
+                    {/* Header - acts as a drag handle */}
+                    <div className="relative z-10 flex items-center justify-between p-6 shrink-0">
                         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                             <IoChevronDown size={28} />
                         </button>
@@ -139,7 +139,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="relative z-10 flex-1 overflow-y-auto lg:overflow-hidden custom-scrollbar flex flex-col lg:flex-row pointer-events-auto">
+                    <div className="relative z-10 flex-1 overflow-y-auto lg:overflow-hidden custom-scrollbar flex flex-col lg:flex-row pointer-events-auto touch-pan-y">
                         {/* Left Column: Player Core */}
                         <div className="w-full lg:w-[45%] flex flex-col items-center justify-center px-8 py-4 lg:px-12 lg:py-8 lg:border-r lg:border-white/5 relative">
                             {/* Desktop Background Accent */}
