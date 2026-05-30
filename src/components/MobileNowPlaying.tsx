@@ -40,7 +40,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const { currentSong, isPlaying, currentTime, recommendations, songs, isQueueOpen: reduxQueueOpen, visualizerStyle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme, isLyricsOpen: reduxLyricsOpen } = useAppSelector(state => state.ui);
-    const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue'>('player');
+    const [activeSection, setActiveSection] = useState<'player' | 'lyrics' | 'queue' | 'discovery'>('player');
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
     const [isVisualizerSelectorOpen, setIsVisualizerSelectorOpen] = useState(false);
@@ -86,6 +86,18 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
         }
     }, [isOpen, reduxLyricsOpen, reduxQueueOpen]);
 
+    // Handle back button on mobile when in a sub-section
+    useEffect(() => {
+        const handleBack = (e: PopStateEvent) => {
+            if (isOpen && activeSection !== 'player') {
+                e.preventDefault();
+                setActiveSection('player');
+            }
+        };
+        window.addEventListener('popstate', handleBack);
+        return () => window.removeEventListener('popstate', handleBack);
+    }, [isOpen, activeSection]);
+
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
     if (!currentSong) return null;
@@ -127,21 +139,47 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Header - acts as a drag handle */}
-                    <div className="relative z-10 flex items-center justify-between p-6 shrink-0">
-                        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                            <IoChevronDown size={28} />
-                        </button>
-                        <div className="text-center flex-1 px-4">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
-                            <p className="text-xs font-bold truncate">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
+                    <div className="relative z-10 flex flex-col shrink-0">
+                        <div className="flex items-center justify-between p-6 pb-2">
+                            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                <IoChevronDown size={28} />
+                            </button>
+                            <div className="text-center flex-1 px-4">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
+                                <p className="text-xs font-bold truncate">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
+                            </div>
+                            <button
+                                onClick={() => dispatch(openPlaylistModal(currentSong!))}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <IoAddCircleOutline size={28} />
+                            </button>
                         </div>
-                        <div className="w-10" /> {/* Spacer to keep title centered */}
+
+                        {/* Mobile Segmented Control / Tabs */}
+                        <div className="flex lg:hidden items-center justify-center gap-1 p-1 mx-6 mb-2 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
+                            {[
+                                { id: 'player', label: 'Music', icon: <FaPlay size={10} /> },
+                                { id: 'lyrics', label: 'Lyrics', icon: <MdOutlineLyrics size={14} /> },
+                                { id: 'queue', label: 'Queue', icon: <HiQueueList size={14} /> },
+                                { id: 'discovery', label: 'Info', icon: <MdApps size={14} /> }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveSection(tab.id as any)}
+                                    className={`flex-[0_0_auto] min-w-[70px] flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-bold transition-all ${activeSection === tab.id ? 'bg-white/15 text-white shadow-lg' : 'text-gray-400'}`}
+                                >
+                                    {tab.icon}
+                                    <span>{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="relative z-10 flex-1 overflow-y-auto lg:overflow-hidden custom-scrollbar flex flex-col lg:flex-row pointer-events-auto touch-pan-y">
+                    <div className="relative z-10 flex-1 overflow-hidden flex flex-col lg:flex-row pointer-events-auto touch-pan-y">
                         {/* Left Column: Player Core */}
-                        <div className="w-full lg:w-[45%] flex flex-col items-center justify-center px-8 py-4 lg:px-12 lg:py-8 lg:border-r lg:border-white/5 relative">
+                        <div className={`w-full lg:w-[45%] flex flex-col items-center justify-center px-8 py-4 lg:px-12 lg:py-8 lg:border-r lg:border-white/5 relative transition-all duration-500 ${activeSection !== 'player' && activeSection !== 'discovery' ? 'hidden lg:flex' : 'flex'}`}>
                             {/* Desktop Background Accent */}
                             <div className="absolute inset-0 z-0 hidden lg:block opacity-20">
                                 <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
@@ -344,7 +382,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
 
                             {/* Main Controls */}
-                            <div className="w-full flex items-center justify-between mb-10 lg:max-w-[420px] z-10">
+                            <div className="w-full flex items-center justify-between mb-6 lg:mb-10 lg:max-w-[420px] z-10">
                                 <button
                                     className="p-2"
                                 >
@@ -383,41 +421,49 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 </button>
                             </div>
 
-                            {/* Secondary Actions */}
-                            <div className="w-full flex justify-between items-center px-4 mb-8 lg:hidden">
-                                <button
-                                    onClick={() => setActiveSection(activeSection === 'lyrics' ? 'player' : 'lyrics')}
-                                    className={`flex flex-col items-center gap-1 transition-colors ${activeSection === 'lyrics' ? 'text-primary' : 'text-gray-400'}`}
-                                >
-                                    <MdOutlineLyrics size={24} />
-                                    <span className="text-[10px] font-bold uppercase tracking-tighter">Lyrics</span>
-                                </button>
+                            {/* Mobile Secondary Actions (Bottom of Player View) */}
+                            <div className="w-full flex justify-around items-center mb-8 lg:hidden z-10">
                                 <button
                                     onClick={() => dispatch(setEqualizerOpen(true))}
-                                    className="flex flex-col items-center gap-1 text-gray-400"
+                                    className="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
                                 >
-                                    <MdOutlineGraphicEq size={24} />
-                                    <span className="text-[10px] font-bold uppercase tracking-tighter">EQ</span>
+                                    <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-full border border-white/5">
+                                        <MdOutlineGraphicEq size={22} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Equalizer</span>
                                 </button>
                                 <button
                                     onClick={() => dispatch(openPlaylistModal(currentSong!))}
-                                    className="flex flex-col items-center gap-1 text-gray-400"
+                                    className="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
                                 >
-                                    <IoAddCircleOutline size={24} />
-                                    <span className="text-[10px] font-bold uppercase tracking-tighter">Add</span>
+                                    <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-full border border-white/5">
+                                        <IoAddCircleOutline size={22} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Add to Playlist</span>
                                 </button>
                                 <button
-                                    onClick={() => setActiveSection(activeSection === 'queue' ? 'player' : 'queue')}
-                                    className={`flex flex-col items-center gap-1 transition-colors ${activeSection === 'queue' ? 'text-primary' : 'text-gray-400'}`}
+                                    onClick={() => {
+                                        // Simple share
+                                        if (navigator.share) {
+                                            navigator.share({
+                                                title: currentSong.name,
+                                                text: `Listening to ${currentSong.name} by ${currentSong.primaryArtists}`,
+                                                url: window.location.origin
+                                            });
+                                        }
+                                    }}
+                                    className="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
                                 >
-                                    <HiQueueList size={24} />
-                                    <span className="text-[10px] font-bold uppercase tracking-tighter">Queue</span>
+                                    <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-full border border-white/5">
+                                        <IoEllipsisHorizontal size={22} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">More</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* Right Column: Details (Lyrics, Queue, Discovery) */}
-                        <div className="w-full lg:w-[55%] flex flex-col overflow-y-auto custom-scrollbar px-8 py-4 lg:p-12 lg:bg-black/20 lg:backdrop-blur-3xl">
+                        <div className={`w-full lg:w-[55%] flex flex-col overflow-y-auto custom-scrollbar px-6 py-4 lg:p-12 lg:bg-black/20 lg:backdrop-blur-3xl transition-all duration-500 ${activeSection === 'player' ? 'hidden lg:flex' : 'flex'}`}>
                             {/* Desktop Exclusive Navigation */}
                             <div className="hidden lg:flex items-center gap-4 mb-10 border-b border-white/10 pb-6">
                                 {[
@@ -429,7 +475,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                         key={tab.id}
                                         onClick={() => setActiveSection(tab.id as any)}
                                         data-testid={`desktop-tab-${tab.id}`}
-                                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${activeSection === tab.id ? 'bg-primary text-white scale-105 shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${(activeSection === tab.id || (tab.id === 'player' && activeSection === 'discovery')) ? 'bg-primary text-white scale-105 shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
                                     >
                                         {tab.icon}
                                         <span>{tab.label}</span>
@@ -507,7 +553,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </AnimatePresence>
 
                         {/* Recommendations Section */}
-                        {activeSection === 'player' && recommendations.length > 0 && (
+                        {(activeSection === 'player' || activeSection === 'discovery') && recommendations.length > 0 && (
                             <div className="px-0 lg:px-0 pb-20">
                                 <h3 className="text-lg font-black mb-4 lg:text-xl">You might also like</h3>
                                 <div className="grid grid-cols-1 gap-3">
@@ -532,7 +578,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         )}
 
                         {/* Song Details Section */}
-                        {activeSection === 'player' && (
+                        {(activeSection === 'player' || activeSection === 'discovery') && (
                             <div className="px-0 lg:px-0 pb-32">
                                 <h3 className="text-lg font-black mb-4 lg:text-xl">About this track</h3>
                                 <div className="bg-white/5 rounded-3xl p-6 lg:p-8 border border-white/5 space-y-4 lg:space-y-6">

@@ -19,7 +19,21 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const smoothedValuesRef = useRef<number[]>([]);
     const peaksRef = useRef<number[]>([]);
     const particlesRef = useRef<any[]>([]);
+    const accentColorRef = useRef<string>('#ef4444');
     const { equalizerSettings, visualizerStyle } = useAppSelector(state => state.musicPlayer);
+
+    // Cache accent color to avoid getComputedStyle in the animation loop
+    useEffect(() => {
+        const updateAccentColor = () => {
+            const color = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
+            if (color) accentColorRef.current = color;
+        };
+        updateAccentColor();
+        // The accent color changes based on album art, which happens when song changes
+        // A simple observer or interval could work, but usually it's stable during a song
+        const interval = setInterval(updateAccentColor, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     const setupAudioSource = (audioEl: HTMLAudioElement, context: AudioContext, firstFilter: BiquadFilterNode) => {
         const el = audioEl as any;
@@ -143,7 +157,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
             // Clean background for the visualizer
             ctx.clearRect(0, 0, width, height);
 
-            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#ef4444';
+            const accentColor = accentColorRef.current;
 
             // Performance optimization: only apply shadow if absolutely needed and not too large
             const shadowIntensity = 15;
