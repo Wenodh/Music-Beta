@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline } from 'react-icons/io5';
+import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline, IoOptionsOutline, IoClose } from 'react-icons/io5';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
@@ -9,12 +9,12 @@ import { PiShuffleBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setQueueOpen, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
 import Lyrics from './Lyrics';
-import Queue from './Queue';
+import { QueueContent } from './Queue';
 
 interface MobileNowPlayingProps {
     isOpen: boolean;
@@ -47,7 +47,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
-    const [isVisualizerSelectorOpen, setIsVisualizerSelectorOpen] = useState(false);
+    const [isFloatingMenuOpen, setIsFloatingMenuOpen] = useState(false);
 
     const handleNext = () => {
         setExitDirection(-1000);
@@ -92,16 +92,6 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const SideButton = ({ icon, label, onClick, active }: { icon: any, label: string, onClick: () => void, active?: boolean }) => (
-        <button
-            onClick={onClick}
-            className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all active:scale-90 ${active ? 'bg-primary text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-        >
-            {icon}
-            <span className="text-[8px] font-bold uppercase tracking-wider">{label}</span>
-        </button>
-    );
-
     return (
         <AnimatePresence>
             {isOpen && (
@@ -140,164 +130,156 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-row overflow-hidden">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 overflow-hidden">
 
-                        {/* Side Buttons Bar (Vertical) */}
-                        <div className="flex flex-col gap-4 p-4 pr-0 items-center justify-center">
-                            <SideButton
-                                icon={<MdOutlineLyrics size={24} />}
-                                label="Lyrics"
-                                onClick={() => setIsLyricsOverlayOpen(true)}
-                            />
-                            <SideButton
-                                icon={<HiQueueList size={24} />}
-                                label="Queue"
-                                onClick={() => setIsQueueOverlayOpen(true)}
-                            />
-                            <SideButton
-                                icon={<MdApps size={24} />}
-                                label="Info"
-                                onClick={() => setIsInfoOverlayOpen(true)}
-                            />
-                            <div className="h-px w-8 bg-white/10 my-2" />
-                            <SideButton
-                                icon={<MdOutlineGraphicEq size={24} />}
-                                label="EQ"
-                                onClick={() => dispatch(setEqualizerOpen(true))}
-                            />
-                        </div>
+                        {/* Card Stack & Floating Menu */}
+                        <div
+                            className="relative w-full aspect-square max-w-[320px] mb-8"
+                            style={{ perspective: '1200px' }}
+                        >
+                            <AnimatePresence mode="popLayout">
+                                {songStack.slice().reverse().map((song, index) => {
+                                    const stackIndex = songStack.length - 1 - index;
+                                    const isTop = stackIndex === 0;
 
-                        {/* Player Content */}
-                        <div className="flex-1 flex flex-col items-center justify-center px-4">
+                                    return (
+                                        <motion.div
+                                            key={song.id}
+                                            style={{ zIndex: 50 - stackIndex }}
+                                            initial={moveDirection === 'backward' && isTop ? { x: -1000, rotate: -45, opacity: 0 } : { scale: 0.8, y: 20, opacity: 0 }}
+                                            animate={{
+                                                scale: 1 - stackIndex * 0.08,
+                                                y: stackIndex * 25,
+                                                z: -stackIndex * 150,
+                                                opacity: 1 - stackIndex * 0.3,
+                                                x: 0, rotate: 0
+                                            }}
+                                            exit={{
+                                                x: isTop ? exitDirection : 0,
+                                                opacity: 0,
+                                                rotate: isTop ? (exitDirection > 0 ? 45 : -45) : 0,
+                                                transition: { duration: 0.4 }
+                                            }}
+                                            drag={isTop ? "x" : false}
+                                            dragConstraints={{ left: 0, right: 0 }}
+                                            onDragEnd={(_, info) => {
+                                                if (isTop) {
+                                                    if (info.offset.x > 100) handlePrev();
+                                                    else if (info.offset.x < -100) handleNext();
+                                                }
+                                            }}
+                                            className="absolute inset-0"
+                                        >
+                                            <img
+                                                src={getSongImage(song)}
+                                                alt=""
+                                                className="w-full h-full object-cover rounded-3xl shadow-2xl border border-white/10"
+                                            />
+                                        </motion.div>
+                                    );
+                                })}
+                            </AnimatePresence>
 
-                            {/* Card Stack */}
-                            <div
-                                className="relative w-full aspect-square max-w-[320px] mb-8"
-                                style={{ perspective: '1200px' }}
-                            >
-                                <AnimatePresence mode="popLayout">
-                                    {songStack.slice().reverse().map((song, index) => {
-                                        const stackIndex = songStack.length - 1 - index;
-                                        const isTop = stackIndex === 0;
+                            {/* New Floating Menu (Top Right) */}
+                            <div className="absolute top-4 right-4 z-[60]">
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => setIsFloatingMenuOpen(!isFloatingMenuOpen)}
+                                    className="p-3 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl"
+                                >
+                                    {isFloatingMenuOpen ? <IoClose size={24} /> : <IoOptionsOutline size={24} />}
+                                </motion.button>
 
-                                        return (
-                                            <motion.div
-                                                key={song.id}
-                                                style={{ zIndex: 50 - stackIndex }}
-                                                initial={moveDirection === 'backward' && isTop ? { x: -1000, rotate: -45, opacity: 0 } : { scale: 0.8, y: 20, opacity: 0 }}
-                                                animate={{
-                                                    scale: 1 - stackIndex * 0.08,
-                                                    y: stackIndex * 25,
-                                                    z: -stackIndex * 150,
-                                                    opacity: 1 - stackIndex * 0.3,
-                                                    x: 0, rotate: 0
-                                                }}
-                                                exit={{
-                                                    x: isTop ? exitDirection : 0,
-                                                    opacity: 0,
-                                                    rotate: isTop ? (exitDirection > 0 ? 45 : -45) : 0,
-                                                    transition: { duration: 0.4 }
-                                                }}
-                                                drag={isTop ? "x" : false}
-                                                dragConstraints={{ left: 0, right: 0 }}
-                                                onDragEnd={(_, info) => {
-                                                    if (isTop) {
-                                                        if (info.offset.x > 100) handlePrev();
-                                                        else if (info.offset.x < -100) handleNext();
-                                                    }
-                                                }}
-                                                className="absolute inset-0"
-                                            >
-                                                <img
-                                                    src={getSongImage(song)}
-                                                    alt=""
-                                                    className="w-full h-full object-cover rounded-3xl shadow-2xl border border-white/10"
-                                                />
-                                            </motion.div>
-                                        );
-                                    })}
+                                <AnimatePresence>
+                                    {isFloatingMenuOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
+                                            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
+                                            className="absolute top-14 right-0 flex flex-col gap-2 bg-black/60 backdrop-blur-2xl p-2 rounded-3xl border border-white/10 shadow-2xl min-w-[56px]"
+                                        >
+                                            {[
+                                                { icon: <MdOutlineLyrics size={24} />, onClick: () => { setIsLyricsOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <HiQueueList size={24} />, onClick: () => { setIsQueueOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <MdApps size={24} />, onClick: () => { setIsInfoOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <MdOutlineGraphicEq size={24} />, onClick: () => { dispatch(setEqualizerOpen(true)); setIsFloatingMenuOpen(false); } },
+                                            ].map((item, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={item.onClick}
+                                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors active:scale-90"
+                                                >
+                                                    {item.icon}
+                                                </button>
+                                            ))}
+
+                                            <div className="h-px bg-white/10 my-1 mx-2" />
+
+                                            {/* Visualizer Style Quick Selection inside menu */}
+                                            <div className="flex flex-col gap-2">
+                                                {[
+                                                    { id: 'bars', icon: <MdBarChart size={20} /> },
+                                                    { id: 'waveform', icon: <MdShowChart size={20} /> },
+                                                    { id: 'particles', icon: <MdBubbleChart size={20} /> },
+                                                    { id: 'circular', icon: <MdDonutLarge size={20} /> },
+                                                    { id: 'pixel', icon: <MdApps size={20} /> }
+                                                ].map(style => (
+                                                    <button
+                                                        key={style.id}
+                                                        onClick={() => {
+                                                            dispatch(setVisualizerStyle(style.id as any));
+                                                            setIsFloatingMenuOpen(false);
+                                                        }}
+                                                        className={`p-3 rounded-2xl transition-all ${visualizerStyle === style.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-white'}`}
+                                                    >
+                                                        {style.icon}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
                                 </AnimatePresence>
                             </div>
+                        </div>
 
-                            {/* Song Info */}
-                            <div className="w-full max-w-[320px] mb-6 flex items-end justify-between">
-                                <div className="flex-1 min-w-0 pr-4">
-                                    <h2 className="text-2xl font-black truncate">{decodeHtmlEntities(currentSong.name)}</h2>
-                                    <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
-                                </div>
-                                <button onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}>
-                                    {isFavorite ? <IoHeart className="text-primary" size={32} /> : <IoHeartOutline size={32} />}
-                                </button>
+                        {/* Song Info */}
+                        <div className="w-full max-w-[320px] mb-6 flex items-end justify-between">
+                            <div className="flex-1 min-w-0 pr-4">
+                                <h2 className="text-2xl font-black truncate">{decodeHtmlEntities(currentSong.name)}</h2>
+                                <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
                             </div>
+                            <button onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}>
+                                {isFavorite ? <IoHeart className="text-primary" size={32} /> : <IoHeartOutline size={32} />}
+                            </button>
+                        </div>
 
-                            {/* Progress */}
-                            <div className="w-full max-w-[320px] mb-8">
-                                <input
-                                    type="range"
-                                    min={0} max={100} step="0.1"
-                                    value={progress}
-                                    onChange={handleProgressChange}
-                                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
-                                    style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
-                                />
-                                <div className="flex justify-between text-[10px] font-bold text-gray-400">
-                                    <span>{formatTime(currentTime)}</span>
-                                    <span>{formatTime(duration)}</span>
-                                </div>
-                            </div>
-
-                            {/* Controls */}
-                            <div className="w-full max-w-[320px] flex items-center justify-between mb-8">
-                                <PiShuffleBold className="text-gray-500 text-xl" />
-                                <div className="flex items-center gap-6">
-                                    <IoMdSkipBackward size={36} onClick={handlePrev} className="cursor-pointer" />
-                                    <div onClick={handlePlayPause} className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
-                                        {isPlaying ? <FaPause size={28} /> : <FaPlay size={28} className="ml-1" />}
-                                    </div>
-                                    <IoMdSkipForward size={36} onClick={handleNext} className="cursor-pointer" />
-                                </div>
-                                <BiRepeat className="text-gray-500 text-xl" />
+                        {/* Progress */}
+                        <div className="w-full max-w-[320px] mb-8">
+                            <input
+                                type="range"
+                                min={0} max={100} step="0.1"
+                                value={progress}
+                                onChange={handleProgressChange}
+                                className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
+                                style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
+                            />
+                            <div className="flex justify-between text-[10px] font-bold text-gray-400">
+                                <span>{formatTime(currentTime)}</span>
+                                <span>{formatTime(duration)}</span>
                             </div>
                         </div>
 
-                        {/* Visualizer Style Trigger (Bottom Right Floating) */}
-                        <div className="absolute bottom-8 right-8 z-20">
-                            <button
-                                onClick={() => setIsVisualizerSelectorOpen(!isVisualizerSelectorOpen)}
-                                className="p-4 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 active:scale-95 transition-all"
-                            >
-                                <MdOutlineGraphicEq size={24} />
-                            </button>
-
-                            <AnimatePresence>
-                                {isVisualizerSelectorOpen && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: 20 }}
-                                        className="absolute bottom-16 right-0 flex flex-col gap-2 bg-black/80 backdrop-blur-3xl p-2 rounded-3xl border border-white/10"
-                                    >
-                                        {[
-                                            { id: 'bars', icon: <MdBarChart size={20} /> },
-                                            { id: 'waveform', icon: <MdShowChart size={20} /> },
-                                            { id: 'particles', icon: <MdBubbleChart size={20} /> },
-                                            { id: 'circular', icon: <MdDonutLarge size={20} /> },
-                                            { id: 'pixel', icon: <MdApps size={20} /> }
-                                        ].map(style => (
-                                            <button
-                                                key={style.id}
-                                                onClick={() => {
-                                                    dispatch(setVisualizerStyle(style.id as any));
-                                                    setIsVisualizerSelectorOpen(false);
-                                                }}
-                                                className={`p-3 rounded-2xl ${visualizerStyle === style.id ? 'bg-primary text-white' : 'text-gray-400'}`}
-                                            >
-                                                {style.icon}
-                                            </button>
-                                        ))}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                        {/* Controls */}
+                        <div className="w-full max-w-[320px] flex items-center justify-between mb-8">
+                            <PiShuffleBold className="text-gray-500 text-xl" />
+                            <div className="flex items-center gap-6">
+                                <IoMdSkipBackward size={36} onClick={handlePrev} className="cursor-pointer" />
+                                <div onClick={handlePlayPause} className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
+                                    {isPlaying ? <FaPause size={28} /> : <FaPlay size={28} className="ml-1" />}
+                                </div>
+                                <IoMdSkipForward size={36} onClick={handleNext} className="cursor-pointer" />
+                            </div>
+                            <BiRepeat className="text-gray-500 text-xl" />
                         </div>
                     </div>
 
@@ -353,7 +335,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     </button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                                    <Queue />
+                                    <QueueContent />
                                 </div>
                             </motion.div>
                         )}
@@ -409,7 +391,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                                             onClick={() => { dispatch(playMusic(song)); setIsInfoOverlayOpen(false); }}
                                                             className="flex items-center gap-4 bg-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer"
                                                         >
-                                                            <img src={Array.isArray(song.image) ? song.image[0].url : song.image} className="w-12 h-12 rounded-xl object-cover" />
+                                                            <img src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image} className="w-12 h-12 rounded-xl object-cover" />
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-bold truncate">{decodeHtmlEntities(song.name)}</p>
                                                                 <p className="text-xs text-gray-400 truncate">{decodeHtmlEntities(song.primaryArtists)}</p>

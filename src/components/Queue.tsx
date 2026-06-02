@@ -40,7 +40,7 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             </div>
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" onClick={() => onPlay(song)}>
                 <img
-                    src={Array.isArray(song.image) ? song.image[0]?.url : song.image}
+                    src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image}
                     alt=""
                     className="w-10 h-10 rounded object-cover"
                 />
@@ -62,8 +62,65 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
     );
 };
 
+export const QueueContent: React.FC = () => {
+    const { songs, currentSong, recommendations } = useAppSelector((state) => state.musicPlayer);
+    const dispatch = useAppDispatch();
+
+    return (
+        <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+            <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))} className="space-y-1">
+                <AnimatePresence initial={false}>
+                    {songs.map((song) => (
+                        <QueueItem
+                            key={song.id}
+                            song={song}
+                            isActive={currentSong?.id === song.id}
+                            onPlay={(s) => dispatch(playMusic(s))}
+                            onRemove={(id) => dispatch(removeFromQueue(id))}
+                        />
+                    ))}
+                </AnimatePresence>
+            </Reorder.Group>
+
+            {recommendations.length > 0 && (
+                <div className="mt-6 mb-4 px-2">
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 px-2 uppercase tracking-wider">
+                        Suggested Songs
+                    </h3>
+                    {recommendations.map((song) => (
+                        <div
+                            key={song.id}
+                            className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 mb-1 group"
+                            onClick={() => dispatch(playMusic(song))}
+                        >
+                            <img
+                                src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image}
+                                alt=""
+                                className="w-10 h-10 rounded object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate">{song.name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
+                            </div>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch(reorderQueue([...songs, song]));
+                                }}
+                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-primary/10 dark:bg-red-900/20 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
+                            >
+                                ADD
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const Queue: React.FC = () => {
-    const { songs, currentSong, recommendations, isQueueOpen } = useAppSelector((state) => state.musicPlayer);
+    const { songs, isQueueOpen } = useAppSelector((state) => state.musicPlayer);
     const dispatch = useAppDispatch();
 
     return (
@@ -109,56 +166,8 @@ const Queue: React.FC = () => {
                             </div>
                         </div>
 
-                    <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-                        <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))} className="space-y-1">
-                            <AnimatePresence initial={false}>
-                                {songs.map((song) => (
-                                    <QueueItem
-                                        key={song.id}
-                                        song={song}
-                                        isActive={currentSong?.id === song.id}
-                                        onPlay={(s) => dispatch(playMusic(s))}
-                                        onRemove={(id) => dispatch(removeFromQueue(id))}
-                                    />
-                                ))}
-                            </AnimatePresence>
-                        </Reorder.Group>
-
-                        {recommendations.length > 0 && (
-                            <div className="mt-6 mb-4 px-2">
-                                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 px-2 uppercase tracking-wider">
-                                    Suggested Songs
-                                </h3>
-                                {recommendations.map((song) => (
-                                    <div
-                                        key={song.id}
-                                        className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 mb-1 group"
-                                        onClick={() => dispatch(playMusic(song))}
-                                    >
-                                        <img
-                                            src={Array.isArray(song.image) ? song.image[0]?.url : song.image}
-                                            alt=""
-                                            className="w-10 h-10 rounded object-cover"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold truncate">{song.name}</p>
-                                            <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
-                                        </div>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                dispatch(reorderQueue([...songs, song]));
-                                            }}
-                                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-primary/10 dark:bg-red-900/20 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
-                                        >
-                                        ADD
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </motion.div>
+                        <QueueContent />
+                    </motion.div>
                 </>
             )}
         </AnimatePresence>
