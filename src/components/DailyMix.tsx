@@ -55,12 +55,16 @@ const DailyMix: React.FC = () => {
         fetchMix();
     }, [recentlyPlayed]);
 
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1 }
+    };
+
     if (loading || !dailyMix || dailyMix.length === 0) return null;
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            variants={itemVariants}
             className="mb-12"
         >
             <Slider data={dailyMix} title="Made For You: Daily Mix" />

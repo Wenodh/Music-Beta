@@ -181,9 +181,7 @@ const MainSection: React.FC = () => {
             animate="visible"
             className="pb-32 pt-8 px-4"
         >
-            <motion.div variants={itemVariants} className="mb-12">
-                <DailyMix />
-            </motion.div>
+            <DailyMix />
 
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-12">
