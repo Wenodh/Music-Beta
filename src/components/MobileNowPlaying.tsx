@@ -130,11 +130,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 overflow-hidden">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-6 py-8 overflow-hidden">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full aspect-square max-w-[320px] mb-8"
+                            className="relative w-full aspect-square max-w-[320px] mb-4"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -243,7 +243,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Song Info */}
-                        <div className="w-full max-w-[320px] mb-6 flex items-end justify-between">
+                        <div className="w-full max-w-[320px] mb-2 flex items-end justify-between">
                             <div className="flex-1 min-w-0 pr-4">
                                 <h2 className="text-2xl font-black truncate">{decodeHtmlEntities(currentSong.name)}</h2>
                                 <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
@@ -254,7 +254,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Progress */}
-                        <div className="w-full max-w-[320px] mb-8">
+                        <div className="w-full max-w-[320px] mb-4">
                             <input
                                 type="range"
                                 min={0} max={100} step="0.1"
@@ -270,7 +270,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Controls */}
-                        <div className="w-full max-w-[320px] flex items-center justify-between mb-8">
+                        <div className="w-full max-w-[320px] flex items-center justify-between mb-2">
                             <button
                                 data-testid="shuffle-button"
                                 onClick={() => dispatch(toggleShuffle())}
