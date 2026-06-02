@@ -5,11 +5,11 @@ import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCirc
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
-import { PiShuffleBold } from 'react-icons/pi';
+import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -36,7 +36,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     audioRefs
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle, repeatMode, shuffle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme } = useAppSelector(state => state.ui);
 
@@ -271,7 +271,13 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                         {/* Controls */}
                         <div className="w-full max-w-[320px] flex items-center justify-between mb-8">
-                            <PiShuffleBold className="text-gray-500 text-xl" />
+                            <button
+                                data-testid="shuffle-button"
+                                onClick={() => dispatch(toggleShuffle())}
+                                className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                <PiShuffleBold size={24} style={shuffle ? { color: theme.accentColor } : {}} />
+                            </button>
                             <div className="flex items-center gap-6">
                                 <IoMdSkipBackward size={36} onClick={handlePrev} className="cursor-pointer" />
                                 <div onClick={handlePlayPause} className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
@@ -279,7 +285,17 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 </div>
                                 <IoMdSkipForward size={36} onClick={handleNext} className="cursor-pointer" />
                             </div>
-                            <BiRepeat className="text-gray-500 text-xl" />
+                            <button
+                                data-testid="repeat-button"
+                                onClick={() => dispatch(toggleRepeatMode())}
+                                className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                {repeatMode === 'one' ? (
+                                    <PiRepeatOnceBold size={24} style={{ color: theme.accentColor }} />
+                                ) : (
+                                    <BiRepeat size={24} style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                )}
+                            </button>
                         </div>
                     </div>
 

@@ -37,6 +37,8 @@ export interface MusicPlayerState {
     dailyMix: Song[];
     lastDailyMixUpdate: number;
     visualizerStyle: 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
+    repeatMode: 'none' | 'all' | 'one';
+    shuffle: boolean;
 }
 
 export interface DownloadSettings {
