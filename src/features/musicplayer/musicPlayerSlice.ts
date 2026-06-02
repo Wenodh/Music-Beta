@@ -34,7 +34,7 @@ const initialState: MusicPlayerState = {
 };
 
 // Helper to format song for currentSong state
-const formatSong = (song: any, preferredQuality: string): Song => {
+const formatSong = (song: Song | any, preferredQuality: string): Song => {
     const downloadUrl = song.downloadUrl || song.music;
     let musicUrl = downloadUrl;
     if (Array.isArray(downloadUrl)) {
@@ -61,7 +61,7 @@ const musicPlayerSlice = createSlice({
         setSearchedSongs: (state, action: PayloadAction<any>) => {
             state.searchedSongs = action.payload;
         },
-        playMusic: (state, action: PayloadAction<any>) => {
+        playMusic: (state, action: PayloadAction<Song & { forcePlay?: boolean } | any>) => {
             const { audioBlob, imageBlob, forcePlay, ...songData } = action.payload;
             const id = songData.id;
 

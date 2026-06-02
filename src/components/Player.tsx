@@ -136,7 +136,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
 
         dispatch(nextSong({ isManual }));
-    }, [dispatch, isGaplessEnabled, isCrossfading, repeatMode]);
+    }, [dispatch, isGaplessEnabled, isCrossfading, repeatMode, shuffle]);
 
     const prevSong = useCallback(() => {
         dispatch(prevSongAction());
@@ -222,19 +222,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Preload next song
     useEffect(() => {
         if (isGaplessEnabled && currentSong && songs.length > 0) {
-            const index = songs.findIndex((song) => song.id === currentSong.id);
-            const nextIndex = (index + 1) % songs.length;
-            const nextSong = songs[nextIndex];
+            const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
 
-            getSongUrl(nextSong, true).then(nextUrl => {
-                const inactiveAudio = getInactiveAudio();
-                if (nextUrl && inactiveAudio.src !== nextUrl) {
-                    inactiveAudio.src = nextUrl;
-                    inactiveAudio.load();
-                }
-            });
+            if (next) {
+                getSongUrl(next, true).then(nextUrl => {
+                    const inactiveAudio = getInactiveAudio();
+                    if (nextUrl && inactiveAudio.src !== nextUrl) {
+                        inactiveAudio.src = nextUrl;
+                        inactiveAudio.load();
+                    }
+                });
+            }
         }
-    }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
+    }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl, shuffle, repeatMode]);
 
     // Crossfade Logic
     useEffect(() => {
@@ -260,7 +260,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
             // Crossfade Trigger
             if (isGaplessEnabled && !isCrossfading && duration > 0 && currentTime > (duration - crossfadeDuration)) {
-                if (repeatMode === 'none' && !shuffle && songs.findIndex(s => s.id === currentSong?.id) === songs.length - 1) {
+                if (repeatMode === 'one') {
+                    // Don't crossfade into the same song
+                } else if (repeatMode === 'none' && !shuffle && songs.findIndex(s => s.id === currentSong?.id) === songs.length - 1) {
                     // Don't crossfade at the very end if repeat is none
                 } else {
                     setIsCrossfading(true);
@@ -351,7 +353,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
             activeAudio.removeEventListener('ended', handleSongEnd);
         };
-    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue]);
+    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations]);
 
     // Update individual audio volumes based on user global volume
     useEffect(() => {
