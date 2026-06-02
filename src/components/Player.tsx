@@ -556,18 +556,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    dispatch(toggleRepeatMode());
+                                    dispatch(toggleShuffle());
                                 }}
                                 className="hidden sm:block"
                             >
-                                {repeatMode === 'one' ? (
-                                    <PiRepeatOnceBold style={{ color: uiTheme.accentColor }} className="cursor-pointer transition-colors" />
-                                ) : (
-                                    <BiRepeat
-                                        style={repeatMode === 'all' ? { color: uiTheme.accentColor } : {}}
-                                        className={`${repeatMode === 'all' ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
-                                    />
-                                )}
+                                <PiShuffleBold
+                                    style={shuffle ? { color: uiTheme.accentColor } : {}}
+                                    className={`${shuffle ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
+                                />
                             </button>
                             <motion.button
                                 whileTap={{ scale: 0.9 }}
@@ -607,14 +603,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    dispatch(toggleShuffle());
+                                    dispatch(toggleRepeatMode());
                                 }}
                                 className="hidden sm:block"
                             >
-                                <PiShuffleBold
-                                    style={shuffle ? { color: uiTheme.accentColor } : {}}
-                                    className={`${shuffle ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
-                                />
+                                {repeatMode === 'one' ? (
+                                    <PiRepeatOnceBold style={{ color: uiTheme.accentColor }} className="cursor-pointer transition-colors" />
+                                ) : (
+                                    <BiRepeat
+                                        style={repeatMode === 'all' ? { color: uiTheme.accentColor } : {}}
+                                        className={`${repeatMode === 'all' ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
+                                    />
+                                )}
                             </button>
                         </div>
 
