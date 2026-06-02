@@ -16,6 +16,10 @@ Here’s a look at the latest major updates:
 
 ☁️ **Cloud Sync & Auth**: Your library, everywhere. Integrated with **Supabase**, VibeOn now supports full user authentication and seamless cloud syncing. Your favorites and playlists stay with you across any device.
 
+📱 **Redesigned Immersive Expanded View**: I've completely re-architected the "Now Playing" experience. On mobile, it features smooth shared-element transitions that feel like magic. On desktop, it’s a powerful side-by-side layout that balances a 3D album stack with interactive lyrics and discovery—maximizing every inch of your screen.
+
+🔁 **Refined Playback Controls**: Every detail matters. I’ve implemented professional-grade Shuffle and Repeat logic (including "Repeat One" loop optimization) with a polished UI that provides clear visual feedback via dynamic accent colors.
+
 This project has been a masterclass in combining **React 18**, **Framer Motion**, and the **Web Audio API** to create something truly special.
 
 I’d love for you to take it for a spin!

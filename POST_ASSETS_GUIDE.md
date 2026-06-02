@@ -19,13 +19,18 @@ To make your LinkedIn post truly stand out, I recommend including a mix of high-
 *   **What to capture**: A screenshot of the "Account" section within the Settings Drawer, showing the "Synced" status and your profile.
 *   **Why**: It subtly proves the robustness of the backend (Supabase integration) and the maturity of the project.
 
-### 5. Multi-Device "Action Shot" (Optional but Powerful)
-*   **What to capture**: If possible, a photo of the app running on both a laptop (Desktop view) and a phone (Mobile view) side-by-side.
-*   **Why**: Highlights the PWA nature and the responsiveness of the UI.
+### 5. Redesigned Desktop Expanded View (Screenshot)
+*   **What to capture**: A high-res screenshot of the Desktop expanded player showing the side-by-side layout (Album Stack on the left, Lyrics or Discovery on the right).
+*   **Why**: It shows the app’s ability to scale and provide a workspace-like experience for music lovers.
+
+### 6. Playback Precision (Close-up Screenshot)
+*   **What to capture**: A close-up of the player controls showing the Repeat or Shuffle buttons active, glowing with the current song's accent color.
+*   **Why**: Emphasizes the "Attention to Detail" and "Premium UX."
 
 ---
 **Recommended Sequence for LinkedIn Gallery:**
-1.  **Main Video**: Tinder Swipe + Visualizer (10-15 seconds).
-2.  **Screenshot**: Particles Visualizer (Full screen).
-3.  **Screenshot**: Pro Equalizer UI.
-4.  **Screenshot**: Main Library view (showing the polished "Modern" layout).
+1.  **Main Video**: Tinder Swipe + Visualizer + Shared Element Transition (Mobile).
+2.  **Screenshot**: Desktop side-by-side Expanded View.
+3.  **Screenshot**: Particles Visualizer (Full screen).
+4.  **Screenshot**: Pro Equalizer UI.
+5.  **Screenshot**: "Account" / Cloud Sync status.
