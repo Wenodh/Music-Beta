@@ -1,6 +1,6 @@
 import { BiRepeat } from 'react-icons/bi';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
-import { PiShuffleBold } from 'react-icons/pi';
+import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { HiSpeakerWave } from 'react-icons/hi2';
 import { LuHardDriveDownload } from 'react-icons/lu';
@@ -15,6 +15,10 @@ import {
     setCurrentTime,
     setSongRadioEnabled,
     setVisualizerStyle,
+    toggleRepeatMode,
+    toggleShuffle,
+    nextSong,
+    prevSong as prevSongAction,
 } from '../features/musicplayer/musicPlayerSlice';
 import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
@@ -35,6 +39,7 @@ import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
+import { getNextSong, getPrevSong } from '../utils/playlist';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const navigate = useNavigate();
@@ -48,7 +53,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
-        visualizerStyle
+        visualizerStyle, repeatMode, shuffle
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, theme: uiTheme } = useAppSelector((state) => state.ui);
@@ -118,34 +123,24 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [preferredQuality, revokeAudioBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
-        if (currentSong && songs.length > 0) {
-            const index = songs.findIndex((song) => song.id === currentSong.id);
-            const nextIndex = (index + 1) % songs.length;
-            const next = songs[nextIndex];
-
-            if (!isManual && isGaplessEnabled && !isCrossfading) {
-                // Crossfade logic handled in timeupdate
-                return;
-            }
-
-            dispatch(playMusic({
-                ...next,
-                albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
-            }));
+        if (!isManual && repeatMode === 'one') {
+            const activeAudio = getActiveAudio();
+            activeAudio.currentTime = 0;
+            activeAudio.play().catch(e => console.warn("Playback failed", e));
+            return;
         }
-    }, [currentSong, songs, dispatch, isGaplessEnabled, isCrossfading]);
+
+        if (!isManual && isGaplessEnabled && !isCrossfading) {
+            // Logic for end of queue without repeat is handled in timeupdate
+            return;
+        }
+
+        dispatch(nextSong({ isManual }));
+    }, [dispatch, isGaplessEnabled, isCrossfading, repeatMode, shuffle]);
 
     const prevSong = useCallback(() => {
-        if (currentSong && songs.length > 0) {
-            const index = songs.findIndex((song) => song.id === currentSong.id);
-            const prevIndex = (index - 1 + songs.length) % songs.length;
-            const prev = songs[prevIndex];
-            dispatch(playMusic({
-                ...prev,
-                albumId: prev?.album && typeof prev.album !== 'string' ? prev.album.id : undefined,
-            }));
-        }
-    }, [currentSong, songs, dispatch]);
+        dispatch(prevSongAction());
+    }, [dispatch]);
 
     // Handle Metadata, Recommendations & Theme
     useEffect(() => {
@@ -227,19 +222,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Preload next song
     useEffect(() => {
         if (isGaplessEnabled && currentSong && songs.length > 0) {
-            const index = songs.findIndex((song) => song.id === currentSong.id);
-            const nextIndex = (index + 1) % songs.length;
-            const nextSong = songs[nextIndex];
+            const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
 
-            getSongUrl(nextSong, true).then(nextUrl => {
-                const inactiveAudio = getInactiveAudio();
-                if (nextUrl && inactiveAudio.src !== nextUrl) {
-                    inactiveAudio.src = nextUrl;
-                    inactiveAudio.load();
-                }
-            });
+            if (next) {
+                getSongUrl(next, true).then(nextUrl => {
+                    const inactiveAudio = getInactiveAudio();
+                    if (nextUrl && inactiveAudio.src !== nextUrl) {
+                        inactiveAudio.src = nextUrl;
+                        inactiveAudio.load();
+                    }
+                });
+            }
         }
-    }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl]);
+    }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl, shuffle, repeatMode]);
 
     // Crossfade Logic
     useEffect(() => {
@@ -265,14 +260,28 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
             // Crossfade Trigger
             if (isGaplessEnabled && !isCrossfading && duration > 0 && currentTime > (duration - crossfadeDuration)) {
-                setIsCrossfading(true);
-                startCrossfade();
+                if (repeatMode === 'one') {
+                    // Don't crossfade into the same song
+                } else if (repeatMode === 'none' && !shuffle && songs.findIndex(s => s.id === currentSong?.id) === songs.length - 1) {
+                    // Don't crossfade at the very end if repeat is none
+                } else {
+                    setIsCrossfading(true);
+                    startCrossfade();
+                }
             }
         };
 
         const startCrossfade = () => {
-            const nextIndex = (songs.findIndex(s => s.id === currentSong?.id) + 1) % songs.length;
-            const next = songs[nextIndex];
+            const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
+
+            if (!next) {
+                setIsCrossfading(false);
+                return;
+            }
+
+            getSongUrl(next, true).then(url => {
+                inactiveAudio.src = url;
+            });
 
             inactiveAudio.volume = 0;
             inactiveAudio.play().then(() => {
@@ -301,6 +310,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         dispatch(playMusic({
                             ...next,
                             albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
+                            forcePlay: true, // Ensure it plays and handles state update correctly
                         }));
                     }
                 }, interval);
@@ -312,13 +322,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         const handleSongEnd = () => {
             if (!isCrossfading) {
-                const index = songs.findIndex((song) => song.id === currentSong?.id);
-                if (index === songs.length - 1 && isSongRadioEnabled && recommendations.length > 0) {
-                    // Last song in queue and radio is enabled
-                    const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
-                    dispatch(playMusic(randomSong));
+                if (repeatMode === 'one') {
+                    const activeAudio = getActiveAudio();
+                    activeAudio.currentTime = 0;
+                    activeAudio.play().catch(e => console.warn("Playback failed", e));
                 } else {
-                    playNextInQueue(true);
+                    const index = songs.findIndex((song) => song.id === currentSong?.id);
+                    const isLastSong = index === songs.length - 1;
+
+                    if (isLastSong && repeatMode === 'none') {
+                        if (isSongRadioEnabled && recommendations.length > 0) {
+                            const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
+                            dispatch(playMusic(randomSong));
+                        } else {
+                            // If it's the end and no radio/repeat, just pause or handle as end of queue
+                            dispatch(playMusic(currentSong!)); // Re-set to same song but...
+                            // In a real app we might want to just stop.
+                        }
+                    } else {
+                        playNextInQueue(false);
+                    }
                 }
             }
         };
@@ -330,7 +353,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
             activeAudio.removeEventListener('ended', handleSongEnd);
         };
-    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue]);
+    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations]);
 
     // Update individual audio volumes based on user global volume
     useEffect(() => {
@@ -531,10 +554,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         {/* 2nd div */}
                         <div className="flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
                             <button
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch(toggleShuffle());
+                                }}
                                 className="hidden sm:block"
                             >
-                                <BiRepeat className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors" />
+                                <PiShuffleBold
+                                    style={shuffle ? { color: uiTheme.accentColor } : {}}
+                                    className={`${shuffle ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
+                                />
                             </button>
                             <motion.button
                                 whileTap={{ scale: 0.9 }}
@@ -572,10 +601,20 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 />
                             </motion.button>
                             <button
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch(toggleRepeatMode());
+                                }}
                                 className="hidden sm:block"
                             >
-                                <PiShuffleBold className="text-gray-400 cursor-pointer hover:text-red-400 transition-colors" />
+                                {repeatMode === 'one' ? (
+                                    <PiRepeatOnceBold style={{ color: uiTheme.accentColor }} className="cursor-pointer transition-colors" />
+                                ) : (
+                                    <BiRepeat
+                                        style={repeatMode === 'all' ? { color: uiTheme.accentColor } : {}}
+                                        className={`${repeatMode === 'all' ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
+                                    />
+                                )}
                             </button>
                         </div>
 

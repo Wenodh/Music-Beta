@@ -5,11 +5,11 @@ import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCirc
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
-import { PiShuffleBold } from 'react-icons/pi';
+import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -36,7 +36,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     audioRefs
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle, repeatMode, shuffle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme } = useAppSelector(state => state.ui);
 
@@ -113,12 +113,12 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Header */}
-                    <div className="relative z-10 flex items-center justify-between p-6">
+                    <div className="relative z-10 flex items-center justify-between p-2 sm:p-4">
                         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                             <IoChevronDown size={28} />
                         </button>
                         <div className="text-center flex-1 px-4">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
+                            <p className="hidden xs:block text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
                             <p className="text-xs font-bold truncate max-w-[200px] mx-auto">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
                         </div>
                         <button
@@ -130,11 +130,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 overflow-hidden">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-6 py-2 sm:py-4 overflow-hidden">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full aspect-square max-w-[320px] mb-8"
+                            className="relative w-full flex-1 min-h-0 max-h-[35vh] xs:max-h-[40vh] aspect-square max-w-[320px] mb-4 sm:mb-8"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -243,7 +243,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Song Info */}
-                        <div className="w-full max-w-[320px] mb-6 flex items-end justify-between">
+                        <div className="w-full max-w-[320px] mb-1 flex items-end justify-between">
                             <div className="flex-1 min-w-0 pr-4">
                                 <h2 className="text-2xl font-black truncate">{decodeHtmlEntities(currentSong.name)}</h2>
                                 <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
@@ -254,7 +254,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Progress */}
-                        <div className="w-full max-w-[320px] mb-8">
+                        <div className="w-full max-w-[320px] mb-2">
                             <input
                                 type="range"
                                 min={0} max={100} step="0.1"
@@ -270,8 +270,14 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Controls */}
-                        <div className="w-full max-w-[320px] flex items-center justify-between mb-8">
-                            <PiShuffleBold className="text-gray-500 text-xl" />
+                        <div className="w-full max-w-[320px] flex items-center justify-between">
+                            <button
+                                data-testid="shuffle-button"
+                                onClick={() => dispatch(toggleShuffle())}
+                                className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                <PiShuffleBold size={24} style={shuffle ? { color: theme.accentColor } : {}} />
+                            </button>
                             <div className="flex items-center gap-6">
                                 <IoMdSkipBackward size={36} onClick={handlePrev} className="cursor-pointer" />
                                 <div onClick={handlePlayPause} className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
@@ -279,7 +285,17 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 </div>
                                 <IoMdSkipForward size={36} onClick={handleNext} className="cursor-pointer" />
                             </div>
-                            <BiRepeat className="text-gray-500 text-xl" />
+                            <button
+                                data-testid="repeat-button"
+                                onClick={() => dispatch(toggleRepeatMode())}
+                                className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                {repeatMode === 'one' ? (
+                                    <PiRepeatOnceBold size={24} style={{ color: theme.accentColor }} />
+                                ) : (
+                                    <BiRepeat size={24} style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                )}
+                            </button>
                         </div>
                     </div>
 

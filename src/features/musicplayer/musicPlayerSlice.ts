@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song, MusicPlayerState } from '../../types/music';
+import { getNextSong, getPrevSong } from '../../utils/playlist';
 
 const initialState: MusicPlayerState = {
     songs: [],
@@ -28,6 +29,26 @@ const initialState: MusicPlayerState = {
     dailyMix: [],
     lastDailyMixUpdate: 0,
     visualizerStyle: 'bars',
+    repeatMode: 'none',
+    shuffle: false,
+};
+
+// Helper to format song for currentSong state
+const formatSong = (song: Song | any, preferredQuality: string): Song => {
+    const downloadUrl = song.downloadUrl || song.music;
+    let musicUrl = downloadUrl;
+    if (Array.isArray(downloadUrl)) {
+        musicUrl = downloadUrl.find((d: any) => d.quality === preferredQuality)?.url ||
+                   downloadUrl[downloadUrl.length - 1]?.url;
+    }
+
+    return {
+        ...song,
+        type: 'song',
+        image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
+        downloadUrl: downloadUrl,
+        music: musicUrl,
+    } as Song;
 };
 
 const musicPlayerSlice = createSlice({
@@ -40,30 +61,15 @@ const musicPlayerSlice = createSlice({
         setSearchedSongs: (state, action: PayloadAction<any>) => {
             state.searchedSongs = action.payload;
         },
-        playMusic: (state, action: PayloadAction<any>) => {
-            // Remove any potential non-serializable blobs if they were accidentally passed
-            const { audioBlob, imageBlob, ...song } = action.payload;
-            const id = song.id;
+        playMusic: (state, action: PayloadAction<Song & { forcePlay?: boolean } | any>) => {
+            const { audioBlob, imageBlob, forcePlay, ...songData } = action.payload;
+            const id = songData.id;
 
-            // Toggle play/pause if current song is clicked again
-            if (state.currentSong && state.currentSong.id === id) {
+            // Toggle play/pause if current song is clicked again (unless forcePlay is true)
+            if (!forcePlay && state.currentSong && state.currentSong.id === id) {
                 state.isPlaying = !state.isPlaying;
             } else {
-                // If a new song is played
-                const downloadUrl = song.downloadUrl || song.music;
-                let musicUrl = downloadUrl;
-                if (Array.isArray(downloadUrl)) {
-                    musicUrl = downloadUrl.find((d: any) => d.quality === state.preferredQuality)?.url ||
-                               downloadUrl[downloadUrl.length - 1]?.url;
-                }
-
-                state.currentSong = {
-                    ...song,
-                    type: 'song',
-                    image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
-                    downloadUrl: downloadUrl,
-                    music: musicUrl,
-                } as Song;
+                state.currentSong = formatSong(songData, state.preferredQuality);
                 state.isPlaying = true;
 
                 // Add to recently played
@@ -124,8 +130,6 @@ const musicPlayerSlice = createSlice({
         setPreferredQuality: (state, action: PayloadAction<MusicPlayerState['preferredQuality']>) => {
             state.preferredQuality = action.payload;
             if (state.currentSong) {
-                // We don't change the actual playing source here to avoid interruption
-                // but we update the currentSong object so it's ready for the next play or manual reload
                 const downloadUrl = state.currentSong.downloadUrl;
                 if (Array.isArray(downloadUrl)) {
                     const newMusic = downloadUrl.find((d: any) => d.quality === action.payload)?.url ||
@@ -179,51 +183,40 @@ const musicPlayerSlice = createSlice({
         setVisualizerStyle: (state, action: PayloadAction<MusicPlayerState['visualizerStyle']>) => {
             state.visualizerStyle = action.payload;
         },
-        nextSong: (state) => {
-            if (state.currentSong && state.songs.length > 0) {
-                const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
-                const nextIndex = (index + 1) % state.songs.length;
-                const next = state.songs[nextIndex];
+        toggleRepeatMode: (state) => {
+            const modes: ('none' | 'all' | 'one')[] = ['none', 'all', 'one'];
+            const currentIndex = modes.indexOf(state.repeatMode);
+            state.repeatMode = modes[(currentIndex + 1) % modes.length];
+        },
+        toggleShuffle: (state) => {
+            state.shuffle = !state.shuffle;
+        },
+        nextSong: (state, action: PayloadAction<{ isManual?: boolean } | undefined>) => {
+            const isManual = action.payload?.isManual ?? true;
+            const next = getNextSong(state.currentSong, state.songs, state.shuffle, state.repeatMode, isManual);
 
-                // Reuse playMusic logic internally if possible, but here we just update state
-                const downloadUrl = next.downloadUrl || next.music;
-                let musicUrl = downloadUrl;
-                if (Array.isArray(downloadUrl)) {
-                    musicUrl = downloadUrl.find((d: any) => d.quality === state.preferredQuality)?.url ||
-                               downloadUrl[downloadUrl.length - 1]?.url;
-                }
-
-                state.currentSong = {
-                    ...next,
-                    type: 'song',
-                    image: Array.isArray(next.image) ? next.image[next.image.length - 1]?.url : next.image,
-                    downloadUrl: downloadUrl,
-                    music: musicUrl,
-                } as Song;
+            if (next) {
+                state.currentSong = formatSong(next, state.preferredQuality);
                 state.isPlaying = true;
+                state.recentlyPlayed = [
+                    state.currentSong,
+                    ...state.recentlyPlayed.filter((s) => s.id !== state.currentSong?.id),
+                ].slice(0, 20);
+            } else {
+                // End of queue logic (radio handled in component)
+                state.isPlaying = false;
             }
         },
         prevSong: (state) => {
-            if (state.currentSong && state.songs.length > 0) {
-                const index = state.songs.findIndex((song) => song.id === state.currentSong?.id);
-                const prevIndex = (index - 1 + state.songs.length) % state.songs.length;
-                const prev = state.songs[prevIndex];
+            const prev = getPrevSong(state.currentSong, state.songs, state.shuffle);
 
-                const downloadUrl = prev.downloadUrl || prev.music;
-                let musicUrl = downloadUrl;
-                if (Array.isArray(downloadUrl)) {
-                    musicUrl = downloadUrl.find((d: any) => d.quality === state.preferredQuality)?.url ||
-                               downloadUrl[downloadUrl.length - 1]?.url;
-                }
-
-                state.currentSong = {
-                    ...prev,
-                    type: 'song',
-                    image: Array.isArray(prev.image) ? prev.image[prev.image.length - 1]?.url : prev.image,
-                    downloadUrl: downloadUrl,
-                    music: musicUrl,
-                } as Song;
+            if (prev) {
+                state.currentSong = formatSong(prev, state.preferredQuality);
                 state.isPlaying = true;
+                state.recentlyPlayed = [
+                    state.currentSong,
+                    ...state.recentlyPlayed.filter((s) => s.id !== state.currentSong?.id),
+                ].slice(0, 20);
             }
         },
     },
@@ -256,6 +249,8 @@ export const {
     setWifiOnly,
     setDailyMix,
     setVisualizerStyle,
+    toggleRepeatMode,
+    toggleShuffle,
     nextSong,
     prevSong,
 } = musicPlayerSlice.actions;
