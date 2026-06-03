@@ -130,11 +130,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-6 py-2 sm:py-4 overflow-hidden">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-6 py-1 xs:py-1.5 sm:py-4 overflow-hidden">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 min-h-0 max-h-[35vh] xs:max-h-[40vh] aspect-square max-w-[320px] mb-4 sm:mb-8"
+                            className="relative w-full flex-1 min-h-0 max-h-[30vh] xs:max-h-[38vh] aspect-square max-w-[260px] xs:max-w-[300px] mb-1 xs:mb-2 sm:mb-8"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -243,24 +243,24 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Song Info */}
-                        <div className="w-full max-w-[320px] mb-1 flex items-end justify-between">
+                        <div className="w-full max-w-[320px] mb-0.5 xs:mb-1 flex items-end justify-between">
                             <div className="flex-1 min-w-0 pr-4">
-                                <h2 className="text-2xl font-black truncate">{decodeHtmlEntities(currentSong.name)}</h2>
-                                <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                                <h2 className="text-lg xs:text-xl font-black truncate leading-tight">{decodeHtmlEntities(currentSong.name)}</h2>
+                                <p className="text-sm xs:text-base text-primary font-bold opacity-90 truncate leading-tight">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
                             </div>
                             <button onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}>
-                                {isFavorite ? <IoHeart className="text-primary" size={32} /> : <IoHeartOutline size={32} />}
+                                {isFavorite ? <IoHeart className="text-primary size-[24px] xs:size-[28px]" /> : <IoHeartOutline className="size-[24px] xs:size-[28px]" />}
                             </button>
                         </div>
 
                         {/* Progress */}
-                        <div className="w-full max-w-[320px] mb-2">
+                        <div className="w-full max-w-[320px] mb-1 xs:mb-2">
                             <input
                                 type="range"
                                 min={0} max={100} step="0.1"
                                 value={progress}
                                 onChange={handleProgressChange}
-                                className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
+                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-0.5 xs:mb-1"
                                 style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
                             />
                             <div className="flex justify-between text-[10px] font-bold text-gray-400">
@@ -274,26 +274,26 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             <button
                                 data-testid="shuffle-button"
                                 onClick={() => dispatch(toggleShuffle())}
-                                className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
+                                className={`p-1 xs:p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
                             >
-                                <PiShuffleBold size={24} style={shuffle ? { color: theme.accentColor } : {}} />
+                                <PiShuffleBold size={18} className="xs:size-[22px]" style={shuffle ? { color: theme.accentColor } : {}} />
                             </button>
-                            <div className="flex items-center gap-6">
-                                <IoMdSkipBackward size={36} onClick={handlePrev} className="cursor-pointer" />
-                                <div onClick={handlePlayPause} className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
-                                    {isPlaying ? <FaPause size={28} /> : <FaPlay size={28} className="ml-1" />}
+                            <div className="flex items-center gap-4 xs:gap-6">
+                                <IoMdSkipBackward size={24} onClick={handlePrev} className="cursor-pointer xs:size-[30px]" />
+                                <div onClick={handlePlayPause} className="w-14 h-14 xs:w-16 xs:h-16 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
+                                    {isPlaying ? <FaPause size={20} className="xs:size-[24px]" /> : <FaPlay size={20} className="xs:size-[24px] ml-1" />}
                                 </div>
-                                <IoMdSkipForward size={36} onClick={handleNext} className="cursor-pointer" />
+                                <IoMdSkipForward size={24} onClick={handleNext} className="cursor-pointer xs:size-[30px]" />
                             </div>
                             <button
                                 data-testid="repeat-button"
                                 onClick={() => dispatch(toggleRepeatMode())}
-                                className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
+                                className={`p-1 xs:p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
                             >
                                 {repeatMode === 'one' ? (
-                                    <PiRepeatOnceBold size={24} style={{ color: theme.accentColor }} />
+                                    <PiRepeatOnceBold size={20} className="xs:size-[24px]" style={{ color: theme.accentColor }} />
                                 ) : (
-                                    <BiRepeat size={24} style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                    <BiRepeat size={20} className="xs:size-[24px]" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
                                 )}
                             </button>
                         </div>
