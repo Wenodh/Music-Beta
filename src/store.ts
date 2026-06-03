@@ -49,7 +49,6 @@ settingsListener.startListening({
     effect: async (action, listenerApi) => {
         // Debounce or just upload? user asked for "immediately"
         // We'll use a small debounce to avoid spamming the DB during rapid changes (like slider moves)
-        listenerApi.cancelActiveInstances();
         await listenerApi.delay(1000);
 
         // Avoid uploading if we are currently fetching settings (e.g. on login/sync)
