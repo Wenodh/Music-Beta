@@ -55,9 +55,9 @@ export const fetchSettings = createAsyncThunk(
                 .from('user_settings')
                 .select('settings')
                 .eq('user_id', user.id)
-                .single();
+                .maybeSingle();
 
-            if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+            if (error) throw error;
 
             if (data?.settings) {
                 const settings = data.settings;
