@@ -119,7 +119,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </button>
                         <div className="text-center flex-1 px-4">
                             <p className="hidden xs:block text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
-                            <p className="text-[10px] sm:text-xs font-bold truncate max-w-[200px] mx-auto">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
+                            <p className="text-xs sm:text-sm font-bold truncate max-w-[220px] mx-auto">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
                         </div>
                         <button
                             onClick={() => dispatch(openPlaylistModal(currentSong!))}
