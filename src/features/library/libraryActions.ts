@@ -191,7 +191,7 @@ export const deletePlaylistCloud = createAsyncThunk(
 export const createPlaylistCloud = createAsyncThunk(
     'library/createPlaylistCloud',
     async (payload: { name: string; song?: Song; songs?: Song[]; id?: string }, { getState, dispatch }) => {
-        const id = payload.id || Date.now().toString();
+        const id = payload.id || crypto.randomUUID();
         const songs = payload.songs ? payload.songs : (payload.song ? [payload.song] : []);
 
         // Update local state
