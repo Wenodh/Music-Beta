@@ -7,6 +7,58 @@ import languageReducer from './features/language/languageSlice';
 import libraryReducer from './features/library/librarySlice';
 import uiReducer from './features/ui/uiSlice';
 import authReducer from './features/auth/authSlice';
+import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
+import { uploadSettings } from './features/settings/settingsActions';
+import { setLanguage } from './features/language/languageSlice';
+import { setAccentColor, setDarkMode, setOledMode } from './features/ui/uiSlice';
+import {
+    setPreferredQuality,
+    setEqualizerEnabled,
+    setEqualizerBand,
+    setEqualizerPreset,
+    setGaplessEnabled,
+    setCrossfadeDuration,
+    setSongRadioEnabled,
+    setWifiOnly,
+    setVisualizerStyle,
+    toggleRepeatMode,
+    toggleShuffle
+} from './features/musicplayer/musicPlayerSlice';
+
+// Create listener middleware for automatic settings sync
+const settingsListener = createListenerMiddleware();
+
+settingsListener.startListening({
+    matcher: isAnyOf(
+        setLanguage,
+        setAccentColor,
+        setDarkMode,
+        setOledMode,
+        setPreferredQuality,
+        setEqualizerEnabled,
+        setEqualizerBand,
+        setEqualizerPreset,
+        setGaplessEnabled,
+        setCrossfadeDuration,
+        setSongRadioEnabled,
+        setWifiOnly,
+        setVisualizerStyle,
+        toggleRepeatMode,
+        toggleShuffle
+    ),
+    effect: async (action, listenerApi) => {
+        // Debounce or just upload? user asked for "immediately"
+        // We'll use a small debounce to avoid spamming the DB during rapid changes (like slider moves)
+        listenerApi.cancelActiveInstances();
+        await listenerApi.delay(1000);
+
+        // Avoid uploading if we are currently fetching settings (e.g. on login/sync)
+        const state = listenerApi.getState() as RootState;
+        if (state.library.isSyncing) return;
+
+        listenerApi.dispatch(uploadSettings() as any);
+    },
+});
 
 // Combine reducers
 const rootReducer = combineReducers({
@@ -30,7 +82,7 @@ export const store = configureStore({
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: false,
-        }),
+        }).prepend(settingsListener.middleware),
 });
 
 export const persistor = persistStore(store);

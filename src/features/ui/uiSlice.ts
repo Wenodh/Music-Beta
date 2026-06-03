@@ -93,6 +93,9 @@ const uiSlice = createSlice({
                 state.theme.isOled = false;
             }
         },
+        applyThemeSettings: (state, action: PayloadAction<UIState['theme']>) => {
+            state.theme = { ...state.theme, ...action.payload };
+        },
     },
 });
 
@@ -106,6 +109,7 @@ export const {
     setPlayerExpanded,
     setAccentColor,
     setOledMode,
-    setDarkMode
+    setDarkMode,
+    applyThemeSettings
 } = uiSlice.actions;
 export default uiSlice.reducer;
