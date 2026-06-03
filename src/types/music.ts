@@ -36,6 +36,12 @@ export interface MusicPlayerState {
     downloadSettings: DownloadSettings;
     dailyMix: Song[];
     lastDailyMixUpdate: number;
+    recommendationsCache: {
+        [songId: string]: {
+            songs: Song[];
+            timestamp: number;
+        };
+    };
     visualizerStyle: 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
     repeatMode: 'none' | 'all' | 'one';
     shuffle: boolean;
