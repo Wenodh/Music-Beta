@@ -219,6 +219,29 @@ const musicPlayerSlice = createSlice({
                 ].slice(0, 20);
             }
         },
+        applyMusicPlayerSettings: (state, action: PayloadAction<Partial<MusicPlayerState>>) => {
+            const {
+                preferredQuality,
+                equalizerSettings,
+                isGaplessEnabled,
+                crossfadeDuration,
+                isSongRadioEnabled,
+                downloadSettings,
+                visualizerStyle,
+                repeatMode,
+                shuffle
+            } = action.payload;
+
+            if (preferredQuality) state.preferredQuality = preferredQuality;
+            if (equalizerSettings) state.equalizerSettings = equalizerSettings;
+            if (isGaplessEnabled !== undefined) state.isGaplessEnabled = isGaplessEnabled;
+            if (crossfadeDuration !== undefined) state.crossfadeDuration = crossfadeDuration;
+            if (isSongRadioEnabled !== undefined) state.isSongRadioEnabled = isSongRadioEnabled;
+            if (downloadSettings) state.downloadSettings = downloadSettings;
+            if (visualizerStyle) state.visualizerStyle = visualizerStyle;
+            if (repeatMode) state.repeatMode = repeatMode;
+            if (shuffle !== undefined) state.shuffle = shuffle;
+        },
     },
 });
 
@@ -253,6 +276,7 @@ export const {
     toggleShuffle,
     nextSong,
     prevSong,
+    applyMusicPlayerSettings,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;

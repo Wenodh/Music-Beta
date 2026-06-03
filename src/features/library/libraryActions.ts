@@ -4,6 +4,7 @@ import { RootState } from '../../store';
 import { Song } from '../../types/music';
 import { setFavorites, setPlaylists, setSyncing, setLastSynced, toggleFavorite, createPlaylist, addToPlaylist, addBulkToPlaylist, removeFromPlaylist } from './librarySlice';
 import { showToast } from '../ui/uiSlice';
+import { fetchSettings } from '../settings/settingsActions';
 
 export const syncLibrary = createAsyncThunk(
     'library/sync',
@@ -78,6 +79,9 @@ export const syncLibrary = createAsyncThunk(
             dispatch(setPlaylists(finalPlaylists));
 
             dispatch(setLastSynced(new Date().toISOString()));
+            // 3. Sync Settings (Cloud overrides local as requested)
+            await dispatch(fetchSettings() as any);
+
             if (!options.silent) {
                 dispatch(showToast({ message: 'Library synced successfully' }));
             }
