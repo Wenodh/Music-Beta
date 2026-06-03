@@ -28,6 +28,7 @@ const initialState: MusicPlayerState = {
     },
     dailyMix: [],
     lastDailyMixUpdate: 0,
+    recommendationsCache: {},
     visualizerStyle: 'bars',
     repeatMode: 'none',
     shuffle: false,
@@ -117,8 +118,12 @@ const musicPlayerSlice = createSlice({
         clearQueue: (state) => {
             state.songs = state.currentSong ? [state.currentSong] : [];
         },
-        setRecommendations: (state, action: PayloadAction<Song[]>) => {
-            state.recommendations = action.payload;
+        setRecommendations: (state, action: PayloadAction<{ songId: string; recommendations: Song[] }>) => {
+            state.recommendations = action.payload.recommendations;
+            state.recommendationsCache[action.payload.songId] = {
+                songs: action.payload.recommendations,
+                timestamp: Date.now(),
+            };
         },
         addRecentlyPlayedAlbum: (state, action: PayloadAction<any>) => {
             const album = action.payload;

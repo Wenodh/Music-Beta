@@ -53,7 +53,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
-        visualizerStyle, repeatMode, shuffle
+        visualizerStyle, repeatMode, shuffle, recommendationsCache
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, theme: uiTheme } = useAppSelector((state) => state.ui);
@@ -61,6 +61,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const [imageUrl, setImageUrl] = useState<string>('');
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
+    const lastProcessedSongId = useRef<string | null>(null);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
 
@@ -145,6 +146,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Handle Metadata, Recommendations & Theme
     useEffect(() => {
         if (currentSong) {
+            setImageUrl(''); // Clear current image to avoid double-processing with old image
             // Resolve Image URL (Offline first)
             getOfflineSong(currentSong.id).then(offlineSong => {
                 let url = '';
@@ -163,10 +165,34 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [currentSong?.id, revokeImageBlob]);
 
     useEffect(() => {
+        if (currentSong && currentSong.id !== lastProcessedSongId.current) {
+            lastProcessedSongId.current = currentSong.id;
+
+            // Update Theme Color & Media Session when image is ready (or if it's already there)
+            // But we fetch suggestions strictly once based on ID
+            const cached = recommendationsCache[currentSong.id];
+            const oneHour = 60 * 60 * 1000;
+            const isCacheValid = cached && (Date.now() - cached.timestamp < oneHour);
+
+            if (isCacheValid) {
+                dispatch(setRecommendations({ songId: currentSong.id, recommendations: cached.songs }));
+            } else {
+                fetch(suggestions(currentSong.id))
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'SUCCESS' && data.data) {
+                            dispatch(setRecommendations({ songId: currentSong.id, recommendations: data.data }));
+                        }
+                    }).catch(err => console.error('Error fetching recommendations:', err));
+            }
+        }
+
         if (currentSong && imageUrl) {
             // Update Theme Color
             getDominantColor(imageUrl).then(color => {
-                dispatch(setAccentColor(color));
+                if (uiTheme.accentColor !== color) {
+                    dispatch(setAccentColor(color));
+                }
             });
 
             if ('mediaSession' in navigator) {
@@ -179,16 +205,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
                 navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
             }
-
-            fetch(suggestions(currentSong.id))
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'SUCCESS' && data.data) {
-                        dispatch(setRecommendations(data.data));
-                    }
-                }).catch(err => console.error('Error fetching recommendations:', err));
         }
-    }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue]);
+    }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
 
     // Handle Playback State
     useEffect(() => {
