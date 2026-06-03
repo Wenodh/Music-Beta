@@ -130,11 +130,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-4 sm:px-6 py-2 sm:py-4 overflow-hidden">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-8">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 min-h-0 max-h-[30vh] xs:max-h-[35vh] sm:max-h-[40vh] aspect-square max-w-[280px] sm:max-w-[320px] mb-2 sm:mb-6"
+                            className="relative w-full flex-1 min-h-[250px] max-h-[45vh] aspect-square max-w-[300px] sm:max-w-[380px]"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -242,35 +242,40 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
                         </div>
 
-                        {/* Song Info */}
-                        <div className="w-full max-w-[320px] mb-1 flex items-end justify-between">
-                            <div className="flex-1 min-w-0 pr-4">
-                                <h2 className="text-xl sm:text-2xl font-black truncate leading-tight">{decodeHtmlEntities(currentSong.name)}</h2>
-                                <p className="text-base sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                        {/* Content Group (Info, Progress, Controls) */}
+                        <div className="w-full max-w-[320px] sm:max-w-[380px] flex flex-col gap-y-6 sm:gap-y-8">
+                            {/* Song Info */}
+                            <div className="relative w-full flex items-center justify-center">
+                                <div className="flex-1 min-w-0 px-8 text-center">
+                                    <h2 className="text-xl sm:text-2xl font-black truncate leading-tight">{decodeHtmlEntities(currentSong.name)}</h2>
+                                    <p className="text-base sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                                </div>
+                                <button
+                                    onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
+                                    className="absolute right-0 shrink-0 p-1 active:scale-90 transition-transform"
+                                >
+                                    {isFavorite ? <IoHeart className="text-primary w-7 h-7 sm:w-8 sm:h-8" /> : <IoHeartOutline className="w-7 h-7 sm:w-8 sm:h-8" />}
+                                </button>
                             </div>
-                            <button onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}>
-                                {isFavorite ? <IoHeart className="text-primary w-7 h-7 sm:w-8 sm:h-8" /> : <IoHeartOutline className="w-7 h-7 sm:w-8 sm:h-8" />}
-                            </button>
-                        </div>
 
-                        {/* Progress */}
-                        <div className="w-full max-w-[320px] mb-2">
-                            <input
-                                type="range"
-                                min={0} max={100} step="0.1"
-                                value={progress}
-                                onChange={handleProgressChange}
-                                className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
-                                style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
-                            />
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400">
-                                <span>{formatTime(currentTime)}</span>
-                                <span>{formatTime(duration)}</span>
+                            {/* Progress */}
+                            <div className="w-full">
+                                <input
+                                    type="range"
+                                    min={0} max={100} step="0.1"
+                                    value={progress}
+                                    onChange={handleProgressChange}
+                                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
+                                    style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
+                                />
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
+                                    <span>{formatTime(currentTime)}</span>
+                                    <span>{formatTime(duration)}</span>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Controls */}
-                        <div className="w-full max-w-[320px] flex items-center justify-between">
+                            {/* Controls */}
+                            <div className="w-full flex items-center justify-between">
                             <button
                                 data-testid="shuffle-button"
                                 onClick={() => dispatch(toggleShuffle())}
@@ -298,8 +303,9 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    {/* OVERLAYS */}
+                {/* OVERLAYS */}
 
                     {/* Lyrics Overlay */}
                     <AnimatePresence>
