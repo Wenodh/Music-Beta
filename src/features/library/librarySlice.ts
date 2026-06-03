@@ -60,7 +60,7 @@ const librarySlice = createSlice({
         },
         createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; songs?: Song[]; id?: string }>) => {
             state.playlists.push({
-                id: action.payload.id || Date.now().toString(),
+                id: action.payload.id || crypto.randomUUID(),
                 name: action.payload.name,
                 songs: action.payload.songs ? action.payload.songs : (action.payload.song ? [action.payload.song] : []),
             });
