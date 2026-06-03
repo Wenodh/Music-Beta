@@ -45,7 +45,7 @@ export const uploadSettings = createAsyncThunk(
 
 export const fetchSettings = createAsyncThunk(
     'settings/fetch',
-    async (_, { getState, dispatch, signal }) => {
+    async (_, { getState, dispatch }) => {
         const state = getState() as RootState;
         const user = state.auth.user;
         if (!user) return;
@@ -55,12 +55,12 @@ export const fetchSettings = createAsyncThunk(
                 .from('user_settings')
                 .select('settings')
                 .eq('user_id', user.id)
-                .maybeSingle();
+                .limit(1);
 
             if (error) throw error;
 
-            if (data?.settings) {
-                const settings = data.settings;
+            if (data && data.length > 0 && data[0].settings) {
+                const settings = data[0].settings;
                 if (settings.language) {
                     dispatch(setLanguage(settings.language));
                 }
