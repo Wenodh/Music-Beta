@@ -35,6 +35,11 @@ export const store = configureStore({
 
 export const persistor = persistStore(store);
 
+// Expose store for e2e testing
+if (typeof window !== 'undefined') {
+    (window as any).__REDUX_STORE__ = store;
+}
+
 // Infer the `RootState` and `AppDispatch` types from the store itself
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
