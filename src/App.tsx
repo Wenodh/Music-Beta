@@ -120,9 +120,22 @@ import { useEffect } from 'react';
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
-    const { toasts, playlistModal, isLyricsOpen, theme } = useAppSelector(state => state.ui);
-    const { currentSong } = useAppSelector(state => state.musicPlayer);
+    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, theme } = useAppSelector(state => state.ui);
+    const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
+
+    // Scroll Lock when overlays are open
+    useEffect(() => {
+        const shouldLock = isPlayerExpanded || isSettingsOpen || isQueueOpen || isEqualizerOpen || isLyricsOpen || playlistModal.isOpen;
+        if (shouldLock) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen]);
 
     useEffect(() => {
         // Sync Offline Downloads

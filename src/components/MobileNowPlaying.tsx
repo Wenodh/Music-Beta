@@ -115,26 +115,26 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     {/* Header */}
                     <div className="relative z-10 flex items-center justify-between p-2 sm:p-4">
                         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                            <IoChevronDown size={28} />
+                            <IoChevronDown className="w-6 h-6 sm:w-7 sm:h-7" />
                         </button>
                         <div className="text-center flex-1 px-4">
-                            <p className="hidden xs:block text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
-                            <p className="text-xs font-bold truncate max-w-[200px] mx-auto">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
+                            <p className="hidden xs:block text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
+                            <p className="text-xs sm:text-sm font-bold truncate max-w-[220px] mx-auto">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
                         </div>
                         <button
                             onClick={() => dispatch(openPlaylistModal(currentSong!))}
                             className="p-2 hover:bg-white/10 rounded-full transition-colors"
                         >
-                            <IoAddCircleOutline size={28} />
+                            <IoAddCircleOutline className="w-6 h-6 sm:w-7 sm:h-7" />
                         </button>
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-6 py-2 sm:py-4 overflow-hidden">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-8">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 min-h-0 max-h-[35vh] xs:max-h-[40vh] aspect-square max-w-[320px] mb-4 sm:mb-8"
+                            className="relative w-full flex-1 min-h-[250px] max-h-[45vh] aspect-square max-w-[300px] sm:max-w-[380px]"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -196,33 +196,33 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             initial={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
                                             animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
-                                            className="absolute top-14 right-0 flex flex-col gap-2 bg-black/60 backdrop-blur-2xl p-2 rounded-3xl border border-white/10 shadow-2xl min-w-[56px]"
+                                            className="absolute top-12 sm:top-14 right-0 flex flex-col gap-1.5 sm:gap-2 bg-black/60 backdrop-blur-2xl p-1.5 sm:p-2 rounded-3xl border border-white/10 shadow-2xl min-w-[48px] sm:min-w-[56px]"
                                         >
                                             {[
-                                                { icon: <MdOutlineLyrics size={24} />, onClick: () => { setIsLyricsOverlayOpen(true); setIsFloatingMenuOpen(false); } },
-                                                { icon: <HiQueueList size={24} />, onClick: () => { setIsQueueOverlayOpen(true); setIsFloatingMenuOpen(false); } },
-                                                { icon: <MdApps size={24} />, onClick: () => { setIsInfoOverlayOpen(true); setIsFloatingMenuOpen(false); } },
-                                                { icon: <MdOutlineGraphicEq size={24} />, onClick: () => { dispatch(setEqualizerOpen(true)); setIsFloatingMenuOpen(false); } },
+                                                { icon: <MdOutlineLyrics className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsLyricsOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <HiQueueList className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsQueueOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <MdApps className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsInfoOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <MdOutlineGraphicEq className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { dispatch(setEqualizerOpen(true)); setIsFloatingMenuOpen(false); } },
                                             ].map((item, i) => (
                                                 <button
                                                     key={i}
                                                     onClick={item.onClick}
-                                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors active:scale-90"
+                                                    className="p-2.5 sm:p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors active:scale-90"
                                                 >
                                                     {item.icon}
                                                 </button>
                                             ))}
 
-                                            <div className="h-px bg-white/10 my-1 mx-2" />
+                                            <div className="h-px bg-white/10 my-0.5 sm:my-1 mx-2" />
 
                                             {/* Visualizer Style Quick Selection inside menu */}
-                                            <div className="flex flex-col gap-2">
+                                            <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 {[
-                                                    { id: 'bars', icon: <MdBarChart size={20} /> },
-                                                    { id: 'waveform', icon: <MdShowChart size={20} /> },
-                                                    { id: 'particles', icon: <MdBubbleChart size={20} /> },
-                                                    { id: 'circular', icon: <MdDonutLarge size={20} /> },
-                                                    { id: 'pixel', icon: <MdApps size={20} /> }
+                                                    { id: 'bars', icon: <MdBarChart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                                                    { id: 'waveform', icon: <MdShowChart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                                                    { id: 'particles', icon: <MdBubbleChart className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                                                    { id: 'circular', icon: <MdDonutLarge className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                                                    { id: 'pixel', icon: <MdApps className="w-4 h-4 sm:w-5 sm:h-5" /> }
                                                 ].map(style => (
                                                     <button
                                                         key={style.id}
@@ -230,7 +230,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                                             dispatch(setVisualizerStyle(style.id as any));
                                                             setIsFloatingMenuOpen(false);
                                                         }}
-                                                        className={`p-3 rounded-2xl transition-all ${visualizerStyle === style.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-white'}`}
+                                                        className={`p-2.5 sm:p-3 rounded-2xl transition-all ${visualizerStyle === style.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-white'}`}
                                                     >
                                                         {style.icon}
                                                     </button>
@@ -242,48 +242,53 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </div>
                         </div>
 
-                        {/* Song Info */}
-                        <div className="w-full max-w-[320px] mb-1 flex items-end justify-between">
-                            <div className="flex-1 min-w-0 pr-4">
-                                <h2 className="text-2xl font-black truncate">{decodeHtmlEntities(currentSong.name)}</h2>
-                                <p className="text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                        {/* Content Group (Info, Progress, Controls) */}
+                        <div className="w-full max-w-[320px] sm:max-w-[380px] flex flex-col gap-y-6 sm:gap-y-8">
+                            {/* Song Info */}
+                            <div className="relative w-full flex items-center justify-center">
+                                <div className="flex-1 min-w-0 px-8 text-center">
+                                    <h2 className="text-xl sm:text-2xl font-black truncate leading-tight">{decodeHtmlEntities(currentSong.name)}</h2>
+                                    <p className="text-base sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                                </div>
+                                <button
+                                    onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
+                                    className="absolute right-0 shrink-0 p-1 active:scale-90 transition-transform"
+                                >
+                                    {isFavorite ? <IoHeart className="text-primary w-7 h-7 sm:w-8 sm:h-8" /> : <IoHeartOutline className="w-7 h-7 sm:w-8 sm:h-8" />}
+                                </button>
                             </div>
-                            <button onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}>
-                                {isFavorite ? <IoHeart className="text-primary" size={32} /> : <IoHeartOutline size={32} />}
-                            </button>
-                        </div>
 
-                        {/* Progress */}
-                        <div className="w-full max-w-[320px] mb-2">
-                            <input
-                                type="range"
-                                min={0} max={100} step="0.1"
-                                value={progress}
-                                onChange={handleProgressChange}
-                                className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
-                                style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
-                            />
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400">
-                                <span>{formatTime(currentTime)}</span>
-                                <span>{formatTime(duration)}</span>
+                            {/* Progress */}
+                            <div className="w-full">
+                                <input
+                                    type="range"
+                                    min={0} max={100} step="0.1"
+                                    value={progress}
+                                    onChange={handleProgressChange}
+                                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
+                                    style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
+                                />
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
+                                    <span>{formatTime(currentTime)}</span>
+                                    <span>{formatTime(duration)}</span>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Controls */}
-                        <div className="w-full max-w-[320px] flex items-center justify-between">
+                            {/* Controls */}
+                            <div className="w-full flex items-center justify-between">
                             <button
                                 data-testid="shuffle-button"
                                 onClick={() => dispatch(toggleShuffle())}
                                 className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
                             >
-                                <PiShuffleBold size={24} style={shuffle ? { color: theme.accentColor } : {}} />
+                                <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
                             </button>
-                            <div className="flex items-center gap-6">
-                                <IoMdSkipBackward size={36} onClick={handlePrev} className="cursor-pointer" />
-                                <div onClick={handlePlayPause} className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
-                                    {isPlaying ? <FaPause size={28} /> : <FaPlay size={28} className="ml-1" />}
+                            <div className="flex items-center gap-4 sm:gap-6">
+                                <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
+                                <div onClick={handlePlayPause} className="w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
+                                    {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
                                 </div>
-                                <IoMdSkipForward size={36} onClick={handleNext} className="cursor-pointer" />
+                                <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
                             </div>
                             <button
                                 data-testid="repeat-button"
@@ -291,15 +296,16 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
                             >
                                 {repeatMode === 'one' ? (
-                                    <PiRepeatOnceBold size={24} style={{ color: theme.accentColor }} />
+                                    <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
                                 ) : (
-                                    <BiRepeat size={24} style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                    <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
                                 )}
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    {/* OVERLAYS */}
+                {/* OVERLAYS */}
 
                     {/* Lyrics Overlay */}
                     <AnimatePresence>
