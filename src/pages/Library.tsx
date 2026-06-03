@@ -86,9 +86,8 @@ const Library: React.FC = () => {
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            const id = Date.now().toString();
             const name = newPlaylistName.trim();
-            dispatch(createPlaylistCloud({ id, name, songs: [] }) as any);
+            dispatch(createPlaylistCloud({ name, songs: [] }) as any);
             setNewPlaylistName('');
             setIsCreating(false);
         }

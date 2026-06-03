@@ -43,11 +43,10 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
     const handleCreatePlaylist = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPlaylistName.trim()) {
-            const id = Date.now().toString();
             const name = newPlaylistName.trim();
             const songs = bulkSongs && bulkSongs.length > 0 ? bulkSongs : (song ? [song] : []);
 
-            dispatch(createPlaylistCloud({ id, name, songs }) as any);
+            dispatch(createPlaylistCloud({ name, songs }) as any);
 
             onSuccess(bulkSongs && bulkSongs.length > 0 ? `${songs.length} songs added to ${name}` : name);
             setNewPlaylistName('');

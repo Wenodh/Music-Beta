@@ -85,6 +85,10 @@ export const store = configureStore({
         }).prepend(settingsListener.middleware),
 });
 
+if (import.meta.env.DEV) {
+    (window as any).__REDUX_STORE__ = store;
+}
+
 export const persistor = persistStore(store);
 
 // Infer the `RootState` and `AppDispatch` types from the store itself
