@@ -39,6 +39,7 @@ const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
 const Library = lazyRetry(() => import('./pages/Library'));
 const Profile = lazyRetry(() => import('./pages/Profile'));
+const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -108,6 +109,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
                             <PageWrapper><Profile /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/privacy"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><PrivacyPolicy /></PageWrapper>
                         </Suspense>
                     }
                 />

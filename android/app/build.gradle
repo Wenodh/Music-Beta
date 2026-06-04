@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def signingPropertiesFile = rootProject.file('signing.properties')
+def signingProperties = new Properties()
+if (signingPropertiesFile.exists()) {
+    signingProperties.load(new FileInputStream(signingPropertiesFile))
+}
+
 android {
     namespace = "com.wenodh.vibeon"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,10 +25,12 @@ android {
 
     signingConfigs {
         release {
-            storeFile file('release-key.keystore')
-            storePassword 'vibeon123'
-            keyAlias 'vibeon'
-            keyPassword 'vibeon123'
+            if (signingPropertiesFile.exists()) {
+                storeFile file(signingProperties['RELEASE_STORE_FILE'])
+                storePassword signingProperties['RELEASE_STORE_PASSWORD']
+                keyAlias signingProperties['RELEASE_KEY_ALIAS']
+                keyPassword signingProperties['RELEASE_KEY_PASSWORD']
+            }
         }
     }
 
@@ -30,7 +38,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (signingPropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

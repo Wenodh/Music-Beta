@@ -1,8 +1,7 @@
-package com.getcapacitor.myapp;
+package com.wenodh.vibeon;
 
 import static org.junit.Assert.*;
 
-import android.content.Context;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
@@ -19,8 +18,7 @@ public class ExampleInstrumentedTest {
     @Test
     public void useAppContext() throws Exception {
         // Context of the app under test.
-        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-
-        assertEquals("com.getcapacitor.app", appContext.getPackageName());
+        android.content.Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assertEquals("com.wenodh.vibeon", appContext.getPackageName());
     }
 }

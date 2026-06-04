@@ -379,9 +379,20 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
                             </div>
 
-                            <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800 text-center">
-                                <p className="text-xs text-gray-400">VibeOn Version 1.2.0</p>
-                                <p className="text-[10px] text-gray-500 mt-1">Made with ❤️ by WENODH</p>
+                            <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800 text-center space-y-4">
+                                <button
+                                    onClick={() => {
+                                        navigate('/privacy');
+                                        dispatch(setSettingsOpen(false));
+                                    }}
+                                    className="text-xs text-primary hover:underline font-medium"
+                                >
+                                    Privacy Policy
+                                </button>
+                                <div>
+                                    <p className="text-xs text-gray-400">VibeOn Version 1.2.0</p>
+                                    <p className="text-[10px] text-gray-500 mt-1">Made with ❤️ by WENODH</p>
+                                </div>
                             </div>
                         </div>
                     </motion.div>
