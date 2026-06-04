@@ -14,10 +14,17 @@ const PrivacyPolicy = () => {
                     <PiShieldCheck className="text-5xl text-primary" />
                 </div>
                 <h1 className="text-4xl md:text-5xl font-bold">Privacy Policy</h1>
-                <p className="text-gray-400">Last updated: June 3, 2026</p>
+                <p className="text-gray-400">Last updated: June 3, 2025</p>
             </motion.div>
 
             <div className="space-y-10 text-gray-300 leading-relaxed">
+                <section className="space-y-4 p-6 bg-primary/5 border border-primary/10 rounded-2xl">
+                    <h2 className="text-xl font-bold text-white">Developer's Note</h2>
+                    <p className="italic">
+                        "I created Vibe On as a personal project to practice and showcase my learnings in modern web development and Android app publishing. This application serves as a portfolio piece to demonstrate my technical skills as I pursue a career as a software engineer. Every feature, from the dynamic theme engine to the native Android integration, is a result of my dedication to learning and implementation."
+                    </p>
+                </section>
+
                 <section className="space-y-4">
                     <h2 className="text-2xl font-bold text-white">1. Introduction</h2>
                     <p>

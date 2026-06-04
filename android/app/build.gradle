@@ -30,6 +30,12 @@ android {
                 storePassword signingProperties['RELEASE_STORE_PASSWORD']
                 keyAlias signingProperties['RELEASE_KEY_ALIAS']
                 keyPassword signingProperties['RELEASE_KEY_PASSWORD']
+            } else if (System.getenv("RELEASE_STORE_PASSWORD") != null) {
+                // Fallback to environment variables for CI
+                storeFile file('release-key.keystore')
+                storePassword System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword System.getenv("RELEASE_KEY_PASSWORD")
             }
         }
     }
@@ -38,7 +44,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (signingPropertiesFile.exists()) {
+            if (signingPropertiesFile.exists() || System.getenv("RELEASE_STORE_PASSWORD") != null) {
                 signingConfig signingConfigs.release
             }
         }
