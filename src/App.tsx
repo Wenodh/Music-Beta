@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { App as CapApp } from '@capacitor/app';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
 import SearchSection from './components/SearchSection';
@@ -13,7 +14,6 @@ import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
-import { useState } from 'react';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds } from './features/library/librarySlice';
 import { syncLibrary } from './features/library/libraryActions';
@@ -125,8 +125,6 @@ const AnimatedRoutes = () => {
     );
 };
 
-import { useEffect } from 'react';
-
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, theme } = useAppSelector(state => state.ui);
@@ -166,7 +164,34 @@ export const AppContent = () => {
             }
         });
 
-        return () => subscription.unsubscribe();
+        // Handle Deep Links (for OAuth redirects on Android)
+        const setupDeepLink = async () => {
+            const listener = await CapApp.addListener('appUrlOpen', async (data) => {
+                const url = new URL(data.url);
+                const hash = url.hash.substring(1);
+                if (!hash) return;
+
+                const params = new URLSearchParams(hash);
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+
+                if (accessToken && refreshToken) {
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error) console.error('Error setting session from deep link:', error);
+                }
+            });
+            return listener;
+        };
+
+        const deepLinkListener = setupDeepLink();
+
+        return () => {
+            subscription.unsubscribe();
+            deepLinkListener.then(l => l.remove());
+        };
     }, [dispatch]);
 
     useEffect(() => {
