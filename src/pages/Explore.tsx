@@ -14,13 +14,14 @@ const Explore: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver | null>(null);
+    const isFetching = useRef(false);
 
-    const fetchSongs = useCallback(async (pageNum: number, ignoreHasMore = false) => {
-        if (loading || (!hasMore && !ignoreHasMore)) return;
+    const fetchSongs = useCallback(async (pageNum: number, isReset = false) => {
+        if (isFetching.current || (!hasMore && !isReset)) return;
 
         try {
+            isFetching.current = true;
             setLoading(true);
-            // Using a mix of language and trending queries for variety
             const query = language;
             const res = await axios.get(`${songsUrl}?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`);
             const newSongs = res.data.data.results || [];
@@ -28,28 +29,28 @@ const Explore: React.FC = () => {
             if (newSongs.length === 0) {
                 setHasMore(false);
             } else {
-                setSongs(prev => [...prev, ...newSongs]);
+                setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
             }
         } catch (error) {
             console.error('Error fetching explore songs:', error);
         } finally {
             setLoading(false);
+            isFetching.current = false;
         }
-    }, [language, loading, hasMore]);
+    }, [language, hasMore]);
 
     useEffect(() => {
         // Reset and fetch when language changes
-        setSongs([]);
         setPage(0);
         setHasMore(true);
         fetchSongs(0, true);
-    }, [language, fetchSongs]);
+    }, [language]); // Removed fetchSongs from deps as language is the trigger
 
     const lastSongElementRef = useCallback((node: HTMLDivElement) => {
         if (loading) return;
         if (observer.current) observer.current.disconnect();
         observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMore) {
+            if (entries[0].isIntersecting && hasMore && !isFetching.current) {
                 setPage(prevPage => {
                     const nextPage = prevPage + 1;
                     fetchSongs(nextPage);
