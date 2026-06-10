@@ -11,7 +11,7 @@ const ExploreSkeleton: React.FC = () => {
     ];
 
     return (
-        <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-8 gap-2 sm:gap-3 lg:gap-4">
+        <div className="columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-8 gap-2 sm:gap-3 lg:gap-4">
             {[...Array(20)].map((_, i) => (
                 <div
                     key={i}
