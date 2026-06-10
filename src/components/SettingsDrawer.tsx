@@ -2,10 +2,10 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
@@ -176,6 +176,26 @@ const SettingsDrawer: React.FC = () => {
                                             {isSyncing && <span className="text-primary animate-pulse font-bold">Syncing...</span>}
                                         </div>
                                     )}
+                                    <button
+                                        onClick={() => {
+                                            dispatch(setSettingsOpen(false));
+                                            dispatch(setSessionModalOpen(true));
+                                        }}
+                                        className="w-full flex items-center justify-between p-4 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all mt-4 group border border-primary/20"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/20 rounded-xl group-hover:scale-110 transition-transform">
+                                                <IoPeopleOutline className="text-primary" size={20} />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-sm font-bold text-primary">Group Session</p>
+                                                <p className="text-[10px] text-primary/60">Listen with friends</p>
+                                            </div>
+                                        </div>
+                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/20 group-hover:bg-primary text-primary group-hover:text-white transition-all">
+                                            <IoPeopleOutline size={16} />
+                                        </div>
+                                    </button>
                                 </section>
 
                                 <section>

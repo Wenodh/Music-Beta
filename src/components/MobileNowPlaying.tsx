@@ -85,6 +85,8 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
+    const { reactions } = useAppSelector(state => state.session);
+
     if (!currentSong) return null;
 
     const duration = parseFloat(currentSong.duration?.toString() || '0');
@@ -308,6 +310,15 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             </button>
                         </div>
                     </div>
+
+                    {/* Reaction Overlay (Floating Bubbles) for Mobile Player */}
+                    <div className="absolute inset-0 pointer-events-none z-[55] overflow-hidden">
+                        <AnimatePresence>
+                            {reactions.map((r) => (
+                                <FloatingEmojiMobile key={r.id} reaction={r} />
+                            ))}
+                        </AnimatePresence>
+                    </div>
                 </div>
 
                 {/* OVERLAYS */}
@@ -439,5 +450,48 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
         </AnimatePresence>
     );
 };
+
+const FloatingEmojiMobile = React.memo(({ reaction }: { reaction: any }) => {
+    const randomX = React.useRef(Math.random() * 80 - 40).current;
+    const duration = React.useRef(3 + Math.random() * 2).current;
+    const delay = React.useRef(Math.random() * 0.2).current;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: '110vh', x: `calc(50% + ${randomX}px)`, scale: 0.5 }}
+            animate={{
+                opacity: [0, 1, 1, 0],
+                y: '-10vh',
+                x: [`calc(50% + ${randomX}px)`, `calc(50% + ${randomX + 30}px)`, `calc(50% + ${randomX - 30}px)`, `calc(50% + ${randomX}px)`],
+                scale: [0.5, 1.5, 1.2, 0.8]
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+                duration: duration,
+                ease: "easeOut",
+                delay: delay,
+                x: {
+                    duration: duration,
+                    repeat: Infinity,
+                    repeatType: "reverse",
+                    ease: "easeInOut"
+                }
+            }}
+            className="absolute bottom-0 text-5xl filter drop-shadow-2xl"
+        >
+            <div className="relative group">
+                <span className="block">{reaction.emoji}</span>
+                <motion.span
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="absolute -top-10 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-black/60 text-white px-3 py-1 rounded-full whitespace-nowrap"
+                >
+                    {reaction.userName}
+                </motion.span>
+            </div>
+        </motion.div>
+    );
+});
+FloatingEmojiMobile.displayName = 'FloatingEmojiMobile';
 
 export default MobileNowPlaying;
