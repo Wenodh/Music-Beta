@@ -39,7 +39,7 @@ import SessionModal from './modals/SessionModal';
 import { useSession } from '../hooks/useSession';
 import { IoPeopleOutline } from 'react-icons/io5';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
-import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded } from '../features/ui/uiSlice';
+import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded, setSessionModalOpen } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { getNextSong, getPrevSong } from '../utils/playlist';
@@ -59,7 +59,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         visualizerStyle, repeatMode, shuffle, recommendationsCache
     } = useAppSelector((state) => state.musicPlayer);
 
-    const { isLyricsOpen, isPlayerExpanded, theme: uiTheme } = useAppSelector((state) => state.ui);
+    const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
     const [imageUrl, setImageUrl] = useState<string>('');
@@ -68,7 +68,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const currentSongRef = useRef(currentSong);
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
 
-    const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
     const { broadcast, sendReaction, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
 
@@ -624,7 +623,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 whileTap={{ scale: 0.9 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setIsSessionModalOpen(true);
+                                    dispatch(setSessionModalOpen(true));
                                 }}
                             >
                                 <IoPeopleOutline
@@ -996,33 +995,20 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             handleSeek={handleSeek}
             imageUrl={imageUrl || ''}
             audioRefs={[audioRefA, audioRefB]}
-            onOpenSession={() => setIsSessionModalOpen(true)}
+            onOpenSession={() => dispatch(setSessionModalOpen(true))}
         />
 
         <SessionModal
             isOpen={isSessionModalOpen}
-            onClose={() => setIsSessionModalOpen(false)}
+            onClose={() => dispatch(setSessionModalOpen(false))}
             onSendReaction={sendReaction}
         />
 
-        {/* Reaction Overlay */}
-        <div className="fixed bottom-32 right-8 pointer-events-none z-[250] flex flex-col-reverse gap-4 items-center">
+        {/* Reaction Overlay (Floating Bubbles) */}
+        <div className="fixed bottom-32 right-8 w-32 h-64 pointer-events-none z-[250] overflow-hidden">
             <AnimatePresence>
                 {reactions.map((r) => (
-                    <motion.div
-                        key={r.id}
-                        initial={{ opacity: 0, y: 50, scale: 0.5 }}
-                        animate={{ opacity: 1, y: 0, scale: 1.5 }}
-                        exit={{ opacity: 0, y: -100, scale: 2 }}
-                        className="text-4xl filter drop-shadow-lg"
-                    >
-                        <div className="relative">
-                            {r.emoji}
-                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-black/60 text-white px-2 py-0.5 rounded-full whitespace-nowrap">
-                                {r.userName}
-                            </span>
-                        </div>
-                    </motion.div>
+                    <FloatingEmoji key={r.id} reaction={r} />
                 ))}
             </AnimatePresence>
         </div>
@@ -1071,5 +1057,47 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         </>
     );
 };
+
+const FloatingEmoji = React.memo(({ reaction }: { reaction: any }) => {
+    const randomX = useRef(Math.random() * 60 - 30).current;
+    const duration = useRef(3 + Math.random() * 2).current;
+    const delay = useRef(Math.random() * 0.2).current;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 200, x: 50 + randomX, scale: 0.5 }}
+            animate={{
+                opacity: [0, 1, 1, 0],
+                y: -100,
+                x: [50 + randomX, 50 + randomX + 20, 50 + randomX - 20, 50 + randomX],
+                scale: [0.5, 1.2, 1, 0.8]
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+                duration: duration,
+                ease: "easeOut",
+                delay: delay,
+                x: {
+                    duration: duration,
+                    repeat: Infinity,
+                    repeatType: "reverse",
+                    ease: "easeInOut"
+                }
+            }}
+            className="absolute bottom-0 text-4xl filter drop-shadow-xl"
+        >
+            <div className="relative group">
+                <span className="block">{reaction.emoji}</span>
+                <motion.span
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-black/60 text-white px-2 py-0.5 rounded-full whitespace-nowrap"
+                >
+                    {reaction.userName}
+                </motion.span>
+            </div>
+        </motion.div>
+    );
+});
 
 export default Player;

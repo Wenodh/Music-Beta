@@ -60,17 +60,25 @@ export const useSession = () => {
     const sendReaction = useCallback((emoji: string) => {
         if (!channelRef.current || !isJoined) return;
 
+        const reaction = {
+            emoji,
+            userId: userId,
+            userName: user?.user_metadata?.full_name || 'Guest',
+            id: Date.now().toString() + Math.random().toString(36).substring(7)
+        };
+
+        // Dispatch locally for immediate feedback
+        dispatch(addReaction(reaction));
+        setTimeout(() => {
+            dispatch(removeReaction(reaction.id));
+        }, 5000);
+
         channelRef.current.send({
             type: 'broadcast',
             event: 'reaction',
-            payload: {
-                emoji,
-                userId: userId,
-                userName: user?.user_metadata?.full_name || 'Guest',
-                id: Date.now().toString()
-            }
+            payload: reaction
         });
-    }, [isJoined, userId, user]);
+    }, [isJoined, userId, user, dispatch]);
 
     useEffect(() => {
         if (!isJoined || !roomCode) {
@@ -165,6 +173,9 @@ export const useSession = () => {
                 }, 100);
             })
             .on('broadcast', { event: 'reaction' }, ({ payload }) => {
+                // If we are the sender, we already dispatched locally
+                if (payload.userId === userId) return;
+
                 dispatch(addReaction(payload));
                 setTimeout(() => {
                     dispatch(removeReaction(payload.id));

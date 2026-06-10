@@ -74,7 +74,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center sm:p-4">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -84,11 +84,14 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
             />
 
             <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className={`relative w-full max-w-md overflow-hidden rounded-3xl shadow-2xl border border-white/10 ${theme.isOled ? 'bg-black' : 'bg-gray-900'}`}
+                initial={{ opacity: 0, y: '100%' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className={`relative w-full max-w-md overflow-hidden rounded-t-[32px] sm:rounded-[32px] shadow-2xl border-t sm:border border-white/10 ${theme.isOled ? 'bg-black' : 'bg-gray-900'} max-h-[90vh] flex flex-col`}
             >
+                {/* Pull bar for mobile */}
+                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/5">
                     <div className="flex items-center gap-3">
@@ -120,7 +123,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                     </div>
                 )}
 
-                <div className="p-6">
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {activeTab === 'join' && !isJoined && (
                         <form onSubmit={handleJoinSession} className="space-y-6 text-center">
                             <p className="text-gray-400 text-sm">Enter a 6-digit code to join a friend's session.</p>
@@ -184,7 +187,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                                     <span>Participants ({participants.length})</span>
                                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                                 </h4>
-                                <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                     {participants.map((p) => (
                                         <div key={p.id} className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/5">
                                             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs overflow-hidden border border-primary/20">
