@@ -13,7 +13,7 @@ import {
     playMusic,
     decrementSleepTimer,
     setCurrentTime,
-    setSongRadioEnabled,
+    setAutoplayEnabled,
     setVisualizerStyle,
     toggleRepeatMode,
     toggleShuffle,
@@ -55,7 +55,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const {
         currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
-        isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
+        isGaplessEnabled, crossfadeDuration, recommendations, isAutoplayEnabled,
         visualizerStyle, repeatMode, shuffle, recommendationsCache
     } = useAppSelector((state) => state.musicPlayer);
 
@@ -381,7 +381,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     const isLastSong = index === songs.length - 1;
 
                     if (isLastSong && repeatMode === 'none') {
-                        if (isSongRadioEnabled && recommendations.length > 0) {
+                        if (isAutoplayEnabled && recommendations.length > 0) {
                             const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
                             dispatch(playMusic(randomSong));
                         } else {
@@ -403,7 +403,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
             activeAudio.removeEventListener('ended', handleSongEnd);
         };
-    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations]);
+    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isAutoplayEnabled, recommendations]);
 
     // Update individual audio volumes based on user global volume
     useEffect(() => {
@@ -919,13 +919,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
                                             <button
                                                 onClick={() => {
-                                                    dispatch(setSongRadioEnabled(!isSongRadioEnabled));
+                                                    dispatch(setAutoplayEnabled(!isAutoplayEnabled));
                                                     setIsMoreMenuOpen(false);
                                                 }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                             >
-                                                <PiShuffleBold className={isSongRadioEnabled ? 'text-primary' : ''} size={20} />
-                                                Song Radio: {isSongRadioEnabled ? 'ON' : 'OFF'}
+                                                <PiShuffleBold className={isAutoplayEnabled ? 'text-primary' : ''} size={20} />
+                                                Autoplay: {isAutoplayEnabled ? 'ON' : 'OFF'}
                                             </button>
 
                                             <div className="lg:hidden border-t border-gray-100 dark:border-gray-700 mt-1">

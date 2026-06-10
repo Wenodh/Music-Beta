@@ -1,5 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { Song, MusicPlayerState } from '../../types/music';
+import { suggestions as suggestionsUrl, songs as songsUrl } from '../../constants';
 import { getNextSong, getPrevSong } from '../../utils/playlist';
 
 const initialState: MusicPlayerState = {
@@ -22,7 +23,7 @@ const initialState: MusicPlayerState = {
     isGaplessEnabled: false,
     crossfadeDuration: 5,
     currentTime: 0,
-    isSongRadioEnabled: true,
+    isAutoplayEnabled: true,
     downloadSettings: {
         wifiOnly: false,
     },
@@ -51,6 +52,56 @@ const formatSong = (song: Song | any, preferredQuality: string): Song => {
         music: musicUrl,
     } as Song;
 };
+
+export const surpriseMe = createAsyncThunk(
+    'musicPlayer/surpriseMe',
+    async (_, { getState, dispatch }) => {
+        const state = getState() as any;
+        const { recentlyPlayed, dailyMix } = state.musicPlayer;
+        const { language } = state.language;
+
+        let baseSong: Song | null = null;
+
+        // 1. Try to get a song from recently played (70% chance)
+        if (recentlyPlayed.length > 0 && Math.random() < 0.7) {
+            baseSong = recentlyPlayed[Math.floor(Math.random() * recentlyPlayed.length)];
+        }
+
+        // 2. Otherwise try from daily mix (20% chance)
+        if (!baseSong && dailyMix.length > 0) {
+            baseSong = dailyMix[Math.floor(Math.random() * dailyMix.length)];
+        }
+
+        // 3. Fallback: Search for trending songs in the current language
+        if (!baseSong) {
+            try {
+                const res = await fetch(`${songsUrl}?query=${encodeURIComponent(language)}&limit=10`);
+                const data = await res.json();
+                if (data.status === 'SUCCESS' && data.data?.results?.length > 0) {
+                    baseSong = data.data.results[Math.floor(Math.random() * data.data.results.length)];
+                }
+            } catch (error) {
+                console.error('Error fetching fallback surprise song:', error);
+            }
+        }
+
+        if (baseSong) {
+            // Start playing the base song
+            dispatch(playMusic({ ...baseSong, forcePlay: true }));
+
+            // Fetch recommendations to populate the queue
+            try {
+                const res = await fetch(suggestionsUrl(baseSong.id));
+                const data = await res.json();
+                if (data.status === 'SUCCESS' && data.data) {
+                    dispatch(setSongs(data.data));
+                }
+            } catch (error) {
+                console.error('Error fetching recommendations for surprise me:', error);
+            }
+        }
+    }
+);
 
 const musicPlayerSlice = createSlice({
     name: 'musicPlayer',
@@ -175,8 +226,8 @@ const musicPlayerSlice = createSlice({
         setCurrentTime: (state, action: PayloadAction<number>) => {
             state.currentTime = action.payload;
         },
-        setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
-            state.isSongRadioEnabled = action.payload;
+        setAutoplayEnabled: (state, action: PayloadAction<boolean>) => {
+            state.isAutoplayEnabled = action.payload;
         },
         setWifiOnly: (state, action: PayloadAction<boolean>) => {
             state.downloadSettings.wifiOnly = action.payload;
@@ -230,7 +281,7 @@ const musicPlayerSlice = createSlice({
                 equalizerSettings,
                 isGaplessEnabled,
                 crossfadeDuration,
-                isSongRadioEnabled,
+                isAutoplayEnabled,
                 downloadSettings,
                 visualizerStyle,
                 repeatMode,
@@ -241,7 +292,7 @@ const musicPlayerSlice = createSlice({
             if (equalizerSettings) state.equalizerSettings = equalizerSettings;
             if (isGaplessEnabled !== undefined) state.isGaplessEnabled = isGaplessEnabled;
             if (crossfadeDuration !== undefined) state.crossfadeDuration = crossfadeDuration;
-            if (isSongRadioEnabled !== undefined) state.isSongRadioEnabled = isSongRadioEnabled;
+            if (isAutoplayEnabled !== undefined) state.isAutoplayEnabled = isAutoplayEnabled;
             if (downloadSettings) state.downloadSettings = downloadSettings;
             if (visualizerStyle) state.visualizerStyle = visualizerStyle;
             if (repeatMode) state.repeatMode = repeatMode;
@@ -273,7 +324,7 @@ export const {
     setGaplessEnabled,
     setCrossfadeDuration,
     setCurrentTime,
-    setSongRadioEnabled,
+    setAutoplayEnabled,
     setWifiOnly,
     setDailyMix,
     setVisualizerStyle,

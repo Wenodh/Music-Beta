@@ -20,7 +20,7 @@ export const uploadSettings = createAsyncThunk(
                 equalizerSettings: state.musicPlayer.equalizerSettings,
                 isGaplessEnabled: state.musicPlayer.isGaplessEnabled,
                 crossfadeDuration: state.musicPlayer.crossfadeDuration,
-                isSongRadioEnabled: state.musicPlayer.isSongRadioEnabled,
+                isAutoplayEnabled: state.musicPlayer.isAutoplayEnabled,
                 downloadSettings: state.musicPlayer.downloadSettings,
                 visualizerStyle: state.musicPlayer.visualizerStyle,
                 repeatMode: state.musicPlayer.repeatMode,

@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAppSelector } from '../hooks/redux';
+import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
 import { motion } from 'framer-motion';
-import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
+import { IoCloudOffline, IoArrowForward, IoSparkles } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
+import { surpriseMe } from '../features/musicplayer/musicPlayerSlice';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
     const [data, setData] = useState<{
@@ -181,6 +183,39 @@ const MainSection: React.FC = () => {
             animate="visible"
             className="pb-32 pt-8 px-4"
         >
+            {/* Surprise Me Header Card */}
+            <motion.div
+                variants={itemVariants}
+                className="relative overflow-hidden mb-12 rounded-3xl bg-gradient-to-br from-primary to-orange-500 p-8 shadow-2xl shadow-primary/20 group cursor-pointer"
+                onClick={() => dispatch(surpriseMe() as any)}
+            >
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl">
+                            <IoSparkles className="text-white text-3xl animate-pulse" />
+                        </div>
+                        <h2 className="text-white text-3xl font-black italic uppercase tracking-tighter">Surprise Me</h2>
+                    </div>
+                    <p className="text-white/80 text-lg font-medium max-w-md leading-tight mb-6">
+                        Don't know what to listen to? Let our algorithm pick the perfect vibe based on your history.
+                    </p>
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-white text-primary px-8 py-3 rounded-full font-black text-sm uppercase tracking-widest shadow-xl flex items-center gap-2 group-hover:bg-primary group-hover:text-white transition-all"
+                    >
+                        Start Playing <IoSparkles />
+                    </motion.button>
+                </div>
+
+                {/* Decorative Elements */}
+                <div className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
+                <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-orange-400/20 rounded-full blur-3xl group-hover:bg-orange-300/30 transition-all duration-700" />
+                <div className="absolute right-12 bottom-12 text-white/10 text-9xl font-black group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700">
+                    <IoSparkles />
+                </div>
+            </motion.div>
+
             <DailyMix />
 
             {recentlyPlayed && recentlyPlayed.length > 0 && (
