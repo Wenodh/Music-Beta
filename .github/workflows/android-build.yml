@@ -28,26 +28,32 @@ jobs:
 
       - name: Build web app
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Sync with Capacitor
         run: npx cap sync android
 
-      - name: Build Android AAB (Release)
+      - name: Build Android
         run: |
           cd android
           chmod +x gradlew
+          ./gradlew assembleDebug
           ./gradlew bundleRelease
         env:
-          # Note: In a real production environment, you should use secrets for passwords.
-          # Since the keystore is currently in .gitignore and not in the repo,
-          # this workflow will fail until you add the keystore as a base64 secret.
-          # I've set it up here as a template for you.
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibeon-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-aab
+          name: vibeon-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
