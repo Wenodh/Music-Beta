@@ -39,6 +39,7 @@ const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
 
     return (
         <motion.div
+            layout
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
@@ -46,7 +47,7 @@ const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
                 delay: Math.min((index % 20) * 0.03, 0.5),
                 ease: [0.23, 1, 0.32, 1]
             }}
-            className="relative mb-3 sm:mb-4 break-inside-avoid group cursor-pointer"
+            className="relative group cursor-pointer"
             onClick={handlePlay}
         >
             <div className={`relative w-full ${aspectClass} overflow-hidden rounded-xl sm:rounded-2xl bg-gray-100 dark:bg-neutral-900 shadow-sm transition-all duration-500 group-hover:shadow-xl group-hover:shadow-primary/10`}>

@@ -11,7 +11,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import {
     playMusic,
-    decrementSleepTimer,
     setCurrentTime,
     setSongRadioEnabled,
     setVisualizerStyle,
@@ -20,9 +19,7 @@ import {
     nextSong,
     prevSong as prevSongAction,
 } from '../features/musicplayer/musicPlayerSlice';
-import { useNavigate } from 'react-router-dom';
 import SleepTimer from './SleepTimer';
-import VolumeController from './VolumeController';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiQueueList } from 'react-icons/hi2';
 import { MdOutlineGraphicEq, MdOutlineCloseFullscreen, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
@@ -30,7 +27,7 @@ import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { setRecommendations, setQueueOpen, setSongs } from '../features/musicplayer/musicPlayerSlice';
+import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
@@ -42,10 +39,9 @@ import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded, setSessionModalOpen } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
-import { getNextSong, getPrevSong } from '../utils/playlist';
+import { getNextSong } from '../utils/playlist';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
-    const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
@@ -54,7 +50,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [userVolume, setUserVolume] = useState(0.7);
 
     const {
-        currentSong, isPlaying, songs, sleepTimer, preferredQuality, isQueueOpen,
+        currentSong, isPlaying, songs, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
         visualizerStyle, repeatMode, shuffle, recommendationsCache
     } = useAppSelector((state) => state.musicPlayer);
@@ -516,6 +512,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     if (info.offset.x > 100) prevSong();
                                     else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
+                                onClick={(e) => e.stopPropagation()}
                                 className="relative group cursor-grab active:cursor-grabbing"
                             >
                                 <motion.img

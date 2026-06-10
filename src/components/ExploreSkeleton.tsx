@@ -1,6 +1,8 @@
 import React from 'react';
+import { useMasonryColumns } from '../hooks/useMasonryColumns';
 
 const ExploreSkeleton: React.FC = () => {
+    const columns = useMasonryColumns();
     const skeletonAspects = [
         'aspect-[3/4]',
         'aspect-[2/3]',
@@ -11,13 +13,17 @@ const ExploreSkeleton: React.FC = () => {
     ];
 
     return (
-        <div className="columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-8 gap-2 sm:gap-3 lg:gap-4">
-            {[...Array(20)].map((_, i) => (
-                <div
-                    key={i}
-                    className={`mb-3 sm:mb-4 break-inside-avoid animate-pulse`}
-                >
-                    <div className={`w-full ${skeletonAspects[i % skeletonAspects.length]} bg-gray-200 dark:bg-neutral-800 rounded-xl sm:rounded-2xl`} />
+        <div className="flex gap-2 sm:gap-3 lg:gap-4 items-start">
+            {Array.from({ length: columns }).map((_, colIndex) => (
+                <div key={colIndex} className="flex-1 flex flex-col gap-2 sm:gap-3 lg:gap-4">
+                    {[...Array(Math.ceil(20 / columns))].map((_, i) => (
+                        <div
+                            key={i}
+                            className="animate-pulse"
+                        >
+                            <div className={`w-full ${skeletonAspects[(i * columns + colIndex) % skeletonAspects.length]} bg-gray-200 dark:bg-neutral-800 rounded-xl sm:rounded-2xl`} />
+                        </div>
+                    ))}
                 </div>
             ))}
         </div>

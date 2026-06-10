@@ -7,6 +7,7 @@ import { songs as songsUrl } from '../constants';
 import ExploreSongCard from '../components/ExploreSongCard';
 import ExploreSkeleton from '../components/ExploreSkeleton';
 import { Song } from '../types/music';
+import { useMasonryColumns } from '../hooks/useMasonryColumns';
 
 const Explore: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
@@ -16,6 +17,7 @@ const Explore: React.FC = () => {
     const hasMoreRef = useRef(true);
     const observer = useRef<IntersectionObserver | null>(null);
     const isFetching = useRef(false);
+    const columns = useMasonryColumns();
 
     const updateHasMore = useCallback((value: boolean) => {
         hasMoreRef.current = value;
@@ -63,6 +65,11 @@ const Explore: React.FC = () => {
         if (node) observer.current.observe(node);
     }, [loading, hasMore, fetchSongs, songs.length]);
 
+    // Distribute songs into columns for a stable masonry effect
+    const distributedSongs = Array.from({ length: columns }, (_, i) =>
+        songs.filter((_, index) => index % columns === i)
+    );
+
     return (
         <div className="pb-32 pt-1 px-1 sm:px-4 sm:pt-4">
             <header className="mb-4 px-1.5">
@@ -81,16 +88,24 @@ const Explore: React.FC = () => {
             {songs.length === 0 && loading ? (
                 <ExploreSkeleton />
             ) : (
-                <div className="columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-8 gap-2 sm:gap-3 lg:gap-4">
-                    <AnimatePresence>
-                        {songs.map((song, index) => (
-                            <ExploreSongCard
-                                key={`${song.id}-${index}`}
-                                song={song}
-                                index={index}
-                            />
-                        ))}
-                    </AnimatePresence>
+                <div className="flex gap-2 sm:gap-3 lg:gap-4 items-start">
+                    {distributedSongs.map((columnSongs, colIndex) => (
+                        <div key={colIndex} className="flex-1 flex flex-col gap-2 sm:gap-3 lg:gap-4">
+                            <AnimatePresence mode="popLayout">
+                                {columnSongs.map((song) => {
+                                    // Need global index for aspect ratio consistency
+                                    const globalIndex = songs.findIndex(s => s.id === song.id);
+                                    return (
+                                        <ExploreSongCard
+                                            key={`${song.id}-${globalIndex}`}
+                                            song={song}
+                                            index={globalIndex}
+                                        />
+                                    );
+                                })}
+                            </AnimatePresence>
+                        </div>
+                    ))}
                 </div>
             )}
 
