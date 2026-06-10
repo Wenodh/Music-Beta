@@ -130,13 +130,13 @@ import { useEffect } from 'react';
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
-    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, theme } = useAppSelector(state => state.ui);
+    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
     // Scroll Lock when overlays are open
     useEffect(() => {
-        const shouldLock = isPlayerExpanded || isSettingsOpen || isQueueOpen || isEqualizerOpen || isLyricsOpen || playlistModal.isOpen;
+        const shouldLock = isPlayerExpanded || isSettingsOpen || isQueueOpen || isEqualizerOpen || isLyricsOpen || playlistModal.isOpen || isSessionModalOpen;
         if (shouldLock) {
             document.body.style.overflow = 'hidden';
         } else {
@@ -145,7 +145,7 @@ export const AppContent = () => {
         return () => {
             document.body.style.overflow = '';
         };
-    }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen]);
+    }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen, isSessionModalOpen]);
 
     useEffect(() => {
         // Handle direct room links

@@ -62,13 +62,19 @@ settingsListener.startListening({
 });
 
 // Combine reducers
+const sessionPersistConfig = {
+    key: 'session',
+    storage,
+    whitelist: ['roomCode', 'isJoined'],
+};
+
 const rootReducer = combineReducers({
     musicPlayer: musicPlayerReducer,
     language: languageReducer,
     library: libraryReducer,
     ui: uiReducer,
     auth: authReducer,
-    session: sessionReducer,
+    session: persistReducer(sessionPersistConfig, sessionReducer),
 });
 
 const persistConfig = {
