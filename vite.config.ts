@@ -24,6 +24,7 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             includeAssets: [
+                'favicon.svg',
                 'ios/60.png',
                 'ios/180.png',
                 'savan-logo.png',
