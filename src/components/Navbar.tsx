@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoPersonCircleOutline } from 'react-icons/io5';
+import { IoSearchOutline, IoPersonCircleOutline, IoCompassOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -88,7 +88,14 @@ const Navbar: React.FC = () => {
                         by <span className="text-red-400/80">WENODH</span>
                     </div>
                 </div>
-                <div className="absolute right-0 md:hidden">
+                <div className="absolute right-0 flex items-center gap-2 md:hidden">
+                    <button
+                        onClick={() => navigate('/explore')}
+                        aria-label="Explore"
+                        className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/10"
+                    >
+                        <IoCompassOutline size={22} />
+                    </button>
                     <button
                         onClick={() => dispatch(setSettingsOpen(true))}
                         aria-label="Settings"
@@ -140,6 +147,16 @@ const Navbar: React.FC = () => {
             </form>
 
             <div className="hidden md:flex items-center gap-4 order-2 md:order-none">
+                <button
+                    onClick={() => navigate('/explore')}
+                    aria-label="Explore"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                >
+                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                        <IoCompassOutline size={18} />
+                    </div>
+                    <span className="text-sm font-bold uppercase tracking-tight">Explore</span>
+                </button>
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
                     aria-label="Settings"
