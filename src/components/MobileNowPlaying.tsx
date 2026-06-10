@@ -8,6 +8,7 @@ import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
+import { IoPeopleOutline } from 'react-icons/io5';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
@@ -24,6 +25,7 @@ interface MobileNowPlayingProps {
     handleSeek?: (time: number) => void;
     imageUrl: string;
     audioRefs: React.RefObject<HTMLAudioElement>[];
+    onOpenSession?: () => void;
 }
 
 const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
@@ -33,12 +35,14 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     handleProgressChange,
     handleSeek,
     imageUrl,
-    audioRefs
+    audioRefs,
+    onOpenSession
 }) => {
     const dispatch = useAppDispatch();
     const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle, repeatMode, shuffle } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme } = useAppSelector(state => state.ui);
+    const { isJoined } = useAppSelector(state => state.session);
 
     // States for overlays
     const [isLyricsOverlayOpen, setIsLyricsOverlayOpen] = useState(false);
@@ -201,6 +205,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             {[
                                                 { icon: <MdOutlineLyrics className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsLyricsOverlayOpen(true); setIsFloatingMenuOpen(false); } },
                                                 { icon: <HiQueueList className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsQueueOverlayOpen(true); setIsFloatingMenuOpen(false); } },
+                                                { icon: <IoPeopleOutline className={`w-5 h-5 sm:w-6 sm:h-6 ${isJoined ? 'text-primary' : ''}`} />, onClick: () => { onOpenSession?.(); setIsFloatingMenuOpen(false); } },
                                                 { icon: <MdApps className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsInfoOverlayOpen(true); setIsFloatingMenuOpen(false); } },
                                                 { icon: <MdOutlineGraphicEq className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { dispatch(setEqualizerOpen(true)); setIsFloatingMenuOpen(false); } },
                                             ].map((item, i) => (

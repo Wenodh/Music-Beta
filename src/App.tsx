@@ -19,6 +19,7 @@ import { setDownloadedIds } from './features/library/librarySlice';
 import { syncLibrary } from './features/library/libraryActions';
 import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
+import { joinSession } from './features/session/sessionSlice';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -147,6 +148,16 @@ export const AppContent = () => {
     }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen]);
 
     useEffect(() => {
+        // Handle direct room links
+        const params = new URLSearchParams(window.location.search);
+        const room = params.get('room');
+        if (room && room.length === 6) {
+            dispatch(joinSession(room.toUpperCase()));
+            // Clear the param from URL without refreshing
+            const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.pushState({path:newurl},'',newurl);
+        }
+
         // Sync Offline Downloads
         getOfflineSongs().then(songs => {
             const ids = songs.map(s => s.id);
