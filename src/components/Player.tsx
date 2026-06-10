@@ -7,7 +7,7 @@ import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { IoEllipsisVertical } from 'react-icons/io5';
 import { RiShareForwardLine } from 'react-icons/ri';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import {
     playMusic,
@@ -1099,5 +1099,6 @@ const FloatingEmoji = React.memo(({ reaction }: { reaction: any }) => {
         </motion.div>
     );
 });
+FloatingEmoji.displayName = 'FloatingEmoji';
 
 export default Player;

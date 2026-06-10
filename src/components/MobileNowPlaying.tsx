@@ -85,6 +85,8 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
+    const { reactions } = useAppSelector(state => state.session);
+
     if (!currentSong) return null;
 
     const duration = parseFloat(currentSong.duration?.toString() || '0');
@@ -95,8 +97,6 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
         const secs = Math.floor(time % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
-
-    const { reactions } = useAppSelector(state => state.session);
 
     return (
         <AnimatePresence>
@@ -492,5 +492,6 @@ const FloatingEmojiMobile = React.memo(({ reaction }: { reaction: any }) => {
         </motion.div>
     );
 });
+FloatingEmojiMobile.displayName = 'FloatingEmojiMobile';
 
 export default MobileNowPlaying;
