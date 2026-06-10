@@ -35,6 +35,7 @@ const lazyRetry = (componentImport: () => Promise<any>) => {
 };
 
 const Home = lazyRetry(() => import('./pages/Home'));
+const Explore = lazyRetry(() => import('./pages/Explore'));
 const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
@@ -70,6 +71,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/explore"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Explore...</div>}>
+                            <PageWrapper><Explore /></PageWrapper>
                         </Suspense>
                     }
                 />
