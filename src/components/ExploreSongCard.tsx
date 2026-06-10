@@ -11,19 +11,19 @@ interface ExploreSongCardProps {
     index: number;
 }
 
+// Randomize height for masonry effect (premium look)
+const aspectRatios = [
+    'aspect-[3/4]',
+    'aspect-[2/3]',
+    'aspect-[4/5]',
+    'aspect-[1/1]',
+    'aspect-[3/5]',
+    'aspect-[4/3]',
+    'aspect-[9/16]'
+];
+
 const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
     const dispatch = useAppDispatch();
-
-    // Randomize height for masonry effect (premium look)
-    const aspectRatios = [
-        'aspect-[3/4]',
-        'aspect-[2/3]',
-        'aspect-[4/5]',
-        'aspect-[1/1]',
-        'aspect-[3/5]',
-        'aspect-[4/3]',
-        'aspect-[9/16]'
-    ];
 
     // Use a more complex sequence to avoid repetitive patterns in columns
     const aspectClass = aspectRatios[(index * 3 + index % 7) % aspectRatios.length];

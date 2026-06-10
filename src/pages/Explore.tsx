@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { IoCompassOutline, IoSearchOutline } from 'react-icons/io5';
 import { songs as songsUrl } from '../constants';
 import ExploreSongCard from '../components/ExploreSongCard';
@@ -11,14 +11,19 @@ import { Song } from '../types/music';
 const Explore: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const [songs, setSongs] = useState<Song[]>([]);
-    const [page, setPage] = useState(0);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
+    const hasMoreRef = useRef(true);
     const observer = useRef<IntersectionObserver | null>(null);
     const isFetching = useRef(false);
 
+    const updateHasMore = useCallback((value: boolean) => {
+        hasMoreRef.current = value;
+        setHasMore(value);
+    }, []);
+
     const fetchSongs = useCallback(async (pageNum: number, isReset = false) => {
-        if (isFetching.current || (!hasMore && !isReset)) return;
+        if (isFetching.current || (!hasMoreRef.current && !isReset)) return;
 
         try {
             isFetching.current = true;
@@ -28,7 +33,7 @@ const Explore: React.FC = () => {
             const newSongs = res.data.data.results || [];
 
             if (newSongs.length === 0) {
-                setHasMore(false);
+                updateHasMore(false);
             } else {
                 setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
             }
@@ -38,29 +43,25 @@ const Explore: React.FC = () => {
             setLoading(false);
             isFetching.current = false;
         }
-    }, [language, hasMore]);
+    }, [language, updateHasMore]);
 
     useEffect(() => {
         // Reset and fetch when language changes
-        setPage(0);
-        setHasMore(true);
+        updateHasMore(true);
         fetchSongs(0, true);
-    }, [language]); // Removed fetchSongs from deps as language is the trigger
+    }, [language, fetchSongs, updateHasMore]);
 
     const lastSongElementRef = useCallback((node: HTMLDivElement) => {
         if (loading) return;
         if (observer.current) observer.current.disconnect();
         observer.current = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting && hasMore && !isFetching.current) {
-                setPage(prevPage => {
-                    const nextPage = prevPage + 1;
-                    fetchSongs(nextPage);
-                    return nextPage;
-                });
+                const nextPage = Math.floor(songs.length / 30);
+                fetchSongs(nextPage);
             }
         });
         if (node) observer.current.observe(node);
-    }, [loading, hasMore, fetchSongs]);
+    }, [loading, hasMore, fetchSongs, songs.length]);
 
     return (
         <div className="pb-32 pt-1 px-1 sm:px-4 sm:pt-4">
@@ -80,7 +81,7 @@ const Explore: React.FC = () => {
             {songs.length === 0 && loading ? (
                 <ExploreSkeleton />
             ) : (
-                <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-3 sm:gap-4">
+                <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-8 gap-2 sm:gap-3 lg:gap-4">
                     <AnimatePresence>
                         {songs.map((song, index) => (
                             <ExploreSongCard
@@ -105,7 +106,7 @@ const Explore: React.FC = () => {
 
             {!hasMore && songs.length > 0 && (
                 <div className="text-center py-12 text-gray-500">
-                    You've reached the end of the musical universe.
+                    You&apos;ve reached the end of the musical universe.
                 </div>
             )}
 

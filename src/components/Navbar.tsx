@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoPersonCircleOutline, IoCompassOutline } from 'react-icons/io5';
+import { setSearchedSongs, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { IoSearchOutline, IoCompassOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { search as searchUrl } from '../constants';
 import debounce from 'lodash/debounce';
 
-import { setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
-
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { theme } = useAppSelector((state) => state.ui);
     const [isVisible, setIsVisible] = useState(true);
