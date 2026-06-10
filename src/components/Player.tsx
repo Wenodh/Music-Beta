@@ -30,11 +30,14 @@ import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
+import { setRecommendations, setQueueOpen, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
 import Lyrics from './Lyrics';
+import SessionModal from './modals/SessionModal';
+import { useSession } from '../hooks/useSession';
+import { IoPeopleOutline } from 'react-icons/io5';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded } from '../features/ui/uiSlice';
 import { Song } from '../types/music';
@@ -62,6 +65,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [imageUrl, setImageUrl] = useState<string>('');
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const lastProcessedSongId = useRef<string | null>(null);
+    const currentSongRef = useRef(currentSong);
+    useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+
+    const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+    const { broadcast, sendReaction, isInternalAction } = useSession();
+    const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
 
@@ -207,6 +216,30 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         }
     }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
+
+    // Session Seek Listener
+    useEffect(() => {
+        const handleSessionSeek = (e: any) => {
+            const { time, songId } = e.detail;
+            // Only seek if we are on the same song
+            if (!songId || songId === currentSongRef.current?.id) {
+                handleSeek(time);
+            }
+        };
+        window.addEventListener('session-seek', handleSessionSeek);
+        return () => window.removeEventListener('session-seek', handleSessionSeek);
+    }, []);
+
+    // Broadcast state changes if Host
+    useEffect(() => {
+        if (isHost && isJoined && !isInternalAction.current) {
+            if (isPlaying) {
+                broadcast('play', { song: currentSong });
+            } else {
+                broadcast('pause', {});
+            }
+        }
+    }, [isPlaying, currentSong?.id, isHost, isJoined, broadcast]);
 
     // Handle Playback State
     useEffect(() => {
@@ -385,6 +418,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const activeAudio = getActiveAudio();
         if (time >= 0) {
             activeAudio.currentTime = time;
+            if (isHost && isJoined && !isInternalAction.current) {
+                broadcast('seek', { time });
+            }
         }
     };
 
@@ -584,6 +620,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 />
                             </button>
                             <motion.button
+                                aria-label="Group Session"
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsSessionModalOpen(true);
+                                }}
+                            >
+                                <IoPeopleOutline
+                                    className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isJoined ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
+                                />
+                            </motion.button>
+                            <motion.button
+                                aria-label="Previous"
                                 whileTap={{ scale: 0.9 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -596,6 +645,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </motion.button>
 
                             <motion.button
+                                aria-label={isPlaying ? "Pause" : "Play"}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={(e) => {
@@ -608,6 +658,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </motion.button>
 
                             <motion.button
+                                aria-label="Next"
                                 whileTap={{ scale: 0.9 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -945,7 +996,36 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             handleSeek={handleSeek}
             imageUrl={imageUrl || ''}
             audioRefs={[audioRefA, audioRefB]}
+            onOpenSession={() => setIsSessionModalOpen(true)}
         />
+
+        <SessionModal
+            isOpen={isSessionModalOpen}
+            onClose={() => setIsSessionModalOpen(false)}
+            onSendReaction={sendReaction}
+        />
+
+        {/* Reaction Overlay */}
+        <div className="fixed bottom-32 right-8 pointer-events-none z-[250] flex flex-col-reverse gap-4 items-center">
+            <AnimatePresence>
+                {reactions.map((r) => (
+                    <motion.div
+                        key={r.id}
+                        initial={{ opacity: 0, y: 50, scale: 0.5 }}
+                        animate={{ opacity: 1, y: 0, scale: 1.5 }}
+                        exit={{ opacity: 0, y: -100, scale: 2 }}
+                        className="text-4xl filter drop-shadow-lg"
+                    >
+                        <div className="relative">
+                            {r.emoji}
+                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-black/60 text-white px-2 py-0.5 rounded-full whitespace-nowrap">
+                                {r.userName}
+                            </span>
+                        </div>
+                    </motion.div>
+                ))}
+            </AnimatePresence>
+        </div>
 
         <AnimatePresence>
             {isLyricsOpen && currentSong && !isPlayerExpanded && (
