@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IoCompassOutline, IoSearchOutline } from 'react-icons/io5';
 import { songs as songsUrl } from '../constants';
 import ExploreSongCard from '../components/ExploreSongCard';
+import ExploreSkeleton from '../components/ExploreSkeleton';
 import { Song } from '../types/music';
 
 const Explore: React.FC = () => {
@@ -62,34 +63,38 @@ const Explore: React.FC = () => {
     }, [loading, hasMore, fetchSongs]);
 
     return (
-        <div className="pb-32 pt-4 px-4">
-            <header className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                        <IoCompassOutline size={28} />
+        <div className="pb-32 pt-1 px-1 sm:px-4 sm:pt-4">
+            <header className="mb-4 px-1.5">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
+                        <IoCompassOutline className="text-lg sm:text-xl" />
                     </div>
-                    <h1 className="text-3xl font-bold">Explore</h1>
+                    <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Explore</h1>
                 </div>
-                <p className="text-gray-500 dark:text-gray-400">
-                    Discover new music in {language} curated just for you.
+                <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight max-w-2xl">
+                    Discover new music in <span className="text-primary font-medium capitalize">{language}</span> curated just for you.
                 </p>
             </header>
 
             {/* Masonry Grid */}
-            <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
-                <AnimatePresence>
-                    {songs.map((song, index) => (
-                        <ExploreSongCard
-                            key={`${song.id}-${index}`}
-                            song={song}
-                            index={index}
-                        />
-                    ))}
-                </AnimatePresence>
-            </div>
+            {songs.length === 0 && loading ? (
+                <ExploreSkeleton />
+            ) : (
+                <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-3 sm:gap-4">
+                    <AnimatePresence>
+                        {songs.map((song, index) => (
+                            <ExploreSongCard
+                                key={`${song.id}-${index}`}
+                                song={song}
+                                index={index}
+                            />
+                        ))}
+                    </AnimatePresence>
+                </div>
+            )}
 
             {/* Loading Indicator */}
-            {loading && (
+            {loading && songs.length > 0 && (
                 <div className="flex justify-center py-12">
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
