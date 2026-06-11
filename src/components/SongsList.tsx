@@ -159,13 +159,13 @@ const SongsList: React.FC<SongsListProps> = ({
                     })
                 )
             }
-            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border border-transparent hover:bg-primary/5 ${
+            className={`flex items-center justify-between p-2 sm:p-3 rounded-xl cursor-pointer transition-all border border-transparent hover:bg-primary/5 ${
                 isCurrent
                     ? 'bg-primary/10 dark:bg-primary/20 border-primary/20 text-primary'
                     : 'hover:border-gray-200 dark:hover:border-gray-800'
             }`}
         >
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
+            <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1 mr-2">
                 {isSelectionMode && (
                     <div
                         onClick={(e) => { e.stopPropagation(); onSelect?.(id); }}
@@ -179,7 +179,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         src={Array.isArray(image) ? image[0]?.url : image}
                         alt={name}
                         loading="lazy"
-                        className="w-12 h-12 rounded-lg object-cover shadow-sm"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-sm"
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/song:opacity-100 transition-opacity rounded-lg">
                         <span className="text-white text-xs">▶</span>
@@ -200,7 +200,7 @@ const SongsList: React.FC<SongsListProps> = ({
                     {formatDuration(duration)}
                 </span>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 sm:gap-1">
                     <motion.button
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
@@ -208,7 +208,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
                         title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                     >
-                        {isFavorite ? <IoHeart size={16} className="sm:w-[18px] sm:h-[18px]" /> : <IoHeartOutline size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                        {isFavorite ? <IoHeart size={15} className="sm:w-[18px] sm:h-[18px]" /> : <IoHeartOutline size={15} className="sm:w-[18px] sm:h-[18px]" />}
                     </motion.button>
 
                     <motion.button
@@ -218,7 +218,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         className="p-1.5 sm:p-2 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
                         title="Add to Playlist"
                     >
-                        <IoAdd size={18} className="sm:w-[20px] sm:h-[20px]" />
+                        <IoAdd size={17} className="sm:w-[20px] sm:h-[20px]" />
                     </motion.button>
 
                     <motion.button
@@ -229,11 +229,11 @@ const SongsList: React.FC<SongsListProps> = ({
                         aria-label={isDownloaded ? "Remove download" : "Download song"}
                     >
                         {isDownloading ? (
-                            <AiOutlineLoading3Quarters className="animate-spin text-sm" />
+                            <AiOutlineLoading3Quarters className="animate-spin text-xs sm:text-sm" />
                         ) : isDownloaded ? (
-                            <LuCircleCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <LuCircleCheck size={15} className="sm:w-[18px] sm:h-[18px]" />
                         ) : (
-                            <LuHardDriveDownload size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <LuHardDriveDownload size={15} className="sm:w-[18px] sm:h-[18px]" />
                         )}
                     </motion.button>
                 </div>

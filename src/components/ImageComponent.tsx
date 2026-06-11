@@ -7,7 +7,7 @@ interface ImageComponentProps {
 
 const ImageComponent: React.FC<ImageComponentProps> = ({ src, alt }) => {
     return (
-        <div className="w-48 h-48 sm:w-64 sm:h-64 lg:w-80 lg:h-80 bg-gray-200 dark:bg-gray-800 rounded-lg shadow-2xl overflow-hidden flex items-center justify-center">
+        <div className="w-40 h-40 sm:w-64 sm:h-64 lg:w-80 lg:h-80 bg-gray-200 dark:bg-gray-800 rounded-lg shadow-2xl overflow-hidden flex items-center justify-center">
             {src ? (
                 <img
                     src={src}

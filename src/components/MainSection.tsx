@@ -179,67 +179,67 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-8 px-4"
+            className="pb-32 pt-4 sm:pt-8 px-4"
         >
             <DailyMix />
 
             {recentlyPlayed && recentlyPlayed.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />
                 </motion.div>
             )}
             {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
                 </motion.div>
             )}
             {data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.songs} title="Trending Songs" />
                 </motion.div>
             )}
             {data.albums && data.albums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
             {data.artists && data.artists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
             {data.playlists && data.playlists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.playlists} title="Top Playlists" />
                 </motion.div>
             )}
 
             {data.meditation && data.meditation.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.meditation} title="Meditation" />
                 </motion.div>
             )}
 
             {data.work && data.work.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.work} title="Work" />
                 </motion.div>
             )}
 
             {data.devPicks && data.devPicks.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.devPicks} title="Developer's Picks" />
                 </motion.div>
             )}
 
             {data.chill && data.chill.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.chill} title="Chill" />
                 </motion.div>
             )}
 
             {data.workout && data.workout.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.workout} title="Workout" />
                 </motion.div>
             )}

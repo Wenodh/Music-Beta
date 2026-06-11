@@ -65,7 +65,7 @@ const DailyMix: React.FC = () => {
     return (
         <motion.div
             variants={itemVariants}
-            className="mb-12"
+            className="mb-8 sm:mb-12"
         >
             <Slider data={dailyMix} title="Made For You: Daily Mix" />
         </motion.div>

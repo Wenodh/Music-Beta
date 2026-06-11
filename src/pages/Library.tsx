@@ -96,10 +96,10 @@ const Library: React.FC = () => {
     const currentPlaylist = playlists.find(p => p.id === selectedPlaylist);
 
     return (
-        <div className="p-4 lg:p-8 max-w-7xl mx-auto pb-32">
-            <h1 className="text-3xl font-bold mb-8">My Library</h1>
+        <div className="px-4 py-4 sm:p-4 lg:p-8 max-w-7xl mx-auto pb-32">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">My Library</h1>
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800">
                 <div className="flex gap-4">
                     <button
                         onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
@@ -174,8 +174,8 @@ const Library: React.FC = () => {
                         </div>
                     )}
                     <div className={viewMode === 'grid'
-                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-                        : "space-y-2"
+                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
+                        : "space-y-1 sm:space-y-2"
                     }>
                         {offlineSongs.length > 0 ? (
                             [...offlineSongs].sort((a, b) => {
@@ -252,8 +252,8 @@ const Library: React.FC = () => {
                         </div>
                     )}
                     <div className={viewMode === 'grid'
-                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-                        : "space-y-2"
+                        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
+                        : "space-y-1 sm:space-y-2"
                     }>
                         {favorites.length > 0 ? (
                             [...favorites].sort((a, b) => {
@@ -312,8 +312,8 @@ const Library: React.FC = () => {
 
             {activeTab === 'playlists' && !selectedPlaylist && (
                 <div className={viewMode === 'grid'
-                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-                    : "space-y-2"
+                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
+                    : "space-y-1 sm:space-y-2"
                 }>
                     <motion.button
                         whileHover={{ scale: 1.02 }}
