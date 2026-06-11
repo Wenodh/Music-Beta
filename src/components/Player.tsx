@@ -518,10 +518,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     layoutId="player-album-art"
                                     src={imageUrl}
                                     alt=""
-                                    width={55}
-                                    height={55}
-                                    className="rounded-xl shadow-lg"
-                                    loading="lazy"
+                                    className="w-[55px] h-[55px] rounded-xl shadow-lg object-cover"
                                     onDoubleClick={(e) => {
                                         e.stopPropagation();
                                         const rect = e.currentTarget.getBoundingClientRect();
