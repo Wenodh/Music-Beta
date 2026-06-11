@@ -498,11 +498,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         onChange={handleProgressChange}
                         className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
                     />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8 cursor-pointer" onClick={(e) => {
-                        // Prevent opening mobile player if a button was clicked
-                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
-                        dispatch(setPlayerExpanded(true));
-                    }}>
+                    <div className="flex justify-between items-center py-3 px-4 lg:px-8">
                         {/* 1st div */}
                         <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
                             <motion.div
@@ -512,17 +508,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     if (info.offset.x > 100) prevSong();
                                     else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="relative group cursor-grab active:cursor-grabbing"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch(setPlayerExpanded(true));
+                                }}
+                                className="relative group cursor-pointer"
                             >
                                 <motion.img
                                     layoutId="player-album-art"
                                     src={imageUrl}
                                     alt=""
-                                    width={55}
-                                    height={55}
-                                    className="rounded-xl shadow-lg"
-                                    loading="lazy"
+                                    className="w-[55px] h-[55px] rounded-xl shadow-lg object-cover"
                                     onDoubleClick={(e) => {
                                         e.stopPropagation();
                                         const rect = e.currentTarget.getBoundingClientRect();
