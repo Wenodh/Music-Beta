@@ -71,8 +71,8 @@ const Explore: React.FC = () => {
     );
 
     return (
-        <div className="pb-32 pt-1 px-1 sm:px-4 sm:pt-4">
-            <header className="mb-4 px-1.5">
+        <div className="pb-32 pt-1 px-4 sm:pt-4">
+            <header className="mb-4">
                 <div className="flex items-center gap-2 mb-1">
                     <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
                         <IoCompassOutline className="text-lg sm:text-xl" />

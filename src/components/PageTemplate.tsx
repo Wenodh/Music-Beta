@@ -161,8 +161,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
     if (children) {
         return (
-            <div className="p-5 pb-32 max-w-7xl mx-auto">
-                {title && <h1 className="text-3xl font-black mb-8">{title}</h1>}
+            <div className="px-4 py-4 sm:p-5 pb-32 max-w-7xl mx-auto">
+                {title && <h1 className="text-2xl sm:text-3xl font-black mb-6 sm:mb-8">{title}</h1>}
                 {children}
             </div>
         );
@@ -187,7 +187,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
     );
 
     return (
-        <div className="p-5 pb-32 max-w-7xl mx-auto">
+        <div className="px-4 py-4 sm:p-5 pb-32 max-w-7xl mx-auto">
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>
@@ -198,7 +198,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                             </button>
                         </div>
                     </div>
-                    <h1 className="text-xl sm:text-3xl font-black mt-4 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2 flex items-center gap-2">
+                    <h1 className="text-xl sm:text-3xl font-black mt-3 sm:mt-6 text-center lg:text-left leading-tight line-clamp-2 flex items-center gap-2">
                         {decodeHtmlEntities(details?.name || '')}
                         {(details as any)?.isVerified && <IoCheckmarkCircle className="text-blue-500" size={24} />}
                     </h1>
@@ -216,7 +216,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                 </div>
 
                 <div className="flex-1 w-full lg:pl-10 mt-4 lg:mt-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 sm:mb-8 border-b border-gray-100 dark:border-gray-800 pb-3 sm:pb-4">
                         <div className="flex items-center gap-4">
                             <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
                                 Songs
@@ -397,9 +397,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
             {/* Artist Deep-Dive Sections */}
             {(details as any)?.type === 'artist' && (
-                <div className="mt-16 space-y-16">
+                <div className="mt-10 sm:mt-16 space-y-10 sm:space-y-16">
                     {/* Stats & Socials */}
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex flex-wrap gap-3 sm:gap-4">
                         {(details as any).followerCount && (
                             <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
@@ -464,7 +464,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                 </div>
             )}
 
-            <div className="mt-20 space-y-16">
+            <div className="mt-12 sm:mt-20 space-y-12 sm:space-y-16">
                 {(details as any)?.singles && (details as any).singles.length > 0 && (
                     <Slider data={(details as any).singles} title="Singles & EPs" />
                 )}
