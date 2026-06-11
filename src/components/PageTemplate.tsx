@@ -161,7 +161,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
     if (children) {
         return (
-            <div className="px-4 py-4 sm:p-5 pb-32 max-w-7xl mx-auto">
+            <div className="px-2 py-4 sm:px-4 sm:p-5 pb-32 max-w-7xl mx-auto">
                 {title && <h1 className="text-2xl sm:text-3xl font-black mb-6 sm:mb-8">{title}</h1>}
                 {children}
             </div>
@@ -187,7 +187,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
     );
 
     return (
-        <div className="px-4 py-4 sm:p-5 pb-32 max-w-7xl mx-auto">
+        <div className="px-2 py-4 sm:px-4 sm:p-5 pb-32 max-w-7xl mx-auto">
             <FlexLayout>
                 <div className="flex flex-col items-center lg:items-start lg:sticky lg:top-24 h-fit">
                     <div className="relative group cursor-pointer" onClick={handlePlayAll}>

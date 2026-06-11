@@ -4,7 +4,7 @@ import { PiShieldCheck } from 'react-icons/pi';
 
 const PrivacyPolicy = () => {
     return (
-        <div className="max-w-4xl mx-auto py-12 px-4 space-y-12 mb-24">
+        <div className="max-w-4xl mx-auto py-12 px-2 sm:px-4 space-y-12 mb-24">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

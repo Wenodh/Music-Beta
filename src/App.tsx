@@ -213,7 +213,7 @@ export const AppContent = () => {
             <BrowserRouter>
                 <Navbar />
                 <SearchSection />
-                <main className="max-w-7xl mx-auto px-4">
+                <main className="max-w-7xl mx-auto px-2 sm:px-4">
                     <AnimatePresence mode="wait">
                         <AnimatedRoutes />
                     </AnimatePresence>
