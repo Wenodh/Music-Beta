@@ -140,7 +140,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 min-h-[250px] max-h-[45vh] aspect-square max-w-[300px] sm:max-w-[380px]"
+                            className="relative w-full flex-1 min-h-[250px] max-h-[45vh] aspect-square max-w-[300px] sm:max-w-[380px] z-[20]"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -202,7 +202,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             initial={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
                                             animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
-                                            className="absolute top-12 sm:top-14 right-0 flex flex-col gap-1.5 sm:gap-2 bg-black/60 backdrop-blur-2xl p-1.5 sm:p-2 rounded-3xl border border-white/10 shadow-2xl min-w-[48px] sm:min-w-[56px]"
+                                            className="absolute top-12 sm:top-14 right-0 flex flex-col gap-1.5 sm:gap-2 bg-black/60 backdrop-blur-2xl p-1.5 sm:p-2 rounded-3xl border border-white/10 shadow-2xl min-w-[48px] sm:min-w-[56px] max-h-[65vh] overflow-y-auto custom-scrollbar"
                                         >
                                             {[
                                                 { icon: <MdOutlineLyrics className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsLyricsOverlayOpen(true); setIsFloatingMenuOpen(false); } },
@@ -250,7 +250,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Content Group (Info, Progress, Controls) */}
-                        <div className="w-full max-w-[320px] sm:max-w-[380px] flex flex-col gap-y-6 sm:gap-y-8">
+                        <div className="w-full max-w-[320px] sm:max-w-[380px] flex flex-col gap-y-6 sm:gap-y-8 relative z-10">
                             {/* Song Info */}
                             <div className="relative w-full flex items-center justify-center">
                                 <div className="flex-1 min-w-0 px-8 text-center">
