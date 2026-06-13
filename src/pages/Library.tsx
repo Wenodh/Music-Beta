@@ -96,7 +96,7 @@ const Library: React.FC = () => {
     const currentPlaylist = playlists.find(p => p.id === selectedPlaylist);
 
     return (
-        <div className="px-4 py-4 sm:p-4 lg:p-8 max-w-7xl mx-auto pb-32">
+        <div className="px-2 py-4 sm:px-4 lg:px-8 sm:p-4 lg:p-8 max-w-7xl mx-auto pb-32">
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">My Library</h1>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800">

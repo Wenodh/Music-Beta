@@ -123,7 +123,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                             <IoChevronDown className="w-6 h-6 sm:w-7 sm:h-7" />
                         </button>
-                        <div className="text-center flex-1 px-4">
+                        <div className="text-center flex-1 px-2 sm:px-4">
                             <p className="hidden xs:block text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Now Playing</p>
                             <p className="text-xs sm:text-sm font-bold truncate max-w-[220px] mx-auto">{decodeHtmlEntities(typeof currentSong.album === 'string' ? currentSong.album : currentSong.album?.name || '')}</p>
                         </div>
@@ -136,7 +136,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-8">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 py-4 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-8">
 
                         {/* Card Stack & Floating Menu */}
                         <div

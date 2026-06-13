@@ -179,7 +179,7 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-4 sm:pt-8 px-4"
+            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4"
         >
             <DailyMix />
 

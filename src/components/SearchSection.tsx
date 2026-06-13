@@ -38,8 +38,8 @@ const SearchSection: React.FC = () => {
     ].filter(t => t.count > 0);
 
     return (
-        <div className="p-4 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20">
-            <div className="max-w-7xl mx-auto px-4">
+        <div className="px-2 sm:px-4 py-4 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20">
+            <div className="max-w-7xl mx-auto px-2 sm:px-4">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                         {tabs.map((tab) => (
