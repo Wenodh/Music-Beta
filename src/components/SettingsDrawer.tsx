@@ -119,7 +119,7 @@ const SettingsDrawer: React.FC = () => {
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <img
-                                                        src={user.user_metadata?.avatar_url || '/android/android-launchericon-192-192.png'}
+                                                        src={user.user_metadata?.avatar_url || '/favicon.png'}
                                                         alt="Avatar"
                                                         className="w-10 h-10 rounded-full border-2 border-primary/20"
                                                     />

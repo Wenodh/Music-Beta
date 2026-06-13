@@ -101,7 +101,7 @@ const Navbar: React.FC = () => {
                         {isAuthenticated && user?.user_metadata?.avatar_url ? (
                             <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
-                            <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                            <img src="/favicon.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
                         )}
                     </button>
                 </div>
@@ -162,7 +162,7 @@ const Navbar: React.FC = () => {
                     {isAuthenticated && user?.user_metadata?.avatar_url ? (
                         <img src={user.user_metadata.avatar_url} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
                     ) : (
-                        <img src="/android/android-launchericon-192-192.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+                        <img src="/favicon.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
                     )}
                     <span className="text-sm font-bold uppercase tracking-tight">Account</span>
                 </button>

@@ -24,9 +24,8 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             includeAssets: [
-                'ios/60.png',
-                'ios/180.png',
-                'savan-logo.png',
+                'favicon.png',
+                'apple-touch-icon.png',
             ],
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
@@ -66,6 +65,26 @@ export default defineConfig({
                 start_url: '/',
                 orientation: 'portrait',
                 icons: [
+                    {
+                        src: '/android/android-launchericon-48-48.png',
+                        sizes: '48x48',
+                        type: 'image/png'
+                    },
+                    {
+                        src: '/android/android-launchericon-72-72.png',
+                        sizes: '72x72',
+                        type: 'image/png'
+                    },
+                    {
+                        src: '/android/android-launchericon-96-96.png',
+                        sizes: '96x96',
+                        type: 'image/png'
+                    },
+                    {
+                        src: '/android/android-launchericon-144-144.png',
+                        sizes: '144x144',
+                        type: 'image/png'
+                    },
                     {
                         src: '/android/android-launchericon-192-192.png',
                         sizes: '192x192',
