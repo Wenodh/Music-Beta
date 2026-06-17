@@ -410,7 +410,7 @@ const SettingsDrawer: React.FC = () => {
                                     Privacy Policy
                                 </button>
                                 <div>
-                                    <p className="text-xs text-gray-400">VibeOn Version 1.2.0</p>
+                                    <p className="text-xs text-gray-400">Vibe On Version 1.2.0</p>
                                     <p className="text-[10px] text-gray-500 mt-1">Made with ❤️ by WENODH</p>
                                 </div>
                             </div>

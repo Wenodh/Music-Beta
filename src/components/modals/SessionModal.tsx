@@ -59,8 +59,8 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'VibeOn Group Session',
-                    text: `Join my listening session on VibeOn! Code: ${roomCode}`,
+                    title: 'Vibe On Group Session',
+                    text: `Join my listening session on Vibe On! Code: ${roomCode}`,
                     url: link,
                 });
             } catch (err) { console.log(err); }

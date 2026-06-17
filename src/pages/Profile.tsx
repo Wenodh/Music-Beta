@@ -31,7 +31,7 @@ const Profile: React.FC = () => {
                         />
                         <div className="text-center md:text-left">
                             <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-1">
-                                {user.user_metadata?.full_name || 'VibeOn User'}
+                                {user.user_metadata?.full_name || 'Vibe On User'}
                             </h1>
                             <p className="text-gray-500 font-medium">{user.email}</p>
                         </div>

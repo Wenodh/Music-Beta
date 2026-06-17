@@ -79,7 +79,7 @@ const Navbar: React.FC = () => {
                     onClick={() => navigate('/')}
                 >
                     <div className="text-lg md:text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight leading-none">
-                        Vibe<span className="font-light italic text-primary">On</span>
+                        Vibe <span className="font-light italic text-primary">On</span>
                     </div>
                     <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">
                         by <span className="text-red-400/80">WENODH</span>

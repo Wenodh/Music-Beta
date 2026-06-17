@@ -26,7 +26,7 @@ export default defineConfig({
             includeAssets: [
                 'ios/60.png',
                 'ios/180.png',
-                'savan-logo.png',
+                'vibeon-logo.png',
             ],
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
@@ -56,8 +56,8 @@ export default defineConfig({
                 ]
             },
             manifest: {
-                name: 'VibeOn',
-                short_name: 'VibeOn',
+                name: 'Vibe On',
+                short_name: 'Vibe On',
                 description: 'A modern music streaming app with Glassmorphism UI',
                 theme_color: '#ef4444',
                 background_color: '#ffffff',
