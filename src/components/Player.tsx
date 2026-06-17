@@ -463,7 +463,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             try {
                 await navigator.share({
                     title: currentSong?.name,
-                    text: `Check out ${currentSong?.name} by ${currentSong?.primaryArtists} on VibeOn!`,
+                    text: `Check out ${currentSong?.name} by ${currentSong?.primaryArtists} on Vibe On!`,
                     url: songUrl,
                 });
             } catch (error) { console.log('Error sharing', error); }
