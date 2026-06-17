@@ -35,6 +35,16 @@ jobs:
       - name: Sync with Capacitor
         run: npx cap sync android
 
+      - name: Decode Keystore
+        run: |
+          if [ -n "${{ secrets.RELEASE_KEY_BASE64 }}" ]; then
+            echo "${{ secrets.RELEASE_KEY_BASE64 }}" | base64 --decode > android/app/release-key.keystore
+          elif [ -n "${{ vars.RELEASE_KEY_BASE64 }}" ]; then
+            echo "${{ vars.RELEASE_KEY_BASE64 }}" | base64 --decode > android/app/release-key.keystore
+          else
+            echo "Warning: RELEASE_KEY_BASE64 not found. Build might fail if signing is required."
+          fi
+
       - name: Build Android
         run: |
           cd android
@@ -45,6 +55,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_STORE_FILE: release-key.keystore
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

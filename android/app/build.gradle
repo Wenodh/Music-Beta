@@ -13,8 +13,8 @@ android {
         applicationId "com.wenodh.vibeon"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -30,9 +30,9 @@ android {
                 storePassword signingProperties['RELEASE_STORE_PASSWORD']
                 keyAlias signingProperties['RELEASE_KEY_ALIAS']
                 keyPassword signingProperties['RELEASE_KEY_PASSWORD']
-            } else if (System.getenv("RELEASE_STORE_PASSWORD") != null && file('release-key.keystore').exists()) {
-                // Fallback to environment variables for CI
-                storeFile file('release-key.keystore')
+            } else {
+                // Fallback to environment variables for CI/Local
+                storeFile file(System.getenv("RELEASE_STORE_FILE") ?: 'release-key.keystore')
                 storePassword System.getenv("RELEASE_STORE_PASSWORD")
                 keyAlias System.getenv("RELEASE_KEY_ALIAS")
                 keyPassword System.getenv("RELEASE_KEY_PASSWORD")
@@ -44,9 +44,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (signingPropertiesFile.exists() || (System.getenv("RELEASE_STORE_PASSWORD") != null && file('release-key.keystore').exists())) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
         }
     }
 
