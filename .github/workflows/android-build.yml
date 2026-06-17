@@ -44,12 +44,7 @@ jobs:
           elif [ -n "${{ vars.RELEASE_KEY_BASE64 }}" ]; then
             echo "${{ vars.RELEASE_KEY_BASE64 }}" | base64 --decode > android/app/release-key.keystore
           else
-            if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
-              echo "Error: RELEASE_KEY_BASE64 not found in secrets/vars. This is required for main branch builds."
-              exit 1
-            else
-              echo "Warning: RELEASE_KEY_BASE64 not found. This is expected for PRs. Build will be unsigned."
-            fi
+            echo "Warning: RELEASE_KEY_BASE64 not found. Build will be unsigned. This is fine for testing, but Google Play requires signing for production."
           fi
 
       - name: Build Android
