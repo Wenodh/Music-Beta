@@ -2,12 +2,14 @@ name: Build Android
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -17,34 +19,30 @@ jobs:
           java-version: '21'
           distribution: 'zulu'
 
-      - name: Initialize Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build web app
+      - name: Build Web App
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Sync with Capacitor
+      - name: Capacitor Sync
         run: npx cap sync android
 
-      - name: Build Android
+      - name: Build with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
           ./gradlew bundleRelease
-        env:
-          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
