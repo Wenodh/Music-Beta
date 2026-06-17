@@ -25,7 +25,7 @@ const Profile: React.FC = () => {
                 {isAuthenticated && user ? (
                     <div className="flex flex-col md:flex-row items-center gap-6 p-8 bg-gray-50 dark:bg-gray-800/40 rounded-3xl backdrop-blur-sm border border-white/10">
                         <img
-                            src={user.user_metadata?.avatar_url || '/android/android-launchericon-192-192.png'}
+                            src={user.user_metadata?.avatar_url || '/vibeon-logo.png'}
                             alt="Profile"
                             className="w-32 h-32 rounded-full border-4 border-primary shadow-2xl object-cover"
                         />

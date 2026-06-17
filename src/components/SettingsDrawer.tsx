@@ -119,7 +119,7 @@ const SettingsDrawer: React.FC = () => {
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <img
-                                                        src={user.user_metadata?.avatar_url || '/android/android-launchericon-192-192.png'}
+                                                        src={user.user_metadata?.avatar_url || '/vibeon-logo.png'}
                                                         alt="Avatar"
                                                         className="w-10 h-10 rounded-full border-2 border-primary/20"
                                                     />
@@ -409,9 +409,12 @@ const SettingsDrawer: React.FC = () => {
                                 >
                                     Privacy Policy
                                 </button>
-                                <div>
-                                    <p className="text-xs text-gray-400">Vibe On Version 1.2.0</p>
-                                    <p className="text-[10px] text-gray-500 mt-1">Made with ❤️ by WENODH</p>
+                                <div className="flex flex-col items-center">
+                                    <p className="text-xs text-gray-400 mb-2">Vibe On Version 1.2.0</p>
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <img src="/developer-photo.webp" alt="WENODH" className="w-4 h-4 rounded-full object-cover" />
+                                        <p className="text-[10px] text-gray-500 font-medium">Made with ❤️ by <span className="font-bold text-primary">WENODH</span></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
