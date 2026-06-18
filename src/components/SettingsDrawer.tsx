@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly, setAutoplayEnabled } from '../features/musicplayer/musicPlayerSlice';
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,7 +20,7 @@ const SettingsDrawer: React.FC = () => {
     const { theme } = useAppSelector((state) => state.ui);
     const { user, isAuthenticated, loading: authLoading } = useAppSelector((state) => state.auth);
     const { isSyncing, lastSynced } = useAppSelector((state) => state.library);
-    const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
+    const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings, isAutoplayEnabled } = useAppSelector((state) => state.musicPlayer);
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
 
@@ -344,6 +344,24 @@ const SettingsDrawer: React.FC = () => {
                                     <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Playback Settings</h3>
                                     <div className="space-y-3">
                                         <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-medium">Autoplay Recommendations</p>
+                                                    <p className="text-[10px] text-gray-500">Keep playing similar songs</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => dispatch(setAutoplayEnabled(!isAutoplayEnabled))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${isAutoplayEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                >
+                                                    <motion.div
+                                                        animate={{ x: isAutoplayEnabled ? 20 : 2 }}
+                                                        className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                    />
+                                                </button>
+                                            </div>
+
+                                            <div className="border-t border-gray-100 dark:border-gray-800 my-3" />
+
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="text-sm font-medium">Gapless (Crossfade)</p>

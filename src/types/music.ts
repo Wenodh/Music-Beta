@@ -32,7 +32,7 @@ export interface MusicPlayerState {
     isGaplessEnabled: boolean;
     crossfadeDuration: number;
     currentTime: number;
-    isSongRadioEnabled: boolean;
+    isAutoplayEnabled: boolean;
     downloadSettings: DownloadSettings;
     dailyMix: Song[];
     lastDailyMixUpdate: number;
