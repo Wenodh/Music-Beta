@@ -98,6 +98,8 @@ We use GitHub Actions to automate the Android build process. The workflow:
 3. Uses `@capacitor/assets` to generate splash screens and icons.
 4. Builds the signed AAB/APK using Gradle.
 
+Detailed instructions for signing keys and Play Store releases can be found in [docs/ANDROID_RELEASE_GUIDE.md](./ANDROID_RELEASE_GUIDE.md).
+
 ---
 
 ## 🎨 Performance Optimizations
