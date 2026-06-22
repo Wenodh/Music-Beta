@@ -208,9 +208,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 });
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
                 navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
+                navigator.mediaSession.setActionHandler('play', () => dispatch(playMusic(currentSongRef.current)));
+                navigator.mediaSession.setActionHandler('pause', () => dispatch(playMusic(currentSongRef.current)));
             }
         }
     }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
+
+    useEffect(() => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        }
+    }, [isPlaying]);
 
     // Session Seek Listener
     useEffect(() => {

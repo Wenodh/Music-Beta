@@ -410,7 +410,7 @@ const SettingsDrawer: React.FC = () => {
                                     Privacy Policy
                                 </button>
                                 <div className="flex flex-col items-center">
-                                    <p className="text-xs text-gray-400 mb-2">Vibe On Version 1.2.0</p>
+                                    <p className="text-xs text-gray-400 mb-2">Vibe On Version 1.3.0</p>
                                     <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
                                         <img src="/developer-photo.webp" alt="WENODH" className="w-4 h-4 rounded-full object-cover" />
                                         <p className="text-[10px] text-gray-500 font-medium">Made with ❤️ by <span className="font-bold text-primary">WENODH</span></p>
