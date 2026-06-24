@@ -70,4 +70,4 @@ const Marquee = ({ text, speed = 30, className = "" }: MarqueeProps) => {
     );
 };
 
-export default Marquee;
+export default React.memo(Marquee);

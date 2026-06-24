@@ -60,4 +60,4 @@ const BottomBar: React.FC = () => {
     );
 };
 
-export default BottomBar;
+export default React.memo(BottomBar);

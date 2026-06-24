@@ -596,7 +596,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         }
                     }}
                     onClick={() => dispatch(setPlayerExpanded(true))}
-                    className={`dark:text-white fixed bottom-[76px] left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
+                    className={`dark:text-white fixed bottom-[var(--player-pill-bottom)] left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
+                    style={{ '--player-pill-bottom': '92px' } as React.CSSProperties}
                 >
                     {/* Inner Clipping Container for Backgrounds */}
                     <div className="absolute inset-0 z-0 rounded-[28px] md:rounded-none overflow-hidden pointer-events-none">
@@ -627,7 +628,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     </div>
 
                     {/* Integrated Progress Border (Mobile Only) */}
-                    <div className="absolute inset-0 z-10 pointer-events-none md:hidden">
+                    <div className="absolute inset-0 z-[100] pointer-events-none md:hidden">
                         <svg
                             className="w-full h-full overflow-visible"
                             viewBox={`0 0 ${pillDimensions.width} ${pillDimensions.height}`}
@@ -638,50 +639,50 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                                 </filter>
                                 <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                    <feGaussianBlur stdDeviation="4" result="blur" />
-                                    <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.6" result="color" />
+                                    <feGaussianBlur stdDeviation="6" result="blur" />
+                                    <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.8" result="color" />
                                     <feComposite in="color" in2="blur" operator="in" result="glow" />
                                     <feComposite in="SourceGraphic" in2="glow" operator="over" />
                                 </filter>
                             </defs>
                             {pillDimensions.width > 0 && (
                                 <>
-                                    {/* Track Background */}
+                                    {/* Futuristic Inner Glow Track */}
                                     <path
                                         d={`
-                                            M ${pillDimensions.width / 2} 1.5
+                                            M 28 2
                                             H ${pillDimensions.width - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
+                                            A 26 26 0 0 1 ${pillDimensions.width - 2} 28
                                             V ${pillDimensions.height - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
+                                            A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2}
                                             H 28
-                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
+                                            A 26 26 0 0 1 2 ${pillDimensions.height - 28}
                                             V 28
-                                            A 26.5 26.5 0 0 1 28 1.5
+                                            A 26 26 0 0 1 28 2
                                             Z
                                         `}
                                         fill="none"
                                         stroke="white"
-                                        strokeWidth="1.5"
-                                        className="opacity-20"
+                                        strokeWidth="0.5"
+                                        className="opacity-10"
                                     />
-                                    {/* Progress Core */}
+                                    {/* Progress Core - High Precision Glow */}
                                     <motion.path
                                         d={`
-                                            M ${pillDimensions.width / 2} 1.5
+                                            M ${pillDimensions.width / 2} 2
                                             H ${pillDimensions.width - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
+                                            A 26 26 0 0 1 ${pillDimensions.width - 2} 28
                                             V ${pillDimensions.height - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
+                                            A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2}
                                             H 28
-                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
+                                            A 26 26 0 0 1 2 ${pillDimensions.height - 28}
                                             V 28
-                                            A 26.5 26.5 0 0 1 28 1.5
-                                            Z
+                                            A 26 26 0 0 1 28 2
+                                            L ${pillDimensions.width / 2} 2
                                         `}
                                         fill="none"
                                         stroke={uiTheme?.accentColor || '#ef4444'}
-                                        strokeWidth="2.5"
+                                        strokeWidth="3"
                                         pathLength="100"
                                         animate={{ strokeDashoffset: 100 - progress }}
                                         transition={{ type: 'tween', ease: 'linear' }}
@@ -1008,7 +1009,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            className="absolute bottom-full right-0 mb-4 w-60 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden py-2 z-[60]"
+                                            className="absolute bottom-full right-0 mb-4 w-60 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-y-auto max-h-[70vh] custom-scrollbar py-2 z-[60]"
                                         >
                                             <div className="lg:hidden px-2 pb-2 mb-2 border-b border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center gap-3 p-2">
