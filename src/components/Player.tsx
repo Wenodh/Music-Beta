@@ -33,6 +33,7 @@ import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
 import Lyrics from './Lyrics';
+import Marquee from './Marquee';
 import SessionModal from './modals/SessionModal';
 import { useSession } from '../hooks/useSession';
 import { IoPeopleOutline } from 'react-icons/io5';
@@ -59,7 +60,33 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
+    const pillRef = useRef<HTMLDivElement>(null);
+    const [pillDimensions, setPillDimensions] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        const updateDimensions = () => {
+            if (pillRef.current) {
+                setPillDimensions({
+                    width: pillRef.current.offsetWidth,
+                    height: pillRef.current.offsetHeight
+                });
+            }
+        };
+
+        updateDimensions();
+        window.addEventListener('resize', updateDimensions);
+        // Observe changes to the element size
+        const observer = new ResizeObserver(updateDimensions);
+        if (pillRef.current) observer.observe(pillRef.current);
+
+        return () => {
+            window.removeEventListener('resize', updateDimensions);
+            observer.disconnect();
+        };
+    }, [currentSong]);
+
     const [imageUrl, setImageUrl] = useState<string>('');
+    const [progress, setProgress] = useState(0);
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const lastProcessedSongId = useRef<string | null>(null);
     const currentSongRef = useRef(currentSong);
@@ -196,7 +223,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             // Update Theme Color if image is available
             if (imageUrl) {
                 getDominantColor(imageUrl).then(color => {
-                    if (uiTheme.accentColor !== color) {
+                    if (uiTheme?.accentColor !== color) {
                         dispatch(setAccentColor(color));
                     }
                 });
@@ -342,13 +369,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
 
             // Update Progress Bar
-            const progress = (currentTime / (duration || 1)) * 100;
+            const progressVal = (currentTime / (duration || 1)) * 100;
+            setProgress(progressVal);
             const progressElement = document.getElementById('progress') as HTMLInputElement;
             if (progressElement) {
-                progressElement.value = progress.toString();
-                const value = progress;
+                progressElement.value = progressVal.toString();
+                const value = progressVal;
                 const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#ef4444';
-                progressElement.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+                const trackColor = uiTheme?.darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                progressElement.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${value}%, ${trackColor} ${value}%, ${trackColor} 100%)`;
             }
 
             // Crossfade Trigger
@@ -528,26 +557,147 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     key="mini-player"
                     data-testid="mini-player"
                     initial={{ y: 100, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
+                    animate={{
+                        y: 0,
+                        opacity: 1,
+                        scale: isPlaying ? 1 : [0.98, 0.97, 0.98],
+                    }}
+                    transition={{
+                        scale: isPlaying ? { duration: 0.3 } : { duration: 3, repeat: Infinity, ease: "easeInOut" },
+                        y: { type: 'spring', damping: 20, stiffness: 100 }
+                    }}
                     exit={{ y: 100, opacity: 0 }}
-                    className={`dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-[210] ${uiTheme?.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
+                    whileTap={{ scale: 0.96 }}
+                    drag="y"
+                    dragConstraints={{ top: 0, bottom: 0 }}
+                    onDragEnd={(_, info) => {
+                        if (info.offset.y < -50) {
+                            dispatch(setPlayerExpanded(true));
+                        }
+                    }}
+                    onClick={() => dispatch(setPlayerExpanded(true))}
+                    className={`dark:text-white fixed bottom-3 left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
                 >
-                    <div className="absolute inset-0 z-0 pointer-events-none">
-                        <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
+                    {/* Inner Clipping Container for Backgrounds */}
+                    <div className="absolute inset-0 z-0 rounded-[28px] md:rounded-none overflow-hidden pointer-events-none">
+                        {/* Animated Lava Lamp Background (Mobile Only) */}
+                        <div className="absolute inset-0 z-0 pointer-events-none md:hidden opacity-30">
+                            <motion.div
+                                animate={{
+                                    scale: isPlaying ? [1, 1.5, 1] : 1,
+                                x: isPlaying ? [0, 100, 0] : 0,
+                                y: isPlaying ? [0, -50, 0] : 0,
+                                opacity: isPlaying ? [0.3, 0.5, 0.3] : 0.2
+                            }}
+                            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-[80px]"
+                            style={{ background: uiTheme?.accentColor || '#ef4444' }}
+                        />
+                        <motion.div
+                            animate={{
+                                scale: isPlaying ? [1.5, 1, 1.5] : 1,
+                                x: isPlaying ? [0, -100, 0] : 0,
+                                y: isPlaying ? [0, 50, 0] : 0,
+                                opacity: isPlaying ? [0.2, 0.4, 0.2] : 0.1
+                            }}
+                            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute -bottom-32 -right-32 w-[30rem] h-[30rem] rounded-full blur-[100px]"
+                            style={{ background: uiTheme?.accentColor || '#ef4444' }}
+                        />
                     </div>
-                    <input
-                        type="range"
-                        id="progress"
-                        min={0}
-                        max={100}
-                        step="0.1"
-                        defaultValue={0}
-                        onChange={handleProgressChange}
-                        className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
-                    />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8">
-                        {/* 1st div */}
-                        <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
+
+                    {/* Integrated Progress Border (Mobile Only) */}
+                    <div className="absolute inset-0 z-10 pointer-events-none md:hidden">
+                        <svg
+                            className="w-full h-full overflow-visible"
+                            viewBox={`0 0 ${pillDimensions.width} ${pillDimensions.height}`}
+                        >
+                            <defs>
+                                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="2" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                                <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="4" result="blur" />
+                                    <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.6" result="color" />
+                                    <feComposite in="color" in2="blur" operator="in" result="glow" />
+                                    <feComposite in="SourceGraphic" in2="glow" operator="over" />
+                                </filter>
+                            </defs>
+                            {pillDimensions.width > 0 && (
+                                <>
+                                    {/* Track Background */}
+                                    <path
+                                        d={`
+                                            M ${pillDimensions.width / 2} 1.5
+                                            H ${pillDimensions.width - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
+                                            V ${pillDimensions.height - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
+                                            H 28
+                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
+                                            V 28
+                                            A 26.5 26.5 0 0 1 28 1.5
+                                            Z
+                                        `}
+                                        fill="none"
+                                        stroke="white"
+                                        strokeWidth="1.5"
+                                        className="opacity-20"
+                                    />
+                                    {/* Progress Core */}
+                                    <motion.path
+                                        d={`
+                                            M ${pillDimensions.width / 2} 1.5
+                                            H ${pillDimensions.width - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
+                                            V ${pillDimensions.height - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
+                                            H 28
+                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
+                                            V 28
+                                            A 26.5 26.5 0 0 1 28 1.5
+                                            Z
+                                        `}
+                                        fill="none"
+                                        stroke={uiTheme?.accentColor || '#ef4444'}
+                                        strokeWidth="2.5"
+                                        pathLength="100"
+                                        animate={{ strokeDashoffset: 100 - progress }}
+                                        transition={{ type: 'tween', ease: 'linear' }}
+                                        strokeDasharray="100"
+                                        strokeLinecap="round"
+                                        style={{ filter: 'url(#intenseGlow)' }}
+                                        className="opacity-100"
+                                    />
+                                </>
+                            )}
+                        </svg>
+                    </div>
+
+                        <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
+                            <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
+                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0">
+                            <input
+                                type="range"
+                                id="progress"
+                                min={0}
+                                max={100}
+                                step="0.1"
+                                defaultValue={0}
+                                onChange={handleProgressChange}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-[2px] md:h-[3px] cursor-pointer appearance-none bg-transparent"
+                            />
+                        </div>
+                        {/* 1st div - Song Info */}
+                        <div
+                            className="flex justify-start items-center gap-3 md:gap-4 flex-1 min-w-0 lg:w-[30vw]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <motion.div
                                 drag="x"
                                 dragConstraints={{ left: 0, right: 0 }}
@@ -555,60 +705,56 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     if (info.offset.x > 100) prevSong();
                                     else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch(setPlayerExpanded(true));
-                                }}
-                                className="relative group cursor-pointer"
+                                className="flex-1 min-w-0 flex items-center gap-3 md:gap-4"
                             >
-                                <motion.img
-                                    layoutId="player-album-art"
-                                    src={imageUrl}
-                                    alt=""
-                                    className="w-[55px] h-[55px] rounded-xl shadow-lg object-cover"
-                                    onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const x = e.clientX - rect.left;
-                                        handleDoubleTap(x < rect.width / 2 ? 'left' : 'right');
-                                    }}
-                                />
-                                <AnimatePresence>
-                                    {seekAnimation && (
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.5 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.5 }}
-                                            className={`absolute inset-0 flex items-center justify-center pointer-events-none z-10 ${seekAnimation === 'backward' ? 'pr-8' : 'pl-8'}`}
-                                        >
-                                            <div className="bg-black/40 text-white px-2 py-1 rounded-full text-[10px] font-bold">
-                                                {seekAnimation === 'backward' ? '-10s' : '+10s'}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 rounded-full transition-opacity flex items-center justify-center pointer-events-none">
-                                    <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
+                                <div className="relative group shrink-0">
+                                    <motion.img
+                                        layoutId="player-album-art"
+                                        src={imageUrl}
+                                        alt=""
+                                        className="w-[48px] h-[48px] md:w-[55px] md:h-[55px] rounded-xl shadow-lg object-cover"
+                                        onDoubleClick={(e) => {
+                                            e.stopPropagation();
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            handleDoubleTap(x < rect.width / 2 ? 'left' : 'right');
+                                        }}
+                                    />
+                                    <AnimatePresence>
+                                        {seekAnimation && (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.5 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.5 }}
+                                                className={`absolute inset-0 flex items-center justify-center pointer-events-none z-10 ${seekAnimation === 'backward' ? 'pr-8' : 'pl-8'}`}
+                                            >
+                                                <div className="bg-black/40 text-white px-2 py-1 rounded-full text-[10px] font-bold">
+                                                    {seekAnimation === 'backward' ? '-10s' : '+10s'}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                                <div
+                                    className="overflow-hidden flex-1 min-w-0 max-w-[180px] xs:max-w-[240px] sm:max-w-[300px] flex flex-col justify-center"
+                                >
+                                    <motion.div layoutId="player-song-name">
+                                        <Marquee
+                                            text={decodeHtmlEntities(currentSong?.name)}
+                                            className="font-bold text-[13px] md:text-base leading-tight"
+                                        />
+                                    </motion.div>
+                                    <motion.div layoutId="player-song-artist">
+                                        <Marquee
+                                            text={decodeHtmlEntities(currentSong?.primaryArtists)}
+                                            className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium opacity-80"
+                                            speed={20}
+                                        />
+                                    </motion.div>
                                 </div>
                             </motion.div>
-                            <div
-                                className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]"
-                            >
-                                <motion.p
-                                    layoutId="player-song-name"
-                                    className="font-semibold text-sm sm:text-base truncate"
-                                >
-                                    {decodeHtmlEntities(currentSong?.name)}
-                                </motion.p>
-                                <motion.p
-                                    layoutId="player-song-artist"
-                                    className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate"
-                                >
-                                    {decodeHtmlEntities(currentSong?.primaryArtists)}
-                                </motion.p>
-                            </div>
-                            <div className="flex gap-2 items-center ml-2 lg:flex">
-                                <div className="hidden lg:flex gap-2">
+                            <div className="hidden lg:flex gap-2 items-center ml-2">
+                                <div className="flex gap-2">
                                     <motion.button
                                         whileTap={{ scale: 0.8 }}
                                         onClick={(e) => {
@@ -644,8 +790,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </div>
                         </div>
 
-                        {/* 2nd div */}
-                        <div className="flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
+                        {/* 2nd div - Main Controls (Desktop) */}
+                        <div className="hidden md:flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -654,7 +800,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 className="hidden sm:block"
                             >
                                 <PiShuffleBold
-                                    style={shuffle ? { color: uiTheme.accentColor } : {}}
+                                    style={shuffle ? { color: uiTheme?.accentColor } : {}}
                                     className={`${shuffle ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
                                 />
                             </button>
@@ -716,18 +862,44 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 className="hidden sm:block"
                             >
                                 {repeatMode === 'one' ? (
-                                    <PiRepeatOnceBold style={{ color: uiTheme.accentColor }} className="cursor-pointer transition-colors" />
+                                    <PiRepeatOnceBold style={{ color: uiTheme?.accentColor }} className="cursor-pointer transition-colors" />
                                 ) : (
                                     <BiRepeat
-                                        style={repeatMode === 'all' ? { color: uiTheme.accentColor } : {}}
+                                        style={repeatMode === 'all' ? { color: uiTheme?.accentColor } : {}}
                                         className={`${repeatMode === 'all' ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
                                     />
                                 )}
                             </button>
                         </div>
 
-                        {/* 3rd div */}
-                        <div className="flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
+                        {/* 3rd div - Right Side Controls */}
+                        <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
+                            {/* Mobile Play/Pause and Next */}
+                            <div className="flex md:hidden items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.85, y: 2 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePlayPause();
+                                    }}
+                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                >
+                                    {isPlaying ? <FaPause size={22} /> : <FaPlay size={22} />}
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.85, x: 4 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        playNextInQueue(true);
+                                    }}
+                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                >
+                                    <IoMdSkipForward size={26} />
+                                </motion.button>
+                            </div>
+
                             {/* Desktop Visualizer Selector */}
                             <div className="hidden xl:flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-1">
                                 <button
