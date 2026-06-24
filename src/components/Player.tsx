@@ -627,64 +627,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         />
                     </div>
 
-                    {/* Integrated Progress Border (Mobile Only) */}
-                    <div className="absolute inset-0 z-[100] pointer-events-none md:hidden">
-                        <svg
-                            className="w-full h-full overflow-visible"
-                            viewBox={`0 0 ${pillDimensions.width} ${pillDimensions.height}`}
-                        >
-                            <defs>
-                                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                                    <feGaussianBlur stdDeviation="2" result="blur" />
-                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                </filter>
-                                <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                    <feGaussianBlur stdDeviation="4" result="blur" />
-                                    <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.8" result="color" />
-                                    <feComposite in="color" in2="blur" operator="in" result="glow" />
-                                    <feComposite in="SourceGraphic" in2="glow" operator="over" />
-                                </filter>
-                            </defs>
-                            {pillDimensions.width > 0 && (
-                                <>
-                                    {/* High-Tech Pulse Track */}
-                                    <path
-                                        d={`M 28 2 H ${pillDimensions.width - 28} A 26 26 0 0 1 ${pillDimensions.width - 2} 28 V ${pillDimensions.height - 28} A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2} H 28 A 26 26 0 0 1 2 ${pillDimensions.height - 28} V 28 A 26 26 0 0 1 28 2 Z`}
-                                        fill="none"
-                                        stroke="white"
-                                        strokeWidth="1"
-                                        className="opacity-5"
-                                    />
-                                    {/* Dynamic Neon Progress Core */}
-                                    <motion.path
-                                        d={`M ${pillDimensions.width / 2} 2 H ${pillDimensions.width - 28} A 26 26 0 0 1 ${pillDimensions.width - 2} 28 V ${pillDimensions.height - 28} A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2} H 28 A 26 26 0 0 1 2 ${pillDimensions.height - 28} V 28 A 26 26 0 0 1 28 2 L ${pillDimensions.width / 2} 2`}
-                                        fill="none"
-                                        stroke={uiTheme?.accentColor || '#ef4444'}
-                                        strokeWidth="3"
-                                        pathLength="100"
-                                        animate={{
-                                            strokeDashoffset: 100 - progress,
-                                            opacity: isPlaying ? [0.8, 1, 0.8] : 1
-                                        }}
-                                        transition={{
-                                            strokeDashoffset: { type: 'tween', ease: 'linear' },
-                                            opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                                        }}
-                                        strokeDasharray="100"
-                                        strokeLinecap="round"
-                                        style={{ filter: 'url(#intenseGlow)' }}
-                                    />
-                                </>
-                            )}
-                        </svg>
-                    </div>
-
                         <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
                             <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
                         </div>
                     </div>
                     <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
-                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0">
+                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0 hidden md:block">
                             <input
                                 type="range"
                                 id="progress"
