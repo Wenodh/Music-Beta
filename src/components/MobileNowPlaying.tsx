@@ -48,6 +48,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const [isLyricsOverlayOpen, setIsLyricsOverlayOpen] = useState(false);
     const [isQueueOverlayOpen, setIsQueueOverlayOpen] = useState(false);
     const [isInfoOverlayOpen, setIsInfoOverlayOpen] = useState(false);
+    const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
@@ -186,67 +187,6 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 })}
                             </AnimatePresence>
 
-                            {/* New Floating Menu (Top Right) */}
-                            <div className="absolute top-4 right-4 z-[60]">
-                                <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => setIsFloatingMenuOpen(!isFloatingMenuOpen)}
-                                    className="p-3 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl"
-                                >
-                                    {isFloatingMenuOpen ? <IoClose size={24} /> : <IoOptionsOutline size={24} />}
-                                </motion.button>
-
-                                <AnimatePresence>
-                                    {isFloatingMenuOpen && (
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
-                                            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.9, x: 20, y: -20 }}
-                                            className="absolute top-12 sm:top-14 right-0 flex flex-col gap-1.5 sm:gap-2 bg-black/60 backdrop-blur-2xl p-1.5 sm:p-2 rounded-3xl border border-white/10 shadow-2xl min-w-[48px] sm:min-w-[56px] max-h-[65vh] overflow-y-auto custom-scrollbar"
-                                        >
-                                            {[
-                                                { icon: <MdOutlineLyrics className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsLyricsOverlayOpen(true); setIsFloatingMenuOpen(false); } },
-                                                { icon: <HiQueueList className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsQueueOverlayOpen(true); setIsFloatingMenuOpen(false); } },
-                                                { icon: <IoPeopleOutline className={`w-5 h-5 sm:w-6 sm:h-6 ${isJoined ? 'text-primary' : ''}`} />, onClick: () => { onOpenSession?.(); setIsFloatingMenuOpen(false); } },
-                                                { icon: <MdApps className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { setIsInfoOverlayOpen(true); setIsFloatingMenuOpen(false); } },
-                                                { icon: <MdOutlineGraphicEq className="w-5 h-5 sm:w-6 sm:h-6" />, onClick: () => { dispatch(setEqualizerOpen(true)); setIsFloatingMenuOpen(false); } },
-                                            ].map((item, i) => (
-                                                <button
-                                                    key={i}
-                                                    onClick={item.onClick}
-                                                    className="p-2.5 sm:p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors active:scale-90"
-                                                >
-                                                    {item.icon}
-                                                </button>
-                                            ))}
-
-                                            <div className="h-px bg-white/10 my-0.5 sm:my-1 mx-2" />
-
-                                            {/* Visualizer Style Quick Selection inside menu */}
-                                            <div className="flex flex-col gap-1.5 sm:gap-2">
-                                                {[
-                                                    { id: 'bars', icon: <MdBarChart className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                                                    { id: 'waveform', icon: <MdShowChart className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                                                    { id: 'particles', icon: <MdBubbleChart className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                                                    { id: 'circular', icon: <MdDonutLarge className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                                                    { id: 'pixel', icon: <MdApps className="w-4 h-4 sm:w-5 sm:h-5" /> }
-                                                ].map(style => (
-                                                    <button
-                                                        key={style.id}
-                                                        onClick={() => {
-                                                            dispatch(setVisualizerStyle(style.id as any));
-                                                            setIsFloatingMenuOpen(false);
-                                                        }}
-                                                        className={`p-2.5 sm:p-3 rounded-2xl transition-all ${visualizerStyle === style.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-white'}`}
-                                                    >
-                                                        {style.icon}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
                         </div>
 
                         {/* Content Group (Info, Progress, Controls) */}
@@ -283,32 +223,64 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                             {/* Controls */}
                             <div className="w-full flex items-center justify-between">
-                            <button
-                                data-testid="shuffle-button"
-                                onClick={() => dispatch(toggleShuffle())}
-                                className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
-                            >
-                                <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
-                            </button>
-                            <div className="flex items-center gap-4 sm:gap-6">
-                                <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
-                                <div onClick={handlePlayPause} className="w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
-                                    {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
+                                <button
+                                    data-testid="shuffle-button"
+                                    onClick={() => dispatch(toggleShuffle())}
+                                    className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
+                                >
+                                    <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
+                                </button>
+                                <div className="flex items-center gap-4 sm:gap-6">
+                                    <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
+                                    <div onClick={handlePlayPause} className="w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
+                                        {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
+                                    </div>
+                                    <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
                                 </div>
-                                <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
+                                <button
+                                    data-testid="repeat-button"
+                                    onClick={() => dispatch(toggleRepeatMode())}
+                                    className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
+                                >
+                                    {repeatMode === 'one' ? (
+                                        <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
+                                    ) : (
+                                        <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                    )}
+                                </button>
                             </div>
-                            <button
-                                data-testid="repeat-button"
-                                onClick={() => dispatch(toggleRepeatMode())}
-                                className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
-                            >
-                                {repeatMode === 'one' ? (
-                                    <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
-                                ) : (
-                                    <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
-                                )}
-                            </button>
-                        </div>
+
+                            {/* Options Bar */}
+                            <div className="w-full flex items-center justify-around bg-white/5 backdrop-blur-xl rounded-3xl p-1 border border-white/10">
+                                <button
+                                    onClick={() => setIsLyricsOverlayOpen(true)}
+                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                >
+                                    <MdOutlineLyrics size={24} className="text-gray-300" />
+                                    <span className="text-[10px] font-bold uppercase text-gray-500">Lyrics</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsQueueOverlayOpen(true)}
+                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                >
+                                    <HiQueueList size={24} className="text-gray-300" />
+                                    <span className="text-[10px] font-bold uppercase text-gray-500">Queue</span>
+                                </button>
+                                <button
+                                    onClick={() => onOpenSession?.()}
+                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                >
+                                    <IoPeopleOutline size={24} className={isJoined ? 'text-primary' : 'text-gray-300'} />
+                                    <span className="text-[10px] font-bold uppercase text-gray-500">Session</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsMoreMenuOpen(true)}
+                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                >
+                                    <IoEllipsisHorizontal size={24} className="text-gray-300" />
+                                    <span className="text-[10px] font-bold uppercase text-gray-500">More</span>
+                                </button>
+                            </div>
                     </div>
 
                     {/* Reaction Overlay (Floating Bubbles) for Mobile Player */}
@@ -322,6 +294,91 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                 </div>
 
                 {/* OVERLAYS */}
+
+                    {/* More Menu Overlay (Action Sheet) */}
+                    <AnimatePresence>
+                        {isMoreMenuOpen && (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setIsMoreMenuOpen(false)}
+                                    className="fixed inset-0 z-[240] bg-black/60 backdrop-blur-sm"
+                                />
+                                <motion.div
+                                    initial={{ y: '100%' }}
+                                    animate={{ y: 0 }}
+                                    exit={{ y: '100%' }}
+                                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                    className="fixed bottom-0 left-0 right-0 z-[250] bg-gray-900 rounded-t-[32px] p-6 pb-12 border-t border-white/10"
+                                >
+                                    <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-8" />
+
+                                    <div className="grid grid-cols-2 gap-4 mb-8">
+                                        {[
+                                            { id: 'bars', label: 'Bars', icon: <MdBarChart size={24} /> },
+                                            { id: 'waveform', label: 'Wave', icon: <MdShowChart size={24} /> },
+                                            { id: 'particles', label: 'Bubbles', icon: <MdBubbleChart size={24} /> },
+                                            { id: 'circular', label: 'Ring', icon: <MdDonutLarge size={24} /> },
+                                        ].map(style => (
+                                            <button
+                                                key={style.id}
+                                                onClick={() => {
+                                                    dispatch(setVisualizerStyle(style.id as any));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className={`flex items-center gap-3 p-4 rounded-2xl transition-all ${visualizerStyle === style.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-gray-300'}`}
+                                            >
+                                                {style.icon}
+                                                <span className="font-bold text-sm">{style.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <button
+                                            onClick={() => {
+                                                setIsInfoOverlayOpen(true);
+                                                setIsMoreMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-4 p-4 bg-white/5 rounded-2xl text-gray-200 active:scale-[0.98] transition-all"
+                                        >
+                                            <MdApps size={24} />
+                                            <span className="font-bold">Track Details</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                dispatch(setEqualizerOpen(true));
+                                                setIsMoreMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-4 p-4 bg-white/5 rounded-2xl text-gray-200 active:scale-[0.98] transition-all"
+                                        >
+                                            <MdOutlineGraphicEq size={24} />
+                                            <span className="font-bold">Equalizer</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                dispatch(openPlaylistModal(currentSong!));
+                                                setIsMoreMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-4 p-4 bg-white/5 rounded-2xl text-gray-200 active:scale-[0.98] transition-all"
+                                        >
+                                            <IoAddCircleOutline size={24} />
+                                            <span className="font-bold">Add to Playlist</span>
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setIsMoreMenuOpen(false)}
+                                        className="w-full mt-6 py-4 rounded-2xl bg-white/10 font-bold text-gray-400"
+                                    >
+                                        Close
+                                    </button>
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
 
                     {/* Lyrics Overlay */}
                     <AnimatePresence>

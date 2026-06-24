@@ -49,6 +49,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+    const moreMenuRef = useRef<HTMLDivElement>(null);
     const [userVolume, setUserVolume] = useState(0.7);
 
     const {
@@ -197,6 +198,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [currentSong?.id, revokeImageBlob]);
 
     useEffect(() => {
+        if (currentSong) {
+            // Update Theme Color if image is available
+            if (imageUrl) {
+                getDominantColor(imageUrl).then(color => {
+                    if (uiTheme?.accentColor !== color) {
+                        dispatch(setAccentColor(color));
+                    }
+                });
+            }
+        }
+    }, [currentSong?.id, imageUrl, dispatch]);
+
+    useEffect(() => {
         if (currentSong && currentSong.id !== lastProcessedSongId.current) {
             lastProcessedSongId.current = currentSong.id;
 
@@ -220,15 +234,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
 
         if (currentSong) {
-            // Update Theme Color if image is available
-            if (imageUrl) {
-                getDominantColor(imageUrl).then(color => {
-                    if (uiTheme?.accentColor !== color) {
-                        dispatch(setAccentColor(color));
-                    }
-                });
-            }
-
             if ('mediaSession' in navigator) {
                 const artwork = imageUrl
                     ? [{ src: imageUrl, sizes: '512x512', type: 'image/png' }]
@@ -484,6 +489,21 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             audioRefB.current.volume = userVolume;
         }
     }, [userVolume, isCrossfading]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+                setIsMoreMenuOpen(false);
+            }
+        };
+
+        if (isMoreMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMoreMenuOpen]);
 
     const handleSeek = (time: number) => {
         const activeAudio = getActiveAudio();
@@ -966,22 +986,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isLyricsOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
                             </motion.button>
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch(setQueueOpen(!isQueueOpen));
-                                }}
-                            >
-                                <HiQueueList
-                                    className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isQueueOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
-                                />
-                            </motion.button>
                             <div className="hidden lg:block" onClick={(e) => e.stopPropagation()}>
                                 <SleepTimer />
                             </div>
 
-                            <div className="relative">
+                            <div className="relative" ref={moreMenuRef}>
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={(e) => {
@@ -999,7 +1008,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            className="absolute bottom-full right-0 mb-4 w-56 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden py-2 z-[60]"
+                                            className="absolute bottom-full right-0 mb-4 w-60 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden py-2 z-[60]"
                                         >
                                             <div className="lg:hidden px-2 pb-2 mb-2 border-b border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center gap-3 p-2">
@@ -1010,6 +1019,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    dispatch(setQueueOpen(!isQueueOpen));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <HiQueueList className={isQueueOpen ? 'text-primary' : ''} size={20} />
+                                                {isQueueOpen ? 'Close Queue' : 'Open Queue'}
+                                            </button>
 
                                             <button
                                                 onClick={() => {

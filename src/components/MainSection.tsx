@@ -164,14 +164,14 @@ const MainSection: React.FC = () => {
         visible: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.1
+                staggerChildren: 0.05
             }
         }
     };
 
     const itemVariants = {
         hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1 }
+        visible: { y: 0, opacity: 1, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } }
     };
 
     return (
@@ -179,7 +179,7 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4"
+            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform"
         >
             <DailyMix />
 

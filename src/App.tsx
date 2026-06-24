@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
+import BottomBar from './components/BottomBar';
 import SearchSection from './components/SearchSection';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -41,6 +42,7 @@ const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
 const Library = lazyRetry(() => import('./pages/Library'));
 const Profile = lazyRetry(() => import('./pages/Profile'));
+const Search = lazyRetry(() => import('./pages/Search'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 
 // Lazy load UI components
@@ -71,6 +73,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/search"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Search...</div>}>
+                            <PageWrapper><Search /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -212,6 +222,7 @@ export const AppContent = () => {
         >
             <BrowserRouter>
                 <Navbar />
+                <BottomBar />
                 <SearchSection />
                 <main className="max-w-7xl mx-auto px-2 sm:px-4">
                     <AnimatePresence mode="wait">
