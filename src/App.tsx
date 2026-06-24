@@ -54,11 +54,11 @@ const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlay
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="will-change-opacity"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+        className="will-change-transform opacity-0"
     >
         {children}
     </motion.div>
@@ -220,15 +220,19 @@ export const AppContent = () => {
         }
     }, [theme?.darkMode, theme?.isOled]);
 
+    const visualStyleClass = theme?.visualStyle ? `style-${theme.visualStyle}` : 'style-glassmorphism';
+    const fontStyleClass = theme?.fontStyle ? `font-${theme.fontStyle}` : 'font-standard';
+
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+            className={`dark:text-white min-h-screen selection:bg-primary selection:text-white pt-28 md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'} ${visualStyleClass} ${fontStyleClass}`}
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
                 '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
                 '--bottom-bar-height': currentSong ? '150px' : '65px'
             } as React.CSSProperties}
         >
+            <div className="living-bg" />
             <BrowserRouter>
                 <LocationAwareNavbar />
                 <BottomBar />

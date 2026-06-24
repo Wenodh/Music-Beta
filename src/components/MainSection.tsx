@@ -3,10 +3,118 @@ import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
-import { motion } from 'framer-motion';
-import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
+import { motion, AnimatePresence } from 'framer-motion';
+import { IoCloudOffline, IoArrowForward, IoMusicalNotes } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
+
+const HeroCarousel = ({ items }: { items: any[] }) => {
+    const [index, setIndex] = useState(0);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setIndex((prev) => (prev + 1) % items.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [items.length]);
+
+    if (!items.length) return null;
+
+    const currentItem = items[index];
+
+    return (
+        <div className="relative h-[250px] sm:h-[400px] w-full mb-12 rounded-[2rem] overflow-hidden perspective-1000">
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={currentItem.id}
+                    initial={{ opacity: 0, scale: 1.1, rotateY: 10 }}
+                    animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, rotateY: -10 }}
+                    transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute inset-0 preserve-3d"
+                >
+                    {/* Background Layer */}
+                    <div className="absolute inset-0">
+                        <img
+                            src={currentItem.image?.[2]?.link || currentItem.image?.[currentItem.image?.length - 1]?.link}
+                            alt=""
+                            className="w-full h-full object-cover blur-2xl opacity-40 scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/40 to-transparent" />
+                    </div>
+
+                    {/* Content Layer */}
+                    <div className="absolute inset-0 flex flex-col sm:flex-row items-center justify-between px-8 sm:px-16 gap-8">
+                        <div className="flex-1 text-center sm:text-left z-10">
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold mb-4 backdrop-blur-md border border-primary/20"
+                            >
+                                NEW RELEASE
+                            </motion.div>
+                            <motion.h1
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.3 }}
+                                className="text-3xl sm:text-6xl font-black tracking-tighter mb-4 text-white drop-shadow-2xl font-display"
+                                dangerouslySetInnerHTML={{ __html: currentItem.name || currentItem.title }}
+                            />
+                            <motion.p
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.4 }}
+                                className="text-gray-400 text-lg mb-8 line-clamp-2 max-w-xl"
+                                dangerouslySetInnerHTML={{ __html: currentItem.subtitle || currentItem.description }}
+                            />
+                            <motion.button
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.5 }}
+                                whileHover={{ scale: 1.05, boxShadow: '0 0 20px var(--accent-color)' }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate(currentItem.type === 'album' ? `/albums/${currentItem.id}` : `/playlists/${currentItem.id}`)}
+                                className="bg-primary text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 mx-auto sm:mx-0 shadow-lg shadow-primary/30"
+                            >
+                                Listen Now <IoArrowForward />
+                            </motion.button>
+                        </div>
+
+                        <motion.div
+                            initial={{ x: 40, opacity: 0, rotateY: 20 }}
+                            animate={{ x: 0, opacity: 1, rotateY: 0 }}
+                            transition={{ delay: 0.3, duration: 0.8 }}
+                            className="hidden sm:block w-[300px] h-[300px] rounded-3xl overflow-hidden shadow-2xl border border-white/10 preserve-3d group cursor-pointer"
+                            onClick={() => navigate(currentItem.type === 'album' ? `/albums/${currentItem.id}` : `/playlists/${currentItem.id}`)}
+                        >
+                            <img
+                                src={currentItem.image?.[currentItem.image?.length - 1]?.link}
+                                alt=""
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <IoMusicalNotes size={64} className="text-white drop-shadow-lg" />
+                            </div>
+                        </motion.div>
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+
+            {/* Indicators */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                {items.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={() => setIndex(i)}
+                        className={`h-1.5 transition-all duration-300 rounded-full ${i === index ? 'w-8 bg-primary' : 'w-2 bg-white/20 hover:bg-white/40'}`}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
@@ -57,7 +165,6 @@ const MainSection: React.FC = () => {
             try {
                 setLoading(true);
 
-                // Curated artists per language
                 const curatedArtists: Record<string, string[]> = {
                     telugu: ['Sid Sriram', 'Thaman S', 'Devi Sri Prasad', 'Mani Sharma', 'S. P. Balasubrahmanyam', 'Karthik', 'Anurag Kulkarni', 'Ram Miriyala', 'Mangli', 'Armaan Malik', 'Geetha Madhuri', 'S. Janaki'],
                     hindi: ['Arijit Singh', 'Shreya Ghoshal', 'Badshah', 'Pritam', 'Anirudh Ravichander', 'Jubin Nautiyal', 'Neha Kakkar', 'Atif Aslam', 'Sunidhi Chauhan', 'Vishal Dadlani', 'Amit Trivedi', 'Mohit Chauhan'],
@@ -68,7 +175,6 @@ const MainSection: React.FC = () => {
 
                 const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
 
-                // Helper to sanitize base URLs for limit parameter
                 const getSanitizedUrl = (baseUrl: string) => {
                     return baseUrl.includes('limit=')
                         ? baseUrl.split('limit=')[0].slice(0, -1)
@@ -122,7 +228,6 @@ const MainSection: React.FC = () => {
                 const rawTrendingSongs = songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [];
                 const rawLatestSongs = latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : [];
 
-                // Cross-deduplicate
                 const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 20);
                 const trendingSongs = deduplicateSongs(rawTrendingSongs)
                     .filter(ts => !latestSongs.some(ls =>
@@ -201,78 +306,82 @@ const MainSection: React.FC = () => {
         visible: { y: 0, opacity: 1, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } }
     };
 
+    const carouselItems = [...data.albums.slice(0, 3), ...data.playlists.slice(0, 2)];
+
     return (
         <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout gpu-accelerated"
+            className="pb-32 pt-4 sm:pt-8 will-change-transform contain-layout gpu-accelerated"
         >
+            <HeroCarousel items={carouselItems} />
+
             <DailyMix />
 
             {recentlyPlayed && recentlyPlayed.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />
                 </motion.div>
             )}
             {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
                 </motion.div>
             )}
             {data.latestSongs && data.latestSongs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.latestSongs} title="Latest Songs" />
                 </motion.div>
             )}
 
             {data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.songs} title="Trending Songs" />
                 </motion.div>
             )}
             {data.albums && data.albums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
             {data.artists && data.artists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
             {data.playlists && data.playlists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.playlists} title="Top Playlists" />
                 </motion.div>
             )}
 
             {data.meditation && data.meditation.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.meditation} title="Meditation" />
                 </motion.div>
             )}
 
             {data.work && data.work.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.work} title="Work" />
                 </motion.div>
             )}
 
             {data.devPicks && data.devPicks.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.devPicks} title="Developer's Picks" />
                 </motion.div>
             )}
 
             {data.chill && data.chill.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.chill} title="Chill" />
                 </motion.div>
             )}
 
             {data.workout && data.workout.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12 px-2 sm:px-0">
                     <Slider data={data.workout} title="Workout" />
                 </motion.div>
             )}
