@@ -229,7 +229,7 @@ export const AppContent = () => {
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
                 '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
-                '--bottom-bar-height': currentSong ? '170px' : '80px'
+                '--bottom-bar-height': currentSong ? '150px' : '65px'
             } as React.CSSProperties}
         >
             <BrowserRouter>

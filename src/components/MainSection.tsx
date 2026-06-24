@@ -80,14 +80,14 @@ const MainSection: React.FC = () => {
 
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Trending Hits')}&page=0&limit=25`),
+                axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Trending Songs 2024')}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
                     axios.get(`${playlistById}158224644`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Releases 2024')}&page=0&limit=25`),
+                axios.get(`${songsUrl}?query=${encodeURIComponent('Latest ' + language + ' Songs')}&page=0&limit=25`),
                     ...artistsToFetch.map(name => {
                         return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
@@ -184,7 +184,7 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout"
+            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout gpu-accelerated"
         >
             <DailyMix />
 
@@ -198,15 +198,15 @@ const MainSection: React.FC = () => {
                     <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
                 </motion.div>
             )}
-            {data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.songs} title="Trending Songs" />
-                </motion.div>
-            )}
-
             {data.latestSongs && data.latestSongs.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.latestSongs} title="Latest Songs" />
+                </motion.div>
+            )}
+
+            {data.songs && data.songs.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                    <Slider data={data.songs} title="Trending Songs" />
                 </motion.div>
             )}
             {data.albums && data.albums.length > 0 && (

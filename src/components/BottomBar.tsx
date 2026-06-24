@@ -23,10 +23,10 @@ const BottomBar: React.FC = () => {
     };
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-6 pb-6">
-             <div className={`flex items-center justify-around p-2 rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-3xl border border-white/20 dark:border-white/10 relative overflow-hidden ${theme.isOled ? 'bg-black/40' : 'bg-white/40 dark:bg-gray-950/40'}`}>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] pb-safe">
+             <div className={`flex items-center justify-around px-2 py-1 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] backdrop-blur-3xl border-t border-white/10 dark:border-white/5 relative overflow-hidden ${theme.isOled ? 'bg-black' : 'bg-white/95 dark:bg-gray-950/95'}`}>
                 {/* Futuristic inner glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-50" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-20" />
 
                 {navItems.map((item) => {
                     const ActiveIcon = item.activeIcon;
@@ -39,11 +39,11 @@ const BottomBar: React.FC = () => {
                             onClick={() => navigate(item.path)}
                             className="flex flex-col items-center justify-center py-2 relative group flex-1"
                         >
-                            <div className={`relative transition-all duration-500 ${active ? 'scale-110 -translate-y-1' : 'group-active:scale-90 opacity-60'}`}>
+                            <div className={`relative transition-all duration-500 ${active ? 'scale-110' : 'group-active:scale-90 opacity-60'}`}>
                                 {active && (
                                     <motion.div
                                         layoutId="icon-glow"
-                                        className="absolute inset-0 blur-lg bg-primary/40 rounded-full"
+                                        className="absolute inset-0 blur-md bg-primary/30 rounded-full"
                                     />
                                 )}
                                 {active ? (

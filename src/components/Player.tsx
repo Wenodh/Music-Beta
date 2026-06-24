@@ -597,7 +597,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     }}
                     onClick={() => dispatch(setPlayerExpanded(true))}
                     className={`dark:text-white fixed bottom-[var(--player-pill-bottom)] left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
-                    style={{ '--player-pill-bottom': '92px' } as React.CSSProperties}
+                    style={{ '--player-pill-bottom': '72px' } as React.CSSProperties}
                 >
                     {/* Inner Clipping Container for Backgrounds */}
                     <div className="absolute inset-0 z-0 rounded-[28px] md:rounded-none overflow-hidden pointer-events-none">
@@ -1009,16 +1009,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={() => {
-                                                    dispatch(setQueueOpen(!isQueueOpen));
-                                                    setIsMoreMenuOpen(false);
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                            >
-                                                <HiQueueList className={isQueueOpen ? 'text-primary' : ''} size={20} />
-                                                {isQueueOpen ? 'Close Queue' : 'Open Queue'}
-                                            </button>
 
                                             <button
                                                 onClick={() => {
@@ -1039,6 +1029,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors hidden lg:flex"
                                             >
                                                 <MdOutlineCloseFullscreen size={20} /> Mini Player
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    dispatch(setQueueOpen(!isQueueOpen));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <HiQueueList className={isQueueOpen ? 'text-primary' : ''} size={20} />
+                                                {isQueueOpen ? 'Close Queue' : 'Open Queue'}
                                             </button>
 
                                             <button

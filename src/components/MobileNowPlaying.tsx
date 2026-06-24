@@ -137,11 +137,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 py-4 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-8">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-4 sm:gap-y-8">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 min-h-[250px] max-h-[45vh] aspect-square max-w-[300px] sm:max-w-[380px] z-[20]"
+                            className="relative w-full flex-1 min-h-[200px] max-h-[40vh] aspect-square max-w-[280px] sm:max-w-[380px] z-[20]"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -156,7 +156,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             initial={moveDirection === 'backward' && isTop ? { x: -1000, rotate: -45, opacity: 0 } : { scale: 0.8, y: 20, opacity: 0 }}
                                             animate={{
                                                 scale: 1 - stackIndex * 0.08,
-                                                y: stackIndex * 25,
+                                                y: stackIndex * 15,
                                                 z: -stackIndex * 150,
                                                 opacity: 1 - stackIndex * 0.3,
                                                 x: 0, rotate: 0
@@ -177,11 +177,16 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             }}
                                             className="absolute inset-0"
                                         >
-                                            <img
-                                                src={getSongImage(song)}
-                                                alt=""
-                                                className="w-full h-full object-cover rounded-3xl shadow-2xl border border-white/10"
-                                            />
+                                            <div className="relative w-full h-full">
+                                                <img
+                                                    src={getSongImage(song)}
+                                                    alt=""
+                                                    className="w-full h-full object-cover rounded-[2rem] shadow-2xl border border-white/10"
+                                                />
+                                                {isTop && (
+                                                    <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-tr from-primary/20 to-transparent pointer-events-none" />
+                                                )}
+                                            </div>
                                         </motion.div>
                                     );
                                 })}
@@ -190,19 +195,21 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                         </div>
 
                         {/* Content Group (Info, Progress, Controls) */}
-                        <div className="w-full max-w-[320px] sm:max-w-[380px] flex flex-col gap-y-6 sm:gap-y-8 relative z-10">
+                        <div className="w-full max-w-[320px] sm:max-w-[380px] flex flex-col gap-y-4 sm:gap-y-6 relative z-10">
                             {/* Song Info */}
-                            <div className="relative w-full flex items-center justify-center">
-                                <div className="flex-1 min-w-0 px-8 text-center">
-                                    <h2 className="text-xl sm:text-2xl font-black truncate leading-tight">{decodeHtmlEntities(currentSong.name)}</h2>
-                                    <p className="text-base sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                            <div className="relative w-full flex items-center justify-center px-2">
+                                <div className="flex-1 min-w-0 text-center">
+                                    <h2 className="text-xl sm:text-2xl font-black truncate leading-tight mb-0.5">{decodeHtmlEntities(currentSong.name)}</h2>
+                                    <p className="text-sm sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
                                 </div>
-                                <button
-                                    onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
-                                    className="absolute right-0 shrink-0 p-1 active:scale-90 transition-transform"
-                                >
-                                    {isFavorite ? <IoHeart className="text-primary w-7 h-7 sm:w-8 sm:h-8" /> : <IoHeartOutline className="w-7 h-7 sm:w-8 sm:h-8" />}
-                                </button>
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                    <button
+                                        onClick={() => dispatch(toggleFavoriteCloud(currentSong!) as any)}
+                                        className="shrink-0 p-2 active:scale-90 transition-transform"
+                                    >
+                                        {isFavorite ? <IoHeart className="text-primary w-7 h-7 sm:w-8 sm:h-8 shadow-[0_0_15px_rgba(var(--accent-rgb),0.4)]" /> : <IoHeartOutline className="w-7 h-7 sm:w-8 sm:h-8" />}
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Progress */}
@@ -260,18 +267,18 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <span className="text-[10px] font-bold uppercase text-gray-500">Lyrics</span>
                                 </button>
                                 <button
-                                    onClick={() => setIsQueueOverlayOpen(true)}
-                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
-                                >
-                                    <HiQueueList size={24} className="text-gray-300" />
-                                    <span className="text-[10px] font-bold uppercase text-gray-500">Queue</span>
-                                </button>
-                                <button
                                     onClick={() => onOpenSession?.()}
                                     className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
                                 >
                                     <IoPeopleOutline size={24} className={isJoined ? 'text-primary' : 'text-gray-300'} />
                                     <span className="text-[10px] font-bold uppercase text-gray-500">Session</span>
+                                </button>
+                                <button
+                                    onClick={() => dispatch(openPlaylistModal(currentSong!))}
+                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                >
+                                    <IoAddCircleOutline size={24} className="text-gray-300" />
+                                    <span className="text-[10px] font-bold uppercase text-gray-500">Add</span>
                                 </button>
                                 <button
                                     onClick={() => setIsMoreMenuOpen(true)}
@@ -337,6 +344,16 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     </div>
 
                                     <div className="space-y-2">
+                                        <button
+                                            onClick={() => {
+                                                setIsQueueOverlayOpen(true);
+                                                setIsMoreMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-4 p-4 bg-white/5 rounded-2xl text-gray-200 active:scale-[0.98] transition-all"
+                                        >
+                                            <HiQueueList size={24} />
+                                            <span className="font-bold">Playing Queue</span>
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 setIsInfoOverlayOpen(true);
