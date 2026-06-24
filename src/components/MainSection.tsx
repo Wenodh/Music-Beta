@@ -208,6 +208,16 @@ const MainSection: React.FC = () => {
             animate="visible"
             className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout gpu-accelerated"
         >
+            <div className="mb-10 p-6 rounded-[2rem] bg-gradient-to-br from-primary/20 via-primary/5 to-transparent border border-primary/10 shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-primary/20 rounded-full blur-[80px] group-hover:scale-125 transition-transform duration-1000" />
+                <div className="relative z-10">
+                    <h1 className="text-3xl sm:text-5xl font-black tracking-tighter mb-2 bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
+                        FOR YOU
+                    </h1>
+                    <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium">Discover your next favorite track</p>
+                </div>
+            </div>
+
             <DailyMix />
 
             {recentlyPlayed && recentlyPlayed.length > 0 && (

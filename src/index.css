@@ -9,6 +9,7 @@
   }
   body {
     @apply transition-colors duration-300 bg-gray-50 dark:bg-gray-950;
+    will-change: background-color;
     -webkit-overflow-scrolling: touch;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -32,6 +33,40 @@
 
   .btn-primary {
     @apply px-6 py-2 rounded-full bg-primary text-white font-semibold hover:opacity-90 active:scale-95 transition-all shadow-lg;
+  }
+
+  /* Visual Styles Utilities */
+  .style-glassmorphism .glass-effect {
+    @apply bg-white/10 dark:bg-black/20 backdrop-blur-xl border border-white/20 dark:border-white/10;
+  }
+
+  .style-neon .glass-effect {
+    @apply bg-black/60 backdrop-blur-md border border-primary shadow-neon-sm;
+  }
+
+  .style-minimalist .glass-effect {
+    @apply bg-white dark:bg-gray-950 border border-gray-100 dark:border-gray-800;
+  }
+
+  .style-scifi .glass-effect {
+    @apply bg-gray-900/80 backdrop-blur-lg border-l-2 border-primary skew-x-[-2deg];
+  }
+
+  /* Font Styles Utilities */
+  .font-modern {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .font-tech {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .font-display {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
   }
 }
 

@@ -40,7 +40,7 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={handleClick}
-            className="flex flex-col items-start gap-2 p-2 sm:p-2.5 rounded-2xl bg-white/5 dark:bg-gray-800/5 hover:bg-white/10 dark:hover:bg-gray-800/10 border border-transparent hover:border-white/20 dark:hover:border-gray-700/20 cursor-pointer transition-all w-[120px] sm:w-36 shrink-0 group shadow-sm hover:shadow-xl"
+            className="flex flex-col items-start gap-2 p-2 sm:p-2.5 rounded-2xl bg-white/5 dark:bg-gray-800/5 hover:bg-white/10 dark:hover:bg-gray-800/20 border border-transparent hover:border-white/20 dark:hover:border-gray-700/20 cursor-pointer transition-all w-[120px] sm:w-36 shrink-0 group shadow-sm hover:shadow-xl glass-effect"
         >
             <div className={`relative w-[104px] h-[104px] sm:w-32 sm:h-32 overflow-hidden shadow-inner ${type === 'artist' ? 'rounded-full' : 'rounded-xl'}`}>
                 <img

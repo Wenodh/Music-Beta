@@ -37,7 +37,7 @@ const SongItem: React.FC<SongItemProps> = ({
     return (
         <div
             onClick={handleClick}
-            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+            className="flex flex-col items-center p-4 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition-all duration-300 cursor-pointer group hover:scale-[1.02] active:scale-[0.98]"
         >
             <div className="relative w-full aspect-square mb-3 overflow-hidden rounded-lg shadow-lg">
                 <img

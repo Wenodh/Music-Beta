@@ -80,7 +80,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
         <motion.nav
             animate={{ y: finalVisible ? 0 : -200 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-2 sm:p-3 md:p-4 bg-white/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-1.5 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
+            className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-2 sm:p-3 md:p-4 glass-effect border-b shadow-lg gap-1.5 md:gap-4 md:flex-row md:justify-between transition-all`}
         >
             <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div

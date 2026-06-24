@@ -22,6 +22,8 @@ interface UIState {
         accentColor: string;
         isOled: boolean;
         darkMode: boolean;
+        visualStyle: 'glassmorphism' | 'neon' | 'minimalist' | 'scifi';
+        fontStyle: 'standard' | 'modern' | 'tech' | 'display';
     };
 }
 
@@ -39,6 +41,8 @@ const initialState: UIState = {
         accentColor: '#ef4444', // Default red-500
         isOled: false,
         darkMode: true,
+        visualStyle: 'glassmorphism',
+        fontStyle: 'standard',
     },
 };
 
@@ -98,6 +102,12 @@ const uiSlice = createSlice({
                 state.theme.isOled = false;
             }
         },
+        setVisualStyle: (state, action: PayloadAction<UIState['theme']['visualStyle']>) => {
+            state.theme.visualStyle = action.payload;
+        },
+        setFontStyle: (state, action: PayloadAction<UIState['theme']['fontStyle']>) => {
+            state.theme.fontStyle = action.payload;
+        },
         applyThemeSettings: (state, action: PayloadAction<UIState['theme']>) => {
             state.theme = { ...state.theme, ...action.payload };
         },
@@ -116,6 +126,8 @@ export const {
     setAccentColor,
     setOledMode,
     setDarkMode,
+    setVisualStyle,
+    setFontStyle,
     applyThemeSettings
 } = uiSlice.actions;
 export default uiSlice.reducer;

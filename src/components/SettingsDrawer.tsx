@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setVisualStyle, setFontStyle } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
@@ -42,6 +42,20 @@ const SettingsDrawer: React.FC = () => {
     ];
 
     const qualities = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+
+    const visualStyles = [
+        { name: 'Glassmorphism', value: 'glassmorphism' },
+        { name: 'Neon Glow', value: 'neon' },
+        { name: 'Minimalist', value: 'minimalist' },
+        { name: 'Sci-Fi HUD', value: 'scifi' },
+    ];
+
+    const fontStyles = [
+        { name: 'Standard', value: 'standard' },
+        { name: 'Modern Sans', value: 'modern' },
+        { name: 'Tech Mono', value: 'tech' },
+        { name: 'Display Heavy', value: 'display' },
+    ];
 
     useEffect(() => {
         if (isSettingsOpen) {
@@ -247,6 +261,45 @@ const SettingsDrawer: React.FC = () => {
                                             <span className="text-sm font-medium">Dark Mode</span>
                                             <ThemeToggle />
                                         </div>
+
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                            <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase">Visual Style</h4>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {visualStyles.map((style) => (
+                                                    <button
+                                                        key={style.value}
+                                                        onClick={() => dispatch(setVisualStyle(style.value as any))}
+                                                        className={`px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                                                            theme.visualStyle === style.value
+                                                                ? 'bg-primary text-white shadow-md'
+                                                                : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'
+                                                        }`}
+                                                    >
+                                                        {style.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                            <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase">Font Style</h4>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {fontStyles.map((font) => (
+                                                    <button
+                                                        key={font.value}
+                                                        onClick={() => dispatch(setFontStyle(font.value as any))}
+                                                        className={`px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                                                            theme.fontStyle === font.value
+                                                                ? 'bg-primary text-white shadow-md'
+                                                                : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'
+                                                        }`}
+                                                    >
+                                                        {font.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <button
                                             onClick={() => {
                                                 navigate('/library');
