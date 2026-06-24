@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
+import BottomBar from './components/BottomBar';
 import SearchSection from './components/SearchSection';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -13,13 +14,13 @@ import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
-import { useState } from 'react';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds } from './features/library/librarySlice';
 import { syncLibrary } from './features/library/libraryActions';
 import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
 import { joinSession } from './features/session/sessionSlice';
+import { hexToRgb } from './utils/colorUtils';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -41,6 +42,7 @@ const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
 const Library = lazyRetry(() => import('./pages/Library'));
 const Profile = lazyRetry(() => import('./pages/Profile'));
+const Search = lazyRetry(() => import('./pages/Search'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 
 // Lazy load UI components
@@ -52,10 +54,11 @@ const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlay
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        transition={{ duration: 0.3 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="will-change-opacity"
     >
         {children}
     </motion.div>
@@ -71,6 +74,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/search"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Search...</div>}>
+                            <PageWrapper><Search /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -135,7 +146,11 @@ const AnimatedRoutes = () => {
     );
 };
 
-import { useEffect } from 'react';
+const LocationAwareNavbar = () => {
+    const location = useLocation();
+    const isSearchPage = location.pathname === '/search';
+    return <Navbar isVisible={true} focusSearch={isSearchPage} />;
+};
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
@@ -207,11 +222,16 @@ export const AppContent = () => {
 
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 pb-20 md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
-            style={{ '--accent-color': theme?.accentColor || '#ef4444' } as React.CSSProperties}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+            style={{
+                '--accent-color': theme?.accentColor || '#ef4444',
+                '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
+                '--bottom-bar-height': currentSong ? '150px' : '65px'
+            } as React.CSSProperties}
         >
             <BrowserRouter>
-                <Navbar />
+                <LocationAwareNavbar />
+                <BottomBar />
                 <SearchSection />
                 <main className="max-w-7xl mx-auto px-2 sm:px-4">
                     <AnimatePresence mode="wait">

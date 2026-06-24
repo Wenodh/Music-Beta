@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { useAppSelector } from '../hooks/redux';
 
 interface SongItemProps {
     id: string;
@@ -18,6 +19,8 @@ const SongItem: React.FC<SongItemProps> = ({
     primaryArtists,
 }) => {
     const navigate = useNavigate();
+    const { currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
+    const isCurrent = currentSong?.id === id;
 
     const handleClick = () => {
         if (type === 'playlist') {
@@ -41,8 +44,24 @@ const SongItem: React.FC<SongItemProps> = ({
                     src={imageUrl}
                     alt={title}
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 ${isCurrent ? 'brightness-50' : ''}`}
                 />
+                {isCurrent && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="flex gap-1 items-end h-8">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div
+                                    key={i}
+                                    className={`w-1.5 bg-primary rounded-full ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-2'}`}
+                                    style={{
+                                        animationDelay: `${i * 0.1}s`,
+                                        height: isPlaying ? undefined : `${(i % 3 + 1) * 6}px`
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
             <p className="text-sm font-semibold text-center truncate w-full">{decodeHtmlEntities(title)}</p>
             {primaryArtists && (

@@ -49,6 +49,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+    const moreMenuRef = useRef<HTMLDivElement>(null);
     const [userVolume, setUserVolume] = useState(0.7);
 
     const {
@@ -197,6 +198,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [currentSong?.id, revokeImageBlob]);
 
     useEffect(() => {
+        if (currentSong) {
+            // Update Theme Color if image is available
+            if (imageUrl) {
+                getDominantColor(imageUrl).then(color => {
+                    if (uiTheme?.accentColor !== color) {
+                        dispatch(setAccentColor(color));
+                    }
+                });
+            }
+        }
+    }, [currentSong?.id, imageUrl, dispatch]);
+
+    useEffect(() => {
         if (currentSong && currentSong.id !== lastProcessedSongId.current) {
             lastProcessedSongId.current = currentSong.id;
 
@@ -220,15 +234,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
 
         if (currentSong) {
-            // Update Theme Color if image is available
-            if (imageUrl) {
-                getDominantColor(imageUrl).then(color => {
-                    if (uiTheme?.accentColor !== color) {
-                        dispatch(setAccentColor(color));
-                    }
-                });
-            }
-
             if ('mediaSession' in navigator) {
                 const artwork = imageUrl
                     ? [{ src: imageUrl, sizes: '512x512', type: 'image/png' }]
@@ -485,6 +490,21 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [userVolume, isCrossfading]);
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+                setIsMoreMenuOpen(false);
+            }
+        };
+
+        if (isMoreMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMoreMenuOpen]);
+
     const handleSeek = (time: number) => {
         const activeAudio = getActiveAudio();
         if (time >= 0) {
@@ -576,7 +596,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         }
                     }}
                     onClick={() => dispatch(setPlayerExpanded(true))}
-                    className={`dark:text-white fixed bottom-3 left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
+                    className={`dark:text-white fixed bottom-[var(--player-pill-bottom)] left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
+                    style={{ '--player-pill-bottom': '72px' } as React.CSSProperties}
                 >
                     {/* Inner Clipping Container for Backgrounds */}
                     <div className="absolute inset-0 z-0 rounded-[28px] md:rounded-none overflow-hidden pointer-events-none">
@@ -606,81 +627,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         />
                     </div>
 
-                    {/* Integrated Progress Border (Mobile Only) */}
-                    <div className="absolute inset-0 z-10 pointer-events-none md:hidden">
-                        <svg
-                            className="w-full h-full overflow-visible"
-                            viewBox={`0 0 ${pillDimensions.width} ${pillDimensions.height}`}
-                        >
-                            <defs>
-                                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                                    <feGaussianBlur stdDeviation="2" result="blur" />
-                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                </filter>
-                                <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                    <feGaussianBlur stdDeviation="4" result="blur" />
-                                    <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.6" result="color" />
-                                    <feComposite in="color" in2="blur" operator="in" result="glow" />
-                                    <feComposite in="SourceGraphic" in2="glow" operator="over" />
-                                </filter>
-                            </defs>
-                            {pillDimensions.width > 0 && (
-                                <>
-                                    {/* Track Background */}
-                                    <path
-                                        d={`
-                                            M ${pillDimensions.width / 2} 1.5
-                                            H ${pillDimensions.width - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
-                                            V ${pillDimensions.height - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
-                                            H 28
-                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
-                                            V 28
-                                            A 26.5 26.5 0 0 1 28 1.5
-                                            Z
-                                        `}
-                                        fill="none"
-                                        stroke="white"
-                                        strokeWidth="1.5"
-                                        className="opacity-20"
-                                    />
-                                    {/* Progress Core */}
-                                    <motion.path
-                                        d={`
-                                            M ${pillDimensions.width / 2} 1.5
-                                            H ${pillDimensions.width - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
-                                            V ${pillDimensions.height - 28}
-                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
-                                            H 28
-                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
-                                            V 28
-                                            A 26.5 26.5 0 0 1 28 1.5
-                                            Z
-                                        `}
-                                        fill="none"
-                                        stroke={uiTheme?.accentColor || '#ef4444'}
-                                        strokeWidth="2.5"
-                                        pathLength="100"
-                                        animate={{ strokeDashoffset: 100 - progress }}
-                                        transition={{ type: 'tween', ease: 'linear' }}
-                                        strokeDasharray="100"
-                                        strokeLinecap="round"
-                                        style={{ filter: 'url(#intenseGlow)' }}
-                                        className="opacity-100"
-                                    />
-                                </>
-                            )}
-                        </svg>
-                    </div>
-
                         <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
                             <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
                         </div>
                     </div>
                     <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
-                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0">
+                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0 hidden md:block">
                             <input
                                 type="range"
                                 id="progress"
@@ -883,9 +835,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         e.stopPropagation();
                                         handlePlayPause();
                                     }}
-                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary group overflow-hidden"
                                 >
-                                    {isPlaying ? <FaPause size={22} /> : <FaPlay size={22} />}
+                                <motion.div
+                                    animate={{ opacity: isPlaying ? [0.1, 0.2, 0.1] : 0 }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute inset-0 bg-primary"
+                                />
+                                {isPlaying ? <FaPause size={18} className="relative z-10" /> : <FaPlay size={18} className="relative z-10 ml-1" />}
                                 </motion.button>
                                 <motion.button
                                     whileHover={{ scale: 1.1 }}
@@ -894,9 +851,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         e.stopPropagation();
                                         playNextInQueue(true);
                                     }}
-                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                    className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white transition-all"
                                 >
-                                    <IoMdSkipForward size={26} />
+                                    <IoMdSkipForward size={22} />
                                 </motion.button>
                             </div>
 
@@ -966,22 +923,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isLyricsOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
                                 />
                             </motion.button>
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch(setQueueOpen(!isQueueOpen));
-                                }}
-                            >
-                                <HiQueueList
-                                    className={`text-2xl cursor-pointer hover:text-primary transition-colors ${isQueueOpen ? 'text-primary' : 'text-gray-700 dark:text-gray-200'}`}
-                                />
-                            </motion.button>
                             <div className="hidden lg:block" onClick={(e) => e.stopPropagation()}>
                                 <SleepTimer />
                             </div>
 
-                            <div className="relative">
+                            <div className="relative" ref={moreMenuRef}>
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={(e) => {
@@ -999,7 +945,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            className="absolute bottom-full right-0 mb-4 w-56 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden py-2 z-[60]"
+                                            className="absolute bottom-full right-0 mb-4 w-60 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-y-auto max-h-[70vh] custom-scrollbar py-2 z-[60]"
                                         >
                                             <div className="lg:hidden px-2 pb-2 mb-2 border-b border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center gap-3 p-2">
@@ -1010,6 +956,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                     </div>
                                                 </div>
                                             </div>
+
 
                                             <button
                                                 onClick={() => {
@@ -1030,6 +977,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors hidden lg:flex"
                                             >
                                                 <MdOutlineCloseFullscreen size={20} /> Mini Player
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    dispatch(setQueueOpen(!isQueueOpen));
+                                                    setIsMoreMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <HiQueueList className={isQueueOpen ? 'text-primary' : ''} size={20} />
+                                                {isQueueOpen ? 'Close Queue' : 'Open Queue'}
                                             </button>
 
                                             <button

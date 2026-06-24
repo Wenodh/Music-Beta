@@ -2,10 +2,15 @@
 import { getColor } from 'colorthief';
 
 export const getDominantColor = (imageUrl: string): Promise<string> => {
+    if (!imageUrl) return Promise.resolve('#ef4444');
+
     return new Promise((resolve) => {
         const img = new Image();
         img.crossOrigin = 'Anonymous';
-        img.src = imageUrl;
+
+        // Add a timestamp to bypass potential cache issues with CORS
+        const cacheBuster = imageUrl.includes('?') ? '&' : '?';
+        img.src = `${imageUrl}${cacheBuster}v=${Date.now()}`;
 
         img.onload = async () => {
             try {

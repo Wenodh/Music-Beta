@@ -8,10 +8,17 @@ import axios from 'axios';
 import { search as searchUrl } from '../constants';
 import debounce from 'lodash/debounce';
 
-const Navbar: React.FC = () => {
+const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { focusSearch?: boolean; isVisible?: boolean }) => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
+    const inputRef = React.useRef<HTMLInputElement>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        if (focusSearch && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [focusSearch]);
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { theme } = useAppSelector((state) => state.ui);
     const [isVisible, setIsVisible] = useState(true);
@@ -67,9 +74,11 @@ const Navbar: React.FC = () => {
         fetchSearchResults(searchQuery);
     };
 
+    const finalVisible = propVisible !== undefined ? propVisible : (isVisible || isSearchFocused);
+
     return (
         <motion.nav
-            animate={{ y: isVisible || isSearchFocused ? 0 : -200 }}
+            animate={{ y: finalVisible ? 0 : -200 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-2 sm:p-3 md:p-4 bg-white/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-1.5 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
         >
@@ -86,13 +95,6 @@ const Navbar: React.FC = () => {
                     </div>
                 </div>
                 <div className="absolute right-0 flex items-center gap-2 md:hidden">
-                    <button
-                        onClick={() => navigate('/explore')}
-                        aria-label="Explore"
-                        className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/10"
-                    >
-                        <IoCompassOutline size={22} />
-                    </button>
                     <button
                         onClick={() => dispatch(setSettingsOpen(true))}
                         aria-label="Settings"
@@ -113,6 +115,7 @@ const Navbar: React.FC = () => {
             >
                 <div className="relative w-full group">
                     <input
+                        ref={inputRef}
                         type="text"
                         value={searchQuery}
                         onChange={handleSearchChange}
