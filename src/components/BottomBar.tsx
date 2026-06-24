@@ -1,20 +1,21 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoPersonOutline, IoPerson } from 'react-icons/io5';
 import { useAppSelector } from '../hooks/redux';
+
+const navItems = [
+    { label: 'Home', path: '/', icon: IoHomeOutline, activeIcon: IoHome },
+    { label: 'Explore', path: '/explore', icon: IoCompassOutline, activeIcon: IoCompass },
+    { label: 'Search', path: '/search', icon: IoSearchOutline, activeIcon: IoSearch },
+    { label: 'Library', path: '/library', icon: IoLibraryOutline, activeIcon: IoLibrary },
+    { label: 'Profile', path: '/profile', icon: IoPersonOutline, activeIcon: IoPerson },
+];
 
 const BottomBar: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { theme } = useAppSelector((state) => state.ui);
-
-    const navItems = [
-        { label: 'Home', path: '/', icon: IoHomeOutline, activeIcon: IoHome },
-        { label: 'Explore', path: '/explore', icon: IoCompassOutline, activeIcon: IoCompass },
-        { label: 'Search', path: '/search', icon: IoSearchOutline, activeIcon: IoSearch }, // Assuming a /search route or handling search
-        { label: 'Library', path: '/library', icon: IoLibraryOutline, activeIcon: IoLibrary },
-        { label: 'Profile', path: '/profile', icon: IoPersonOutline, activeIcon: IoPerson },
-    ];
 
     const isActive = (path: string) => {
         if (path === '/') return location.pathname === '/';
@@ -22,7 +23,7 @@ const BottomBar: React.FC = () => {
     };
 
     return (
-        <div className={`md:hidden fixed bottom-0 left-0 right-0 z-[200] px-4 pb-4 transition-all duration-500`}>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-4 pb-4">
              <div className={`flex items-center justify-around p-2 rounded-[24px] shadow-2xl backdrop-blur-2xl border border-white/20 dark:border-white/10 ${theme.isOled ? 'bg-black/80' : 'bg-white/80 dark:bg-gray-900/80'}`}>
                 {navItems.map((item) => {
                     const ActiveIcon = item.activeIcon;
@@ -33,7 +34,7 @@ const BottomBar: React.FC = () => {
                         <button
                             key={item.label}
                             onClick={() => navigate(item.path)}
-                            className="flex flex-col items-center justify-center p-2 relative group"
+                            className="flex flex-col items-center justify-center p-2 relative group flex-1"
                         >
                             <div className={`transition-all duration-300 ${active ? 'scale-110' : 'group-active:scale-90'}`}>
                                 {active ? (
@@ -46,7 +47,10 @@ const BottomBar: React.FC = () => {
                                 {item.label}
                             </span>
                             {active && (
-                                <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-primary" />
+                                <motion.div
+                                    layoutId="bottom-nav-indicator"
+                                    className="absolute -bottom-1 w-1 h-1 rounded-full bg-primary"
+                                />
                             )}
                         </button>
                     );
