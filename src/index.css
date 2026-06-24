@@ -118,3 +118,7 @@ input[type="range"]::-webkit-slider-thumb {
 .contain-layout {
   contain: layout;
 }
+
+:root {
+  --accent-rgb: 239, 68, 68;
+}

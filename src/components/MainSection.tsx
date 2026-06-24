@@ -80,14 +80,14 @@ const MainSection: React.FC = () => {
 
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
-                    axios.get(`${songsUrl}?query=${language}&page=0&limit=25`),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Trending Hits')}&page=0&limit=25`),
                     axios.get(`${playlistSearch}${language}`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
                     axios.get(`${playlistById}158224644`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Latest')}&page=0&limit=25`),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Releases 2024')}&page=0&limit=25`),
                     ...artistsToFetch.map(name => {
                         return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })

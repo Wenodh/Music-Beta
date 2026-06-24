@@ -12,7 +12,6 @@ const SearchPage: React.FC = () => {
 
     return (
         <>
-            <Navbar focusSearch={true} />
             <div className={`flex flex-col items-center justify-center min-h-[60vh] px-4 text-center ${hasResults ? 'hidden' : ''}`}>
                 <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}

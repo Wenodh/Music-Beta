@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoPersonOutline, IoPerson } from 'react-icons/io5';
 import { useAppSelector } from '../hooks/redux';
 
@@ -23,8 +23,11 @@ const BottomBar: React.FC = () => {
     };
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-4 pb-4">
-             <div className={`flex items-center justify-around p-2 rounded-[24px] shadow-2xl backdrop-blur-2xl border border-white/20 dark:border-white/10 ${theme.isOled ? 'bg-black/80' : 'bg-white/80 dark:bg-gray-900/80'}`}>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-6 pb-6">
+             <div className={`flex items-center justify-around p-2 rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-3xl border border-white/20 dark:border-white/10 relative overflow-hidden ${theme.isOled ? 'bg-black/40' : 'bg-white/40 dark:bg-gray-950/40'}`}>
+                {/* Futuristic inner glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-50" />
+
                 {navItems.map((item) => {
                     const ActiveIcon = item.activeIcon;
                     const Icon = item.icon;
@@ -34,22 +37,37 @@ const BottomBar: React.FC = () => {
                         <button
                             key={item.label}
                             onClick={() => navigate(item.path)}
-                            className="flex flex-col items-center justify-center p-2 relative group flex-1"
+                            className="flex flex-col items-center justify-center py-2 relative group flex-1"
                         >
-                            <div className={`transition-all duration-300 ${active ? 'scale-110' : 'group-active:scale-90'}`}>
+                            <div className={`relative transition-all duration-500 ${active ? 'scale-110 -translate-y-1' : 'group-active:scale-90 opacity-60'}`}>
+                                {active && (
+                                    <motion.div
+                                        layoutId="icon-glow"
+                                        className="absolute inset-0 blur-lg bg-primary/40 rounded-full"
+                                    />
+                                )}
                                 {active ? (
-                                    <ActiveIcon size={24} className="text-primary" />
+                                    <ActiveIcon size={26} className="text-primary relative z-10 drop-shadow-[0_0_8px_rgba(var(--accent-rgb),0.6)]" />
                                 ) : (
-                                    <Icon size={24} className="text-gray-500 dark:text-gray-400" />
+                                    <Icon size={24} className="text-gray-500 dark:text-gray-400 relative z-10" />
                                 )}
                             </div>
-                            <span className={`text-[10px] font-bold mt-1 transition-all duration-300 ${active ? 'text-primary' : 'text-gray-500 dark:text-gray-400 opacity-0'}`}>
-                                {item.label}
-                            </span>
+                            <AnimatePresence>
+                                {active && (
+                                    <motion.span
+                                        initial={{ opacity: 0, y: 5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 5 }}
+                                        className="text-[10px] font-black mt-1 text-primary uppercase tracking-[0.15em] drop-shadow-[0_0_5px_rgba(var(--accent-rgb),0.4)]"
+                                    >
+                                        {item.label}
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
                             {active && (
                                 <motion.div
                                     layoutId="bottom-nav-indicator"
-                                    className="absolute -bottom-1 w-1 h-1 rounded-full bg-primary"
+                                    className="absolute -bottom-1 w-6 h-1 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--accent-rgb),1)]"
                                 />
                             )}
                         </button>

@@ -639,7 +639,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                                 </filter>
                                 <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                    <feGaussianBlur stdDeviation="6" result="blur" />
+                                    <feGaussianBlur stdDeviation="4" result="blur" />
                                     <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.8" result="color" />
                                     <feComposite in="color" in2="blur" operator="in" result="glow" />
                                     <feComposite in="SourceGraphic" in2="glow" operator="over" />
@@ -647,49 +647,32 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </defs>
                             {pillDimensions.width > 0 && (
                                 <>
-                                    {/* Futuristic Inner Glow Track */}
+                                    {/* High-Tech Pulse Track */}
                                     <path
-                                        d={`
-                                            M 28 2
-                                            H ${pillDimensions.width - 28}
-                                            A 26 26 0 0 1 ${pillDimensions.width - 2} 28
-                                            V ${pillDimensions.height - 28}
-                                            A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2}
-                                            H 28
-                                            A 26 26 0 0 1 2 ${pillDimensions.height - 28}
-                                            V 28
-                                            A 26 26 0 0 1 28 2
-                                            Z
-                                        `}
+                                        d={`M 28 2 H ${pillDimensions.width - 28} A 26 26 0 0 1 ${pillDimensions.width - 2} 28 V ${pillDimensions.height - 28} A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2} H 28 A 26 26 0 0 1 2 ${pillDimensions.height - 28} V 28 A 26 26 0 0 1 28 2 Z`}
                                         fill="none"
                                         stroke="white"
-                                        strokeWidth="0.5"
-                                        className="opacity-10"
+                                        strokeWidth="1"
+                                        className="opacity-5"
                                     />
-                                    {/* Progress Core - High Precision Glow */}
+                                    {/* Dynamic Neon Progress Core */}
                                     <motion.path
-                                        d={`
-                                            M ${pillDimensions.width / 2} 2
-                                            H ${pillDimensions.width - 28}
-                                            A 26 26 0 0 1 ${pillDimensions.width - 2} 28
-                                            V ${pillDimensions.height - 28}
-                                            A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2}
-                                            H 28
-                                            A 26 26 0 0 1 2 ${pillDimensions.height - 28}
-                                            V 28
-                                            A 26 26 0 0 1 28 2
-                                            L ${pillDimensions.width / 2} 2
-                                        `}
+                                        d={`M ${pillDimensions.width / 2} 2 H ${pillDimensions.width - 28} A 26 26 0 0 1 ${pillDimensions.width - 2} 28 V ${pillDimensions.height - 28} A 26 26 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 2} H 28 A 26 26 0 0 1 2 ${pillDimensions.height - 28} V 28 A 26 26 0 0 1 28 2 L ${pillDimensions.width / 2} 2`}
                                         fill="none"
                                         stroke={uiTheme?.accentColor || '#ef4444'}
                                         strokeWidth="3"
                                         pathLength="100"
-                                        animate={{ strokeDashoffset: 100 - progress }}
-                                        transition={{ type: 'tween', ease: 'linear' }}
+                                        animate={{
+                                            strokeDashoffset: 100 - progress,
+                                            opacity: isPlaying ? [0.8, 1, 0.8] : 1
+                                        }}
+                                        transition={{
+                                            strokeDashoffset: { type: 'tween', ease: 'linear' },
+                                            opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                                        }}
                                         strokeDasharray="100"
                                         strokeLinecap="round"
                                         style={{ filter: 'url(#intenseGlow)' }}
-                                        className="opacity-100"
                                     />
                                 </>
                             )}
@@ -904,9 +887,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         e.stopPropagation();
                                         handlePlayPause();
                                     }}
-                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary group overflow-hidden"
                                 >
-                                    {isPlaying ? <FaPause size={22} /> : <FaPlay size={22} />}
+                                <motion.div
+                                    animate={{ opacity: isPlaying ? [0.1, 0.2, 0.1] : 0 }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute inset-0 bg-primary"
+                                />
+                                {isPlaying ? <FaPause size={18} className="relative z-10" /> : <FaPlay size={18} className="relative z-10 ml-1" />}
                                 </motion.button>
                                 <motion.button
                                     whileHover={{ scale: 1.1 }}
@@ -915,9 +903,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         e.stopPropagation();
                                         playNextInQueue(true);
                                     }}
-                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                    className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white transition-all"
                                 >
-                                    <IoMdSkipForward size={26} />
+                                    <IoMdSkipForward size={22} />
                                 </motion.button>
                             </div>
 

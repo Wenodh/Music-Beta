@@ -21,6 +21,7 @@ import { syncLibrary } from './features/library/libraryActions';
 import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
 import { joinSession } from './features/session/sessionSlice';
+import { hexToRgb } from './utils/colorUtils';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -151,7 +152,7 @@ import { useEffect } from 'react';
 const LocationAwareNavbar = () => {
     const location = useLocation();
     const isSearchPage = location.pathname === '/search';
-    return <Navbar isVisible={!isSearchPage} />;
+    return <Navbar isVisible={true} focusSearch={isSearchPage} />;
 };
 
 export const AppContent = () => {
@@ -227,6 +228,7 @@ export const AppContent = () => {
             className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
+                '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
                 '--bottom-bar-height': currentSong ? '170px' : '80px'
             } as React.CSSProperties}
         >
