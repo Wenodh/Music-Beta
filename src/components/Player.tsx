@@ -196,7 +196,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             // Update Theme Color if image is available
             if (imageUrl) {
                 getDominantColor(imageUrl).then(color => {
-                    if (uiTheme.accentColor !== color) {
+                    if (uiTheme?.accentColor !== color) {
                         dispatch(setAccentColor(color));
                     }
                 });
@@ -348,7 +348,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 progressElement.value = progress.toString();
                 const value = progress;
                 const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#ef4444';
-                progressElement.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`;
+                const trackColor = uiTheme?.darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                progressElement.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${value}%, ${trackColor} ${value}%, ${trackColor} 100%)`;
             }
 
             // Crossfade Trigger
@@ -530,24 +531,29 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
-                    className={`dark:text-white fixed bottom-0 right-0 left-0 bg-white/80 backdrop-blur-lg border-t border-white/20 dark:border-gray-800/20 flex flex-col z-[210] ${uiTheme?.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => dispatch(setPlayerExpanded(true))}
+                    className={`dark:text-white fixed bottom-3 left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.15)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
                 >
-                    <div className="absolute inset-0 z-0 pointer-events-none">
+                    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[28px] md:rounded-none opacity-40">
                         <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
                     </div>
-                    <input
-                        type="range"
-                        id="progress"
-                        min={0}
-                        max={100}
-                        step="0.1"
-                        defaultValue={0}
-                        onChange={handleProgressChange}
-                        className="w-full h-[3px] cursor-pointer appearance-none bg-gray-200 dark:bg-gray-700"
-                    />
-                    <div className="flex justify-between items-center py-3 px-4 lg:px-8">
-                        {/* 1st div */}
-                        <div className="flex justify-start items-center gap-4 lg:w-[30vw]">
+                    <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
+                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0">
+                            <input
+                                type="range"
+                                id="progress"
+                                min={0}
+                                max={100}
+                                step="0.1"
+                                defaultValue={0}
+                                onChange={handleProgressChange}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-[2px] md:h-[3px] cursor-pointer appearance-none bg-transparent"
+                            />
+                        </div>
+                        {/* 1st div - Song Info */}
+                        <div className="flex justify-start items-center gap-3 md:gap-4 flex-1 min-w-0 lg:w-[30vw]">
                             <motion.div
                                 drag="x"
                                 dragConstraints={{ left: 0, right: 0 }}
@@ -555,17 +561,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     if (info.offset.x > 100) prevSong();
                                     else if (info.offset.x < -100) playNextInQueue(true);
                                 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch(setPlayerExpanded(true));
-                                }}
-                                className="relative group cursor-pointer"
+                                className="relative group shrink-0"
                             >
                                 <motion.img
                                     layoutId="player-album-art"
                                     src={imageUrl}
                                     alt=""
-                                    className="w-[55px] h-[55px] rounded-xl shadow-lg object-cover"
+                                    className="w-[48px] h-[48px] md:w-[55px] md:h-[55px] rounded-xl shadow-lg object-cover"
                                     onDoubleClick={(e) => {
                                         e.stopPropagation();
                                         const rect = e.currentTarget.getBoundingClientRect();
@@ -587,28 +589,25 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 rounded-full transition-opacity flex items-center justify-center pointer-events-none">
-                                    <span className="text-[8px] text-white font-bold uppercase">Swipe</span>
-                                </div>
                             </motion.div>
                             <div
-                                className="hidden md:block overflow-hidden max-w-[100px] xs:max-w-[150px] sm:max-w-[200px]"
+                                className="overflow-hidden flex-1 min-w-0 max-w-[150px] xs:max-w-[200px] sm:max-w-[300px] flex flex-col justify-center"
                             >
                                 <motion.p
                                     layoutId="player-song-name"
-                                    className="font-semibold text-sm sm:text-base truncate"
+                                    className="font-bold text-[13px] md:text-base truncate leading-tight"
                                 >
                                     {decodeHtmlEntities(currentSong?.name)}
                                 </motion.p>
                                 <motion.p
                                     layoutId="player-song-artist"
-                                    className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate"
+                                    className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 truncate font-medium opacity-80"
                                 >
                                     {decodeHtmlEntities(currentSong?.primaryArtists)}
                                 </motion.p>
                             </div>
-                            <div className="flex gap-2 items-center ml-2 lg:flex">
-                                <div className="hidden lg:flex gap-2">
+                            <div className="hidden lg:flex gap-2 items-center ml-2">
+                                <div className="flex gap-2">
                                     <motion.button
                                         whileTap={{ scale: 0.8 }}
                                         onClick={(e) => {
@@ -644,8 +643,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             </div>
                         </div>
 
-                        {/* 2nd div */}
-                        <div className="flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
+                        {/* 2nd div - Main Controls (Desktop) */}
+                        <div className="hidden md:flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -654,7 +653,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 className="hidden sm:block"
                             >
                                 <PiShuffleBold
-                                    style={shuffle ? { color: uiTheme.accentColor } : {}}
+                                    style={shuffle ? { color: uiTheme?.accentColor } : {}}
                                     className={`${shuffle ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
                                 />
                             </button>
@@ -716,18 +715,42 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 className="hidden sm:block"
                             >
                                 {repeatMode === 'one' ? (
-                                    <PiRepeatOnceBold style={{ color: uiTheme.accentColor }} className="cursor-pointer transition-colors" />
+                                    <PiRepeatOnceBold style={{ color: uiTheme?.accentColor }} className="cursor-pointer transition-colors" />
                                 ) : (
                                     <BiRepeat
-                                        style={repeatMode === 'all' ? { color: uiTheme.accentColor } : {}}
+                                        style={repeatMode === 'all' ? { color: uiTheme?.accentColor } : {}}
                                         className={`${repeatMode === 'all' ? '' : 'text-gray-400'} cursor-pointer hover:text-primary transition-colors`}
                                     />
                                 )}
                             </button>
                         </div>
 
-                        {/* 3rd div */}
-                        <div className="flex lg:w-[30vw] justify-end items-center gap-3 lg:gap-5">
+                        {/* 3rd div - Right Side Controls */}
+                        <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
+                            {/* Mobile Play/Pause and Next */}
+                            <div className="flex md:hidden items-center gap-0.5">
+                                <motion.button
+                                    whileTap={{ scale: 0.7 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePlayPause();
+                                    }}
+                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                >
+                                    {isPlaying ? <FaPause size={22} /> : <FaPlay size={22} />}
+                                </motion.button>
+                                <motion.button
+                                    whileTap={{ scale: 0.7 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        playNextInQueue(true);
+                                    }}
+                                    className="p-2 text-gray-900 dark:text-white active:opacity-40 transition-all"
+                                >
+                                    <IoMdSkipForward size={26} />
+                                </motion.button>
+                            </div>
+
                             {/* Desktop Visualizer Selector */}
                             <div className="hidden xl:flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-1">
                                 <button

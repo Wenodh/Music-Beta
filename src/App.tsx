@@ -207,7 +207,7 @@ export const AppContent = () => {
 
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 pb-20 md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{ '--accent-color': theme?.accentColor || '#ef4444' } as React.CSSProperties}
         >
             <BrowserRouter>
