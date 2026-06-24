@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
@@ -19,6 +19,32 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
 
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
+
+    const mouseXSpring = useSpring(x);
+    const mouseYSpring = useSpring(y);
+
+    const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
+    const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const xPct = mouseX / width - 0.5;
+        const yPct = mouseY / height - 0.5;
+        x.set(xPct);
+        y.set(yPct);
+    };
+
+    const handleMouseLeave = () => {
+        x.set(0);
+        y.set(0);
+    };
+
     const handleClick = () => {
         if ((type === 'song' || data?.type === 'song') && data) {
             dispatch(playMusic(data));
@@ -36,29 +62,34 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
 
     return (
         <motion.div
-            whileHover={{ y: -8, scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleClick}
-            className="flex flex-col items-start gap-2 p-2 sm:p-2.5 rounded-2xl bg-white/5 dark:bg-gray-800/5 hover:bg-white/10 dark:hover:bg-gray-800/20 border border-transparent hover:border-white/20 dark:hover:border-gray-700/20 cursor-pointer transition-all w-[120px] sm:w-36 shrink-0 group shadow-sm hover:shadow-xl glass-effect"
+            className="flex flex-col items-start gap-2 p-3 rounded-2xl glass-effect cursor-pointer transition-shadow hover:shadow-2xl hover:shadow-primary/10 w-[140px] sm:w-40 shrink-0 group perspective-1000"
         >
-            <div className={`relative w-[104px] h-[104px] sm:w-32 sm:h-32 overflow-hidden shadow-inner ${type === 'artist' ? 'rounded-full' : 'rounded-xl'}`}>
+            <div
+                style={{ transform: "translateZ(40px)" }}
+                className={`relative w-full aspect-square overflow-hidden shadow-inner holographic ${type === 'artist' ? 'rounded-full' : 'rounded-xl'}`}
+            >
                 <img
                     src={image}
                     alt={name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                     loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-[0_0_15px_var(--accent-color)] transform scale-0 group-hover:scale-100 transition-transform duration-300">
                         ▶
                     </div>
                 </div>
             </div>
-            <div className="w-full px-1">
+            <div style={{ transform: "translateZ(20px)" }} className="w-full px-1 mt-1">
                 <p className="font-bold text-sm truncate group-hover:text-primary transition-colors leading-tight">{decodeHtmlEntities(name)}</p>
                 {artists && (
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{decodeHtmlEntities(artists)}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-1 opacity-80">{decodeHtmlEntities(artists)}</p>
                 )}
             </div>
         </motion.div>

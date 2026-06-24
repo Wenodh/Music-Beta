@@ -232,6 +232,7 @@ export const AppContent = () => {
                 '--bottom-bar-height': currentSong ? '150px' : '65px'
             } as React.CSSProperties}
         >
+            <div className="living-bg" />
             <BrowserRouter>
                 <LocationAwareNavbar />
                 <BottomBar />
