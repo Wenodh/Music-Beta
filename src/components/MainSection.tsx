@@ -22,6 +22,7 @@ const MainSection: React.FC = () => {
         devPicks: any[];
         chill: any[];
         workout: any[];
+        latestSongs: any[];
     }>({
         albums: [],
         songs: [],
@@ -31,7 +32,8 @@ const MainSection: React.FC = () => {
         work: [],
         devPicks: [],
         chill: [],
-        workout: []
+        workout: [],
+        latestSongs: []
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -85,6 +87,7 @@ const MainSection: React.FC = () => {
                     axios.get(`${playlistById}158224644`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Latest')}&page=0&limit=25`),
                     ...artistsToFetch.map(name => {
                         return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
@@ -98,7 +101,8 @@ const MainSection: React.FC = () => {
                 const devPicksRes = results[5];
                 const chillRes = results[6];
                 const workoutRes = results[7];
-                const artistsResults = results.slice(8);
+                const latestSongsRes = results[8];
+                const artistsResults = results.slice(9);
 
                 const artistList = artistsResults
                     .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
@@ -114,7 +118,8 @@ const MainSection: React.FC = () => {
                     work: workRes.status === 'fulfilled' ? (workRes.value.data.data.results || []) : [],
                     devPicks: devPicksRes.status === 'fulfilled' ? (devPicksRes.value.data.data.songs || []) : [],
                     chill: chillRes.status === 'fulfilled' ? (chillRes.value.data.data.results || []) : [],
-                    workout: workoutRes.status === 'fulfilled' ? (workoutRes.value.data.data.results || []) : []
+                    workout: workoutRes.status === 'fulfilled' ? (workoutRes.value.data.data.results || []) : [],
+                    latestSongs: latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : []
                 });
             } catch (error) {
                 console.error('Error in fetchData:', error);
@@ -196,6 +201,12 @@ const MainSection: React.FC = () => {
             {data.songs && data.songs.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.songs} title="Trending Songs" />
+                </motion.div>
+            )}
+
+            {data.latestSongs && data.latestSongs.length > 0 && (
+                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
+                    <Slider data={data.latestSongs} title="Latest Songs" />
                 </motion.div>
             )}
             {data.albums && data.albums.length > 0 && (
