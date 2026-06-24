@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoPersonOutline, IoPerson } from 'react-icons/io5';
 import { useAppSelector } from '../hooks/redux';
@@ -13,7 +13,6 @@ const navItems = [
 ];
 
 const BottomBar: React.FC = () => {
-    const navigate = useNavigate();
     const location = useLocation();
     const { theme } = useAppSelector((state) => state.ui);
 
@@ -34,10 +33,11 @@ const BottomBar: React.FC = () => {
                     const active = isActive(item.path);
 
                     return (
-                        <button
+                        <Link
                             key={item.label}
-                            onClick={() => navigate(item.path)}
+                            to={item.path}
                             className="flex flex-col items-center justify-center py-2 relative group flex-1"
+                            aria-label={item.label}
                         >
                             <div className={`relative transition-all duration-500 ${active ? 'scale-110' : 'group-active:scale-90 opacity-60'}`}>
                                 {active && (
@@ -70,7 +70,7 @@ const BottomBar: React.FC = () => {
                                     className="absolute -bottom-1 w-6 h-1 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--accent-rgb),1)]"
                                 />
                             )}
-                        </button>
+                        </Link>
                     );
                 })}
             </div>

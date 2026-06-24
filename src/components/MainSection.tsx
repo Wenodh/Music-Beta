@@ -80,14 +80,14 @@ const MainSection: React.FC = () => {
 
                 const results = await Promise.allSettled([
                     axios.get(`${modules}${language}&page=0&limit=25`),
-                axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Trending Songs 2024')}&page=0&limit=25`),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Top Songs 2024')}&page=0&limit=30`),
                     axios.get(`${playlistSearch}${language}`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
                     axios.get(`${playlistById}158224644`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
                     axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                axios.get(`${songsUrl}?query=${encodeURIComponent('Latest ' + language + ' Songs')}&page=0&limit=25`),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent('Latest ' + language + ' Songs 2024')}&page=0&limit=30`),
                     ...artistsToFetch.map(name => {
                         return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
@@ -109,9 +109,31 @@ const MainSection: React.FC = () => {
                     .map(r => r.value.data.data.results?.[0])
                     .filter(Boolean);
 
+                const deduplicateSongs = (songs: any[]) => {
+                    const seen = new Set();
+                    return songs.filter(song => {
+                        const title = (song.name || song.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        if (seen.has(title)) return false;
+                        seen.add(title);
+                        return true;
+                    });
+                };
+
+                const rawTrendingSongs = songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [];
+                const rawLatestSongs = latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : [];
+
+                // Cross-deduplicate
+                const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 20);
+                const trendingSongs = deduplicateSongs(rawTrendingSongs)
+                    .filter(ts => !latestSongs.some(ls =>
+                        (ls.name || ls.title || '').toLowerCase().replace(/[^a-z0-9]/g, '') ===
+                        (ts.name || ts.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+                    ))
+                    .slice(0, 20);
+
                 setData({
                     albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
-                    songs: songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [],
+                    songs: trendingSongs,
                     playlists: playlistsRes.status === 'fulfilled' ? (playlistsRes.value.data.data.results || []) : [],
                     artists: artistList,
                     meditation: meditationRes.status === 'fulfilled' ? (meditationRes.value.data.data.results || []) : [],
@@ -119,7 +141,7 @@ const MainSection: React.FC = () => {
                     devPicks: devPicksRes.status === 'fulfilled' ? (devPicksRes.value.data.data.songs || []) : [],
                     chill: chillRes.status === 'fulfilled' ? (chillRes.value.data.data.results || []) : [],
                     workout: workoutRes.status === 'fulfilled' ? (workoutRes.value.data.data.results || []) : [],
-                    latestSongs: latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : []
+                    latestSongs: latestSongs
                 });
             } catch (error) {
                 console.error('Error in fetchData:', error);
