@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
@@ -14,7 +14,6 @@ import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
-import { useState } from 'react';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds } from './features/library/librarySlice';
 import { syncLibrary } from './features/library/libraryActions';
@@ -146,8 +145,6 @@ const AnimatedRoutes = () => {
         </AnimatePresence>
     );
 };
-
-import { useEffect } from 'react';
 
 const LocationAwareNavbar = () => {
     const location = useLocation();

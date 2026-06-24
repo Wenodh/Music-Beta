@@ -141,7 +141,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 min-h-[200px] max-h-[40vh] aspect-square max-w-[280px] sm:max-w-[380px] z-[20]"
+                            className="relative w-full flex-1 max-h-[40vh] aspect-square max-w-[280px] xs:max-w-[320px] sm:max-w-[380px] z-[20] flex items-center justify-center"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">

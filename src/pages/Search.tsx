@@ -2,7 +2,6 @@ import React from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { IoSearchOutline } from 'react-icons/io5';
 import { motion } from 'framer-motion';
-import Navbar from '../components/Navbar';
 
 const SearchPage: React.FC = () => {
     const { theme } = useAppSelector((state) => state.ui);
