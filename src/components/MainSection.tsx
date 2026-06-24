@@ -123,8 +123,8 @@ const MainSection: React.FC = () => {
                 const rawLatestSongs = latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : [];
 
                 // Deduplicate and slice
-                const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 20);
-                const trendingSongs = deduplicateSongs(rawTrendingSongs).slice(0, 20);
+                const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 50);
+                const trendingSongs = deduplicateSongs(rawTrendingSongs).slice(0, 50);
 
                 setData({
                     albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
