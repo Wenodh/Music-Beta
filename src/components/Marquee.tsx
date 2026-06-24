@@ -17,10 +17,15 @@ const Marquee = ({ text, speed = 30, className = "" }: MarqueeProps) => {
         const checkScroll = () => {
             if (containerRef.current && textRef.current) {
                 const containerWidth = containerRef.current.offsetWidth;
-                const scrollWidth = textRef.current.scrollWidth;
-                if (scrollWidth > containerWidth) {
+                // If already scrolling, scrollWidth is roughly double.
+                // We want the width of just one iteration.
+                const contentWidth = shouldScroll
+                    ? textRef.current.scrollWidth / 2
+                    : textRef.current.scrollWidth;
+
+                if (contentWidth > containerWidth) {
                     setShouldScroll(true);
-                    setTextWidth(scrollWidth);
+                    setTextWidth(contentWidth);
                 } else {
                     setShouldScroll(false);
                 }
@@ -49,7 +54,7 @@ const Marquee = ({ text, speed = 30, className = "" }: MarqueeProps) => {
         >
             <motion.div
                 ref={textRef}
-                animate={shouldScroll ? { x: [0, -(textWidth + 40)] } : { x: 0 }}
+                animate={shouldScroll ? { x: [0, -textWidth] } : { x: 0 }}
                 transition={{
                     duration: (textWidth / speed) || 5,
                     repeat: Infinity,

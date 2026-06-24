@@ -60,6 +60,31 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
 
+    const pillRef = useRef<HTMLDivElement>(null);
+    const [pillDimensions, setPillDimensions] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        const updateDimensions = () => {
+            if (pillRef.current) {
+                setPillDimensions({
+                    width: pillRef.current.offsetWidth,
+                    height: pillRef.current.offsetHeight
+                });
+            }
+        };
+
+        updateDimensions();
+        window.addEventListener('resize', updateDimensions);
+        // Observe changes to the element size
+        const observer = new ResizeObserver(updateDimensions);
+        if (pillRef.current) observer.observe(pillRef.current);
+
+        return () => {
+            window.removeEventListener('resize', updateDimensions);
+            observer.disconnect();
+        };
+    }, [currentSong]);
+
     const [imageUrl, setImageUrl] = useState<string>('');
     const [progress, setProgress] = useState(0);
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
@@ -551,13 +576,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         }
                     }}
                     onClick={() => dispatch(setPlayerExpanded(true))}
-                    className={`dark:text-white fixed bottom-3 left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out overflow-hidden ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
+                    className={`dark:text-white fixed bottom-3 left-3 right-3 md:bottom-0 md:left-0 md:right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/30 dark:border-white/10 md:border-t flex flex-col z-[210] rounded-[28px] md:rounded-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] md:shadow-none cursor-pointer transition-all duration-500 ease-out ${uiTheme?.isOled ? 'dark:!bg-black/80' : ''}`}
                 >
-                    {/* Animated Lava Lamp Background (Mobile Only) */}
-                    <div className="absolute inset-0 z-0 pointer-events-none md:hidden overflow-hidden opacity-30">
-                        <motion.div
-                            animate={{
-                                scale: isPlaying ? [1, 1.5, 1] : 1,
+                    {/* Inner Clipping Container for Backgrounds */}
+                    <div className="absolute inset-0 z-0 rounded-[28px] md:rounded-none overflow-hidden pointer-events-none">
+                        {/* Animated Lava Lamp Background (Mobile Only) */}
+                        <div className="absolute inset-0 z-0 pointer-events-none md:hidden opacity-30">
+                            <motion.div
+                                animate={{
+                                    scale: isPlaying ? [1, 1.5, 1] : 1,
                                 x: isPlaying ? [0, 100, 0] : 0,
                                 y: isPlaying ? [0, -50, 0] : 0,
                                 opacity: isPlaying ? [0.3, 0.5, 0.3] : 0.2
@@ -580,31 +607,77 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     </div>
 
                     {/* Integrated Progress Border (Mobile Only) */}
-                    <div className="absolute inset-0 z-10 pointer-events-none md:hidden overflow-hidden rounded-[28px]">
-                        <svg className="w-full h-full" style={{ filter: 'drop-shadow(0 0 2px var(--accent-color))' }}>
-                             <rect
-                                x="0" y="0" width="100%" height="100%"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="0.5"
-                                className="opacity-10"
-                            />
-                            <motion.rect
-                                x="0" y="0" width="100%" height="100%"
-                                fill="none"
-                                stroke={uiTheme?.accentColor || '#ef4444'}
-                                strokeWidth="2"
-                                pathLength="100"
-                                animate={{ strokeDashoffset: 100 - progress }}
-                                transition={{ type: 'tween', ease: 'linear' }}
-                                strokeDasharray="100"
-                                className="opacity-80"
-                            />
+                    <div className="absolute inset-0 z-10 pointer-events-none md:hidden">
+                        <svg
+                            className="w-full h-full overflow-visible"
+                            viewBox={`0 0 ${pillDimensions.width} ${pillDimensions.height}`}
+                        >
+                            <defs>
+                                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="2" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                                <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="4" result="blur" />
+                                    <feFlood floodColor={uiTheme?.accentColor || '#ef4444'} floodOpacity="0.6" result="color" />
+                                    <feComposite in="color" in2="blur" operator="in" result="glow" />
+                                    <feComposite in="SourceGraphic" in2="glow" operator="over" />
+                                </filter>
+                            </defs>
+                            {pillDimensions.width > 0 && (
+                                <>
+                                    {/* Track Background */}
+                                    <path
+                                        d={`
+                                            M ${pillDimensions.width / 2} 1.5
+                                            H ${pillDimensions.width - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
+                                            V ${pillDimensions.height - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
+                                            H 28
+                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
+                                            V 28
+                                            A 26.5 26.5 0 0 1 28 1.5
+                                            Z
+                                        `}
+                                        fill="none"
+                                        stroke="white"
+                                        strokeWidth="1.5"
+                                        className="opacity-20"
+                                    />
+                                    {/* Progress Core */}
+                                    <motion.path
+                                        d={`
+                                            M ${pillDimensions.width / 2} 1.5
+                                            H ${pillDimensions.width - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 1.5} 28
+                                            V ${pillDimensions.height - 28}
+                                            A 26.5 26.5 0 0 1 ${pillDimensions.width - 28} ${pillDimensions.height - 1.5}
+                                            H 28
+                                            A 26.5 26.5 0 0 1 1.5 ${pillDimensions.height - 28}
+                                            V 28
+                                            A 26.5 26.5 0 0 1 28 1.5
+                                            Z
+                                        `}
+                                        fill="none"
+                                        stroke={uiTheme?.accentColor || '#ef4444'}
+                                        strokeWidth="2.5"
+                                        pathLength="100"
+                                        animate={{ strokeDashoffset: 100 - progress }}
+                                        transition={{ type: 'tween', ease: 'linear' }}
+                                        strokeDasharray="100"
+                                        strokeLinecap="round"
+                                        style={{ filter: 'url(#intenseGlow)' }}
+                                        className="opacity-100"
+                                    />
+                                </>
+                            )}
                         </svg>
                     </div>
 
-                    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[28px] md:rounded-none opacity-20">
-                        <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
+                        <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
+                            <Visualizer audioRefs={[audioRefA, audioRefB]} isPlaying={isPlaying} />
+                        </div>
                     </div>
                     <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
                         <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0">
@@ -663,7 +736,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                     </AnimatePresence>
                                 </div>
                                 <div
-                                    className="overflow-hidden flex-1 min-w-0 max-w-[150px] xs:max-w-[200px] sm:max-w-[300px] flex flex-col justify-center"
+                                    className="overflow-hidden flex-1 min-w-0 max-w-[180px] xs:max-w-[240px] sm:max-w-[300px] flex flex-col justify-center"
                                 >
                                     <motion.div layoutId="player-song-name">
                                         <Marquee
