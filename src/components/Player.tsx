@@ -11,6 +11,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import {
     playMusic,
+    pauseMusic,
     setCurrentTime,
     setSongRadioEnabled,
     setVisualizerStyle,
@@ -191,26 +192,61 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         }
 
-        if (currentSong && imageUrl) {
-            // Update Theme Color
-            getDominantColor(imageUrl).then(color => {
-                if (uiTheme.accentColor !== color) {
-                    dispatch(setAccentColor(color));
-                }
-            });
+        if (currentSong) {
+            // Update Theme Color if image is available
+            if (imageUrl) {
+                getDominantColor(imageUrl).then(color => {
+                    if (uiTheme.accentColor !== color) {
+                        dispatch(setAccentColor(color));
+                    }
+                });
+            }
 
             if ('mediaSession' in navigator) {
+                const artwork = imageUrl
+                    ? [{ src: imageUrl, sizes: '512x512', type: 'image/png' }]
+                    : [];
+
                 navigator.mediaSession.metadata = new window.MediaMetadata({
-                  title: currentSong?.name,
-                  artist: currentSong?.primaryArtists,
-                  album: typeof currentSong?.album === 'string' ? currentSong?.album : currentSong?.album?.name,
-                  artwork: [{ src: imageUrl || '', sizes: '512x512', type: 'image/png' }]
+                    title: decodeHtmlEntities(currentSong?.name),
+                    artist: decodeHtmlEntities(currentSong?.primaryArtists),
+                    album: decodeHtmlEntities(typeof currentSong?.album === 'string' ? currentSong?.album : currentSong?.album?.name),
+                    artwork: artwork
                 });
+
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
                 navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
+                navigator.mediaSession.setActionHandler('play', () => dispatch(playMusic({ ...currentSong, forcePlay: true })));
+                navigator.mediaSession.setActionHandler('pause', () => dispatch(pauseMusic()));
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.seekTime !== undefined) {
+                        handleSeek(details.seekTime);
+                    }
+                });
             }
         }
-    }, [currentSong?.id, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
+    }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
+
+    // Sync Playback State with MediaSession
+    useEffect(() => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+            // Update position state for accurate notification seeker
+            const activeAudio = getActiveAudio();
+            if (activeAudio && !isNaN(activeAudio.duration) && 'setPositionState' in navigator.mediaSession) {
+                try {
+                    navigator.mediaSession.setPositionState({
+                        duration: activeAudio.duration || 0,
+                        playbackRate: activeAudio.playbackRate || 1,
+                        position: activeAudio.currentTime || 0,
+                    });
+                } catch (e) {
+                    console.error('Error setting MediaSession position state:', e);
+                }
+            }
+        }
+    }, [isPlaying, activeBuffer]);
 
     // Session Seek Listener
     useEffect(() => {
@@ -293,6 +329,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const currentTime = activeAudio.currentTime;
 
             dispatch(setCurrentTime(currentTime));
+
+            // Update MediaSession position
+            if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+                try {
+                    navigator.mediaSession.setPositionState({
+                        duration: duration || 0,
+                        playbackRate: activeAudio.playbackRate || 1,
+                        position: currentTime || 0,
+                    });
+                } catch (e) {}
+            }
 
             // Update Progress Bar
             const progress = (currentTime / (duration || 1)) * 100;
