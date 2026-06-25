@@ -395,6 +395,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                 )
                             ))}
                         </AnimatePresence>
+                        )}
                     </div>
 
                     {visibleSongsCount < sortedSongs.length && (
