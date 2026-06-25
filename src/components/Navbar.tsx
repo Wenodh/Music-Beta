@@ -111,7 +111,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
 
             <form
                 onSubmit={handleSearchSubmit}
-                className="relative flex items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0"
+                className={`relative items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0 ${focusSearch ? 'flex' : 'hidden md:flex'}`}
             >
                 <div className="relative w-full group">
                     <input
