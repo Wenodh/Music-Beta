@@ -12,7 +12,31 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const inputRef = React.useRef<HTMLInputElement>(null);
+    const navRef = React.useRef<HTMLElement>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Dynamic height measurement
+    useEffect(() => {
+        const updateHeight = () => {
+            if (navRef.current) {
+                const height = navRef.current.offsetHeight;
+                document.documentElement.style.setProperty('--navbar-height', `${height}px`);
+            }
+        };
+
+        const resizeObserver = new ResizeObserver(updateHeight);
+        if (navRef.current) {
+            resizeObserver.observe(navRef.current);
+        }
+
+        updateHeight();
+        window.addEventListener('resize', updateHeight);
+
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', updateHeight);
+        };
+    }, []);
 
     useEffect(() => {
         if (focusSearch && inputRef.current) {
@@ -78,6 +102,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
 
     return (
         <motion.nav
+            ref={navRef}
             animate={{ y: finalVisible ? 0 : -200 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-2 sm:p-3 md:p-4 bg-white/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-1.5 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
@@ -111,7 +136,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
 
             <form
                 onSubmit={handleSearchSubmit}
-                className="relative flex items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0"
+                className={`relative items-center w-full md:w-1/3 order-3 md:order-none mt-1 md:mt-0 ${focusSearch ? 'flex' : 'hidden md:flex'}`}
             >
                 <div className="relative w-full group">
                     <input

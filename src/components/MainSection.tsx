@@ -112,9 +112,9 @@ const MainSection: React.FC = () => {
                 const deduplicateSongs = (songs: any[]) => {
                     const seen = new Set();
                     return songs.filter(song => {
-                        const title = (song.name || song.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                        if (seen.has(title)) return false;
-                        seen.add(title);
+                        const id = song.id;
+                        if (!id || seen.has(id)) return false;
+                        seen.add(id);
                         return true;
                     });
                 };
@@ -122,14 +122,9 @@ const MainSection: React.FC = () => {
                 const rawTrendingSongs = songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [];
                 const rawLatestSongs = latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : [];
 
-                // Cross-deduplicate
-                const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 20);
-                const trendingSongs = deduplicateSongs(rawTrendingSongs)
-                    .filter(ts => !latestSongs.some(ls =>
-                        (ls.name || ls.title || '').toLowerCase().replace(/[^a-z0-9]/g, '') ===
-                        (ts.name || ts.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-                    ))
-                    .slice(0, 20);
+                // Deduplicate and slice
+                const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 50);
+                const trendingSongs = deduplicateSongs(rawTrendingSongs).slice(0, 50);
 
                 setData({
                     albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],

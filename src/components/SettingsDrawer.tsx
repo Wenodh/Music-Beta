@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
@@ -31,6 +31,14 @@ const SettingsDrawer: React.FC = () => {
         { name: 'Purple', value: '#a855f7' },
         { name: 'Pink', value: '#ec4899' },
         { name: 'Orange', value: '#f97316' },
+    ];
+
+    const fontStyles = [
+        { name: 'Standard', value: 'Standard' },
+        { name: 'Bitcount Single', value: 'Bitcount Single' },
+        { name: 'Black Ops One', value: 'Black Ops One' },
+        { name: 'Bitcount Grid Double', value: 'Bitcount Grid Double' },
+        { name: 'Croissant One', value: 'Croissant One' },
     ];
 
     const languages = [
@@ -214,6 +222,28 @@ const SettingsDrawer: React.FC = () => {
                                                 }`}
                                             >
                                                 {lang.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Font Style</h3>
+                                    <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                        {fontStyles.map((font) => (
+                                            <button
+                                                key={font.value}
+                                                onClick={() => dispatch(setFontStyle(font.value))}
+                                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
+                                                    theme.fontStyle === font.value
+                                                        ? 'bg-primary text-white border-primary shadow-lg scale-[1.02]'
+                                                        : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-transparent hover:border-primary/30'
+                                                }`}
+                                                style={{
+                                                    fontFamily: font.value === 'Standard' ? 'inherit' : `'${font.value}', cursive`
+                                                }}
+                                            >
+                                                {font.name}
                                             </button>
                                         ))}
                                     </div>
