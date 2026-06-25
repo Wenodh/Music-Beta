@@ -33,12 +33,17 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
         return [euler.x, euler.y, euler.z] as [number, number, number];
     }, [worldPos]);
 
+    const tempVec = useMemo(() => new THREE.Vector3(), []);
+
     useFrame((state) => {
         const t = state.clock.getElapsedTime();
         if (groupRef.current) {
-            // LOD distance check
-            const dist = camera.position.distanceTo(worldPos);
-            const near = dist < 12.5 || isSelected || hovered;
+            // LOD distance check - More generous for better discovery
+            groupRef.current.getWorldPosition(tempVec);
+            const dist = camera.position.distanceTo(tempVec);
+            // On mobile camera is at 22, front songs are at ~17. On desktop camera is at 15, front songs are at ~10.
+            // Setting threshold to 21 ensures the front hemisphere on mobile shows images.
+            const near = dist < 21 || isSelected || hovered;
             if (near !== isNear) setIsNear(near);
 
             const targetScale = isSelected ? 1.3 + Math.sin(t * 3) * 0.05 : hovered ? 1.2 : 1;
@@ -249,29 +254,40 @@ const ResponsiveCamera = () => {
 };
 
 const CameraController: React.FC<{ targetPosition: [number, number, number] | null }> = ({ targetPosition }) => {
-    const { camera, controls } = useThree() as any;
-    const initialPos = useRef<THREE.Vector3 | null>(null);
+    const { camera, controls, viewport } = useThree() as any;
+    const isMoving = useRef(false);
+    const isMobile = viewport.width < 5;
+    const defaultZ = isMobile ? 22 : 15;
 
     useEffect(() => {
-        if (!targetPosition) {
-            initialPos.current = null;
-        }
+        isMoving.current = true;
+        // Stop moving after a while to let user take control
+        const timer = setTimeout(() => {
+            isMoving.current = false;
+        }, 1000);
+        return () => clearTimeout(timer);
     }, [targetPosition]);
 
     useFrame(() => {
-        if (targetPosition && controls) {
+        if (!controls) return;
+
+        if (targetPosition && isMoving.current) {
             const [x, y, z] = targetPosition;
             const targetVec = new THREE.Vector3(x, y, z);
 
             // Calculate a point slightly outside the globe for the camera
-            const cameraTarget = targetVec.clone().normalize().multiplyScalar(12);
+            const cameraTarget = targetVec.clone().normalize().multiplyScalar(10);
 
-            camera.position.lerp(cameraTarget, 0.08);
-            controls.target.lerp(targetVec, 0.08);
+            camera.position.lerp(cameraTarget, 0.1);
+            controls.target.lerp(targetVec, 0.1);
             controls.update();
-        } else if (!targetPosition && controls && controls.target.length() > 0.1) {
-            // Smoothly return to center if no selection
-            controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+        } else if (!targetPosition && isMoving.current) {
+            // Smoothly return to center and default zoom if no selection
+            const targetCenter = new THREE.Vector3(0, 0, 0);
+            const targetCameraPos = new THREE.Vector3(0, 0, defaultZ);
+
+            controls.target.lerp(targetCenter, 0.1);
+            camera.position.lerp(targetCameraPos, 0.1);
             controls.update();
         }
     });

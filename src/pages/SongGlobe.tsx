@@ -34,8 +34,10 @@ const SongGlobe: React.FC = () => {
                     `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=1&limit=40`
                 ];
 
-                const results = await Promise.all(queries.map(q => axios.get(q)));
-                const allSongs = results.flatMap(res => res.data.data.results || []);
+                const results = await Promise.allSettled(queries.map(q => axios.get(q)));
+                const allSongs = results
+                    .filter((res): res is PromiseFulfilledResult<any> => res.status === 'fulfilled')
+                    .flatMap(res => res.value.data.data.results || []);
                 setApiSongs(allSongs);
             } catch (error) {
                 console.error('Error fetching globe songs:', error);
