@@ -37,7 +37,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
     const [isBioExpanded, setIsBioExpanded] = useState(false);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
-    const [visibleSongsCount, setVisibleSongsCount] = useState(10);
+    const [visibleSongsCount, setVisibleSongsCount] = useState(30);
     const [recommendations, setRecommendations] = useState<{
         moreByArtist: any[];
         similarCollections: any[];
@@ -401,7 +401,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     {visibleSongsCount < sortedSongs.length && (
                         <div className="mt-8 flex justify-center">
                             <button
-                                onClick={() => setVisibleSongsCount(prev => prev + 10)}
+                                onClick={() => setVisibleSongsCount(prev => prev + 30)}
                                 className="px-8 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-xl transition-colors"
                             >
                                 Load More Songs
