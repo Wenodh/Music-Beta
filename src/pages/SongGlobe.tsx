@@ -10,27 +10,28 @@ const GlobeScene = lazy(() => import('../components/globe/GlobeScene'));
 const SongGlobe: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
+    const [activeCategory, setActiveCategory] = useState(language);
     const [apiSongs, setApiSongs] = useState<Song[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Fetch API songs once when language changes
+    // Fetch API songs once when language or category changes
     useEffect(() => {
         const fetchGlobeSongs = async () => {
             try {
                 setLoading(true);
 
                 const queries = [
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Popular')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Popular')}&page=1&limit=40`
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=2&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=2&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=2&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=1&limit=40`
                 ];
 
                 const results = await Promise.all(queries.map(q => axios.get(q)));
@@ -44,18 +45,21 @@ const SongGlobe: React.FC = () => {
         };
 
         fetchGlobeSongs();
-    }, [language]);
+    }, [activeCategory]);
 
     // Compute combined unique songs
     const songs = React.useMemo(() => {
-        const combined = [...recentlyPlayed, ...apiSongs];
+        const combined = [
+            ...recentlyPlayed.map(s => ({ ...s, globeType: 'recent' })),
+            ...apiSongs.map(s => ({ ...s, globeType: activeCategory === 'Trending' ? 'trending' : 'normal' }))
+        ];
         const seen = new Set();
         return combined.filter(song => {
             if (seen.has(song.id)) return false;
             seen.add(song.id);
             return true;
         }).slice(0, 800);
-    }, [recentlyPlayed, apiSongs]);
+    }, [recentlyPlayed, apiSongs, activeCategory]);
 
     return (
         <div className="fixed inset-0 z-0 bg-black overflow-hidden pt-0 md:pt-0">
@@ -66,9 +70,25 @@ const SongGlobe: React.FC = () => {
                     </div>
                     <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white drop-shadow-lg">Song Globe</h1>
                 </div>
-                <p className="text-[10px] sm:text-sm text-gray-400 leading-tight max-w-xs">
-                    Explore a world of music. Rotate the globe to discover {language} hits.
+                <p className="text-[10px] sm:text-sm text-gray-400 leading-tight max-w-xs mb-4">
+                    Explore a world of music. Rotate the globe to discover {activeCategory} hits.
                 </p>
+
+                <div className="flex flex-wrap gap-2 pointer-events-auto max-w-[280px] sm:max-w-md">
+                    {['Trending', 'Telugu', 'Hindi', 'Punjabi', 'English', 'Tamil'].map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat === 'Trending' ? language : cat)}
+                            className={`px-3 py-1 rounded-full border text-[10px] sm:text-xs font-medium transition-all duration-300 backdrop-blur-md ${
+                                (cat === 'Trending' && activeCategory === language) || activeCategory === cat
+                                ? 'bg-primary border-primary text-black'
+                                : 'bg-black/20 border-white/10 text-white/60 hover:bg-black/40'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <Suspense fallback={

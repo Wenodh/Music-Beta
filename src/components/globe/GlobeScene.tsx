@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, Suspense, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Float, Stars, Html, Preload, Billboard, Image } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Float, Stars, Html, Preload, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { Song } from '../../types/music';
 import SongPreviewCard from './SongPreviewCard';
@@ -12,31 +12,45 @@ interface SongPointProps {
     position: [number, number, number];
     onSelect: (song: Song) => void;
     isSelected: boolean;
+    isTrending?: boolean;
 }
 
-const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelected }) => {
-    const meshRef = useRef<THREE.Mesh>(null);
+const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelected, isTrending }) => {
     const groupRef = useRef<THREE.Group>(null);
+    const pulseRef = useRef<THREE.Mesh>(null);
     const [hovered, setHovered] = useState(false);
+    const [isNear, setIsNear] = useState(isSelected);
     const { theme } = useAppSelector(state => state.ui);
+    const { camera } = useThree();
+
+    const worldPos = useMemo(() => new THREE.Vector3(...position), [position]);
 
     // Calculate rotation to face outwards from center
     const rotation = useMemo(() => {
         const lookAtMatrix = new THREE.Matrix4();
-        lookAtMatrix.lookAt(
-            new THREE.Vector3(position[0], position[1], position[2]),
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 1, 0)
-        );
+        lookAtMatrix.lookAt(worldPos, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0));
         const euler = new THREE.Euler().setFromRotationMatrix(lookAtMatrix);
         return [euler.x, euler.y, euler.z] as [number, number, number];
-    }, [position]);
+    }, [worldPos]);
 
     useFrame((state) => {
+        const t = state.clock.getElapsedTime();
         if (groupRef.current) {
-            const t = state.clock.getElapsedTime();
+            // LOD distance check
+            const dist = camera.position.distanceTo(worldPos);
+            const near = dist < 12.5 || isSelected || hovered;
+            if (near !== isNear) setIsNear(near);
+
             const targetScale = isSelected ? 1.3 + Math.sin(t * 3) * 0.05 : hovered ? 1.2 : 1;
             groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+        }
+
+        if (pulseRef.current && (isSelected || isTrending)) {
+            const s = isSelected ? 1 : 0.8 + Math.sin(t * 2) * 0.2;
+            pulseRef.current.scale.set(s, s, s);
+            if (pulseRef.current.material instanceof THREE.MeshBasicMaterial) {
+                pulseRef.current.material.opacity = isSelected ? 0.6 : 0.2 + Math.sin(t * 2) * 0.1;
+            }
         }
     });
 
@@ -49,7 +63,31 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
 
     return (
         <group ref={groupRef} position={position} rotation={rotation}>
-            <Suspense fallback={
+            {isNear ? (
+                <Suspense fallback={
+                    <mesh
+                        onPointerOver={() => setHovered(true)}
+                        onPointerOut={() => setHovered(false)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(song);
+                        }}
+                    >
+                        <circleGeometry args={[0.5, 32]} />
+                        <meshBasicMaterial color="#222" transparent opacity={0.5} />
+                    </mesh>
+                }>
+                    <SongImageMesh
+                        url={songImage}
+                        onPointerOver={() => setHovered(true)}
+                        onPointerOut={() => setHovered(false)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(song);
+                        }}
+                    />
+                </Suspense>
+            ) : (
                 <mesh
                     onPointerOver={() => setHovered(true)}
                     onPointerOut={() => setHovered(false)}
@@ -58,32 +96,25 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
                         onSelect(song);
                     }}
                 >
-                    <planeGeometry args={[0.8, 0.8]} />
-                    <meshStandardMaterial color="#222" transparent opacity={0.5} />
+                    <circleGeometry args={[0.4, 16]} />
+                    <meshBasicMaterial
+                        color={isTrending ? theme.accentColor : "#444"}
+                        transparent
+                        opacity={0.6}
+                    />
                 </mesh>
-            }>
-                <Image
-                    ref={meshRef}
-                    url={songImage}
-                    transparent
-                    side={THREE.DoubleSide}
-                    scale={[1.1, 1.1]}
-                    onPointerOver={() => setHovered(true)}
-                    onPointerOut={() => setHovered(false)}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(song);
-                    }}
-                >
-                    <circleGeometry args={[0.5, 32]} />
-                </Image>
-                {isSelected && (
-                    <mesh position={[0, 0, -0.01]}>
-                        <circleGeometry args={[0.55, 32]} />
-                        <meshBasicMaterial color={theme.accentColor} transparent opacity={0.6} />
-                    </mesh>
-                )}
-            </Suspense>
+            )}
+
+            {(isSelected || isTrending) && (
+                <mesh ref={pulseRef} position={[0, 0, -0.01]}>
+                    <circleGeometry args={[isSelected ? 0.55 : 0.45, 32]} />
+                    <meshBasicMaterial
+                        color={theme.accentColor}
+                        transparent
+                        opacity={0.3}
+                    />
+                </mesh>
+            )}
 
             {(isSelected || hovered) && (
                 <Html distanceFactor={10}>
@@ -98,7 +129,36 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
     );
 };
 
-const Globe: React.FC<{ songs: Song[], selectedSongId: string | null, onSelect: (song: Song) => void }> = ({ songs, selectedSongId, onSelect }) => {
+const SongImageMesh: React.FC<{
+    url: string,
+    onPointerOver: () => void,
+    onPointerOut: () => void,
+    onClick: (e: any) => void
+}> = ({ url, onPointerOver, onPointerOut, onClick }) => {
+    const texture = useTexture(url);
+
+    useEffect(() => {
+        if (texture) {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = 8; // Higher quality for nearby images
+            texture.generateMipmaps = true;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+        }
+    }, [texture]);
+
+    return (
+        <mesh
+            onPointerOver={onPointerOver}
+            onPointerOut={onPointerOut}
+            onClick={onClick}
+        >
+            <circleGeometry args={[0.5, 32]} />
+            <meshBasicMaterial map={texture} side={THREE.DoubleSide} transparent />
+        </mesh>
+    );
+};
+
+const Globe: React.FC<{ songs: Song[], selectedSongId: string | null, onSelect: (song: Song, position: [number, number, number]) => void }> = ({ songs, selectedSongId, onSelect }) => {
     const groupRef = useRef<THREE.Group>(null);
     const { theme } = useAppSelector(state => state.ui);
 
@@ -160,13 +220,14 @@ const Globe: React.FC<{ songs: Song[], selectedSongId: string | null, onSelect: 
             </mesh>
 
             {/* Song Points */}
-            {songPositions.map(({ song, position }) => (
+            {songPositions.map(({ song, position }, index) => (
                 <SongPoint
                     key={song.id}
                     song={song}
                     position={position}
-                    onSelect={onSelect}
+                    onSelect={(s) => onSelect(s, position)}
                     isSelected={selectedSongId === song.id}
+                    isTrending={index % 50 === 0 || (song as any).globeType === 'trending'}
                 />
             ))}
         </group>
@@ -187,8 +248,50 @@ const ResponsiveCamera = () => {
     return null;
 };
 
+const CameraController: React.FC<{ targetPosition: [number, number, number] | null }> = ({ targetPosition }) => {
+    const { camera, controls } = useThree() as any;
+    const initialPos = useRef<THREE.Vector3 | null>(null);
+
+    useEffect(() => {
+        if (!targetPosition) {
+            initialPos.current = null;
+        }
+    }, [targetPosition]);
+
+    useFrame(() => {
+        if (targetPosition && controls) {
+            const [x, y, z] = targetPosition;
+            const targetVec = new THREE.Vector3(x, y, z);
+
+            // Calculate a point slightly outside the globe for the camera
+            const cameraTarget = targetVec.clone().normalize().multiplyScalar(12);
+
+            camera.position.lerp(cameraTarget, 0.08);
+            controls.target.lerp(targetVec, 0.08);
+            controls.update();
+        } else if (!targetPosition && controls && controls.target.length() > 0.1) {
+            // Smoothly return to center if no selection
+            controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+            controls.update();
+        }
+    });
+
+    return null;
+};
+
 const GlobeScene: React.FC<{ songs: Song[] }> = ({ songs }) => {
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
+    const [targetPos, setTargetPos] = useState<[number, number, number] | null>(null);
+
+    const handleSelect = (song: Song, position: [number, number, number]) => {
+        setSelectedSong(song);
+        setTargetPos(position);
+    };
+
+    const handleClose = () => {
+        setSelectedSong(null);
+        setTargetPos(null);
+    };
 
     return (
         <div className="w-full h-full relative">
@@ -203,7 +306,10 @@ const GlobeScene: React.FC<{ songs: Song[] }> = ({ songs }) => {
                     dampingFactor={0.05}
                     enableDamping={true}
                     rotateSpeed={0.5}
+                    makeDefault
                 />
+
+                <CameraController targetPosition={targetPos} />
 
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
@@ -216,7 +322,7 @@ const GlobeScene: React.FC<{ songs: Song[] }> = ({ songs }) => {
                         <Globe
                             songs={songs}
                             selectedSongId={selectedSong?.id || null}
-                            onSelect={setSelectedSong}
+                            onSelect={handleSelect}
                         />
                     </Float>
                     <Preload all />
@@ -227,7 +333,7 @@ const GlobeScene: React.FC<{ songs: Song[] }> = ({ songs }) => {
                 {selectedSong && (
                     <SongPreviewCard
                         song={selectedSong}
-                        onClose={() => setSelectedSong(null)}
+                        onClose={handleClose}
                     />
                 )}
             </AnimatePresence>
