@@ -22,9 +22,15 @@ const SongGlobe: React.FC = () => {
                 const queries = [
                     `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=40`,
                     `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=2&limit=40`,
                     `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=40`,
                     `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=0&limit=40`
+                    `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=2&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=2&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Popular')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Popular')}&page=1&limit=40`
                 ];
 
                 const results = await Promise.all(queries.map(q => axios.get(q)));
@@ -48,7 +54,7 @@ const SongGlobe: React.FC = () => {
             if (seen.has(song.id)) return false;
             seen.add(song.id);
             return true;
-        }).slice(0, 500);
+        }).slice(0, 800);
     }, [recentlyPlayed, apiSongs]);
 
     return (

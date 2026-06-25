@@ -67,17 +67,19 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
                     url={songImage}
                     transparent
                     side={THREE.DoubleSide}
-                    scale={[0.8, 0.8]}
+                    scale={[1.1, 1.1]}
                     onPointerOver={() => setHovered(true)}
                     onPointerOut={() => setHovered(false)}
                     onClick={(e) => {
                         e.stopPropagation();
                         onSelect(song);
                     }}
-                />
+                >
+                    <circleGeometry args={[0.5, 32]} />
+                </Image>
                 {isSelected && (
                     <mesh position={[0, 0, -0.01]}>
-                        <planeGeometry args={[0.9, 0.9]} />
+                        <circleGeometry args={[0.55, 32]} />
                         <meshBasicMaterial color={theme.accentColor} transparent opacity={0.6} />
                     </mesh>
                 )}
