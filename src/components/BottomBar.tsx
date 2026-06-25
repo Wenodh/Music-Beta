@@ -1,15 +1,15 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoPersonOutline, IoPerson } from 'react-icons/io5';
+import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoGlobeOutline, IoGlobe } from 'react-icons/io5';
 import { useAppSelector } from '../hooks/redux';
 
 const navItems = [
     { label: 'Home', path: '/', icon: IoHomeOutline, activeIcon: IoHome },
     { label: 'Explore', path: '/explore', icon: IoCompassOutline, activeIcon: IoCompass },
-    { label: 'Search', path: '/search', icon: IoSearchOutline, activeIcon: IoSearch },
+    { label: 'Globe', path: '/globe', icon: IoGlobeOutline, activeIcon: IoGlobe },
     { label: 'Library', path: '/library', icon: IoLibraryOutline, activeIcon: IoLibrary },
-    { label: 'Profile', path: '/profile', icon: IoPersonOutline, activeIcon: IoPerson },
+    { label: 'Search', path: '/search', icon: IoSearchOutline, activeIcon: IoSearch },
 ];
 
 const BottomBar: React.FC = () => {
