@@ -230,16 +230,14 @@ export const AppContent = () => {
         }
     };
 
-    const location = useLocation();
-    const isSearchPage = location.pathname === '/search';
-
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white ${isSearchPage ? 'pt-28' : 'pt-20'} md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
                 '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
                 '--bottom-bar-height': currentSong ? '150px' : '65px',
+                paddingTop: 'var(--navbar-height, 80px)',
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >
