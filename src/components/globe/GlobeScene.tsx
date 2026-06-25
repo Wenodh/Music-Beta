@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Float, Stars, Html, Preload } from '@react-three/drei';
+import React, { useState, useMemo, useRef, Suspense, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Float, Stars, Html, Preload, Billboard, Image } from '@react-three/drei';
 import * as THREE from 'three';
 import { Song } from '../../types/music';
 import SongPreviewCard from './SongPreviewCard';
@@ -15,45 +15,58 @@ interface SongPointProps {
 }
 
 const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelected }) => {
-    const meshRef = useRef<THREE.Mesh>(null);
+    const groupRef = useRef<THREE.Group>(null);
     const [hovered, setHovered] = useState(false);
     const { theme } = useAppSelector(state => state.ui);
 
     useFrame((state) => {
-        if (meshRef.current) {
+        if (groupRef.current) {
             const t = state.clock.getElapsedTime();
-            meshRef.current.scale.setScalar(
-                isSelected ? 1.5 + Math.sin(t * 5) * 0.1 :
-                hovered ? 1.3 : 1
-            );
+            const targetScale = isSelected ? 1.8 + Math.sin(t * 5) * 0.1 : hovered ? 1.5 : 1;
+            groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
         }
     });
 
     const songImage = useMemo(() => {
         if (Array.isArray(song.image)) {
-            return song.image[0]?.url;
+            return song.image[song.image.length - 1]?.url || song.image[0]?.url;
         }
         return song.image;
     }, [song.image]);
 
     return (
-        <group position={position}>
-            <mesh
-                ref={meshRef}
-                onPointerOver={() => setHovered(true)}
-                onPointerOut={() => setHovered(false)}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect(song);
-                }}
+        <group position={position} ref={groupRef}>
+            <Billboard
+                follow={true}
+                lockX={false}
+                lockY={false}
+                lockZ={false}
             >
-                <sphereGeometry args={[0.1, 16, 16]} />
-                <meshStandardMaterial
-                    color={isSelected ? theme.accentColor : hovered ? '#fff' : '#888'}
-                    emissive={isSelected ? theme.accentColor : hovered ? '#fff' : '#444'}
-                    emissiveIntensity={isSelected ? 2 : 0.5}
-                />
-            </mesh>
+                <mesh
+                    onPointerOver={() => setHovered(true)}
+                    onPointerOut={() => setHovered(false)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(song);
+                    }}
+                >
+                    <planeGeometry args={[0.6, 0.6]} />
+                    <Suspense fallback={<meshStandardMaterial color="#222" />}>
+                        <Image
+                            url={songImage}
+                            transparent
+                            side={THREE.DoubleSide}
+                            scale={[0.6, 0.6]}
+                        />
+                    </Suspense>
+                    {isSelected && (
+                        <mesh position={[0, 0, -0.01]}>
+                            <planeGeometry args={[0.7, 0.7]} />
+                            <meshBasicMaterial color={theme.accentColor} transparent opacity={0.5} />
+                        </mesh>
+                    )}
+                </mesh>
+            </Billboard>
 
             {(isSelected || hovered) && (
                 <Html distanceFactor={10}>
@@ -143,12 +156,27 @@ const Globe: React.FC<{ songs: Song[], selectedSongId: string | null, onSelect: 
     );
 };
 
+const ResponsiveCamera = () => {
+    const { viewport, camera } = useThree();
+    const isMobile = viewport.width < 5;
+
+    useEffect(() => {
+        if (camera instanceof THREE.PerspectiveCamera) {
+            camera.position.z = isMobile ? 22 : 15;
+            camera.updateProjectionMatrix();
+        }
+    }, [isMobile, camera]);
+
+    return null;
+};
+
 const GlobeScene: React.FC<{ songs: Song[] }> = ({ songs }) => {
     const [selectedSong, setSelectedSong] = useState<Song | null>(null);
 
     return (
         <div className="w-full h-full relative">
             <Canvas dpr={[1, 1.5]} performance={{ min: 0.5 }}>
+                <ResponsiveCamera />
                 <PerspectiveCamera makeDefault position={[0, 0, 15]} fov={45} />
                 <OrbitControls
                     enablePan={false}

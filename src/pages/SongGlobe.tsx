@@ -34,7 +34,7 @@ const SongGlobe: React.FC = () => {
                     if (seen.has(song.id)) return false;
                     seen.add(song.id);
                     return true;
-                }).slice(0, 80); // Limit for performance
+                }).slice(0, 150); // Increased limit to cover globe better
 
                 setSongs(uniqueSongs);
             } catch (error) {
