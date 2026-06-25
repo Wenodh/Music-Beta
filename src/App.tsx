@@ -230,9 +230,12 @@ export const AppContent = () => {
         }
     };
 
+    const location = useLocation();
+    const isSearchPage = location.pathname === '/search';
+
     return (
         <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pt-28 md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white ${isSearchPage ? 'pt-28' : 'pt-20'} md:pt-20 pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
                 '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
@@ -240,7 +243,6 @@ export const AppContent = () => {
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >
-            <BrowserRouter>
                 <LocationAwareNavbar />
                 <BottomBar />
                 <SearchSection />
@@ -271,7 +273,6 @@ export const AppContent = () => {
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}
                 />
-            </BrowserRouter>
         </div>
     );
 };
@@ -281,7 +282,9 @@ export default function App() {
         <ErrorBoundary>
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
-                    <AppContent />
+                    <BrowserRouter>
+                        <AppContent />
+                    </BrowserRouter>
                     <SpeedInsights />
                 </PersistGate>
             </Provider>
