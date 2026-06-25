@@ -15,14 +15,27 @@ interface SongPointProps {
 }
 
 const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelected }) => {
+    const meshRef = useRef<THREE.Mesh>(null);
     const groupRef = useRef<THREE.Group>(null);
     const [hovered, setHovered] = useState(false);
     const { theme } = useAppSelector(state => state.ui);
 
+    // Calculate rotation to face outwards from center
+    const rotation = useMemo(() => {
+        const lookAtMatrix = new THREE.Matrix4();
+        lookAtMatrix.lookAt(
+            new THREE.Vector3(position[0], position[1], position[2]),
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 1, 0)
+        );
+        const euler = new THREE.Euler().setFromRotationMatrix(lookAtMatrix);
+        return [euler.x, euler.y, euler.z] as [number, number, number];
+    }, [position]);
+
     useFrame((state) => {
         if (groupRef.current) {
             const t = state.clock.getElapsedTime();
-            const targetScale = isSelected ? 1.8 + Math.sin(t * 5) * 0.1 : hovered ? 1.5 : 1;
+            const targetScale = isSelected ? 1.3 + Math.sin(t * 3) * 0.05 : hovered ? 1.2 : 1;
             groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
         }
     });
@@ -35,13 +48,8 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
     }, [song.image]);
 
     return (
-        <group position={position} ref={groupRef}>
-            <Billboard
-                follow={true}
-                lockX={false}
-                lockY={false}
-                lockZ={false}
-            >
+        <group ref={groupRef} position={position} rotation={rotation}>
+            <Suspense fallback={
                 <mesh
                     onPointerOver={() => setHovered(true)}
                     onPointerOut={() => setHovered(false)}
@@ -50,23 +58,30 @@ const SongPoint: React.FC<SongPointProps> = ({ song, position, onSelect, isSelec
                         onSelect(song);
                     }}
                 >
-                    <planeGeometry args={[0.6, 0.6]} />
-                    <Suspense fallback={<meshStandardMaterial color="#222" />}>
-                        <Image
-                            url={songImage}
-                            transparent
-                            side={THREE.DoubleSide}
-                            scale={[0.6, 0.6]}
-                        />
-                    </Suspense>
-                    {isSelected && (
-                        <mesh position={[0, 0, -0.01]}>
-                            <planeGeometry args={[0.7, 0.7]} />
-                            <meshBasicMaterial color={theme.accentColor} transparent opacity={0.5} />
-                        </mesh>
-                    )}
+                    <planeGeometry args={[0.8, 0.8]} />
+                    <meshStandardMaterial color="#222" transparent opacity={0.5} />
                 </mesh>
-            </Billboard>
+            }>
+                <Image
+                    ref={meshRef}
+                    url={songImage}
+                    transparent
+                    side={THREE.DoubleSide}
+                    scale={[0.8, 0.8]}
+                    onPointerOver={() => setHovered(true)}
+                    onPointerOut={() => setHovered(false)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(song);
+                    }}
+                />
+                {isSelected && (
+                    <mesh position={[0, 0, -0.01]}>
+                        <planeGeometry args={[0.9, 0.9]} />
+                        <meshBasicMaterial color={theme.accentColor} transparent opacity={0.6} />
+                    </mesh>
+                )}
+            </Suspense>
 
             {(isSelected || hovered) && (
                 <Html distanceFactor={10}>
@@ -181,9 +196,11 @@ const GlobeScene: React.FC<{ songs: Song[] }> = ({ songs }) => {
                 <OrbitControls
                     enablePan={false}
                     minDistance={8}
-                    maxDistance={25}
+                    maxDistance={30}
                     autoRotate={false}
                     dampingFactor={0.05}
+                    enableDamping={true}
+                    rotateSpeed={0.5}
                 />
 
                 <ambientLight intensity={0.5} />

@@ -10,33 +10,26 @@ const GlobeScene = lazy(() => import('../components/globe/GlobeScene'));
 const SongGlobe: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
-    const [songs, setSongs] = useState<Song[]>([]);
+    const [apiSongs, setApiSongs] = useState<Song[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Fetch API songs once when language changes
     useEffect(() => {
         const fetchGlobeSongs = async () => {
             try {
                 setLoading(true);
 
-                // Fetch from multiple sources for a rich globe
-                const [trendingRes, latestRes] = await Promise.all([
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=40`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=40`)
-                ]);
+                const queries = [
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=1&limit=40`,
+                    `${songsUrl}?query=${encodeURIComponent(language + ' Trending')}&page=0&limit=40`
+                ];
 
-                const trendingSongs = trendingRes.data.data.results || [];
-                const latestSongs = latestRes.data.data.results || [];
-
-                // Combine and deduplicate
-                const combined = [...recentlyPlayed, ...trendingSongs, ...latestSongs];
-                const seen = new Set();
-                const uniqueSongs = combined.filter(song => {
-                    if (seen.has(song.id)) return false;
-                    seen.add(song.id);
-                    return true;
-                }).slice(0, 150); // Increased limit to cover globe better
-
-                setSongs(uniqueSongs);
+                const results = await Promise.all(queries.map(q => axios.get(q)));
+                const allSongs = results.flatMap(res => res.data.data.results || []);
+                setApiSongs(allSongs);
             } catch (error) {
                 console.error('Error fetching globe songs:', error);
             } finally {
@@ -45,7 +38,18 @@ const SongGlobe: React.FC = () => {
         };
 
         fetchGlobeSongs();
-    }, [language, recentlyPlayed]);
+    }, [language]);
+
+    // Compute combined unique songs
+    const songs = React.useMemo(() => {
+        const combined = [...recentlyPlayed, ...apiSongs];
+        const seen = new Set();
+        return combined.filter(song => {
+            if (seen.has(song.id)) return false;
+            seen.add(song.id);
+            return true;
+        }).slice(0, 500);
+    }, [recentlyPlayed, apiSongs]);
 
     return (
         <div className="fixed inset-0 z-0 bg-black overflow-hidden pt-0 md:pt-0">
