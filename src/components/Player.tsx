@@ -203,11 +203,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     useEffect(() => {
         if (currentSong && !recommendationsCache[currentSong.id]) {
-            fetch(suggestions(currentSong.id))
-                .then(res => res.json())
+            musicApi.getSuggestions(currentSong.id)
                 .then(data => {
-                    if (data.status === 'SUCCESS' && data.data) {
-                        dispatch(setRecommendations({ songId: currentSong.id, recommendations: data.data }));
+                    if (data) {
+                        dispatch(setRecommendations({ songId: currentSong.id, recommendations: data }));
                     }
                 }).catch(err => console.error('Error fetching recommendations:', err));
         } else if (currentSong && recommendationsCache[currentSong.id]) {
