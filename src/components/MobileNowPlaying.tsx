@@ -106,6 +106,14 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
+                    drag="y"
+                    dragConstraints={{ top: 0, bottom: 0 }}
+                    dragElastic={0.1}
+                    onDragEnd={(_, info) => {
+                        if (info.offset.y > 100 || info.velocity.y > 500) {
+                            onClose();
+                        }
+                    }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200, mass: 0.8 }}
                     className="fixed inset-0 z-[220] bg-gray-950 flex flex-col text-white overflow-hidden"
                 >

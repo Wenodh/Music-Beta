@@ -9,7 +9,7 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic, addRecentlyPlayedAlbum } from '../features/musicplayer/musicPlayerSlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
-import { IoGridOutline, IoListOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle } from 'react-icons/io5';
+import { IoGridOutline, IoListOutline, IoGlobeOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
@@ -22,6 +22,8 @@ interface PageTemplateProps {
     children?: React.ReactNode;
 }
 
+const GlobeScene = React.lazy(() => import('./globe/GlobeScene'));
+
 const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children }) => {
     const { details, loading, error, image: fetchedImage } = useFetchDetails(
         apiUrl || '',
@@ -29,13 +31,13 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
     );
     const dispatch = useAppDispatch();
     const { favorites } = useAppSelector((state) => state.library);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'globe'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
     const [isBioExpanded, setIsBioExpanded] = useState(false);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
-    const [visibleSongsCount, setVisibleSongsCount] = useState(10);
+    const [visibleSongsCount, setVisibleSongsCount] = useState(30);
     const [recommendations, setRecommendations] = useState<{
         moreByArtist: any[];
         similarCollections: any[];
@@ -257,6 +259,12 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                 >
                                     <IoListOutline size={18} />
                                 </button>
+                                <button
+                                    onClick={() => setViewMode('globe')}
+                                    className={`p-1.5 rounded-md transition-all ${viewMode === 'globe' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}
+                                >
+                                    <IoGlobeOutline size={18} />
+                                </button>
                             </div>
 
                             <div className="flex items-center gap-2 text-sm relative">
@@ -314,8 +322,15 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
                     <div className={viewMode === 'grid'
                         ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-6"
-                        : "flex flex-col gap-1"
+                        : viewMode === 'list' ? "flex flex-col gap-1" : ""
                     }>
+                        {viewMode === 'globe' ? (
+                            <div className="w-full h-[60vh] sm:h-[70vh] relative bg-black rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
+                                <React.Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                                    <GlobeScene songs={rawSongs} />
+                                </React.Suspense>
+                            </div>
+                        ) : (
                         <AnimatePresence mode="popLayout">
                             {songs.map((song: Song) => (
                                 viewMode === 'list' ? (
@@ -380,12 +395,13 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                 )
                             ))}
                         </AnimatePresence>
+                        )}
                     </div>
 
                     {visibleSongsCount < sortedSongs.length && (
                         <div className="mt-8 flex justify-center">
                             <button
-                                onClick={() => setVisibleSongsCount(prev => prev + 10)}
+                                onClick={() => setVisibleSongsCount(prev => prev + 30)}
                                 className="px-8 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-xl transition-colors"
                             >
                                 Load More Songs
