@@ -65,7 +65,7 @@ const SongGlobe: React.FC = () => {
 
     return (
         <div className="fixed inset-0 z-0 bg-black overflow-hidden pt-0 md:pt-0">
-            <div className="absolute top-32 left-4 z-10 pointer-events-none">
+            <div className="absolute top-[calc(var(--navbar-height,80px)+24px)] left-4 z-10 pointer-events-none">
                 <div className="flex items-center gap-2 mb-1">
                     <div className="p-1.5 bg-primary/10 rounded-lg text-primary backdrop-blur-md border border-white/10">
                         <IoGlobeOutline className="text-lg sm:text-xl" />
