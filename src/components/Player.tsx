@@ -30,6 +30,7 @@ import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
+import { musicApi } from '../services/musicApi';
 import Visualizer from './Visualizer';
 import MobileNowPlaying from './MobileNowPlaying';
 import Lyrics from './Lyrics';
@@ -123,7 +124,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     });
 
     useEffect(() => {
-        if (activeAudioRef.current) activeAudioRef.current.playbackRate = playbackSpeed;
+        if (activeAudioRef.current) {
+            try {
+                activeAudioRef.current.playbackRate = playbackSpeed;
+            } catch (e) {
+                console.warn("Failed to set playback rate", e);
+            }
+        }
     }, [playbackSpeed, activeAudioRef]);
 
     const handleManualSeek = useCallback((time: number) => {
@@ -201,18 +208,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [imageUrl, dispatch, uiTheme?.accentColor]);
 
+    const recommendationsCacheRef = useRef(recommendationsCache);
+    useEffect(() => { recommendationsCacheRef.current = recommendationsCache; }, [recommendationsCache]);
+
     useEffect(() => {
-        if (currentSong && !recommendationsCache[currentSong.id]) {
+        if (currentSong && !recommendationsCacheRef.current[currentSong.id]) {
             musicApi.getSuggestions(currentSong.id)
                 .then(data => {
                     if (data) {
                         dispatch(setRecommendations({ songId: currentSong.id, recommendations: data }));
                     }
                 }).catch(err => console.error('Error fetching recommendations:', err));
-        } else if (currentSong && recommendationsCache[currentSong.id]) {
-             dispatch(setRecommendations({ songId: currentSong.id, recommendations: recommendationsCache[currentSong.id].songs }));
         }
-    }, [currentSong?.id, dispatch, recommendationsCache]);
+    }, [currentSong?.id, dispatch]);
 
     const handleProgressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const newPercentage = parseFloat(event.target.value);

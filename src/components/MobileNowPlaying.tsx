@@ -121,7 +121,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     <div className="absolute inset-0 z-0">
                         <motion.div
                             className="absolute inset-0 opacity-30 blur-[120px] saturate-[2]"
-                            style={{ backgroundColor: theme.accentColor }}
+                            style={{ backgroundColor: theme?.accentColor || '#ef4444' }}
                         />
                         <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
@@ -228,7 +228,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     value={progress}
                                     onChange={handleProgressChange}
                                     className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
-                                    style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
+                                    style={{ background: `linear-gradient(to right, ${theme?.accentColor || '#ef4444'} 0%, ${theme?.accentColor || '#ef4444'} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
                                 />
                                 <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
                                     <span>{formatTime(currentTime)}</span>
