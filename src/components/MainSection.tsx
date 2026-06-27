@@ -159,8 +159,19 @@ const MainSection: React.FC = () => {
         { data: data.workout, title: "Workout" }
     ];
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
     return (
         <motion.div
+            variants={containerVariants}
             initial="hidden"
             animate="visible"
             className="pb-32 pt-4 px-2 sm:px-4"

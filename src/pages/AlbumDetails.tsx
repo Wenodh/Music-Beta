@@ -5,7 +5,7 @@ import { albumById } from '../constants';
 
 const AlbumDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const apiUrl = `${albumById}${id}`;
+    const apiUrl = `${albumById}?id=${id}`;
 
     const getImageUrl = (data: any) => {
         if (Array.isArray(data?.image)) {

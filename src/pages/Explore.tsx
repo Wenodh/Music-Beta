@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import { AnimatePresence } from 'framer-motion';
 import { IoCompassOutline, IoSearchOutline } from 'react-icons/io5';
-import { songs as songsUrl } from '../constants';
+import { musicApi } from '../services/musicApi';
 import ExploreSongCard from '../components/ExploreSongCard';
 import ExploreSkeleton from '../components/ExploreSkeleton';
 import { Song } from '../types/music';
@@ -31,8 +30,7 @@ const Explore: React.FC = () => {
             isFetching.current = true;
             setLoading(true);
             const query = language;
-            const res = await axios.get(`${songsUrl}?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`);
-            const newSongs = res.data.data.results || [];
+            const newSongs = await musicApi.searchSongs(query, pageNum, 30);
 
             if (newSongs.length === 0) {
                 updateHasMore(false);

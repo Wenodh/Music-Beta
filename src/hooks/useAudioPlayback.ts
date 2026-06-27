@@ -66,15 +66,27 @@ export const useAudioPlayback = ({
     const getSongUrl = useCallback(async (song: Song | null) => {
         if (!song) return '';
 
-        // Revoke previous blob for this song if exists to avoid leaks
-        if (audioUrlsRef.current[song.id]?.startsWith('blob:')) {
-            URL.revokeObjectURL(audioUrlsRef.current[song.id]);
+        const offlineSong = await getOfflineSong(song.id);
+
+        // If we already have a blob URL for this offline song, REUSE it to prevent playback interruption
+        if (offlineSong && audioUrlsRef.current[song.id]?.startsWith('blob:')) {
+            return audioUrlsRef.current[song.id];
         }
 
-        const offlineSong = await getOfflineSong(song.id);
         let url = '';
         if (offlineSong?.audioBlob) {
             url = URL.createObjectURL(offlineSong.audioBlob);
+
+            // Limit cache size to prevent memory leaks
+            const cachedKeys = Object.keys(audioUrlsRef.current);
+            if (cachedKeys.length > 10) {
+                const oldestKey = cachedKeys[0];
+                if (audioUrlsRef.current[oldestKey].startsWith('blob:')) {
+                    URL.revokeObjectURL(audioUrlsRef.current[oldestKey]);
+                }
+                delete audioUrlsRef.current[oldestKey];
+            }
+
             audioUrlsRef.current[song.id] = url;
         } else {
             const musicData = song.music || song.downloadUrl;

@@ -4,8 +4,7 @@ import { setSearchedSongs, setSettingsOpen } from '../features/musicplayer/music
 import { IoSearchOutline, IoCompassOutline, IoGlobeOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
-import { search as searchUrl } from '../constants';
+import { musicApi } from '../services/musicApi';
 import debounce from 'lodash/debounce';
 
 const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { focusSearch?: boolean; isVisible?: boolean }) => {
@@ -75,9 +74,9 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
             return;
         }
         try {
-            const res = await axios.get(`${searchUrl}${query}`);
+            const results = await musicApi.searchAll(query);
             // Global search returns topQuery, songs, albums, artists, playlists
-            dispatch(setSearchedSongs(res.data.data));
+            dispatch(setSearchedSongs(results));
         } catch (error) {
             console.error('Error fetching search results:', error);
         }
