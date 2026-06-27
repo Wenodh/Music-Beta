@@ -66,7 +66,7 @@ const SongGlobe: React.FC = () => {
         <div className="fixed inset-0 z-0 bg-black overflow-hidden pt-0 md:pt-0">
             <div className="absolute top-[calc(var(--navbar-height,80px)+24px)] left-4 z-10 pointer-events-none">
                 <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-primary/10 rounded-lg text-primary backdrop-blur-md border border-white/10">
+                    <div className="p-1.5 rounded-lg text-primary backdrop-blur-md border border-white/10" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
                         <IoGlobeOutline className="text-lg sm:text-xl" />
                     </div>
                     <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white drop-shadow-lg">Song Globe</h1>

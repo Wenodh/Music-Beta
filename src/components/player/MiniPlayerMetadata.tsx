@@ -20,7 +20,7 @@ const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps> = ({
     onDoubleTap
 }) => {
     return (
-        <div className="flex justify-start items-center gap-3 md:gap-4 flex-1 min-w-0 lg:w-[30vw]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-start items-center gap-3 md:gap-4 flex-1 min-w-0 lg:w-[30vw]">
             <div className="relative group shrink-0">
                 <motion.img
                     layoutId="player-album-art"

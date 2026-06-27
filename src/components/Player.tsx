@@ -261,7 +261,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             <motion.div
                                 animate={{ scale: isPlaying ? [1, 1.5, 1] : 1, x: isPlaying ? [0, 100, 0] : 0, y: isPlaying ? [0, -50, 0] : 0, opacity: isPlaying ? [0.3, 0.5, 0.3] : 0.2 }}
                                 transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-[80px]"
-                                style={{ background: uiTheme?.accentColor || '#ef4444' }}
+                                style={{ background: 'rgba(var(--accent-rgb), 0.5)' }}
                             />
                         </div>
                         <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
@@ -297,7 +297,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
                             {/* Mobile Controls */}
                             <div className="flex md:hidden items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                                <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); dispatch(playMusic(currentSong)); }} className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary">{isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-1" />}</motion.button>
+                                <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); dispatch(playMusic(currentSong)); }} className="relative w-10 h-10 flex items-center justify-center rounded-xl text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>{isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-1" />}</motion.button>
                                 <IoMdSkipForward onClick={(e) => { e.stopPropagation(); dispatch(nextSong({ isManual: true })); }} size={22} className="w-10 h-10 p-2" />
                             </div>
 

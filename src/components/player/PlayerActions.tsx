@@ -109,7 +109,8 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
                                         <button
                                             key={style}
                                             onClick={() => onSetVisualizerStyle(style as any)}
-                                            className={`p-2 rounded-lg ${visualizerStyle === style ? 'bg-primary/20 text-primary' : 'hover:bg-gray-100'}`}
+                                            className={`p-2 rounded-lg ${visualizerStyle === style ? 'text-primary' : 'hover:bg-gray-100'}`}
+                                            style={visualizerStyle === style ? { backgroundColor: 'rgba(var(--accent-rgb), 0.2)' } : {}}
                                         >
                                             {style === 'bars' && <MdBarChart />}
                                             {style === 'waveform' && <MdShowChart />}

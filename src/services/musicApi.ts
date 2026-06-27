@@ -16,7 +16,7 @@ import {
 import { Song, Album, Playlist, Artist, SearchResults } from '../types/music';
 
 // Initialize LRU Cache (max 100 items, 5 minutes TTL)
-const cache = new LRUCache<string, any>({
+const cache = new LRUCache<string, unknown>({
     max: 100,
     ttl: 1000 * 60 * 5,
 });
@@ -104,7 +104,7 @@ export const musicApi = {
         });
     },
 
-    getExternalLyrics: async (query: string): Promise<any> => {
+    getExternalLyrics: async (query: string): Promise<unknown> => {
         return fetchWithCache(`ext_lyrics_${query}`, async () => {
             const response = await axios.get(`https://lrclib.net/api/search?q=${query}`);
             return response.data;

@@ -145,11 +145,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-4 sm:gap-y-8">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-10">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 max-h-[40vh] aspect-square max-w-[280px] xs:max-w-[320px] sm:max-w-[380px] z-[20] flex items-center justify-center"
+                            className="relative w-full aspect-square max-w-[300px] xs:max-w-[340px] sm:max-w-[400px] max-h-[42vh] z-[20] flex items-center justify-center mx-auto"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">

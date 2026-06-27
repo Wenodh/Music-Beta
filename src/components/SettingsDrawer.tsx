@@ -150,7 +150,8 @@ const SettingsDrawer: React.FC = () => {
                                                     <button
                                                         onClick={handleSync}
                                                         disabled={isSyncing}
-                                                        className={`p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors ${isSyncing ? 'animate-spin' : ''}`}
+                                                        className={`p-2 text-primary rounded-lg transition-colors ${isSyncing ? 'animate-spin' : ''}`}
+                                                        style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}
                                                         title="Sync Library"
                                                     >
                                                         <IoSyncOutline size={20} />
@@ -189,10 +190,11 @@ const SettingsDrawer: React.FC = () => {
                                             dispatch(setSettingsOpen(false));
                                             dispatch(setSessionModalOpen(true));
                                         }}
-                                        className="w-full flex items-center justify-between p-4 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all mt-4 group border border-primary/20"
+                                        className="w-full flex items-center justify-between p-4 hover:bg-primary/20 rounded-2xl transition-all mt-4 group border border-primary/20"
+                                        style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-primary/20 rounded-xl group-hover:scale-110 transition-transform">
+                                            <div className="p-2 rounded-xl group-hover:scale-110 transition-transform" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                                 <IoPeopleOutline className="text-primary" size={20} />
                                             </div>
                                             <div className="text-left">
@@ -200,7 +202,7 @@ const SettingsDrawer: React.FC = () => {
                                                 <p className="text-[10px] text-primary/60">Listen with friends</p>
                                             </div>
                                         </div>
-                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/20 group-hover:bg-primary text-primary group-hover:text-white transition-all">
+                                        <div className="w-8 h-8 flex items-center justify-center rounded-full group-hover:bg-primary text-primary group-hover:text-white transition-all" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                             <IoPeopleOutline size={16} />
                                         </div>
                                     </button>
@@ -342,7 +344,8 @@ const SettingsDrawer: React.FC = () => {
                                                 <button
                                                     onClick={handleDeleteAll}
                                                     disabled={storageInfo.count === 0}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}
                                                 >
                                                     <IoTrashOutline /> Delete All
                                                 </button>

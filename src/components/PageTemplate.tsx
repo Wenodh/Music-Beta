@@ -305,9 +305,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                                         }}
                                                         className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${
                                                             sortBy === option.id
-                                                                ? 'text-primary bg-primary/10 dark:bg-primary/10'
+                                                                ? 'text-primary'
                                                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                         }`}
+                                                        style={activeView === view.id ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
                                                     >
                                                         {option.label}
                                                     </button>
@@ -418,7 +419,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     <div className="flex flex-wrap gap-3 sm:gap-4">
                         {(details as any).followerCount && (
                             <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                     <IoPeopleOutline size={20} />
                                 </div>
                                 <div>

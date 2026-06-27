@@ -209,7 +209,7 @@ const Library: React.FC = () => {
                                         </div>
                                         <button
                                             onClick={(e) => handleDeleteOffline(e, song.id)}
-                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary rounded-full transition-all"
                                         >
                                             <IoTrash size={14} />
                                         </button>
@@ -293,7 +293,7 @@ const Library: React.FC = () => {
                                                 e.stopPropagation();
                                                 dispatch(toggleFavoriteCloud(song) as any);
                                             }}
-                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary rounded-full transition-all"
                                         >
                                             <IoTrash size={14} />
                                         </button>
@@ -360,7 +360,7 @@ const Library: React.FC = () => {
                                             dispatch(deletePlaylistCloud(playlist.id) as any);
                                         }
                                     }}
-                                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary rounded-full transition-all"
                                 >
                                     <IoTrash size={14} />
                                 </button>
@@ -431,7 +431,7 @@ const Library: React.FC = () => {
                                             e.stopPropagation();
                                             dispatch(toggleFavoriteCloud(song) as any);
                                         }}
-                                        className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
+                                        className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
                                     >
                                         {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeart size={18} className="opacity-40" />}
                                     </button>
@@ -442,7 +442,7 @@ const Library: React.FC = () => {
                                                 dispatch(removeFromPlaylistCloud({ playlistId: selectedPlaylist, songId: song.id }) as any);
                                             }
                                         }}
-                                        className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-all"
+                                        className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary rounded-full transition-all"
                                     >
                                         <IoTrash size={18} />
                                     </button>

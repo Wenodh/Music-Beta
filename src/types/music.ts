@@ -89,3 +89,37 @@ export interface SearchResults {
     artists: { results: Artist[] };
     topQuery: { results: any[] };
 }
+
+export interface MusicPlayerState {
+    songs: Song[];
+    recommendations: Song[];
+    isPlaying: boolean;
+    currentSong: Song | null;
+    searchQuery: string;
+    searchedSongs: SearchResults | Song[];
+    recentlyPlayed: Song[];
+    recentlyPlayedAlbums: (Album & { type: string })[];
+    recentSearches: string[];
+    sleepTimer: number | null;
+    preferredQuality: '96kbps' | '160kbps' | '320kbps';
+    isSettingsOpen: boolean;
+    isQueueOpen: boolean;
+    equalizerSettings: {
+        enabled: boolean;
+        bands: number[];
+        preset: string;
+    };
+    isGaplessEnabled: boolean;
+    crossfadeDuration: number;
+    currentTime: number;
+    isSongRadioEnabled: boolean;
+    downloadSettings: {
+        wifiOnly: boolean;
+    };
+    dailyMix: Song[];
+    lastDailyMixUpdate: number;
+    recommendationsCache: Record<string, { songs: Song[]; timestamp: number }>;
+    visualizerStyle: 'pulse' | 'vortex' | 'grid' | 'bars' | 'wave';
+    repeatMode: 'none' | 'all' | 'one';
+    shuffle: boolean;
+}

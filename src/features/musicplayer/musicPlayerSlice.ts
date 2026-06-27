@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Song, MusicPlayerState } from '../../types/music';
+import { Song, MusicPlayerState, SearchResults, Album, Artist, Playlist } from '../../types/music';
 import { getNextSong, getPrevSong } from '../../utils/playlist';
 
 const initialState: MusicPlayerState = {
@@ -7,7 +7,9 @@ const initialState: MusicPlayerState = {
     recommendations: [],
     isPlaying: false,
     currentSong: null,
+    searchQuery: '',
     searchedSongs: [],
+    recentSearches: [],
     recentlyPlayed: [],
     recentlyPlayedAlbums: [],
     sleepTimer: null,
@@ -35,7 +37,7 @@ const initialState: MusicPlayerState = {
 };
 
 // Helper to format song for currentSong state
-const formatSong = (song: Song | any, preferredQuality: string): Song => {
+const formatSong = (song: Partial<Song> & { music?: any; downloadUrl?: any }, preferredQuality: string): Song => {
     const downloadUrl = song.downloadUrl || song.music;
     let musicUrl = downloadUrl;
     if (Array.isArray(downloadUrl)) {
@@ -59,10 +61,27 @@ const musicPlayerSlice = createSlice({
         setSongs: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload.slice(0, 100);
         },
-        setSearchedSongs: (state, action: PayloadAction<any>) => {
+        setSearchedSongs: (state, action: PayloadAction<SearchResults | Song[]>) => {
             state.searchedSongs = action.payload;
         },
-        playMusic: (state, action: PayloadAction<Song & { forcePlay?: boolean } | any>) => {
+        setSearchQuery: (state, action: PayloadAction<string>) => {
+            state.searchQuery = action.payload;
+        },
+        addRecentSearch: (state, action: PayloadAction<string>) => {
+            const query = action.payload.trim();
+            if (!query) return;
+            state.recentSearches = [
+                query,
+                ...state.recentSearches.filter(s => s.toLowerCase() !== query.toLowerCase())
+            ].slice(0, 10);
+        },
+        removeRecentSearch: (state, action: PayloadAction<string>) => {
+            state.recentSearches = state.recentSearches.filter(s => s !== action.payload);
+        },
+        clearRecentSearches: (state) => {
+            state.recentSearches = [];
+        },
+        playMusic: (state, action: PayloadAction<Partial<Song> & { forcePlay?: boolean; audioBlob?: any; imageBlob?: any }>) => {
             const { audioBlob, imageBlob, forcePlay, ...songData } = action.payload;
             const id = songData.id;
 
@@ -88,7 +107,7 @@ const musicPlayerSlice = createSlice({
         pauseMusic: (state) => {
             state.isPlaying = false;
         },
-        setCurrentSong: (state, action: PayloadAction<any>) => {
+        setCurrentSong: (state, action: PayloadAction<Song | null>) => {
             state.currentSong = action.payload;
         },
         setSleepTimer: (state, action: PayloadAction<number | null>) => {
@@ -125,12 +144,12 @@ const musicPlayerSlice = createSlice({
                 timestamp: Date.now(),
             };
         },
-        addRecentlyPlayedAlbum: (state, action: PayloadAction<any>) => {
+        addRecentlyPlayedAlbum: (state, action: PayloadAction<Album>) => {
             const album = action.payload;
             state.recentlyPlayedAlbums = [
                 { ...album, type: 'album' },
-                ...state.recentlyPlayedAlbums.filter((a: any) => a.id !== album.id),
-            ].slice(0, 20);
+                ...state.recentlyPlayedAlbums.filter((a) => a.id !== album.id),
+            ].slice(0, 20) as (Album & { type: string })[];
         },
         setPreferredQuality: (state, action: PayloadAction<MusicPlayerState['preferredQuality']>) => {
             state.preferredQuality = action.payload;
@@ -253,6 +272,10 @@ const musicPlayerSlice = createSlice({
 export const {
     setSongs,
     setSearchedSongs,
+    setSearchQuery,
+    addRecentSearch,
+    removeRecentSearch,
+    clearRecentSearches,
     playMusic,
     pauseMusic,
     setCurrentSong,

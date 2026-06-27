@@ -72,7 +72,7 @@ const Explore: React.FC = () => {
         <div className="pb-32 pt-1 px-2 sm:px-4 sm:pt-4 gpu-accelerated contain-layout overflow-y-auto custom-scrollbar h-full">
             <header className="mb-4">
                 <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
+                    <div className="p-1.5 rounded-lg text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
                         <IoCompassOutline className="text-lg sm:text-xl" />
                     </div>
                     <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Explore</h1>

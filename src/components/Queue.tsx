@@ -26,8 +26,9 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className={`flex items-center gap-3 p-2 rounded-xl group mb-1 transition-colors ${
-                isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
+                isActive ? 'text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
             }`}
+            style={isActive ? { backgroundColor: 'rgba(var(--accent-rgb), 0.15)' } : {}}
         >
             <div
                 onPointerDown={(e) => {
@@ -107,7 +108,8 @@ export const QueueContent: React.FC = () => {
                                     e.stopPropagation();
                                     dispatch(reorderQueue([...songs, song]));
                                 }}
-                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-primary/10 dark:bg-red-900/20 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
+                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
+                                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.15)' }}
                             >
                                 ADD
                             </button>

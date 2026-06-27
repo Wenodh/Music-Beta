@@ -47,8 +47,8 @@ const SongPreviewCard: React.FC<SongPreviewCardProps> = ({ song, onClose }) => {
         >
             <div className="relative overflow-hidden rounded-[2.5rem] bg-black/40 backdrop-blur-3xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-5">
                 {/* Background glow based on image? Simulating with accent */}
-                <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/20 blur-[60px] rounded-full pointer-events-none" />
-                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none" />
+                <div className="absolute -top-24 -right-24 w-48 h-48 blur-[60px] rounded-full pointer-events-none" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }} />
+                <div className="absolute -bottom-24 -left-24 w-48 h-48 blur-[60px] rounded-full pointer-events-none" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }} />
 
                 <div className="flex flex-col items-center text-center gap-4 relative z-10">
                     <div className="relative group w-32 h-32 flex-shrink-0">
@@ -86,7 +86,8 @@ const SongPreviewCard: React.FC<SongPreviewCardProps> = ({ song, onClose }) => {
 
                             <button
                                 onClick={handleToggleFavorite}
-                                className={`p-3 rounded-full border border-white/10 backdrop-blur-md transition-all active:scale-95 ${isFavorite ? 'text-primary bg-primary/10' : 'text-white bg-white/5'}`}
+                                className={`p-3 rounded-full border border-white/10 backdrop-blur-md transition-all active:scale-95 ${isFavorite ? 'text-primary' : 'text-white bg-white/5'}`}
+                                style={isFavorite ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
                             >
                                 {isFavorite ? <IoHeart size={20} /> : <IoHeartOutline size={20} />}
                             </button>
