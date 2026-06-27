@@ -308,7 +308,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                                                 ? 'text-primary'
                                                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                         }`}
-                                                        style={activeView === view.id ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
+                                                        style={sortBy === option.id ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
                                                     >
                                                         {option.label}
                                                     </button>
