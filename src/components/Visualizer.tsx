@@ -71,17 +71,19 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 filter.type = 'peaking';
                 filter.frequency.value = freq;
                 filter.Q.value = 1;
-                filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
+                filter.gain.value = (equalizerSettings?.enabled && equalizerSettings?.bands && equalizerSettings.bands[i] !== undefined) ? equalizerSettings.bands[i] : 0;
                 return filter;
             });
 
             // Connect filters in series
-            for (let i = 0; i < sharedFilters.length - 1; i++) {
-                sharedFilters[i].connect(sharedFilters[i + 1]);
-            }
+            if (sharedFilters.length > 0) {
+                for (let i = 0; i < sharedFilters.length - 1; i++) {
+                    sharedFilters[i].connect(sharedFilters[i + 1]);
+                }
 
-            // Last filter connects to analyser
-            sharedFilters[sharedFilters.length - 1].connect(sharedAnalyser);
+                // Last filter connects to analyser
+                sharedFilters[sharedFilters.length - 1].connect(sharedAnalyser);
+            }
             sharedAnalyser.connect(sharedContext.destination);
 
             isInitialized = true;
@@ -123,9 +125,9 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     }, [audioRefs, isPlaying]);
 
     useEffect(() => {
-        if (isInitialized && sharedFilters.length > 0) {
+        if (isInitialized && Array.isArray(sharedFilters) && sharedFilters.length > 0) {
             sharedFilters.forEach((filter, i) => {
-                filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
+                filter.gain.value = (equalizerSettings?.enabled && equalizerSettings?.bands && equalizerSettings.bands[i] !== undefined) ? equalizerSettings.bands[i] : 0;
             });
         }
     }, [equalizerSettings]);
@@ -166,7 +168,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 const numBars = 64;
                 const barWidth = width / numBars;
 
-                if (smoothedValuesRef.current.length !== numBars) {
+                if (!smoothedValuesRef.current || smoothedValuesRef.current.length !== numBars) {
                     smoothedValuesRef.current = new Array(numBars).fill(0);
                     peaksRef.current = new Array(numBars).fill(0);
                 }
@@ -274,7 +276,8 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
                 ctx.shadowBlur = 0;
             } else if (visualizerStyle === 'particles') {
                 // Initialize particles if needed
-                if (particlesRef.current.length === 0) {
+                if (!particlesRef.current || particlesRef.current.length === 0) {
+                    particlesRef.current = [];
                     for (let i = 0; i < 150; i++) {
                         particlesRef.current.push({
                             x: Math.random() * width,

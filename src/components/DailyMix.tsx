@@ -13,11 +13,11 @@ const DailyMix: React.FC = () => {
 
     useEffect(() => {
         const fetchMix = async () => {
-            if (!recentlyPlayed || recentlyPlayed.length === 0) return;
+            if (!recentlyPlayed || !Array.isArray(recentlyPlayed) || recentlyPlayed.length === 0) return;
 
             const now = Date.now();
             // Only update if cooldown has passed or if we have no songs yet
-            if (dailyMix && dailyMix.length > 0 && (now - lastDailyMixUpdate < COOLDOWN)) {
+            if (dailyMix && Array.isArray(dailyMix) && dailyMix.length > 0 && (now - lastDailyMixUpdate < COOLDOWN)) {
                 return;
             }
 
@@ -59,7 +59,7 @@ const DailyMix: React.FC = () => {
         visible: { y: 0, opacity: 1 }
     };
 
-    if (loading || !dailyMix || dailyMix.length === 0) return null;
+    if (loading || !dailyMix || !Array.isArray(dailyMix) || dailyMix.length === 0) return null;
 
     return (
         <motion.div

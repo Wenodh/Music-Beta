@@ -41,6 +41,7 @@ const SongsList: React.FC<SongsListProps> = ({
     const dispatch = useAppDispatch();
     const { currentSong, downloadSettings, preferredQuality } = useAppSelector((state) => state.musicPlayer);
     const { favorites, downloadedIds } = useAppSelector((state) => state.library);
+    const { theme: uiTheme } = useAppSelector((state) => state.ui);
     const [isDownloading, setIsDownloading] = useState(false);
 
     const isFavorite = favorites.some(s => s.id === id);

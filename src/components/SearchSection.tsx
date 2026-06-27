@@ -22,7 +22,7 @@ const SearchSection: React.FC = () => {
     }, [location.pathname, dispatch]);
 
     if (!searchedSongs || (Array.isArray(searchedSongs) && searchedSongs.length === 0)) {
-        if (recentSearches.length === 0) return null;
+        if (!recentSearches || recentSearches.length === 0) return null;
 
         return (
             <div className="px-2 sm:px-4 py-6 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20">
@@ -74,12 +74,12 @@ const SearchSection: React.FC = () => {
     }
 
     // Handle both cases: old state (array of songs) and new state (object with categories)
-    const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
+    const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : (searchedSongs || {});
 
-    const songs = data.songs?.results || [];
-    const albums = data.albums?.results || [];
-    const artists = data.artists?.results || [];
-    const playlists = data.playlists?.results || [];
+    const songs = (data as any).songs?.results || [];
+    const albums = (data as any).albums?.results || [];
+    const artists = (data as any).artists?.results || [];
+    const playlists = (data as any).playlists?.results || [];
 
     const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0;
     if (!hasResults) {
