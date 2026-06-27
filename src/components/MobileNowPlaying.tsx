@@ -68,7 +68,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
     const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
     const songStack = useMemo(() => {
-        if (!currentSong || songs.length === 0) return [];
+        if (!currentSong || !Array.isArray(songs) || songs.length === 0) return [];
         const stack = [];
         const safeIndex = Math.max(0, currentIndex);
         for (let i = 0; i < Math.min(3, songs.length); i++) {
@@ -448,7 +448,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 <div className="flex items-center justify-between p-6 border-b border-white/10">
                                     <div className="flex items-center gap-2">
                                         <h2 className="text-xl font-bold">Queue</h2>
-                                        <span className="text-xs text-gray-500 font-bold">{songs.length} Tracks</span>
+                                        <span className="text-xs text-gray-500 font-bold">{(songs || []).length} Tracks</span>
                                     </div>
                                     <button onClick={() => setIsQueueOverlayOpen(false)} className="p-2 bg-white/10 rounded-full">
                                         <IoChevronDown size={24} />
@@ -501,7 +501,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             ))}
                                         </div>
 
-                                        {recommendations.length > 0 && (
+                                        {recommendations && Array.isArray(recommendations) && recommendations.length > 0 && (
                                             <div>
                                                 <h4 className="text-lg font-black mb-4">You might also like</h4>
                                                 <div className="space-y-3">
@@ -511,7 +511,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                                             onClick={() => { dispatch(playMusic(song)); setIsInfoOverlayOpen(false); }}
                                                             className="flex items-center gap-4 bg-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer"
                                                         >
-                                                            <img src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image} className="w-12 h-12 rounded-xl object-cover" />
+                                                            <img src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image} className="w-12 h-12 rounded-xl object-cover" />
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-bold truncate">{decodeHtmlEntities(song.name)}</p>
                                                                 <p className="text-xs text-gray-400 truncate">{decodeHtmlEntities(song.primaryArtists)}</p>

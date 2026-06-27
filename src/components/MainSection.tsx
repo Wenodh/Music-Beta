@@ -179,7 +179,7 @@ const MainSection: React.FC = () => {
             <DailyMix />
 
             {sections.map((section, idx) => (
-                section.data && section.data.length > 0 && (
+                section.data && Array.isArray(section.data) && section.data.length > 0 && (
                     <motion.div key={idx} variants={itemVariants} className="mb-8 sm:mb-12">
                         <Slider data={section.data} title={section.title} />
                     </motion.div>

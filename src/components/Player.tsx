@@ -172,7 +172,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 } else {
                     url = typeof currentSong.image === 'string'
                         ? currentSong.image
-                        : currentSong.image?.[currentSong.image?.length - 1]?.url || '';
+                        : currentSong.image?.[(currentSong.image?.length || 0) - 1]?.url || '';
                 }
                 setImageUrl(url);
             });

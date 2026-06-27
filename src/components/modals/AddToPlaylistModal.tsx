@@ -25,11 +25,11 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
         const playlist = playlists.find(p => p.id === playlistId);
         if (!playlist) return;
 
-        if (bulkSongs && bulkSongs.length > 0) {
+        if (bulkSongs && Array.isArray(bulkSongs) && bulkSongs.length > 0) {
             dispatch(addBulkToPlaylistCloud({ playlistId, songs: bulkSongs }) as any);
             onSuccess(`${bulkSongs.length} songs added to ${playlistName}`);
         } else {
-            if (playlist.songs.find(s => s.id === song.id)) {
+            if (playlist.songs && Array.isArray(playlist.songs) && playlist.songs.find(s => s.id === song.id)) {
                 onError(`Already in ${playlistName}`);
                 return;
             }
@@ -44,11 +44,11 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
         e.preventDefault();
         if (newPlaylistName.trim()) {
             const name = newPlaylistName.trim();
-            const songs = bulkSongs && bulkSongs.length > 0 ? bulkSongs : (song ? [song] : []);
+            const songs = bulkSongs && Array.isArray(bulkSongs) && bulkSongs.length > 0 ? bulkSongs : (song ? [song] : []);
 
             dispatch(createPlaylistCloud({ name, songs }) as any);
 
-            onSuccess(bulkSongs && bulkSongs.length > 0 ? `${songs.length} songs added to ${name}` : name);
+            onSuccess(bulkSongs && Array.isArray(bulkSongs) && bulkSongs.length > 0 ? `${songs.length} songs added to ${name}` : name);
             setNewPlaylistName('');
             setIsCreating(false);
             onClose();
@@ -79,21 +79,21 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
                     </div>
 
                     <div className="max-h-[300px] overflow-y-auto p-2">
-                        {playlists.length === 0 && !isCreating && (
+                        {(!playlists || playlists.length === 0) && !isCreating && (
                             <div className="py-10 text-center text-gray-500">
                                 <IoMusicalNote size={40} className="mx-auto mb-2 opacity-20" />
                                 <p className="text-sm">No playlists yet</p>
                             </div>
                         )}
 
-                        {playlists.map((playlist) => (
+                        {(playlists || []).map((playlist) => (
                             <button
                                 key={playlist.id}
                                 onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
                                 className="w-full flex items-center gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-colors text-left"
                             >
                                 <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400">
-                                    {playlist.songs.length > 0 ? (
+                                    {playlist.songs && Array.isArray(playlist.songs) && playlist.songs.length > 0 ? (
                                         <img
                                             src={Array.isArray(playlist.songs[0].image) ? playlist.songs[0].image[0].url : playlist.songs[0].image}
                                             className="w-full h-full object-cover rounded-lg"
@@ -105,7 +105,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ song, bulkSongs
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="font-semibold truncate text-sm">{playlist.name}</p>
-                                    <p className="text-xs text-gray-500">{playlist.songs.length} songs</p>
+                                    <p className="text-xs text-gray-500">{(playlist.songs || []).length} songs</p>
                                 </div>
                             </button>
                         ))}
