@@ -10,8 +10,9 @@ export class SearchAdapter {
             playlists: { results: [] },
             artists: { results: [] },
             radio: { results: [] },
+            audiobooks: { results: [] },
             topQuery: { results: [] }
-        };
+        } as any;
 
         items.forEach(item => {
             const metadata = item.metadata as Record<string, unknown>;
@@ -45,6 +46,9 @@ export class SearchAdapter {
                     break;
                 case 'radio':
                     results.radio!.results.push(mediaItemToSong(item));
+                    break;
+                case 'audiobook':
+                    (results as any).audiobooks.results.push(item);
                     break;
             }
         });

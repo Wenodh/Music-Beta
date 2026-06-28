@@ -1,43 +1,44 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Player from './components/Player';
-import BottomBar from './components/BottomBar';
-import SearchSection from './components/SearchSection';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import ErrorBoundary from './components/ErrorBoundary';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ToastContainer from './components/toast/ToastContainer';
-import MiniPlayer from './components/MiniPlayer';
-import ScrollToTop from './components/ScrollToTop';
-import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
-import { useAppSelector, useAppDispatch } from './hooks/redux';
-import { getOfflineSongs } from './utils/db';
-import { setDownloadedIds } from './features/library/librarySlice';
-import { syncLibrary } from './features/library/libraryActions';
-import { supabase } from './lib/supabase';
+import { store, persistor } from './store';
+import { useAppDispatch, useAppSelector } from './hooks/redux';
+import { setAccentColor, showToast, removeToast, closePlaylistModal, setEqualizerOpen, setPlayerExpanded, setLyricsOpen, setSessionModalOpen } from './features/ui/uiSlice';
 import { setUser } from './features/auth/authSlice';
+import { setCurrentTime, nextSong, prevSong, playMusic, pauseMusic, setRecommendations, setQueueOpen, setSongRadioEnabled, setVisualizerStyle, toggleRepeatMode, toggleShuffle, applyMusicPlayerSettings, addToHistory, updateHistoryDuration } from './features/musicplayer/musicPlayerSlice';
+import { syncLibrary, toggleFavoriteCloud } from './features/library/libraryActions';
+import { setDownloadedIds } from './features/library/librarySlice';
 import { joinSession } from './features/session/sessionSlice';
+import { supabase } from './lib/supabase';
+import { getOfflineSongs } from './utils/db';
 import { hexToRgb } from './utils/colorUtils';
 import { historyService } from './lib/history/HistoryService';
 import { sleepTimerService } from './lib/playback/SleepTimerService';
+import ErrorBoundary from './components/ErrorBoundary';
+import Navbar from './components/Navbar';
+import BottomBar from './components/BottomBar';
+import Player from './components/Player';
+import MiniPlayer from './components/MiniPlayer';
+import SearchSection from './components/SearchSection';
+import ToastContainer from './components/toast/ToastContainer';
+import ScrollToTop from './components/ScrollToTop';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
-const lazyRetry = (componentImport: () => Promise<any>) => {
-    return lazy(async () => {
+// Wrapper for lazy components with retry logic
+const lazyRetry = (componentImport: any) =>
+    lazy(async () => {
         try {
             return await componentImport();
         } catch (error) {
-            // If the chunk load fails, try one reload
-            console.error('Chunk load failed, reloading...', error);
+            console.error('Error loading chunk:', error);
             window.location.reload();
             return { default: () => null };
         }
     });
-};
 
+// Lazy load pages
 const Home = lazyRetry(() => import('./pages/Home'));
 const Explore = lazyRetry(() => import('./pages/Explore'));
 const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
@@ -49,6 +50,7 @@ const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 const MediaDetails = lazyRetry(() => import('./pages/MediaDetails'));
+const MediaPersonPage = lazyRetry(() => import('./pages/MediaPersonPage'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -143,6 +145,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Artist...</div>}>
                             <PageWrapper><ArtistPage /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/person/:provider/:type/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><MediaPersonPage /></PageWrapper>
                         </Suspense>
                     }
                 />

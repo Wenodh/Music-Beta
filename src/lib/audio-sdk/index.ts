@@ -4,6 +4,7 @@ import { globalCache } from '../cache';
 import { JioSaavnProvider } from './providers/jiosaavn';
 import { RadioBrowserProvider } from './providers/radio-browser';
 import { PodcastIndexProvider } from './providers/podcast-index';
+import { LibriVoxProvider } from './providers/librivox';
 
 export class AudioSDK {
     private static instance: AudioSDK;
@@ -12,6 +13,7 @@ export class AudioSDK {
         providerRegistry.registerProvider(new JioSaavnProvider());
         providerRegistry.registerProvider(new RadioBrowserProvider());
         providerRegistry.registerProvider(new PodcastIndexProvider());
+        providerRegistry.registerProvider(new LibriVoxProvider());
     }
 
     public static getInstance(): AudioSDK {
@@ -114,6 +116,37 @@ export class AudioSDK {
         const provider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
         if (!provider) return [];
         return provider.getTrending(limit);
+    }
+
+    // Audiobook Specific Methods
+    async searchAudiobooks(query: string, options?: SearchOptions): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('librivox') as LibriVoxProvider;
+        if (!provider) return [];
+        return provider.search(query, options);
+    }
+
+    async getAudiobook(id: string): Promise<MediaItem | undefined> {
+        const provider = providerRegistry.getProvider('librivox') as LibriVoxProvider;
+        if (!provider) return undefined;
+        return provider.getMedia(id, 'audiobook');
+    }
+
+    async getChapters(bookId: string): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('librivox') as LibriVoxProvider;
+        if (!provider) return [];
+        return provider.getChapters(bookId);
+    }
+
+    async getPopularAudiobooks(limit: number = 20): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('librivox') as LibriVoxProvider;
+        if (!provider) return [];
+        return provider.getPopular(limit);
+    }
+
+    async getRecentAudiobooks(limit: number = 20): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('librivox') as LibriVoxProvider;
+        if (!provider) return [];
+        return provider.getRecent(limit);
     }
 
     async getPlayableSource(item: MediaItem, quality?: string): Promise<PlayableSource | undefined> {

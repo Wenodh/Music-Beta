@@ -137,7 +137,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
     const handlePlayAll = () => {
         if (sortedSongs.length > 0) {
-            dispatch(playMusic(sortedSongs[0]));
+            dispatch(setSongs(sortedSongs));
+            dispatch(playMusic({ ...sortedSongs[0], forcePlay: true }));
         }
     };
 
@@ -366,7 +367,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                         exit={{ opacity: 0, scale: 0.9 }}
                                         whileHover={{ y: -5 }}
                                         className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all relative"
-                                        onClick={() => dispatch(playMusic(song))}
+                                        onClick={() => {
+                                            dispatch(setSongs(sortedSongs));
+                                            dispatch(playMusic({ ...song, forcePlay: true }));
+                                        }}
                                     >
                                         <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-md">
                                             <img

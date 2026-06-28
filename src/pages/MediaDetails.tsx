@@ -41,6 +41,9 @@ const MediaDetails: React.FC<MediaDetailsProps> = ({
                 if (type === 'podcast') {
                     const episodes = await audioSDK.getEpisodes(id);
                     setChildren(episodes);
+                } else if (type === 'audiobook') {
+                    const chapters = await audioSDK.getChapters(id);
+                    setChildren(chapters);
                 } else if (type === 'artist') {
                     const recommendations = await audioSDK.getRecommendations(id, provider);
                     setChildren(recommendations);

@@ -7,6 +7,7 @@ const DB_NAME = 'vibeon_offline';
 const DB_VERSION = 2; // Incremented version for new store
 const STORE_NAME = 'songs';
 const POSITIONS_STORE = 'playback_positions';
+const BOOKMARKS_STORE = 'bookmarks';
 
 /**
  * Interface representing a song stored in IndexedDB.
@@ -34,9 +35,56 @@ export const initDB = (): Promise<IDBDatabase> => {
             if (!db.objectStoreNames.contains(POSITIONS_STORE)) {
                 db.createObjectStore(POSITIONS_STORE, { keyPath: 'mediaId' });
             }
+            if (!db.objectStoreNames.contains(BOOKMARKS_STORE)) {
+                db.createObjectStore(BOOKMARKS_STORE, { keyPath: 'id' });
+            }
         };
 
         request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+/**
+ * Bookmark operations
+ */
+import { Bookmark } from '../lib/audio-sdk/models';
+
+export const saveBookmark = async (bookmark: Bookmark): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(BOOKMARKS_STORE, 'readwrite');
+        const store = transaction.objectStore(BOOKMARKS_STORE);
+        const request = store.put(bookmark);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const getBookmarks = async (mediaId?: string): Promise<Bookmark[]> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(BOOKMARKS_STORE, 'readonly');
+        const store = transaction.objectStore(BOOKMARKS_STORE);
+        const request = store.getAll();
+        request.onsuccess = () => {
+            let bookmarks = request.result as Bookmark[];
+            if (mediaId) {
+                bookmarks = bookmarks.filter(b => b.mediaId === mediaId);
+            }
+            resolve(bookmarks);
+        };
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const deleteBookmark = async (id: string): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(BOOKMARKS_STORE, 'readwrite');
+        const store = transaction.objectStore(BOOKMARKS_STORE);
+        const request = store.delete(id);
+        request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
     });
 };

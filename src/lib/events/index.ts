@@ -45,4 +45,6 @@ export const Events = {
     QUEUE_CHANGED: 'queue:changed',
     BUFFERING: 'playback:buffering',
     PLAYBACK_METADATA_UPDATE: 'playback:metadata:update',
+    BOOKMARK_ADDED: 'bookmark:added',
+    BOOKMARK_REMOVED: 'bookmark:removed',
 } as const;

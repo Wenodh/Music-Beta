@@ -14,7 +14,7 @@ import { useMasonryColumns } from '../hooks/useMasonryColumns';
 
 const Explore: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
-    const [activeTab, setActiveTab] = useState<'music' | 'radio' | 'podcasts'>('music');
+    const [activeTab, setActiveTab] = useState<'music' | 'radio' | 'podcasts' | 'audiobooks'>('music');
     const [songs, setSongs] = useState<Song[]>([]);
     const [radioStations, setRadioStations] = useState<MediaItem[]>([]);
     const [metadataList, setMetadataList] = useState<any[]>([]);
@@ -79,6 +79,14 @@ const Explore: React.FC = () => {
                 }
             } else if (activeTab === 'podcasts') {
                 const items = await audioSDK.searchPodcasts(language, { page: pageNum, limit: 30 });
+                if (items.length === 0) {
+                    updateHasMore(false);
+                } else {
+                    const newSongs = items.map(item => mediaItemToSong(item));
+                    setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
+                }
+            } else if (activeTab === 'audiobooks') {
+                const items = await audioSDK.searchAudiobooks(language, { page: pageNum, limit: 30 });
                 if (items.length === 0) {
                     updateHasMore(false);
                 } else {
@@ -190,6 +198,12 @@ const Explore: React.FC = () => {
                             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'podcasts' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                         >
                             Podcasts
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('audiobooks')}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'audiobooks' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                        >
+                            Audiobooks
                         </button>
                     </div>
                 </div>

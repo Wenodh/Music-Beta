@@ -26,6 +26,8 @@ interface MainSectionData {
     latestSongs: Song[];
     popularRadio: MediaItem[];
     trendingRadio: MediaItem[];
+    popularBooks: MediaItem[];
+    recentBooks: MediaItem[];
 }
 
 const MainSection: React.FC = () => {
@@ -44,7 +46,9 @@ const MainSection: React.FC = () => {
         workout: [],
         latestSongs: [],
         popularRadio: [],
-        trendingRadio: []
+        trendingRadio: [],
+        popularBooks: [],
+        recentBooks: []
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -89,6 +93,8 @@ const MainSection: React.FC = () => {
                 musicApi.searchSongs(`${lang} New Songs`, 0, 40),
                 audioSDK.getPopularRadio(20),
                 audioSDK.getTrendingRadio(20),
+                audioSDK.getPopularAudiobooks(20),
+                audioSDK.getRecentAudiobooks(20),
                 audioSDK.getTrendingPodcasts(15),
                 ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1))
             ]);
@@ -116,9 +122,11 @@ const MainSection: React.FC = () => {
                 workout: getValue(results[7], []),
                 latestSongs: getValue(results[8], []),
                 popularRadio: getValue(results[9], []),
-                trendingRadio: getValue(results[10], [])
+                trendingRadio: getValue(results[10], []),
+                popularBooks: getValue(results[11], []),
+                recentBooks: getValue(results[12], [])
             });
-            setPodcasts(getValue(results[11], []));
+            setPodcasts(getValue(results[13], []));
         } catch (error) {
             console.error('Error in fetchData:', error);
         } finally {
@@ -162,6 +170,8 @@ const MainSection: React.FC = () => {
         },
         { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
         { data: podcasts, title: "Trending Podcasts" },
+        { data: data.popularBooks, title: "Popular Audiobooks" },
+        { data: data.recentBooks, title: "Recently Added Audiobooks" },
         { data: data.popularRadio, title: "Popular Radio Stations" },
         { data: data.trendingRadio, title: "Trending Radio Stations" },
         { data: data.latestSongs, title: "Latest Songs" },

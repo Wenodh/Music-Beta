@@ -49,6 +49,18 @@ const PodcastPolicy: PlaybackPolicy = {
     skipBackwardInterval: 10,
 };
 
+const AudiobookPolicy: PlaybackPolicy = {
+    canSeek: true,
+    canResume: true,
+    showLiveIndicator: false,
+    showDuration: true,
+    canChangeSpeed: true,
+    canSkipNext: true,
+    canSkipPrevious: true,
+    skipForwardInterval: 30,
+    skipBackwardInterval: 15,
+};
+
 export function getPlaybackPolicy(item: MediaItem | null): PlaybackPolicy {
     if (!item) return DefaultPolicy;
 
@@ -60,6 +72,10 @@ export function getPlaybackPolicy(item: MediaItem | null): PlaybackPolicy {
 
     if (item.type === 'episode' || item.type === 'podcast') {
         return PodcastPolicy;
+    }
+
+    if (item.type === 'audiobook' || item.type === 'chapter') {
+        return AudiobookPolicy;
     }
 
     // Explicit check for provider capabilities if available

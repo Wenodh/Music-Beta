@@ -9,7 +9,7 @@ import { Song, Album, Artist, Playlist } from '../types/music';
 
 const SearchSection: React.FC = () => {
     const { searchedSongs, recentSearches } = useAppSelector((state) => state.musicPlayer);
-    const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists' | 'radio'>('songs');
+    const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists' | 'radio' | 'audiobooks'>('songs');
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const location = useLocation();
@@ -81,8 +81,9 @@ const SearchSection: React.FC = () => {
     const artists = (data as any).artists?.results || [];
     const playlists = (data as any).playlists?.results || [];
     const radio = (data as any).radio?.results || [];
+    const audiobooks = (data as any).audiobooks?.results || [];
 
-    const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0 || radio.length > 0;
+    const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0 || radio.length > 0 || audiobooks.length > 0;
     if (!hasResults) {
         return (
             <div className="px-2 sm:px-4 py-20 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20 text-center">
@@ -111,6 +112,7 @@ const SearchSection: React.FC = () => {
         { id: 'artists', label: 'Artists', count: artists.length },
         { id: 'playlists', label: 'Playlists', count: playlists.length },
         { id: 'radio', label: 'Radio', count: radio.length },
+        { id: 'audiobooks', label: 'Books', count: audiobooks.length },
     ].filter(t => t.count > 0);
 
     return (
@@ -258,6 +260,26 @@ const SearchSection: React.FC = () => {
                                 </div>
                                 <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(station.name)}</p>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(station.primaryArtists)}</p>
+                            </motion.div>
+                        ))}
+
+                        {activeTab === 'audiobooks' && audiobooks.map((book: any) => (
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                key={book.id}
+                                onClick={() => navigate(`/details/${book.provider}/${book.type}/${book.id}`)}
+                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all"
+                            >
+                                <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
+                                    <img
+                                        src={Array.isArray(book.artwork) ? book.artwork[0]?.url : book.artwork}
+                                        alt={book.title}
+                                        loading="lazy"
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                </div>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(book.title)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(book.subtitle)}</p>
                             </motion.div>
                         ))}
                     </motion.div>

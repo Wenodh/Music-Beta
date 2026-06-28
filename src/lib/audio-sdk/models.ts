@@ -50,7 +50,7 @@ export interface QueueItem {
 export interface HistoryItem {
     id: string; // Composite ID: provider_type_id
     mediaItem: MediaItem;
-    playedAt: number;
+    playedAt: string | number;
     listenedDuration: number;
     completionPercentage: number;
     source?: string;
@@ -62,6 +62,16 @@ export interface FavoriteItem {
     provider: string;
     contentType: MediaItemType;
     createdAt: number;
+}
+
+export interface Bookmark {
+    id: string;
+    mediaId: string;
+    chapterId: string;
+    position: number;
+    title?: string;
+    note?: string;
+    createdAt: string;
 }
 
 export type PlaybackState = 'idle' | 'buffering' | 'playing' | 'paused' | 'ended' | 'error';
