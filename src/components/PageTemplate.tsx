@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { musicApi } from '../services/musicApi';
 import useFetchDetails from '../hooks/useFetchDetails';
 import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
@@ -81,9 +81,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     if (!artistName) artistName = (details as any).primaryArtists || (details as any).artist;
 
                     if (artistName) {
-                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`);
-                        if (moreByRes.data?.data?.results && Array.isArray(moreByRes.data.data.results)) {
-                            const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
+                        const moreByResults = await musicApi.getTrending(decodeHtmlEntities(artistName), 0, 10);
+                        if (moreByResults && Array.isArray(moreByResults)) {
+                            const results = moreByResults.filter((a: any) => a.id !== id);
                             setRecommendations(prev => ({ ...prev, moreByArtist: results }));
                         }
                     }
@@ -92,9 +92,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     if (playlistName) {
                         // Clean playlist name for better search (remove common bracketed info)
                         const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
-                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`);
-                        if (similarRes.data?.data?.results && Array.isArray(similarRes.data.data.results)) {
-                            const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
+                        const similarResults = await musicApi.searchPlaylists(query, 0, 10);
+                        if (similarResults && Array.isArray(similarResults)) {
+                            const results = similarResults.filter((p: any) => p.id !== id);
                             setRecommendations(prev => ({ ...prev, similarCollections: results }));
                         }
                     }
@@ -305,9 +305,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                                         }}
                                                         className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${
                                                             sortBy === option.id
-                                                                ? 'text-primary bg-primary/10 dark:bg-primary/10'
+                                                                ? 'text-primary'
                                                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                         }`}
+                                                        style={sortBy === option.id ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
                                                     >
                                                         {option.label}
                                                     </button>
@@ -418,7 +419,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     <div className="flex flex-wrap gap-3 sm:gap-4">
                         {(details as any).followerCount && (
                             <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                     <IoPeopleOutline size={20} />
                                 </div>
                                 <div>

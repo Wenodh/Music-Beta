@@ -5,7 +5,7 @@ import { playlistById } from '../constants';
 
 const PlaylistPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const apiUrl = `${playlistById}${id}`;
+    const apiUrl = `${playlistById}?id=${id}&limit=50&page=0`;
 
     const getImageUrl = (data: any) => {
         if (Array.isArray(data?.image)) {

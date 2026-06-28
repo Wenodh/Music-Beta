@@ -44,7 +44,8 @@ const BottomBar: React.FC = () => {
                                 {active && (
                                     <motion.div
                                         layoutId="icon-glow"
-                                        className="absolute inset-0 blur-md bg-primary/30 rounded-full"
+                                        className="absolute inset-0 blur-md rounded-full"
+                                        style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.3)' }}
                                     />
                                 )}
                                 {active ? (

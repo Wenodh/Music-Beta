@@ -11,7 +11,7 @@ interface SongItemProps {
     primaryArtists?: string;
 }
 
-const SongItem: React.FC<SongItemProps> = ({
+const SongItem: React.FC<SongItemProps> = React.memo(({
     id,
     title,
     image,
@@ -37,6 +37,7 @@ const SongItem: React.FC<SongItemProps> = ({
     return (
         <div
             onClick={handleClick}
+            data-testid="song-item"
             className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
         >
             <div className="relative w-full aspect-square mb-3 overflow-hidden rounded-lg shadow-lg">
@@ -71,6 +72,6 @@ const SongItem: React.FC<SongItemProps> = ({
             )}
         </div>
     );
-};
+});
 
 export default SongItem;

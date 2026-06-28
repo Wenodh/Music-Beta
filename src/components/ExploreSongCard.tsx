@@ -22,7 +22,7 @@ const aspectRatios = [
     'aspect-[9/16]'
 ];
 
-const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
+const ExploreSongCard: React.FC<ExploreSongCardProps> = React.memo(({ song, index }) => {
     const dispatch = useAppDispatch();
 
     // Use a more complex sequence to avoid repetitive patterns in columns
@@ -80,6 +80,6 @@ const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
             </div>
         </motion.div>
     );
-};
+});
 
 export default ExploreSongCard;

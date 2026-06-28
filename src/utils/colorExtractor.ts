@@ -1,4 +1,4 @@
-// @ts-ignore
+// @ts-expect-error - colorthief types might not match exactly with the library version
 import { getColor } from 'colorthief';
 
 export const getDominantColor = (imageUrl: string): Promise<string> => {

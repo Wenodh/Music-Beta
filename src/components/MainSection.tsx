@@ -1,29 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
 import { motion } from 'framer-motion';
 import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
-import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
+import { musicApi } from '../services/musicApi';
+import { Album, Song, Artist, Playlist } from '../types/music';
+
+interface MainSectionData {
+    albums: Album[];
+    songs: Song[];
+    playlists: Playlist[];
+    artists: Artist[];
+    meditation: Playlist[];
+    work: Playlist[];
+    devPicks: Song[];
+    chill: Playlist[];
+    workout: Playlist[];
+    latestSongs: Song[];
+}
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
     const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
-    const [data, setData] = useState<{
-        albums: any[];
-        songs: any[];
-        playlists: any[];
-        artists: any[];
-        meditation: any[];
-        work: any[];
-        devPicks: any[];
-        chill: any[];
-        workout: any[];
-        latestSongs: any[];
-    }>({
+    const [data, setData] = useState<MainSectionData>({
         albums: [],
         songs: [],
         playlists: [],
@@ -41,134 +43,93 @@ const MainSection: React.FC = () => {
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
         const handleOffline = () => setIsOffline(true);
-
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
-
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
     }, []);
 
-    useEffect(() => {
+    const fetchData = useCallback(async (signal?: AbortSignal) => {
         if (isOffline) return;
-        const fetchData = async () => {
-            try {
-                setLoading(true);
+        try {
+            // Check if we already have data to avoid unnecessary loading states
+            if (data.songs.length === 0) setLoading(true);
+            const lang = language.toLowerCase();
 
-                // Curated artists per language
-                const curatedArtists: Record<string, string[]> = {
-                    telugu: ['Sid Sriram', 'Thaman S', 'Devi Sri Prasad', 'Mani Sharma', 'S. P. Balasubrahmanyam', 'Karthik', 'Anurag Kulkarni', 'Ram Miriyala', 'Mangli', 'Armaan Malik', 'Geetha Madhuri', 'S. Janaki'],
-                    hindi: ['Arijit Singh', 'Shreya Ghoshal', 'Badshah', 'Pritam', 'Anirudh Ravichander', 'Jubin Nautiyal', 'Neha Kakkar', 'Atif Aslam', 'Sunidhi Chauhan', 'Vishal Dadlani', 'Amit Trivedi', 'Mohit Chauhan'],
-                    punjabi: ['Sidhu Moose Wala', 'Diljit Dosanjh', 'Karan Aujla', 'AP Dhillon', 'Guru Randhawa', 'Hardy Sandhu', 'Ammy Virk', 'Jasmine Sandlas', 'Nimrat Khaira', 'Sharry Maan', 'Satinder Sartaaj', 'B Praak'],
-                    tamil: ['Anirudh Ravichander', 'A. R. Rahman', 'Yuvan Shankar Raja', 'Santhosh Narayanan', 'G. V. Prakash', 'Harris Jayaraj', 'D. Imman', 'Vijay Antony', 'Hiphop Tamizha', 'Shweta Mohan', 'Sujatha', 'Haricharan'],
-                    english: ['Taylor Swift', 'The Weeknd', 'Drake', 'Ed Sheeran', 'Justin Bieber', 'Dua Lipa', 'Bruno Mars', 'Ariana Grande', 'Billie Eilish', 'Post Malone', 'Kendrick Lamar', 'Rihanna', 'Eminem', 'Sia']
-                };
+            const curatedArtists: Record<string, string[]> = {
+                telugu: ['Sid Sriram', 'Thaman S', 'Devi Sri Prasad', 'Mani Sharma', 'S. P. Balasubrahmanyam', 'Karthik', 'Anurag Kulkarni', 'Ram Miriyala', 'Mangli', 'Armaan Malik', 'Geetha Madhuri', 'S. Janaki'],
+                hindi: ['Arijit Singh', 'Shreya Ghoshal', 'Badshah', 'Pritam', 'Anirudh Ravichander', 'Jubin Nautiyal', 'Neha Kakkar', 'Atif Aslam', 'Sunidhi Chauhan', 'Vishal Dadlani', 'Amit Trivedi', 'Mohit Chauhan'],
+                punjabi: ['Sidhu Moose Wala', 'Diljit Dosanjh', 'Karan Aujla', 'AP Dhillon', 'Guru Randhawa', 'Hardy Sandhu', 'Ammy Virk', 'Jasmine Sandlas', 'Nimrat Khaira', 'Sharry Maan', 'Satinder Sartaaj', 'B Praak'],
+                tamil: ['Anirudh Ravichander', 'A. R. Rahman', 'Yuvan Shankar Raja', 'Santhosh Narayanan', 'G. V. Prakash', 'Harris Jayaraj', 'D. Imman', 'Vijay Antony', 'Hiphop Tamizha', 'Shweta Mohan', 'Sujatha', 'Haricharan'],
+                english: ['Taylor Swift', 'The Weeknd', 'Drake', 'Ed Sheeran', 'Justin Bieber', 'Dua Lipa', 'Bruno Mars', 'Ariana Grande', 'Billie Eilish', 'Post Malone', 'Kendrick Lamar', 'Rihanna', 'Eminem', 'Sia']
+            };
 
-                const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
+            const artistsToFetch = curatedArtists[lang] || [language];
 
-                // Helper to sanitize base URLs for limit parameter
-                const getSanitizedUrl = (baseUrl: string) => {
-                    return baseUrl.includes('limit=')
-                        ? baseUrl.split('limit=')[0].slice(0, -1)
-                        : baseUrl;
-                };
+            const results = await Promise.allSettled([
+                musicApi.getTrending(lang, 0, 25, signal),
+                musicApi.searchSongs(`${lang} Top Hits`, 0, 40, signal),
+                musicApi.searchPlaylists(lang, 0, 25, signal),
+                musicApi.searchPlaylists(`${lang} Meditation`, 0, 15, signal),
+                musicApi.searchPlaylists(`${lang} Work`, 0, 15, signal),
+                musicApi.getPlaylistById("158224644", signal), // Dev picks
+                musicApi.searchPlaylists(`${lang} Chill`, 0, 15, signal),
+                musicApi.searchPlaylists(`${lang} Workout`, 0, 15, signal),
+                musicApi.searchSongs(`${lang} New Songs`, 0, 40, signal),
+                ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1, signal))
+            ]);
 
-                const sanitizedPlaylistSearch = getSanitizedUrl(playlistSearch);
-                const sanitizedSearchArtist = getSanitizedUrl(searchArtist);
+            const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T =>
+                result.status === 'fulfilled' ? result.value : defaultValue;
 
-                const results = await Promise.allSettled([
-                    axios.get(`${modules}${language}&page=0&limit=25`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`),
-                    axios.get(`${playlistSearch}${language}`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
-                    axios.get(`${playlistById}158224644`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`),
-                    ...artistsToFetch.map(name => {
-                        return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
-                    })
-                ]);
+            const artistList = results.slice(9)
+                .filter((r): r is PromiseFulfilledResult<Artist[]> => r.status === 'fulfilled')
+                .map(r => r.value?.[0])
+                .filter(Boolean);
 
-                const albumsRes = results[0];
-                const songsRes = results[1];
-                const playlistsRes = results[2];
-                const meditationRes = results[3];
-                const workRes = results[4];
-                const devPicksRes = results[5];
-                const chillRes = results[6];
-                const workoutRes = results[7];
-                const latestSongsRes = results[8];
-                const artistsResults = results.slice(9);
+            const devPicksResult = results[5];
+            const devPicksSongs = devPicksResult.status === 'fulfilled' ? (devPicksResult.value as any).songs || [] : [];
 
-                const artistList = artistsResults
-                    .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-                    .map(r => r.value.data.data.results?.[0])
-                    .filter(Boolean);
+            setData({
+                albums: getValue(results[0], []),
+                songs: getValue(results[1], []),
+                playlists: getValue(results[2], []),
+                artists: artistList,
+                meditation: getValue(results[3], []),
+                work: getValue(results[4], []),
+                devPicks: devPicksSongs,
+                chill: getValue(results[6], []),
+                workout: getValue(results[7], []),
+                latestSongs: getValue(results[8], [])
+            });
+        } catch (error) {
+            console.error('Error in fetchData:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [language, isOffline]);
 
-                const deduplicateSongs = (songs: any[]) => {
-                    const seen = new Set();
-                    return songs.filter(song => {
-                        const id = song.id;
-                        if (!id || seen.has(id)) return false;
-                        seen.add(id);
-                        return true;
-                    });
-                };
-
-                const rawTrendingSongs = songsRes.status === 'fulfilled' ? (songsRes.value.data.data.results || []) : [];
-                const rawLatestSongs = latestSongsRes.status === 'fulfilled' ? (latestSongsRes.value.data.data.results || []) : [];
-
-                // Deduplicate and slice
-                const latestSongs = deduplicateSongs(rawLatestSongs).slice(0, 50);
-                const trendingSongs = deduplicateSongs(rawTrendingSongs).slice(0, 50);
-
-                setData({
-                    albums: albumsRes.status === 'fulfilled' ? (albumsRes.value.data.data.results || []) : [],
-                    songs: trendingSongs,
-                    playlists: playlistsRes.status === 'fulfilled' ? (playlistsRes.value.data.data.results || []) : [],
-                    artists: artistList,
-                    meditation: meditationRes.status === 'fulfilled' ? (meditationRes.value.data.data.results || []) : [],
-                    work: workRes.status === 'fulfilled' ? (workRes.value.data.data.results || []) : [],
-                    devPicks: devPicksRes.status === 'fulfilled' ? (devPicksRes.value.data.data.songs || []) : [],
-                    chill: chillRes.status === 'fulfilled' ? (chillRes.value.data.data.results || []) : [],
-                    workout: workoutRes.status === 'fulfilled' ? (workoutRes.value.data.data.results || []) : [],
-                    latestSongs: latestSongs
-                });
-            } catch (error) {
-                console.error('Error in fetchData:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, [language]);
+    useEffect(() => {
+        const controller = new AbortController();
+        fetchData(controller.signal);
+        return () => controller.abort();
+    }, [fetchData]);
 
     if (isOffline) {
         return (
             <div className="flex flex-col items-center justify-center h-[70vh] px-6 text-center">
-                <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 text-gray-400"
-                >
+                <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 text-gray-400">
                     <IoCloudOffline size={48} />
-                </motion.div>
+                </div>
                 <h2 className="text-2xl font-bold mb-2">You're Offline</h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
-                    Check your internet connection or listen to your downloaded songs while you wait.
-                </p>
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                <button
                     onClick={() => navigate('/library?tab=offline')}
-                    className="flex items-center gap-2 bg-primary hover:bg-red-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 transition-all"
+                    className="flex items-center gap-2 bg-primary text-white px-8 py-3 rounded-full font-bold mt-4"
                 >
                     Go to Downloads <IoArrowForward />
-                </motion.button>
+                </button>
             </div>
         );
     }
@@ -181,19 +142,34 @@ const MainSection: React.FC = () => {
         );
     }
 
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
+    };
+
+    const sections = [
+        { data: recentlyPlayed, title: "Recently Played Songs" },
+        { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
+        { data: data.latestSongs, title: "Latest Songs" },
+        { data: data.songs, title: "Trending Songs" },
+        { data: data.albums, title: "Trending Albums" },
+        { data: data.artists, title: "Featured Artists" },
+        { data: data.playlists, title: "Top Playlists" },
+        { data: data.meditation, title: "Meditation" },
+        { data: data.work, title: "Work" },
+        { data: data.devPicks, title: "Developer's Picks" },
+        { data: data.chill, title: "Chill" },
+        { data: data.workout, title: "Workout" }
+    ];
+
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.05
+                staggerChildren: 0.1
             }
         }
-    };
-
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } }
     };
 
     return (
@@ -201,77 +177,17 @@ const MainSection: React.FC = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout gpu-accelerated"
+            className="pb-32 pt-4 px-2 sm:px-4"
         >
             <DailyMix />
 
-            {recentlyPlayed && recentlyPlayed.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={recentlyPlayed} title="Recently Played Songs" />
-                </motion.div>
-            )}
-            {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
-                </motion.div>
-            )}
-            {data.latestSongs && data.latestSongs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.latestSongs} title="Latest Songs" />
-                </motion.div>
-            )}
-
-            {data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.songs} title="Trending Songs" />
-                </motion.div>
-            )}
-            {data.albums && data.albums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.albums} title="Trending Albums" />
-                </motion.div>
-            )}
-            {data.artists && data.artists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.artists} title="Featured Artists" />
-                </motion.div>
-            )}
-            {data.playlists && data.playlists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.playlists} title="Top Playlists" />
-                </motion.div>
-            )}
-
-            {data.meditation && data.meditation.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.meditation} title="Meditation" />
-                </motion.div>
-            )}
-
-            {data.work && data.work.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.work} title="Work" />
-                </motion.div>
-            )}
-
-            {data.devPicks && data.devPicks.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.devPicks} title="Developer's Picks" />
-                </motion.div>
-            )}
-
-            {data.chill && data.chill.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.chill} title="Chill" />
-                </motion.div>
-            )}
-
-            {data.workout && data.workout.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.workout} title="Workout" />
-                </motion.div>
-            )}
-
+            {sections.map((section, idx) => (
+                section.data && Array.isArray(section.data) && section.data.length > 0 && (
+                    <motion.div key={idx} variants={itemVariants} className="mb-8 sm:mb-12">
+                        <Slider data={section.data} title={section.title} />
+                    </motion.div>
+                )
+            ))}
         </motion.div>
     );
 };

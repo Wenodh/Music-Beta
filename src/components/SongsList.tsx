@@ -41,6 +41,7 @@ const SongsList: React.FC<SongsListProps> = ({
     const dispatch = useAppDispatch();
     const { currentSong, downloadSettings, preferredQuality } = useAppSelector((state) => state.musicPlayer);
     const { favorites, downloadedIds } = useAppSelector((state) => state.library);
+    const { theme: uiTheme } = useAppSelector((state) => state.ui);
     const [isDownloading, setIsDownloading] = useState(false);
 
     const isFavorite = favorites.some(s => s.id === id);
@@ -159,11 +160,16 @@ const SongsList: React.FC<SongsListProps> = ({
                     })
                 )
             }
-            className={`flex items-center justify-between p-2 sm:p-3 rounded-xl cursor-pointer transition-all border border-transparent hover:bg-primary/5 ${
+            className={`flex items-center justify-between p-2 sm:p-3 rounded-xl cursor-pointer transition-all border border-transparent ${
                 isCurrent
-                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/20 text-primary'
+                    ? 'border-primary/20 text-primary'
                     : 'hover:border-gray-200 dark:hover:border-gray-800'
             }`}
+            style={{
+                backgroundColor: isCurrent
+                    ? `rgba(var(--accent-rgb), ${uiTheme?.darkMode ? '0.2' : '0.1'})`
+                    : undefined
+            }}
         >
             <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1 mr-2">
                 {isSelectionMode && (
@@ -205,7 +211,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleFavorite}
-                        className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
+                        className={`p-1.5 sm:p-2 rounded-full transition-colors ${isFavorite ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
                         title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                     >
                         {isFavorite ? <IoHeart size={15} className="sm:w-[18px] sm:h-[18px]" /> : <IoHeartOutline size={15} className="sm:w-[18px] sm:h-[18px]" />}
@@ -215,7 +221,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleAddToPlaylist}
-                        className="p-1.5 sm:p-2 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                        className="p-1.5 sm:p-2 text-gray-400 hover:text-primary rounded-full transition-colors shrink-0"
                         title="Add to Playlist"
                     >
                         <IoAdd size={17} className="sm:w-[20px] sm:h-[20px]" />
@@ -225,7 +231,7 @@ const SongsList: React.FC<SongsListProps> = ({
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleDownload}
-                        className={`p-1.5 sm:p-2 rounded-full transition-colors shrink-0 ${isDownloaded ? 'text-green-500' : 'text-gray-500 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
+                        className={`p-1.5 sm:p-2 rounded-full transition-colors shrink-0 ${isDownloaded ? 'text-green-500' : 'text-gray-500 hover:text-primary'}`}
                         aria-label={isDownloaded ? "Remove download" : "Download song"}
                     >
                         {isDownloading ? (

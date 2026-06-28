@@ -1,58 +1,141 @@
 export interface Song {
     id: string;
     name: string;
-    title?: string;
-    duration: string | number;
-    image: string | { url: string; quality: string }[];
-    music?: string | { url: string; quality: string }[];
-    downloadUrl: string | { url: string; quality: string }[];
-    primaryArtists: string;
-    albumId?: string;
-    album?: {
+    type: 'song';
+    album: {
         id: string;
         name: string;
+        url: string;
     } | string;
-    type?: string;
     year?: string | number;
+    releaseDate?: string;
+    duration: number | string;
+    label?: string;
+    primaryArtists: string;
+    primaryArtistsId?: string;
+    featuredArtists?: string;
+    featuredArtistsId?: string;
+    explicitContent?: boolean;
+    playCount?: number | string;
+    language?: string;
+    hasLyrics?: boolean;
+    url?: string;
+    image: { quality: string; url: string }[] | string;
+    downloadUrl: { quality: string; url: string }[] | string;
+    music?: { quality: string; url: string }[] | string;
+    albumId?: string;
+    albumName?: string;
+    artist?: string;
 }
+
+export interface Album {
+    id: string;
+    name: string;
+    description: string;
+    year: string | number;
+    releaseDate: string;
+    songCount: string | number;
+    url: string;
+    primaryArtistsId: string;
+    primaryArtists: string;
+    featuredArtists: string;
+    artists: ArtistRef[];
+    image: { quality: string; url: string }[] | string;
+    songs: Song[];
+}
+
+export interface ArtistRef {
+    id: string;
+    name: string;
+    role: string;
+    image: { quality: string; url: string }[] | string;
+    type: string;
+    url: string;
+}
+
+export interface Playlist {
+    id: string;
+    userId: string;
+    name: string;
+    followerCount: string | number;
+    songCount: string | number;
+    username: string;
+    firstname: string;
+    lastname: string;
+    shares: string | number;
+    image: { quality: string; url: string }[] | string;
+    url: string;
+    songs: Song[];
+}
+
+export interface Artist {
+    id: string;
+    name: string;
+    url: string;
+    image: { quality: string; url: string }[] | string;
+    followerCount: string | number;
+    isVerified: boolean;
+    dominantLanguage: string;
+    dominantType: string;
+    bio: ArtistBio[];
+    dob: string;
+    fb: string;
+    twitter: string;
+    wiki: string;
+    availableLanguages: string[];
+    fanCount: string;
+    topSongs: Song[];
+    topAlbums: Album[];
+    singles: Song[];
+    dedicatedPlaylist: Playlist[];
+    similarArtists: ArtistRef[];
+}
+
+export interface ArtistBio {
+    text: string;
+    title: string;
+}
+
+export interface SearchResults {
+    albums: { results: Album[] };
+    songs: { results: Song[] };
+    playlists: { results: Playlist[] };
+    artists: { results: Artist[] };
+    topQuery: { results: any[] };
+}
+
+export type VisualizerStyle = 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
+export type RepeatMode = 'none' | 'all' | 'one';
 
 export interface MusicPlayerState {
     songs: Song[];
     recommendations: Song[];
     isPlaying: boolean;
     currentSong: Song | null;
-    searchedSongs: any;
+    searchQuery: string;
+    searchedSongs: SearchResults | Song[];
     recentlyPlayed: Song[];
-    recentlyPlayedAlbums: any[];
+    recentlyPlayedAlbums: (Album & { type: string })[];
+    recentSearches: string[];
     sleepTimer: number | null;
-    preferredQuality: '12kbps' | '48kbps' | '96kbps' | '160kbps' | '320kbps';
+    preferredQuality: '96kbps' | '160kbps' | '320kbps';
     isSettingsOpen: boolean;
     isQueueOpen: boolean;
-    equalizerSettings: EqualizerSettings;
+    equalizerSettings: {
+        enabled: boolean;
+        bands: number[];
+        preset: string;
+    };
     isGaplessEnabled: boolean;
     crossfadeDuration: number;
-    currentTime: number;
     isSongRadioEnabled: boolean;
-    downloadSettings: DownloadSettings;
+    downloadSettings: {
+        wifiOnly: boolean;
+    };
     dailyMix: Song[];
     lastDailyMixUpdate: number;
-    recommendationsCache: {
-        [songId: string]: {
-            songs: Song[];
-            timestamp: number;
-        };
-    };
-    visualizerStyle: 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
-    repeatMode: 'none' | 'all' | 'one';
+    recommendationsCache: Record<string, { songs: Song[]; timestamp: number }>;
+    visualizerStyle: VisualizerStyle;
+    repeatMode: RepeatMode;
     shuffle: boolean;
-}
-
-export interface DownloadSettings {
-    wifiOnly: boolean;
-}
-
-export interface EqualizerSettings {
-    enabled: boolean;
-    bands: number[]; // 10 bands: 32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, 16k
-    preset: string;
 }

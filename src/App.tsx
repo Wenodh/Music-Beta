@@ -12,6 +12,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
+import ScrollToTop from './components/ScrollToTop';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { getOfflineSongs } from './utils/db';
@@ -259,6 +260,7 @@ export const AppContent = () => {
                     </AnimatePresence>
                 </main>
                 <Player onShowMiniPlayer={() => setIsMiniPlayerOpen(true)} />
+                <ScrollToTop />
                 <AnimatePresence>
                     {isMiniPlayerOpen && <MiniPlayer onClose={() => setIsMiniPlayerOpen(false)} />}
                 </AnimatePresence>

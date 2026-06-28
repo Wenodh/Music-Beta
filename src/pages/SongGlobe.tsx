@@ -1,8 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import { IoGlobeOutline } from 'react-icons/io5';
-import { songs as songsUrl, modules } from '../constants';
+import { musicApi } from '../services/musicApi';
 import { Song } from '../types/music';
 
 const GlobeScene = lazy(() => import('../components/globe/GlobeScene'));
@@ -21,23 +20,23 @@ const SongGlobe: React.FC = () => {
                 setLoading(true);
 
                 const queries = [
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=1&limit=40`
+                    { query: activeCategory + ' Top Hits', page: 0 },
+                    { query: activeCategory + ' Top Hits', page: 1 },
+                    { query: activeCategory + ' Top Hits', page: 2 },
+                    { query: activeCategory + ' New Songs', page: 0 },
+                    { query: activeCategory + ' New Songs', page: 1 },
+                    { query: activeCategory + ' New Songs', page: 2 },
+                    { query: activeCategory + ' Trending', page: 0 },
+                    { query: activeCategory + ' Trending', page: 1 },
+                    { query: activeCategory + ' Trending', page: 2 },
+                    { query: activeCategory + ' Popular', page: 0 },
+                    { query: activeCategory + ' Popular', page: 1 }
                 ];
 
-                const results = await Promise.allSettled(queries.map(q => axios.get(q)));
+                const results = await Promise.allSettled(queries.map(q => musicApi.searchSongs(q.query, q.page, 40)));
                 const allSongs = results
-                    .filter((res): res is PromiseFulfilledResult<any> => res.status === 'fulfilled')
-                    .flatMap(res => res.value.data.data.results || []);
+                    .filter((res): res is PromiseFulfilledResult<Song[]> => res.status === 'fulfilled')
+                    .flatMap(res => res.value);
                 setApiSongs(allSongs);
             } catch (error) {
                 console.error('Error fetching globe songs:', error);
@@ -65,9 +64,9 @@ const SongGlobe: React.FC = () => {
 
     return (
         <div className="fixed inset-0 z-0 bg-black overflow-hidden pt-0 md:pt-0">
-            <div className="absolute top-32 left-4 z-10 pointer-events-none">
+            <div className="absolute top-[calc(var(--navbar-height,80px)+24px)] left-4 z-10 pointer-events-none">
                 <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-primary/10 rounded-lg text-primary backdrop-blur-md border border-white/10">
+                    <div className="p-1.5 rounded-lg text-primary backdrop-blur-md border border-white/10" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
                         <IoGlobeOutline className="text-lg sm:text-xl" />
                     </div>
                     <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white drop-shadow-lg">Song Globe</h1>

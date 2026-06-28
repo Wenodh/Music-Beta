@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { lyrics as lyricsUrl } from '../constants';
+import { musicApi } from '../services/musicApi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoClose, IoPlay, IoPause, IoPlaySkipBack, IoPlaySkipForward } from 'react-icons/io5';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
@@ -14,16 +13,18 @@ interface LyricsProps {
     isOpen: boolean;
     onClose: () => void;
     onSeek?: (time: number) => void;
+    currentTime?: number;
 }
 
-const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose, onSeek }) => {
+const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, onClose, onSeek, currentTime: providedTime }) => {
     const dispatch = useAppDispatch();
     const [rawLyrics, setRawLyrics] = useState<string | null>(null);
     const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeLineIndex, setActiveLineIndex] = useState(-1);
 
-    const { currentTime, isPlaying, currentSong } = useAppSelector(state => state.musicPlayer);
+    const { isPlaying, currentSong } = useAppSelector(state => state.musicPlayer);
+    const currentTime = providedTime !== undefined ? providedTime : 0;
     const { theme } = useAppSelector(state => state.ui);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -40,9 +41,9 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
                 try {
                     // Try primary source (JioSaavn API)
-                    const res = await axios.get(`${lyricsUrl}${songId}/lyrics`);
-                    if (res.data?.data?.lyrics) {
-                        const lyricsText = res.data.data.lyrics;
+                    const lyricsData = await musicApi.getLyrics(songId);
+                    if (lyricsData?.lyrics) {
+                        const lyricsText = lyricsData.lyrics;
                         setRawLyrics(lyricsText);
                         // Saavn usually provides plain text, but let's try parsing just in case
                         const parsed = parseLRC(lyricsText);
@@ -56,12 +57,12 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
 
                 try {
                     // Try fallback source (LRCLib)
-                    const query = encodeURIComponent(`${songName} ${artistName}`);
-                    const lrcRes = await axios.get(`https://lrclib.net/api/search?q=${query}`);
+                    const query = `${songName} ${artistName}`;
+                    const lrcResults = await musicApi.getExternalLyrics(query);
 
-                    if (lrcRes.data && lrcRes.data.length > 0) {
+                    if (lrcResults && lrcResults.length > 0) {
                         // Find best match (synced prefered)
-                        const bestMatch = lrcRes.data.find((l: any) => l.syncedLyrics) || lrcRes.data[0];
+                        const bestMatch = lrcResults.find((l: any) => l.syncedLyrics) || lrcResults[0];
                         const lyricsText = bestMatch.syncedLyrics || bestMatch.plainLyrics || 'Lyrics not available.';
                         setRawLyrics(lyricsText);
                         const parsed = parseLRC(lyricsText);

@@ -1,13 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Song, MusicPlayerState } from '../../types/music';
-import { getNextSong, getPrevSong } from '../../utils/playlist';
+import { Song, MusicPlayerState, SearchResults, Album, Artist, Playlist } from '../../types/music';
+import { PlaybackEngine } from '../../domain/playback/PlaybackEngine';
 
 const initialState: MusicPlayerState = {
     songs: [],
     recommendations: [],
     isPlaying: false,
     currentSong: null,
+    searchQuery: '',
     searchedSongs: [],
+    recentSearches: [],
     recentlyPlayed: [],
     recentlyPlayedAlbums: [],
     sleepTimer: null,
@@ -21,7 +23,6 @@ const initialState: MusicPlayerState = {
     },
     isGaplessEnabled: false,
     crossfadeDuration: 5,
-    currentTime: 0,
     isSongRadioEnabled: true,
     downloadSettings: {
         wifiOnly: false,
@@ -34,24 +35,6 @@ const initialState: MusicPlayerState = {
     shuffle: false,
 };
 
-// Helper to format song for currentSong state
-const formatSong = (song: Song | any, preferredQuality: string): Song => {
-    const downloadUrl = song.downloadUrl || song.music;
-    let musicUrl = downloadUrl;
-    if (Array.isArray(downloadUrl)) {
-        musicUrl = downloadUrl.find((d: any) => d.quality === preferredQuality)?.url ||
-                   downloadUrl[downloadUrl.length - 1]?.url;
-    }
-
-    return {
-        ...song,
-        type: 'song',
-        image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
-        downloadUrl: downloadUrl,
-        music: musicUrl,
-    } as Song;
-};
-
 const musicPlayerSlice = createSlice({
     name: 'musicPlayer',
     initialState,
@@ -59,10 +42,27 @@ const musicPlayerSlice = createSlice({
         setSongs: (state, action: PayloadAction<Song[]>) => {
             state.songs = action.payload.slice(0, 100);
         },
-        setSearchedSongs: (state, action: PayloadAction<any>) => {
+        setSearchedSongs: (state, action: PayloadAction<SearchResults | Song[]>) => {
             state.searchedSongs = action.payload;
         },
-        playMusic: (state, action: PayloadAction<Song & { forcePlay?: boolean } | any>) => {
+        setSearchQuery: (state, action: PayloadAction<string>) => {
+            state.searchQuery = action.payload;
+        },
+        addRecentSearch: (state, action: PayloadAction<string>) => {
+            const query = action.payload.trim();
+            if (!query) return;
+            state.recentSearches = [
+                query,
+                ...state.recentSearches.filter(s => s.toLowerCase() !== query.toLowerCase())
+            ].slice(0, 10);
+        },
+        removeRecentSearch: (state, action: PayloadAction<string>) => {
+            state.recentSearches = state.recentSearches.filter(s => s !== action.payload);
+        },
+        clearRecentSearches: (state) => {
+            state.recentSearches = [];
+        },
+        playMusic: (state, action: PayloadAction<Partial<Song> & { forcePlay?: boolean; audioBlob?: any; imageBlob?: any }>) => {
             const { audioBlob, imageBlob, forcePlay, ...songData } = action.payload;
             const id = songData.id;
 
@@ -70,7 +70,7 @@ const musicPlayerSlice = createSlice({
             if (!forcePlay && state.currentSong && state.currentSong.id === id) {
                 state.isPlaying = !state.isPlaying;
             } else {
-                state.currentSong = formatSong(songData, state.preferredQuality);
+                state.currentSong = PlaybackEngine.formatSong(songData, state.preferredQuality);
                 state.isPlaying = true;
 
                 // Add to recently played
@@ -88,7 +88,7 @@ const musicPlayerSlice = createSlice({
         pauseMusic: (state) => {
             state.isPlaying = false;
         },
-        setCurrentSong: (state, action: PayloadAction<any>) => {
+        setCurrentSong: (state, action: PayloadAction<Song | null>) => {
             state.currentSong = action.payload;
         },
         setSleepTimer: (state, action: PayloadAction<number | null>) => {
@@ -125,12 +125,12 @@ const musicPlayerSlice = createSlice({
                 timestamp: Date.now(),
             };
         },
-        addRecentlyPlayedAlbum: (state, action: PayloadAction<any>) => {
+        addRecentlyPlayedAlbum: (state, action: PayloadAction<Album>) => {
             const album = action.payload;
             state.recentlyPlayedAlbums = [
                 { ...album, type: 'album' },
-                ...state.recentlyPlayedAlbums.filter((a: any) => a.id !== album.id),
-            ].slice(0, 20);
+                ...state.recentlyPlayedAlbums.filter((a) => a.id !== album.id),
+            ].slice(0, 20) as (Album & { type: string })[];
         },
         setPreferredQuality: (state, action: PayloadAction<MusicPlayerState['preferredQuality']>) => {
             state.preferredQuality = action.payload;
@@ -172,9 +172,6 @@ const musicPlayerSlice = createSlice({
         setCrossfadeDuration: (state, action: PayloadAction<number>) => {
             state.crossfadeDuration = action.payload;
         },
-        setCurrentTime: (state, action: PayloadAction<number>) => {
-            state.currentTime = action.payload;
-        },
         setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
             state.isSongRadioEnabled = action.payload;
         },
@@ -198,10 +195,10 @@ const musicPlayerSlice = createSlice({
         },
         nextSong: (state, action: PayloadAction<{ isManual?: boolean } | undefined>) => {
             const isManual = action.payload?.isManual ?? true;
-            const next = getNextSong(state.currentSong, state.songs, state.shuffle, state.repeatMode, isManual);
+            const next = PlaybackEngine.getNextSong(state, isManual);
 
             if (next) {
-                state.currentSong = formatSong(next, state.preferredQuality);
+                state.currentSong = PlaybackEngine.formatSong(next, state.preferredQuality);
                 state.isPlaying = true;
                 state.recentlyPlayed = [
                     state.currentSong,
@@ -213,10 +210,10 @@ const musicPlayerSlice = createSlice({
             }
         },
         prevSong: (state) => {
-            const prev = getPrevSong(state.currentSong, state.songs, state.shuffle);
+            const prev = PlaybackEngine.getPrevSong(state);
 
             if (prev) {
-                state.currentSong = formatSong(prev, state.preferredQuality);
+                state.currentSong = PlaybackEngine.formatSong(prev, state.preferredQuality);
                 state.isPlaying = true;
                 state.recentlyPlayed = [
                     state.currentSong,
@@ -253,6 +250,10 @@ const musicPlayerSlice = createSlice({
 export const {
     setSongs,
     setSearchedSongs,
+    setSearchQuery,
+    addRecentSearch,
+    removeRecentSearch,
+    clearRecentSearches,
     playMusic,
     pauseMusic,
     setCurrentSong,
@@ -272,7 +273,6 @@ export const {
     setEqualizerPreset,
     setGaplessEnabled,
     setCrossfadeDuration,
-    setCurrentTime,
     setSongRadioEnabled,
     setWifiOnly,
     setDailyMix,
