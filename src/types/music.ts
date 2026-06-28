@@ -1,25 +1,25 @@
 export interface Song {
     id: string;
     name: string;
-    type: string;
+    type: 'song';
     album: {
         id: string;
         name: string;
         url: string;
     } | string;
-    year: string | number;
-    releaseDate: string;
+    year?: string | number;
+    releaseDate?: string;
     duration: number | string;
-    label: string;
+    label?: string;
     primaryArtists: string;
-    primaryArtistsId: string;
-    featuredArtists: string;
-    featuredArtistsId: string;
-    explicitContent: boolean;
-    playCount: number | string;
-    language: string;
-    hasLyrics: boolean;
-    url: string;
+    primaryArtistsId?: string;
+    featuredArtists?: string;
+    featuredArtistsId?: string;
+    explicitContent?: boolean;
+    playCount?: number | string;
+    language?: string;
+    hasLyrics?: boolean;
+    url?: string;
     image: { quality: string; url: string }[] | string;
     downloadUrl: { quality: string; url: string }[] | string;
     music?: { quality: string; url: string }[] | string;
@@ -39,9 +39,18 @@ export interface Album {
     primaryArtistsId: string;
     primaryArtists: string;
     featuredArtists: string;
-    artists: any[];
+    artists: ArtistRef[];
     image: { quality: string; url: string }[] | string;
     songs: Song[];
+}
+
+export interface ArtistRef {
+    id: string;
+    name: string;
+    role: string;
+    image: { quality: string; url: string }[] | string;
+    type: string;
+    url: string;
 }
 
 export interface Playlist {
@@ -68,7 +77,7 @@ export interface Artist {
     isVerified: boolean;
     dominantLanguage: string;
     dominantType: string;
-    bio: any[];
+    bio: ArtistBio[];
     dob: string;
     fb: string;
     twitter: string;
@@ -79,7 +88,12 @@ export interface Artist {
     topAlbums: Album[];
     singles: Song[];
     dedicatedPlaylist: Playlist[];
-    similarArtists: any[];
+    similarArtists: ArtistRef[];
+}
+
+export interface ArtistBio {
+    text: string;
+    title: string;
 }
 
 export interface SearchResults {
@@ -89,6 +103,9 @@ export interface SearchResults {
     artists: { results: Artist[] };
     topQuery: { results: any[] };
 }
+
+export type VisualizerStyle = 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
+export type RepeatMode = 'none' | 'all' | 'one';
 
 export interface MusicPlayerState {
     songs: Song[];
@@ -111,7 +128,6 @@ export interface MusicPlayerState {
     };
     isGaplessEnabled: boolean;
     crossfadeDuration: number;
-    currentTime: number;
     isSongRadioEnabled: boolean;
     downloadSettings: {
         wifiOnly: boolean;
@@ -119,7 +135,7 @@ export interface MusicPlayerState {
     dailyMix: Song[];
     lastDailyMixUpdate: number;
     recommendationsCache: Record<string, { songs: Song[]; timestamp: number }>;
-    visualizerStyle: 'pulse' | 'vortex' | 'grid' | 'bars' | 'wave';
-    repeatMode: 'none' | 'all' | 'one';
+    visualizerStyle: VisualizerStyle;
+    repeatMode: RepeatMode;
     shuffle: boolean;
 }

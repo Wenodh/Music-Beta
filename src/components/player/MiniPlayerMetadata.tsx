@@ -12,7 +12,7 @@ interface MiniPlayerMetadataProps {
     onDoubleTap: (side: 'left' | 'right') => void;
 }
 
-const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps> = ({
+const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps> = React.memo(({
     imageUrl,
     name,
     artists,
@@ -45,6 +45,6 @@ const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps> = ({
             </div>
         </div>
     );
-};
+});
 
 export default MiniPlayerMetadata;

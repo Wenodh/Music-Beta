@@ -51,10 +51,11 @@ const MainSection: React.FC = () => {
         };
     }, []);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (signal?: AbortSignal) => {
         if (isOffline) return;
         try {
-            setLoading(true);
+            // Check if we already have data to avoid unnecessary loading states
+            if (data.songs.length === 0) setLoading(true);
             const lang = language.toLowerCase();
 
             const curatedArtists: Record<string, string[]> = {
@@ -68,16 +69,16 @@ const MainSection: React.FC = () => {
             const artistsToFetch = curatedArtists[lang] || [language];
 
             const results = await Promise.allSettled([
-                musicApi.getTrending(lang, 0, 25),
-                musicApi.searchSongs(`${lang} Top Hits`, 0, 40),
-                musicApi.searchPlaylists(lang, 0, 25),
-                musicApi.searchPlaylists(`${lang} Meditation`, 0, 15),
-                musicApi.searchPlaylists(`${lang} Work`, 0, 15),
-                musicApi.getPlaylistById("158224644"), // Dev picks
-                musicApi.searchPlaylists(`${lang} Chill`, 0, 15),
-                musicApi.searchPlaylists(`${lang} Workout`, 0, 15),
-                musicApi.searchSongs(`${lang} New Songs`, 0, 40),
-                ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1))
+                musicApi.getTrending(lang, 0, 25, signal),
+                musicApi.searchSongs(`${lang} Top Hits`, 0, 40, signal),
+                musicApi.searchPlaylists(lang, 0, 25, signal),
+                musicApi.searchPlaylists(`${lang} Meditation`, 0, 15, signal),
+                musicApi.searchPlaylists(`${lang} Work`, 0, 15, signal),
+                musicApi.getPlaylistById("158224644", signal), // Dev picks
+                musicApi.searchPlaylists(`${lang} Chill`, 0, 15, signal),
+                musicApi.searchPlaylists(`${lang} Workout`, 0, 15, signal),
+                musicApi.searchSongs(`${lang} New Songs`, 0, 40, signal),
+                ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1, signal))
             ]);
 
             const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T =>
@@ -111,7 +112,9 @@ const MainSection: React.FC = () => {
     }, [language, isOffline]);
 
     useEffect(() => {
-        fetchData();
+        const controller = new AbortController();
+        fetchData(controller.signal);
+        return () => controller.abort();
     }, [fetchData]);
 
     if (isOffline) {

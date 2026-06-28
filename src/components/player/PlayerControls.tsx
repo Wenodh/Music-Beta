@@ -17,7 +17,7 @@ interface PlayerControlsProps {
     onToggleRepeat: (e: React.MouseEvent) => void;
 }
 
-const PlayerControls: React.FC<PlayerControlsProps> = ({
+const PlayerControls: React.FC<PlayerControlsProps> = React.memo(({
     isPlaying,
     shuffle,
     repeatMode,
@@ -30,17 +30,19 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
 }) => {
     return (
         <div className="hidden md:flex text-2xl lg:text-3xl gap-6 lg:gap-8 lg:w-[40vw] justify-center items-center">
-            <button onClick={onToggleShuffle}>
+            <button data-testid="shuffle-button" onClick={onToggleShuffle}>
                 <PiShuffleBold
                     style={shuffle ? { color: accentColor } : {}}
                     className={`${shuffle ? '' : 'text-gray-400'} cursor-pointer transition-colors`}
                 />
             </button>
             <IoMdSkipBackward
+                data-testid="prev-button"
                 onClick={onPrev}
                 className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer"
             />
             <motion.button
+                data-testid="play-pause-button"
                 whileTap={{ scale: 0.9 }}
                 onClick={onPlayPause}
                 className="w-12 h-12 flex items-center justify-center rounded-full bg-primary text-white shadow-lg"
@@ -48,10 +50,11 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
                 {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
             </motion.button>
             <IoMdSkipForward
+                data-testid="next-button"
                 onClick={onNext}
                 className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer"
             />
-            <button onClick={onToggleRepeat}>
+            <button data-testid="repeat-button" onClick={onToggleRepeat}>
                 {repeatMode === 'one' ? (
                     <PiRepeatOnceBold style={{ color: accentColor }} />
                 ) : (
@@ -63,6 +66,6 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
             </button>
         </div>
     );
-};
+});
 
 export default PlayerControls;

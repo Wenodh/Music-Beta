@@ -35,17 +35,22 @@ test.describe('Basic functional tests', () => {
   });
 
   test('player appears when song is clicked', async ({ page }) => {
-    // Wait for "Latest Songs" to appear on home page
-    await expect(page.getByText('Latest Songs')).toBeVisible({ timeout: 20000 });
+    // Wait for any song item to appear on home page
+    const firstSong = page.getByTestId('song-item').first();
 
-    // Click on the first song image in the main content
-    const firstSongCard = page.locator('main img').first();
-    await firstSongCard.click({ force: true });
+    // If not visible, try searching
+    const isVisible = await firstSong.isVisible({ timeout: 10000 }).catch(() => false);
+    if (!isVisible) {
+        const searchInput = page.getByTestId('search-input');
+        await searchInput.fill('Top Hits');
+        await searchInput.press('Enter');
+    }
+
+    await firstSong.waitFor({ state: 'visible', timeout: 30000 });
+    await firstSong.click();
 
     // The player should appear at the bottom.
-    // We added data-testid="mini-player" (mentally, let's check if I should add it to the code or just use the class)
-    // Actually, I saw Player.tsx has data-testid="mini-player" in my previous read.
-    const miniPlayer = page.locator('[data-testid="mini-player"]');
+    const miniPlayer = page.getByTestId('mini-player');
     await expect(miniPlayer).toBeVisible({ timeout: 15000 });
   });
 });

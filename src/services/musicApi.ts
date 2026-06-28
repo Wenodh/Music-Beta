@@ -43,91 +43,111 @@ apiClient.interceptors.response.use(
 );
 
 /**
- * Generic fetcher with caching
+ * Generic fetcher with caching and in-flight request deduplication
  */
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
 const fetchWithCache = async <T>(key: string, fetcher: () => Promise<T>): Promise<T> => {
     const cachedData = cache.get(key);
     if (cachedData) return cachedData as T;
 
-    const data = await fetcher();
-    cache.set(key, data);
-    return data;
+    if (inFlightRequests.has(key)) {
+        return inFlightRequests.get(key) as Promise<T>;
+    }
+
+    const request = fetcher().finally(() => {
+        inFlightRequests.delete(key);
+    });
+
+    inFlightRequests.set(key, request);
+
+    try {
+        const data = await request;
+        cache.set(key, data);
+        return data;
+    } catch (error) {
+        throw error;
+    }
 };
 
 export const musicApi = {
-    getAlbumById: async (id: string): Promise<Album> => {
+    getAlbumById: async (id: string, signal?: AbortSignal): Promise<Album> => {
         return fetchWithCache(`album_${id}`, async () => {
-            const response = await apiClient.get(albumById, { params: { id } });
+            const response = await apiClient.get(albumById, { params: { id }, signal });
             return response.data.data;
         });
     },
 
-    getPlaylistById: async (id: string): Promise<Playlist> => {
+    getPlaylistById: async (id: string, signal?: AbortSignal): Promise<Playlist> => {
         return fetchWithCache(`playlist_${id}`, async () => {
-            const response = await apiClient.get(playlistById, { params: { id } });
+            const response = await apiClient.get(playlistById, { params: { id }, signal });
             return response.data.data;
         });
     },
 
-    getArtistById: async (id: string): Promise<Artist> => {
+    getArtistById: async (id: string, signal?: AbortSignal): Promise<Artist> => {
         return fetchWithCache(`artist_${id}`, async () => {
-            const response = await apiClient.get(`${artistById}${id}`);
+            const response = await apiClient.get(`${artistById}${id}`, { signal });
             return response.data.data;
         });
     },
 
-    searchSongs: async (query: string, page = 0, limit = 25): Promise<Song[]> => {
+    searchSongs: async (query: string, page = 0, limit = 25, signal?: AbortSignal): Promise<Song[]> => {
         return fetchWithCache(`search_songs_${query}_${page}_${limit}`, async () => {
-            const response = await apiClient.get(songsUrl, { params: { query, page, limit } });
+            const response = await apiClient.get(songsUrl, { params: { query, page, limit }, signal });
             return response.data.data.results || [];
         });
     },
 
-    searchAll: async (query: string): Promise<SearchResults> => {
+    searchAll: async (query: string, signal?: AbortSignal): Promise<SearchResults> => {
         return fetchWithCache(`search_all_${query}`, async () => {
-            const response = await apiClient.get(searchUrl, { params: { query } });
+            const response = await apiClient.get(searchUrl, { params: { query }, signal });
             return response.data.data;
         });
     },
 
-    getTrending: async (language: string, page = 0, limit = 25): Promise<Album[]> => {
+    getTrending: async (language: string, page = 0, limit = 25, signal?: AbortSignal): Promise<Album[]> => {
         return fetchWithCache(`trending_${language}_${page}_${limit}`, async () => {
-            const response = await apiClient.get(modules, { params: { query: language, page, limit } });
-            return response.data.data.results || [];
+            const response = await apiClient.get(modules, { params: { query: language, page, limit }, signal });
+            // The API returns albums in the results for the 'trending' call in this context
+            return (response.data.data.results || []).map((album: Album) => ({
+                ...album,
+                type: 'album'
+            }));
         });
     },
 
-    getLyrics: async (id: string): Promise<{ lyrics: string; snippet: string }> => {
+    getLyrics: async (id: string, signal?: AbortSignal): Promise<{ lyrics: string; snippet: string }> => {
         return fetchWithCache(`lyrics_${id}`, async () => {
-            const response = await apiClient.get(`${lyricsUrl}${id}/lyrics`);
+            const response = await apiClient.get(`${lyricsUrl}${id}/lyrics`, { signal });
             return response.data.data;
         });
     },
 
-    getExternalLyrics: async (query: string): Promise<unknown> => {
+    getExternalLyrics: async (query: string, signal?: AbortSignal): Promise<any[]> => {
         return fetchWithCache(`ext_lyrics_${query}`, async () => {
-            const response = await axios.get(`https://lrclib.net/api/search?q=${query}`);
+            const response = await axios.get(`https://lrclib.net/api/search?q=${query}`, { signal });
             return response.data;
         });
     },
 
-    getSuggestions: async (id: string): Promise<Song[]> => {
+    getSuggestions: async (id: string, signal?: AbortSignal): Promise<Song[]> => {
         return fetchWithCache(`suggestions_${id}`, async () => {
-            const response = await apiClient.get(suggestionsUrl(id));
+            const response = await apiClient.get(suggestionsUrl(id), { signal });
             return response.data.data || [];
         });
     },
 
-    searchPlaylists: async (query: string, page = 0, limit = 25): Promise<Playlist[]> => {
+    searchPlaylists: async (query: string, page = 0, limit = 25, signal?: AbortSignal): Promise<Playlist[]> => {
         return fetchWithCache(`search_playlists_${query}_${page}_${limit}`, async () => {
-            const response = await apiClient.get(playlistSearch, { params: { query, page, limit } });
+            const response = await apiClient.get(playlistSearch, { params: { query, page, limit }, signal });
             return response.data.data.results || [];
         });
     },
 
-    searchArtists: async (query: string, page = 0, limit = 25): Promise<Artist[]> => {
+    searchArtists: async (query: string, page = 0, limit = 25, signal?: AbortSignal): Promise<Artist[]> => {
         return fetchWithCache(`search_artists_${query}_${page}_${limit}`, async () => {
-            const response = await apiClient.get(searchArtist, { params: { query, page, limit } });
+            const response = await apiClient.get(searchArtist, { params: { query, page, limit }, signal });
             return response.data.data.results || [];
         });
     }

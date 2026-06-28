@@ -154,6 +154,7 @@ const SearchSection: React.FC = () => {
                                 whileHover={{ y: -5 }}
                                 key={song.id}
                                 onClick={() => dispatch(playMusic(song))}
+                                data-testid="song-item"
                                 className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all"
                             >
                                 <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
