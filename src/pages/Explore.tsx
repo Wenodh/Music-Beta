@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { AnimatePresence } from 'framer-motion';
 import { IoCompassOutline, IoSearchOutline } from 'react-icons/io5';
-import { musicApi } from '../services/musicApi';
+import { audioSDK } from '../lib/audio-sdk';
+import { mediaItemToSong } from '../lib/audio-sdk/adapters';
 import ExploreSongCard from '../components/ExploreSongCard';
 import ExploreSkeleton from '../components/ExploreSkeleton';
 import { Song } from '../types/music';
@@ -30,7 +31,8 @@ const Explore: React.FC = () => {
             isFetching.current = true;
             setLoading(true);
             const query = language;
-            const newSongs = await musicApi.searchSongs(query, pageNum, 30);
+            const mediaItems = await audioSDK.search(query, { page: pageNum, limit: 30 });
+            const newSongs = mediaItems.map(item => mediaItemToSong(item));
 
             if (newSongs.length === 0) {
                 updateHasMore(false);

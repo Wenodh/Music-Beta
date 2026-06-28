@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Song } from '../types/music';
-import { getOfflineSong } from '../utils/db';
 import { getNextSong } from '../utils/playlist';
+import { playbackManager } from '../lib/playback/PlaybackManager';
+import { eventBus, Events } from '../lib/events';
+import { songToMediaItem } from '../lib/audio-sdk/adapters';
+import { audioSDK } from '../lib/audio-sdk';
 
 interface UseAudioPlaybackProps {
     currentSong: Song | null;
@@ -34,170 +37,119 @@ export const useAudioPlayback = ({
     onSongChange,
     onTimeUpdate
 }: UseAudioPlaybackProps) => {
-    const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
-    const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
-    const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
-    const [isCrossfading, setIsCrossfading] = useState(false);
     const [isBuffering, setIsBuffering] = useState(false);
 
-    const getActiveAudio = useCallback(() => activeBuffer === 'A' ? audioRefA.current : audioRefB.current, [activeBuffer]);
-    const getInactiveAudio = useCallback(() => activeBuffer === 'A' ? audioRefB.current : audioRefA.current, [activeBuffer]);
+    const activeAudioRef = useRef<HTMLAudioElement | null>(playbackManager._activeAudioElement);
+    const inactiveAudioRef = useRef<HTMLAudioElement | null>(playbackManager._inactiveAudioElement);
 
-    const audioUrlsRef = useRef<Record<string, string>>({});
+    useEffect(() => {
+        const updateRefs = () => {
+            activeAudioRef.current = playbackManager._activeAudioElement;
+            inactiveAudioRef.current = playbackManager._inactiveAudioElement;
+        };
 
-    const cleanupBlobUrls = useCallback(() => {
-        Object.values(audioUrlsRef.current).forEach(url => {
-            if (url.startsWith('blob:')) URL.revokeObjectURL(url);
-        });
-        audioUrlsRef.current = {};
+        eventBus.on(Events.TRACK_CHANGED, updateRefs);
+        return () => { eventBus.off(Events.TRACK_CHANGED, updateRefs); };
     }, []);
 
     useEffect(() => {
-        [audioRefA.current, audioRefB.current].forEach(audio => {
-            audio.crossOrigin = 'anonymous';
-            audio.preload = 'auto';
-            audio.onwaiting = () => setIsBuffering(true);
-            audio.onplaying = () => setIsBuffering(false);
-            audio.oncanplay = () => setIsBuffering(false);
-        });
-        return cleanupBlobUrls;
-    }, [cleanupBlobUrls]);
+        playbackManager.setVolume(userVolume);
+    }, [userVolume]);
 
-    const getSongUrl = useCallback(async (song: Song | null) => {
-        if (!song) return '';
-
-        const offlineSong = await getOfflineSong(song.id);
-
-        // If we already have a blob URL for this offline song, REUSE it to prevent playback interruption
-        if (offlineSong && audioUrlsRef.current[song.id]?.startsWith('blob:')) {
-            return audioUrlsRef.current[song.id];
-        }
-
-        let url = '';
-        if (offlineSong?.audioBlob) {
-            url = URL.createObjectURL(offlineSong.audioBlob);
-
-            // Limit cache size to prevent memory leaks
-            const cachedKeys = Object.keys(audioUrlsRef.current);
-            if (cachedKeys.length > 10) {
-                const oldestKey = cachedKeys[0];
-                if (audioUrlsRef.current[oldestKey].startsWith('blob:')) {
-                    URL.revokeObjectURL(audioUrlsRef.current[oldestKey]);
-                }
-                delete audioUrlsRef.current[oldestKey];
-            }
-
-            audioUrlsRef.current[song.id] = url;
-        } else {
-            const musicData = song.music || song.downloadUrl;
-            if (Array.isArray(musicData)) {
-                url = musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
-            } else {
-                url = musicData || '';
-            }
-        }
-        return url;
-    }, [preferredQuality]);
-
+    // Handle Playback Actions
     useEffect(() => {
-        const activeAudio = getActiveAudio();
-        if (!currentSong) return;
+        let isCancelled = false;
 
-        getSongUrl(currentSong).then(url => {
-            if (url && activeAudio.src !== url) {
-                activeAudio.src = url;
-                setIsCrossfading(false);
+        const handleSong = async () => {
+            if (!currentSong) {
+                playbackManager.stop();
+                return;
             }
-            if (isPlaying) {
-                activeAudio.play().catch(e => console.warn("Playback failed", e));
-            } else {
-                activeAudio.pause();
-                getInactiveAudio().pause();
-            }
-        });
-    }, [currentSong?.id, isPlaying, getActiveAudio, getInactiveAudio, getSongUrl]);
 
-    useEffect(() => {
-        const activeAudio = getActiveAudio();
-        const inactiveAudio = getInactiveAudio();
+            const mediaItem = songToMediaItem(currentSong);
+            const source = await audioSDK.getPlayableSource(mediaItem, preferredQuality);
 
-        const handleTimeUpdate = () => {
-            if (!currentSong) return;
-            onTimeUpdate(activeAudio.currentTime, activeAudio.duration);
+            if (isCancelled) return;
 
-            if (isGaplessEnabled && !isCrossfading && activeAudio.duration > 0 &&
-                activeAudio.currentTime > (activeAudio.duration - crossfadeDuration)) {
-                if (repeatMode !== 'one') {
-                    const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
-                    if (next) {
-                        setIsCrossfading(true);
-                        startCrossfade(next);
-                    }
+            if (source?.url) {
+                mediaItem.stream = source;
+
+                if (isPlaying) {
+                    await playbackManager.play(mediaItem);
+                } else if (playbackManager.currentMediaItem?.id === mediaItem.id) {
+                    playbackManager.pause();
+                } else if (!isPlaying) {
+                    await playbackManager.play(mediaItem);
+                    playbackManager.pause();
                 }
             }
         };
 
-        const startCrossfade = (next: Song) => {
-            getSongUrl(next).then(url => {
-                inactiveAudio.src = url;
-                inactiveAudio.volume = 0;
-                inactiveAudio.play().then(() => {
-                    const steps = 20;
-                    const interval = (crossfadeDuration * 1000) / steps;
-                    let step = 0;
-                    const fade = setInterval(() => {
-                        step++;
-                        const progress = step / steps;
-                        activeAudio.volume = userVolume * (1 - progress);
-                        inactiveAudio.volume = userVolume * progress;
-                        if (step >= steps) {
-                            clearInterval(fade);
-                            activeAudio.pause();
-                            activeAudio.currentTime = 0;
-                            setActiveBuffer(prev => prev === 'A' ? 'B' : 'A');
-                            setIsCrossfading(false);
-                            onSongChange(next, false);
-                        }
-                    }, interval);
-                });
-            });
-        };
+        handleSong();
+        return () => { isCancelled = true; };
+    }, [currentSong?.id, isPlaying, preferredQuality]);
 
-        const handleEnded = () => {
-            if (!isCrossfading) {
-                if (repeatMode === 'one') {
-                    activeAudio.currentTime = 0;
-                    activeAudio.play();
-                } else {
+    // Handle Events
+    useEffect(() => {
+        const onProgress = ({ currentTime, duration, item }: { currentTime: number, duration: number, item: any }) => {
+            if (item?.id === currentSong?.id) {
+                onTimeUpdate(currentTime, duration);
+            }
+
+            // Gapless/Crossfade logic
+            if (isGaplessEnabled && duration > 0 && currentTime > (duration - crossfadeDuration)) {
+                if (repeatMode !== 'one' && item?.id === currentSong?.id) {
                     const next = getNextSong(currentSong!, songs, shuffle, repeatMode, false);
                     if (next) {
-                        onSongChange(next, false);
-                    } else if (isSongRadioEnabled && recommendations.length > 0) {
-                        const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
-                        onSongChange(randomSong, false);
+                        const nextMediaItem = songToMediaItem(next);
+                        audioSDK.getPlayableSource(nextMediaItem, preferredQuality).then(source => {
+                            if (source) {
+                                nextMediaItem.stream = source;
+                                playbackManager.startCrossfade(nextMediaItem, crossfadeDuration).then(() => {
+                                    onSongChange(next, false);
+                                });
+                            }
+                        });
                     }
                 }
             }
         };
 
-        activeAudio.addEventListener('timeupdate', handleTimeUpdate);
-        activeAudio.addEventListener('ended', handleEnded);
-        return () => {
-            activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
-            activeAudio.removeEventListener('ended', handleEnded);
+        const onEnded = () => {
+            if (repeatMode === 'one') {
+                playbackManager.seek(0);
+                playbackManager.play(playbackManager.currentMediaItem!);
+            } else {
+                const next = getNextSong(currentSong!, songs, shuffle, repeatMode, false);
+                if (next) {
+                    onSongChange(next, false);
+                } else if (isSongRadioEnabled && recommendations.length > 0) {
+                    const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
+                    onSongChange(randomSong, false);
+                }
+            }
         };
-    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, repeatMode, shuffle, isSongRadioEnabled, recommendations, onSongChange, onTimeUpdate, getSongUrl, getActiveAudio, getInactiveAudio]);
 
-    useEffect(() => {
-        if (!isCrossfading) {
-            audioRefA.current.volume = userVolume;
-            audioRefB.current.volume = userVolume;
-        }
-    }, [userVolume, isCrossfading]);
+        const onBuffering = () => setIsBuffering(true);
+        const onPlaying = () => setIsBuffering(false);
+
+        eventBus.on(Events.PLAYBACK_PROGRESS, onProgress);
+        eventBus.on(Events.PLAYBACK_ENDED, onEnded);
+        eventBus.on(Events.BUFFERING, onBuffering);
+        eventBus.on(Events.PLAYBACK_STARTED, onPlaying);
+
+        return () => {
+            eventBus.off(Events.PLAYBACK_PROGRESS, onProgress);
+            eventBus.off(Events.PLAYBACK_ENDED, onEnded);
+            eventBus.off(Events.BUFFERING, onBuffering);
+            eventBus.off(Events.PLAYBACK_STARTED, onPlaying);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentSong?.id, songs, repeatMode, shuffle, isSongRadioEnabled, recommendations, onSongChange, onTimeUpdate, isGaplessEnabled, crossfadeDuration, preferredQuality]);
 
     const seek = useCallback((time: number) => {
-        getActiveAudio().currentTime = time;
-    }, [getActiveAudio]);
+        playbackManager.seek(time);
+    }, []);
 
-    return { activeAudioRef: activeBuffer === 'A' ? audioRefA : audioRefB, inactiveAudioRef: activeBuffer === 'A' ? audioRefB : audioRefA, isBuffering, seek };
+    return { activeAudioRef, inactiveAudioRef, isBuffering, seek };
 };

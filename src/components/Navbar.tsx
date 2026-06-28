@@ -4,7 +4,8 @@ import { setSearchedSongs, setSettingsOpen, addRecentSearch, setSearchQuery as s
 import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoReloadOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { musicApi } from '../services/musicApi';
+import { audioSDK } from '../lib/audio-sdk';
+import { SearchAdapter } from '../lib/audio-sdk/search-adapter';
 import debounce from 'lodash/debounce';
 
 const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { focusSearch?: boolean; isVisible?: boolean }) => {
@@ -78,8 +79,8 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
         }
         setIsLoading(true);
         try {
-            const results = await musicApi.searchAll(query);
-            // Global search returns topQuery, songs, albums, artists, playlists
+            const mediaItems = await audioSDK.search(query);
+            const results = SearchAdapter.mediaItemsToSearchResults(mediaItems);
             dispatch(setSearchedSongs(results));
             if (query.trim().length > 2) {
                 dispatch(addRecentSearch(query.trim()));
