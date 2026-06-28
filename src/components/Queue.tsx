@@ -1,11 +1,12 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { reorderQueue, removeFromQueue, playMusic, clearQueue } from '../features/musicplayer/musicPlayerSlice';
 import { motion, Reorder, AnimatePresence, useDragControls } from 'framer-motion';
 import { IoClose, IoReorderThreeOutline, IoTrashOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
 
-import { setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
+// Hooks
+import { useQueue } from '../hooks/useQueue';
+import { usePlayback } from '../hooks/usePlayback';
 
 interface QueueItemProps {
     song: Song;
@@ -41,7 +42,7 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             </div>
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" onClick={() => onPlay(song)}>
                 <img
-                                    src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image}
+                    src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image}
                     alt=""
                     className="w-10 h-10 rounded object-cover"
                 />
@@ -64,20 +65,21 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
 };
 
 export const QueueContent: React.FC = () => {
-    const { songs, currentSong, recommendations } = useAppSelector((state) => state.musicPlayer);
-    const dispatch = useAppDispatch();
+    const { queue, updateOrder, removeTrack } = useQueue();
+    const { currentSong, playSpecific } = usePlayback();
+    const { recommendations } = useAppSelector(state => state.musicPlayer);
 
     return (
         <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-            <Reorder.Group axis="y" values={songs} onReorder={(newSongs) => dispatch(reorderQueue(newSongs))} className="space-y-1">
+            <Reorder.Group axis="y" values={queue} onReorder={updateOrder} className="space-y-1">
                 <AnimatePresence initial={false}>
-                    {songs.map((song) => (
+                    {queue.map((song) => (
                         <QueueItem
                             key={song.id}
                             song={song}
                             isActive={currentSong?.id === song.id}
-                            onPlay={(s) => dispatch(playMusic(s))}
-                            onRemove={(id) => dispatch(removeFromQueue(id))}
+                            onPlay={playSpecific}
+                            onRemove={removeTrack}
                         />
                     ))}
                 </AnimatePresence>
@@ -92,7 +94,7 @@ export const QueueContent: React.FC = () => {
                         <div
                             key={song.id}
                             className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 mb-1 group"
-                            onClick={() => dispatch(playMusic(song))}
+                            onClick={() => playSpecific(song)}
                         >
                             <img
                                 src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image}
@@ -106,7 +108,7 @@ export const QueueContent: React.FC = () => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    dispatch(reorderQueue([...songs, song]));
+                                    updateOrder([...queue, song]);
                                 }}
                                 className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
                                 style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.15)' }}
@@ -122,8 +124,7 @@ export const QueueContent: React.FC = () => {
 };
 
 const Queue: React.FC = () => {
-    const { songs, isQueueOpen } = useAppSelector((state) => state.musicPlayer);
-    const dispatch = useAppDispatch();
+    const { queue, isQueueOpen, toggleQueue, clearAll } = useQueue();
 
     return (
         <AnimatePresence>
@@ -133,7 +134,7 @@ const Queue: React.FC = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={() => dispatch(setQueueOpen(false))}
+                        onClick={() => toggleQueue(false)}
                         className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
                     />
                     <motion.div
@@ -146,14 +147,14 @@ const Queue: React.FC = () => {
                         <div className="p-5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
                             <div>
                                 <h2 className="text-xl font-bold">Queue</h2>
-                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{(songs || []).length} Songs</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{(queue || []).length} Songs</p>
                             </div>
                             <div className="flex items-center gap-1">
-                                {songs && Array.isArray(songs) && songs.length > 0 && (
+                                {queue && Array.isArray(queue) && queue.length > 0 && (
                                     <button
                                         onClick={() => {
                                             if (window.confirm('Clear all songs from queue?')) {
-                                                dispatch(clearQueue());
+                                                clearAll();
                                             }
                                         }}
                                         className="p-2 text-gray-400 hover:text-primary transition-colors"
@@ -162,7 +163,7 @@ const Queue: React.FC = () => {
                                         <IoTrashOutline size={20} />
                                     </button>
                                 )}
-                                <button onClick={() => dispatch(setQueueOpen(false))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                                <button onClick={() => toggleQueue(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                                     <IoClose size={24} />
                                 </button>
                             </div>

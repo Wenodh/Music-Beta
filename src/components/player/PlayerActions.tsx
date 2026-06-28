@@ -33,7 +33,7 @@ interface PlayerActionsProps {
     moreMenuRef: React.RefObject<HTMLDivElement>;
 }
 
-const PlayerActions: React.FC<PlayerActionsProps> = ({
+const PlayerActions: React.FC<PlayerActionsProps> = React.memo(({
     isFavorite,
     isQueueOpen,
     isSongRadioEnabled,
@@ -153,6 +153,6 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
             </div>
         </div>
     );
-};
+});
 
 export default PlayerActions;

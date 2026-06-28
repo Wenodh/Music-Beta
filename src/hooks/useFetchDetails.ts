@@ -20,12 +20,13 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
     const stableGetImageUrl = useCallback(getImageUrl, []);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchDetails = async () => {
             if (!apiUrl) return;
             try {
                 setLoading(true);
                 setError(null);
-                const response = await axios.get(apiUrl);
+                const response = await axios.get(apiUrl, { signal: controller.signal });
                 const data = response.data?.data;
                 if (!data) {
                     throw new Error('No data received from server');
@@ -33,6 +34,7 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
                 setDetails(data);
                 setImage(stableGetImageUrl(data));
             } catch (err: any) {
+                if (axios.isCancel(err)) return;
                 console.error(err);
                 setError(err.message || 'Failed to fetch details.');
             } finally {
@@ -41,6 +43,7 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
         };
 
         fetchDetails();
+        return () => controller.abort();
     }, [apiUrl, stableGetImageUrl]);
 
     return { details, loading, error, image };

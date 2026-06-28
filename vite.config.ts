@@ -14,6 +14,7 @@ export default defineConfig({
                     'vendor-framer': ['framer-motion'],
                     'vendor-supabase': ['@supabase/supabase-js'],
                     'vendor-utils': ['axios', 'lodash', 'colorthief'],
+                    'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
                 }
             }
         },

@@ -157,6 +157,8 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         placeholder="Search for songs, albums, artists..."
+                        aria-label="Search for songs, albums, artists"
+                        data-testid="search-input"
                         className={`w-full p-2 sm:p-2.5 pl-10 sm:pl-11 rounded-2xl bg-gray-100/50 border-2 border-transparent focus:bg-white focus:outline-none transition-all shadow-inner text-base ${theme.isOled ? 'dark:bg-black/50 dark:focus:bg-black' : 'dark:bg-gray-800/50 dark:focus:bg-gray-900'}`}
                         style={{ borderFocusColor: 'rgba(var(--accent-rgb), 0.5)' } as any}
                     />

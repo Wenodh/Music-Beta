@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song, MusicPlayerState, SearchResults, Album, Artist, Playlist } from '../../types/music';
-import { getNextSong, getPrevSong } from '../../utils/playlist';
+import { PlaybackEngine } from '../../domain/playback/PlaybackEngine';
 
 const initialState: MusicPlayerState = {
     songs: [],
@@ -23,7 +23,6 @@ const initialState: MusicPlayerState = {
     },
     isGaplessEnabled: false,
     crossfadeDuration: 5,
-    currentTime: 0,
     isSongRadioEnabled: true,
     downloadSettings: {
         wifiOnly: false,
@@ -34,24 +33,6 @@ const initialState: MusicPlayerState = {
     visualizerStyle: 'bars',
     repeatMode: 'none',
     shuffle: false,
-};
-
-// Helper to format song for currentSong state
-const formatSong = (song: Partial<Song> & { music?: any; downloadUrl?: any }, preferredQuality: string): Song => {
-    const downloadUrl = song.downloadUrl || song.music;
-    let musicUrl = downloadUrl;
-    if (Array.isArray(downloadUrl)) {
-        musicUrl = downloadUrl.find((d: any) => d.quality === preferredQuality)?.url ||
-                   downloadUrl[downloadUrl.length - 1]?.url;
-    }
-
-    return {
-        ...song,
-        type: 'song',
-        image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
-        downloadUrl: downloadUrl,
-        music: musicUrl,
-    } as Song;
 };
 
 const musicPlayerSlice = createSlice({
@@ -89,7 +70,7 @@ const musicPlayerSlice = createSlice({
             if (!forcePlay && state.currentSong && state.currentSong.id === id) {
                 state.isPlaying = !state.isPlaying;
             } else {
-                state.currentSong = formatSong(songData, state.preferredQuality);
+                state.currentSong = PlaybackEngine.formatSong(songData, state.preferredQuality);
                 state.isPlaying = true;
 
                 // Add to recently played
@@ -191,9 +172,6 @@ const musicPlayerSlice = createSlice({
         setCrossfadeDuration: (state, action: PayloadAction<number>) => {
             state.crossfadeDuration = action.payload;
         },
-        setCurrentTime: (state, action: PayloadAction<number>) => {
-            state.currentTime = action.payload;
-        },
         setSongRadioEnabled: (state, action: PayloadAction<boolean>) => {
             state.isSongRadioEnabled = action.payload;
         },
@@ -217,10 +195,10 @@ const musicPlayerSlice = createSlice({
         },
         nextSong: (state, action: PayloadAction<{ isManual?: boolean } | undefined>) => {
             const isManual = action.payload?.isManual ?? true;
-            const next = getNextSong(state.currentSong, state.songs, state.shuffle, state.repeatMode, isManual);
+            const next = PlaybackEngine.getNextSong(state, isManual);
 
             if (next) {
-                state.currentSong = formatSong(next, state.preferredQuality);
+                state.currentSong = PlaybackEngine.formatSong(next, state.preferredQuality);
                 state.isPlaying = true;
                 state.recentlyPlayed = [
                     state.currentSong,
@@ -232,10 +210,10 @@ const musicPlayerSlice = createSlice({
             }
         },
         prevSong: (state) => {
-            const prev = getPrevSong(state.currentSong, state.songs, state.shuffle);
+            const prev = PlaybackEngine.getPrevSong(state);
 
             if (prev) {
-                state.currentSong = formatSong(prev, state.preferredQuality);
+                state.currentSong = PlaybackEngine.formatSong(prev, state.preferredQuality);
                 state.isPlaying = true;
                 state.recentlyPlayed = [
                     state.currentSong,
@@ -295,7 +273,6 @@ export const {
     setEqualizerPreset,
     setGaplessEnabled,
     setCrossfadeDuration,
-    setCurrentTime,
     setSongRadioEnabled,
     setWifiOnly,
     setDailyMix,
