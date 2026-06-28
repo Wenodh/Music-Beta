@@ -23,6 +23,7 @@ import { setUser } from './features/auth/authSlice';
 import { joinSession } from './features/session/sessionSlice';
 import { hexToRgb } from './utils/colorUtils';
 import { historyService } from './lib/history/HistoryService';
+import { sleepTimerService } from './lib/playback/SleepTimerService';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -47,6 +48,7 @@ const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const MediaDetails = lazyRetry(() => import('./pages/MediaDetails'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -77,6 +79,22 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/podcasts/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Podcast...</div>}>
+                            <PageWrapper><MediaDetails provider="podcast-index" type="podcast" /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/details/:provider/:type/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Details...</div>}>
+                            <PageWrapper><MediaDetails /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -185,6 +203,7 @@ export const AppContent = () => {
     useEffect(() => {
         // Initialize global services
         (window as any)._historyService = historyService;
+        (window as any)._sleepTimerService = sleepTimerService;
 
         // Handle direct room links
         const params = new URLSearchParams(window.location.search);

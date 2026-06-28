@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
@@ -11,6 +11,7 @@ import { RadioBrowserProvider } from '../lib/audio-sdk/providers/radio-browser';
 import { MediaItem } from '../lib/audio-sdk/models';
 import { providerRegistry } from '../lib/audio-sdk/registry';
 import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
+import { audioSDK } from '../lib/audio-sdk';
 
 interface MainSectionData {
     albums: Album[];
@@ -47,6 +48,7 @@ const MainSection: React.FC = () => {
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    const [podcasts, setPodcasts] = useState<MediaItem[]>([]);
 
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
@@ -74,7 +76,6 @@ const MainSection: React.FC = () => {
             };
 
             const artistsToFetch = curatedArtists[lang] || [language];
-            const radioProvider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
 
             const results = await Promise.allSettled([
                 musicApi.getTrending(lang, 0, 25),
@@ -86,8 +87,9 @@ const MainSection: React.FC = () => {
                 musicApi.searchPlaylists(`${lang} Chill`, 0, 15),
                 musicApi.searchPlaylists(`${lang} Workout`, 0, 15),
                 musicApi.searchSongs(`${lang} New Songs`, 0, 40),
-                radioProvider ? radioProvider.getPopular(20) : Promise.resolve([]),
-                radioProvider ? radioProvider.getTrending(20) : Promise.resolve([]),
+                audioSDK.getPopularRadio(20),
+                audioSDK.getTrendingRadio(20),
+                audioSDK.getTrendingPodcasts(15),
                 ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1))
             ]);
 
@@ -116,6 +118,7 @@ const MainSection: React.FC = () => {
                 popularRadio: getValue(results[9], []),
                 trendingRadio: getValue(results[10], [])
             });
+            setPodcasts(getValue(results[11], []));
         } catch (error) {
             console.error('Error in fetchData:', error);
         } finally {
@@ -126,6 +129,62 @@ const MainSection: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
+    };
+
+    const continueListening = useMemo(() => {
+        return (history || [])
+            .filter(h => h.completionPercentage < 95 && h.listenedDuration > 5 && h.media.type !== 'radio')
+            .map(h => ({
+                ...mediaItemToSong(h.media),
+                _history: h
+            })) || [];
+    }, [history]);
+
+    const recentlyPlayedUnified = useMemo(() => {
+        if (history && history.length > 0) {
+            return history.map(h => mediaItemToSong(h.media));
+        }
+        return recentlyPlayed;
+    }, [history, recentlyPlayed]);
+
+    const sections = [
+        {
+            data: continueListening,
+            title: "Continue Listening"
+        },
+        {
+            data: recentlyPlayedUnified,
+            title: "Recently Played"
+        },
+        { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
+        { data: podcasts, title: "Trending Podcasts" },
+        { data: data.popularRadio, title: "Popular Radio Stations" },
+        { data: data.trendingRadio, title: "Trending Radio Stations" },
+        { data: data.latestSongs, title: "Latest Songs" },
+        { data: data.songs, title: "Trending Songs" },
+        { data: data.albums, title: "Trending Albums" },
+        { data: data.artists, title: "Featured Artists" },
+        { data: data.playlists, title: "Top Playlists" },
+        { data: data.meditation, title: "Meditation" },
+        { data: data.work, title: "Work" },
+        { data: data.devPicks, title: "Developer's Picks" },
+        { data: data.chill, title: "Chill" },
+        { data: data.workout, title: "Workout" }
+    ];
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
 
     if (isOffline) {
         return (
@@ -151,41 +210,6 @@ const MainSection: React.FC = () => {
             </div>
         );
     }
-
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
-    };
-
-    const sections = [
-        {
-            data: history?.map(h => mediaItemToSong(h.media)) || recentlyPlayed,
-            title: "Recently Played"
-        },
-        { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
-        { data: data.popularRadio, title: "Popular Radio Stations" },
-        { data: data.trendingRadio, title: "Trending Radio Stations" },
-        { data: data.latestSongs, title: "Latest Songs" },
-        { data: data.songs, title: "Trending Songs" },
-        { data: data.albums, title: "Trending Albums" },
-        { data: data.artists, title: "Featured Artists" },
-        { data: data.playlists, title: "Top Playlists" },
-        { data: data.meditation, title: "Meditation" },
-        { data: data.work, title: "Work" },
-        { data: data.devPicks, title: "Developer's Picks" },
-        { data: data.chill, title: "Chill" },
-        { data: data.workout, title: "Workout" }
-    ];
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
-    };
 
     return (
         <motion.div

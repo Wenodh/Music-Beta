@@ -20,15 +20,24 @@ interface PageTemplateProps {
     getImageUrl?: (data: any) => string;
     title?: string;
     children?: React.ReactNode;
+    details?: any; // Added to support passing pre-fetched details
 }
 
 const GlobeScene = React.lazy(() => import('./globe/GlobeScene'));
 
-const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children }) => {
-    const { details, loading, error, image: fetchedImage } = useFetchDetails(
-        apiUrl || '',
+const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children, details: propDetails }) => {
+    const fetchResult = useFetchDetails(
+        propDetails ? '' : (apiUrl || ''),
         getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))
     );
+
+    const details = propDetails || fetchResult.details;
+    const loading = propDetails ? false : fetchResult.loading;
+    const error = propDetails ? null : fetchResult.error;
+    const fetchedImage = propDetails
+        ? (Array.isArray(propDetails.image) ? propDetails.image[propDetails.image.length-1]?.url : propDetails.image)
+        : fetchResult.image;
+
     const dispatch = useAppDispatch();
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list' | 'globe'>('list');

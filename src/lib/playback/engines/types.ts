@@ -16,6 +16,7 @@ export interface PlaybackEngine {
     stop(): void;
     seek(time: number): void;
     setVolume(volume: number): void;
+    setPlaybackSpeed(speed: number): void;
 
     readonly state: PlaybackState;
     readonly currentTime: number;

@@ -4,8 +4,9 @@ import { Song } from '../types/music';
  * Database configuration for offline storage.
  */
 const DB_NAME = 'vibeon_offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented version for new store
 const STORE_NAME = 'songs';
+const POSITIONS_STORE = 'playback_positions';
 
 /**
  * Interface representing a song stored in IndexedDB.
@@ -29,6 +30,9 @@ export const initDB = (): Promise<IDBDatabase> => {
             const db = (event.target as IDBOpenDBRequest).result;
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(POSITIONS_STORE)) {
+                db.createObjectStore(POSITIONS_STORE, { keyPath: 'mediaId' });
             }
         };
 
@@ -141,4 +145,59 @@ export const getDownloadStorageInfo = async (): Promise<{ count: number; totalSi
         count: songs.length,
         totalSize,
     };
+};
+
+/**
+ * Playback position interfaces and operations
+ */
+export interface StoredPlaybackPosition {
+    mediaId: string;
+    provider: string;
+    position: number;
+    duration: number;
+    updatedAt: number;
+}
+
+export const savePlaybackPosition = async (position: StoredPlaybackPosition): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(POSITIONS_STORE, 'readwrite');
+        const store = transaction.objectStore(POSITIONS_STORE);
+        const request = store.put(position);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const getPlaybackPosition = async (mediaId: string): Promise<StoredPlaybackPosition | undefined> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(POSITIONS_STORE, 'readonly');
+        const store = transaction.objectStore(POSITIONS_STORE);
+        const request = store.get(mediaId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const getAllPlaybackPositions = async (): Promise<StoredPlaybackPosition[]> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(POSITIONS_STORE, 'readonly');
+        const store = transaction.objectStore(POSITIONS_STORE);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const deletePlaybackPosition = async (mediaId: string): Promise<void> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(POSITIONS_STORE, 'readwrite');
+        const store = transaction.objectStore(POSITIONS_STORE);
+        const request = store.delete(mediaId);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
 };

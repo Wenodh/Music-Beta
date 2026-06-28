@@ -5,6 +5,8 @@ import { playbackManager } from '../lib/playback/PlaybackManager';
 import { eventBus, Events } from '../lib/events';
 import { songToMediaItem } from '../lib/adapters/mediaItemAdapter';
 import { audioSDK } from '../lib/audio-sdk';
+import { continuityService } from '../lib/continuity';
+import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
 
 interface UseAudioPlaybackProps {
     currentSong: Song | null;
@@ -73,13 +75,29 @@ export const useAudioPlayback = ({
 
             if (source?.url) {
                 mediaItem.stream = source;
+                const policy = getPlaybackPolicy(mediaItem);
+                const isNewTrack = playbackManager.currentMediaItem?.id !== mediaItem.id;
 
                 if (isPlaying) {
                     await playbackManager.play(mediaItem);
+
+                    if (isNewTrack && policy.canResume) {
+                        const saved = continuityService.getPosition(mediaItem.id);
+                        if (saved && saved.position > 10 && saved.position < (saved.duration - 15)) {
+                            playbackManager.seek(saved.position);
+                        }
+                    }
                 } else if (playbackManager.currentMediaItem?.id === mediaItem.id) {
                     playbackManager.pause();
                 } else if (!isPlaying) {
                     await playbackManager.play(mediaItem);
+
+                    if (isNewTrack && policy.canResume) {
+                        const saved = continuityService.getPosition(mediaItem.id);
+                        if (saved && saved.position > 10 && saved.position < (saved.duration - 15)) {
+                            playbackManager.seek(saved.position);
+                        }
+                    }
                     playbackManager.pause();
                 }
             }

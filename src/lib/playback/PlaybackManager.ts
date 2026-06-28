@@ -193,6 +193,11 @@ export class PlaybackManager {
         }
     }
 
+    setPlaybackSpeed(speed: number) {
+        this.engineA.setPlaybackSpeed(speed);
+        this.engineB.setPlaybackSpeed(speed);
+    }
+
     get state() { return this.activeEngine.state; }
     get currentTime() { return this.activeEngine.currentTime; }
     get duration() { return this.activeEngine.duration; }

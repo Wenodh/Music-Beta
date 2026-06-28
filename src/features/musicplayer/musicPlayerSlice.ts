@@ -50,7 +50,7 @@ const formatSong = (song: Partial<Song> & { music?: any; downloadUrl?: any }, pr
 
     return {
         ...song,
-        type: 'song',
+        type: song.type || 'song',
         image: Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image,
         downloadUrl: downloadUrl,
         music: musicUrl,
@@ -113,9 +113,19 @@ const musicPlayerSlice = createSlice({
                     ...(state.history || []).filter(h => h.id !== media.id)
                 ].slice(0, 50);
 
-                // Also ensure it's in the current playlist if not already there
-                if (!state.songs.find(s => s.id === id)) {
-                    state.songs = [state.currentSong, ...state.songs].slice(0, 100);
+                // For Radio: Only one live station can be active at a time.
+                // Selecting a new station replaces the current radio station.
+                // Existing music queue remains intact.
+                if (state.currentSong.type === 'radio') {
+                    state.songs = [
+                        state.currentSong,
+                        ...state.songs.filter(s => s.type !== 'radio' && s.id !== id)
+                    ].slice(0, 100);
+                } else {
+                    // Also ensure it's in the current playlist if not already there
+                    if (!state.songs.find(s => s.id === id)) {
+                        state.songs = [state.currentSong, ...state.songs].slice(0, 100);
+                    }
                 }
             }
         },

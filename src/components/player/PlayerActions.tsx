@@ -82,12 +82,12 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
                                     <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-2 uppercase">
                                         <MdSpeed size={16} /> Speed
                                     </div>
-                                    <div className="flex gap-1">
-                                        {[0.5, 1, 1.5, 2].map(speed => (
+                                    <div className="flex flex-wrap gap-1">
+                                        {[0.75, 1, 1.25, 1.5, 1.75, 2].map(speed => (
                                             <button
                                                 key={speed}
                                                 onClick={() => onSetPlaybackSpeed(speed)}
-                                                className={`flex-1 py-1 rounded-md text-[10px] font-bold ${playbackSpeed === speed ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
+                                                className={`flex-[1_0_28%] py-1 rounded-md text-[10px] font-bold ${playbackSpeed === speed ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
                                             >
                                                 {speed}x
                                             </button>

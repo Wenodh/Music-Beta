@@ -154,6 +154,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 <div className="relative w-full group">
                     <input
                         ref={inputRef}
+                        data-testid="search-input"
                         type="text"
                         value={searchQuery}
                         onChange={handleSearchChange}

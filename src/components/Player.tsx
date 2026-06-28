@@ -36,6 +36,7 @@ import { getDominantColor } from '../utils/colorExtractor';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useMediaSession } from '../hooks/useMediaSession';
 import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
+import { playbackManager } from '../lib/playback/PlaybackManager';
 import { eventBus, Events } from '../lib/events';
 
 // Sub-components
@@ -125,14 +126,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     });
 
     useEffect(() => {
-        if (activeAudioRef.current) {
-            try {
-                activeAudioRef.current.playbackRate = playbackSpeed;
-            } catch (e) {
-                console.warn("Failed to set playback rate", e);
-            }
-        }
-    }, [playbackSpeed, activeAudioRef]);
+        playbackManager.setPlaybackSpeed(playbackSpeed);
+    }, [playbackSpeed]);
 
     const handleManualSeek = useCallback((time: number) => {
         seek(time);
@@ -313,6 +308,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             onPrev={(e) => { e.stopPropagation(); dispatch(prevSongAction()); }}
                             onToggleShuffle={(e) => { e.stopPropagation(); dispatch(toggleShuffle()); }}
                             onToggleRepeat={(e) => { e.stopPropagation(); dispatch(toggleRepeatMode()); }}
+                            onSeekRelative={(offset) => {
+                                const current = activeAudioRef.current?.currentTime || 0;
+                                const duration = activeAudioRef.current?.duration || 0;
+                                handleManualSeek(Math.max(0, Math.min(duration, current + offset)));
+                            }}
                             policy={policy}
                         />
 
@@ -345,7 +345,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 onToggleRadio={() => { dispatch(setSongRadioEnabled(!isSongRadioEnabled)); setIsMoreMenuOpen(false); }}
                                 onDownload={() => { handleDownloadSong(); setIsMoreMenuOpen(false); }}
                                 onShare={() => { handleShare(); setIsMoreMenuOpen(false); }}
-                                onSetPlaybackSpeed={setPlaybackSpeed}
+                                onSetPlaybackSpeed={policy.canChangeSpeed ? setPlaybackSpeed : undefined}
                                 onSetVolume={setUserVolume}
                                 onToggleMoreMenu={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
                                 moreMenuRef={moreMenuRef}

@@ -3,6 +3,7 @@ import { useAppSelector } from '../hooks/redux';
 import { AnimatePresence } from 'framer-motion';
 import { IoCompassOutline, IoSearchOutline, IoRadioOutline, IoGlobeOutline, IoLanguageOutline, IoPricetagOutline } from 'react-icons/io5';
 import { audioSDK } from '../lib/audio-sdk';
+import { providerRegistry } from '../lib/audio-sdk/registry';
 import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
 import { RadioBrowserProvider } from '../lib/audio-sdk/providers/radio-browser';
 import ExploreSongCard from '../components/ExploreSongCard';
@@ -13,9 +14,12 @@ import { useMasonryColumns } from '../hooks/useMasonryColumns';
 
 const Explore: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
-    const [activeTab, setActiveTab] = useState<'music' | 'radio'>('music');
+    const [activeTab, setActiveTab] = useState<'music' | 'radio' | 'podcasts'>('music');
     const [songs, setSongs] = useState<Song[]>([]);
     const [radioStations, setRadioStations] = useState<MediaItem[]>([]);
+    const [metadataList, setMetadataList] = useState<any[]>([]);
+    const [activeMetadataType, setActiveMetadataType] = useState<'countries' | 'languages' | 'tags' | null>(null);
+    const [selectedMetadata, setSelectedMetadata] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const hasMoreRef = useRef(true);
@@ -45,13 +49,41 @@ const Explore: React.FC = () => {
                 } else {
                     setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
                 }
-            } else {
-                const items = await audioSDK.search(language, { page: pageNum, limit: 30, type: 'radio' });
+            } else if (activeTab === 'radio') {
+                const radioProvider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
+                let items: MediaItem[] = [];
+
+                if (selectedMetadata && activeMetadataType) {
+                    // Search by metadata
+                    const endpoint = activeMetadataType === 'countries' ? `stations/bycountry/${encodeURIComponent(selectedMetadata)}` :
+                                   activeMetadataType === 'languages' ? `stations/bylanguage/${encodeURIComponent(selectedMetadata)}` :
+                                   `stations/bytag/${encodeURIComponent(selectedMetadata)}`;
+
+                    // Direct fetch since SDK search is more general
+                    const results = await (radioProvider as any).fetchApi(endpoint, {
+                        limit: 30,
+                        offset: pageNum * 30,
+                        hidebroken: 'true',
+                        order: 'clickcount',
+                        reverse: 'true'
+                    });
+                    items = results.map((s: any) => (radioProvider as any).mapToMediaItem(s));
+                } else {
+                    items = await audioSDK.search(language, { page: pageNum, limit: 30, type: 'radio' });
+                }
 
                 if (items.length === 0) {
                     updateHasMore(false);
                 } else {
                     setRadioStations(prev => isReset ? items : [...prev, ...items]);
+                }
+            } else if (activeTab === 'podcasts') {
+                const items = await audioSDK.searchPodcasts(language, { page: pageNum, limit: 30 });
+                if (items.length === 0) {
+                    updateHasMore(false);
+                } else {
+                    const newSongs = items.map(item => mediaItemToSong(item));
+                    setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
                 }
             }
         } catch (error) {
@@ -60,15 +92,48 @@ const Explore: React.FC = () => {
             setLoading(false);
             isFetching.current = false;
         }
-    }, [language, updateHasMore, activeTab]);
+    }, [language, updateHasMore, activeTab, selectedMetadata, activeMetadataType]);
 
     useEffect(() => {
         // Reset and fetch when language or tab changes
         setSongs([]);
         setRadioStations([]);
+        setSelectedMetadata(null);
+        setActiveMetadataType(null);
+        setMetadataList([]);
         updateHasMore(true);
         fetchSongs(0, true);
     }, [language, fetchSongs, updateHasMore, activeTab]);
+
+    const fetchMetadata = async (type: 'countries' | 'languages' | 'tags') => {
+        const radioProvider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
+        if (!radioProvider) return;
+
+        setLoading(true);
+        try {
+            let list = [];
+            if (type === 'countries') list = await radioProvider.getCountries();
+            else if (type === 'languages') list = await radioProvider.getLanguages();
+            else if (type === 'tags') list = await radioProvider.getTags();
+
+            // Filter out empty names and sort by station count
+            list = list.filter((i: any) => i.name).sort((a: any, b: any) => b.stationcount - a.stationcount);
+            setMetadataList(list);
+            setActiveMetadataType(type);
+        } catch (error) {
+            console.error('Error fetching metadata:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleMetadataSelect = (name: string) => {
+        setSelectedMetadata(name);
+        setRadioStations([]);
+        updateHasMore(true);
+        setMetadataList([]); // Hide list
+        fetchSongs(0, true);
+    };
 
     const lastSongElementRef = useCallback((node: HTMLDivElement) => {
         if (loading) return;
@@ -107,33 +172,89 @@ const Explore: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl self-start sm:self-center">
+                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl self-start sm:self-center overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setActiveTab('music')}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'music' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'music' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                         >
                             Music
                         </button>
                         <button
                             onClick={() => setActiveTab('radio')}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'radio' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'radio' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                         >
                             <IoRadioOutline /> Radio
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('podcasts')}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === 'podcasts' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                        >
+                            Podcasts
                         </button>
                     </div>
                 </div>
 
                 {activeTab === 'radio' && (
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors">
-                            <IoGlobeOutline /> Countries
-                        </button>
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors">
-                            <IoLanguageOutline /> Languages
-                        </button>
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors">
-                            <IoPricetagOutline /> Genres
-                        </button>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                            <button
+                                onClick={() => activeMetadataType === 'countries' ? setActiveMetadataType(null) : fetchMetadata('countries')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeMetadataType === 'countries' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                            >
+                                <IoGlobeOutline /> {selectedMetadata && activeMetadataType === 'countries' ? selectedMetadata : 'Countries'}
+                            </button>
+                            <button
+                                onClick={() => activeMetadataType === 'languages' ? setActiveMetadataType(null) : fetchMetadata('languages')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeMetadataType === 'languages' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                            >
+                                <IoLanguageOutline /> {selectedMetadata && activeMetadataType === 'languages' ? selectedMetadata : 'Languages'}
+                            </button>
+                            <button
+                                onClick={() => activeMetadataType === 'tags' ? setActiveMetadataType(null) : fetchMetadata('tags')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeMetadataType === 'tags' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                            >
+                                <IoPricetagOutline /> {selectedMetadata && activeMetadataType === 'tags' ? selectedMetadata : 'Genres'}
+                            </button>
+
+                            {selectedMetadata && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedMetadata(null);
+                                        setActiveMetadataType(null);
+                                        setRadioStations([]);
+                                        updateHasMore(true);
+                                        fetchSongs(0, true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+                                >
+                                    <IoClose /> Clear Filter
+                                </button>
+                            )}
+                        </div>
+
+                        <AnimatePresence>
+                            {metadataList.length > 0 && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800 max-h-48 overflow-y-auto custom-scrollbar">
+                                        {metadataList.slice(0, 50).map((item) => (
+                                            <button
+                                                key={item.name}
+                                                onClick={() => handleMetadataSelect(item.name)}
+                                                className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs hover:border-primary hover:text-primary transition-all flex items-center gap-2"
+                                            >
+                                                {item.name}
+                                                <span className="text-[10px] text-gray-400">{item.stationcount}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 )}
             </header>

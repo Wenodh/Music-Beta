@@ -9,6 +9,8 @@ export interface PlaybackPolicy {
     canChangeSpeed: boolean;
     canSkipNext: boolean;
     canSkipPrevious: boolean;
+    skipForwardInterval: number; // in seconds
+    skipBackwardInterval: number; // in seconds
 }
 
 const DefaultPolicy: PlaybackPolicy = {
@@ -16,9 +18,11 @@ const DefaultPolicy: PlaybackPolicy = {
     canResume: true,
     showLiveIndicator: false,
     showDuration: true,
-    canChangeSpeed: true,
+    canChangeSpeed: false, // Default to false for Music/Radio unless specified
     canSkipNext: true,
     canSkipPrevious: true,
+    skipForwardInterval: 0,
+    skipBackwardInterval: 0,
 };
 
 const RadioPolicy: PlaybackPolicy = {
@@ -29,14 +33,38 @@ const RadioPolicy: PlaybackPolicy = {
     canChangeSpeed: false,
     canSkipNext: false,
     canSkipPrevious: false,
+    skipForwardInterval: 0,
+    skipBackwardInterval: 0,
+};
+
+const PodcastPolicy: PlaybackPolicy = {
+    canSeek: true,
+    canResume: true,
+    showLiveIndicator: false,
+    showDuration: true,
+    canChangeSpeed: true,
+    canSkipNext: true,
+    canSkipPrevious: true,
+    skipForwardInterval: 30,
+    skipBackwardInterval: 10,
 };
 
 export function getPlaybackPolicy(item: MediaItem | null): PlaybackPolicy {
     if (!item) return DefaultPolicy;
 
     const provider = providerRegistry.getProvider(item.provider);
+
     if (provider?.capabilities.live || item.type === 'radio') {
         return RadioPolicy;
+    }
+
+    if (item.type === 'episode' || item.type === 'podcast') {
+        return PodcastPolicy;
+    }
+
+    // Explicit check for provider capabilities if available
+    if (provider?.capabilities.speedControl) {
+        return { ...DefaultPolicy, canChangeSpeed: true };
     }
 
     return DefaultPolicy;

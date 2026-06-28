@@ -4,6 +4,7 @@ import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline, IoOptionsOutline, IoClose } from 'react-icons/io5';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
+import { MdForward30, MdReplay10 } from 'react-icons/md';
 import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
@@ -286,9 +287,23 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 </div>
                                 <div className="flex items-center gap-4 sm:gap-6">
                                     {policy.canSkipPrevious && <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
+
+                                    {policy.skipBackwardInterval && (
+                                        <button onClick={() => handleSeek?.(Math.max(0, currentTime - policy.skipBackwardInterval!))}>
+                                            <MdReplay10 className="w-8 h-8 sm:w-9 sm:h-9" />
+                                        </button>
+                                    )}
+
                                     <div onClick={handlePlayPause} className="w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
                                         {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
                                     </div>
+
+                                    {policy.skipForwardInterval && (
+                                        <button onClick={() => handleSeek?.(Math.min(duration, currentTime + policy.skipForwardInterval!))}>
+                                            <MdForward30 className="w-8 h-8 sm:w-9 sm:h-9" />
+                                        </button>
+                                    )}
+
                                     {policy.canSkipNext && <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
                                 </div>
                                 <div className="w-10">

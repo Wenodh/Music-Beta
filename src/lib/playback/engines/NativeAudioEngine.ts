@@ -65,6 +65,10 @@ export class NativeAudioEngine implements PlaybackEngine {
         this.audio.volume = volume;
     }
 
+    setPlaybackSpeed(speed: number): void {
+        this.audio.playbackRate = speed;
+    }
+
     get state() { return this._state; }
     get currentTime() { return this.audio.currentTime; }
     get duration() { return this.audio.duration || 0; }

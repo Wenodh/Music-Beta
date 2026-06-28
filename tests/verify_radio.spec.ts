@@ -21,11 +21,18 @@ test.describe('Internet Radio Integration Tests', () => {
   });
 
   test('Radio Search', async ({ page }) => {
-    const searchInput = page.getByPlaceholder('Search for songs, albums, artists...');
+    // Increase viewport for desktop navbar
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    const searchInput = page.getByTestId('search-input');
+    await expect(searchInput).toBeVisible();
+
     // Search for a generic term likely to yield results in any language
     await searchInput.fill('Jazz');
+    await searchInput.press('Enter');
 
-    const radioTab = page.getByRole('button', { name: /Radio/i });
+    // Search results should appear in the SearchSection overlay
+    const radioTab = page.getByRole('button', { name: /Radio \(/i });
     await expect(radioTab).toBeVisible({ timeout: 30000 });
 
     await radioTab.click();
@@ -63,7 +70,11 @@ test.describe('Internet Radio Integration Tests', () => {
   });
 
   test('Explore Radio Tab Categories', async ({ page }) => {
-    await page.getByRole('button', { name: 'Explore' }).click();
+    // Increase viewport to ensure everything is visible
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    const exploreLink = page.getByRole('button', { name: 'Explore' });
+    await exploreLink.click();
     await expect(page).toHaveURL(/.*explore/);
 
     const radioTab = page.getByRole('button', { name: 'Radio', exact: true });

@@ -3,6 +3,7 @@ import { MediaItem, PlayableSource } from './models';
 import { globalCache } from '../cache';
 import { JioSaavnProvider } from './providers/jiosaavn';
 import { RadioBrowserProvider } from './providers/radio-browser';
+import { PodcastIndexProvider } from './providers/podcast-index';
 
 export class AudioSDK {
     private static instance: AudioSDK;
@@ -10,6 +11,7 @@ export class AudioSDK {
     private constructor() {
         providerRegistry.registerProvider(new JioSaavnProvider());
         providerRegistry.registerProvider(new RadioBrowserProvider());
+        providerRegistry.registerProvider(new PodcastIndexProvider());
     }
 
     public static getInstance(): AudioSDK {
@@ -63,6 +65,55 @@ export class AudioSDK {
             if (!provider) return [];
             return provider.getRecommendations(id);
         });
+    }
+
+    // Podcast Specific Methods
+    async searchPodcasts(query: string, options?: SearchOptions): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('podcast-index') as PodcastIndexProvider;
+        if (!provider) return [];
+        return provider.search(query, options);
+    }
+
+    async searchEpisodes(query: string, limit: number = 20): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('podcast-index') as PodcastIndexProvider;
+        if (!provider) return [];
+        return provider.searchEpisodes(query, limit);
+    }
+
+    async getPodcast(id: string): Promise<MediaItem | undefined> {
+        const provider = providerRegistry.getProvider('podcast-index') as PodcastIndexProvider;
+        if (!provider) return undefined;
+        return provider.getMedia(id, 'podcast');
+    }
+
+    async getEpisode(id: string): Promise<MediaItem | undefined> {
+        const provider = providerRegistry.getProvider('podcast-index') as PodcastIndexProvider;
+        if (!provider) return undefined;
+        return provider.getMedia(id, 'episode');
+    }
+
+    async getEpisodes(podcastId: string, limit: number = 100): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('podcast-index') as PodcastIndexProvider;
+        if (!provider) return [];
+        return provider.getEpisodes(podcastId, limit);
+    }
+
+    async getTrendingPodcasts(limit: number = 20): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('podcast-index') as PodcastIndexProvider;
+        if (!provider) return [];
+        return provider.getTrending(limit);
+    }
+
+    async getPopularRadio(limit: number = 20): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
+        if (!provider) return [];
+        return provider.getPopular(limit);
+    }
+
+    async getTrendingRadio(limit: number = 20): Promise<MediaItem[]> {
+        const provider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
+        if (!provider) return [];
+        return provider.getTrending(limit);
     }
 
     async getPlayableSource(item: MediaItem, quality?: string): Promise<PlayableSource | undefined> {
