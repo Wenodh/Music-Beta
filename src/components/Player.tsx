@@ -35,6 +35,8 @@ import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useMediaSession } from '../hooks/useMediaSession';
+import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
+import { eventBus, Events } from '../lib/events';
 
 // Sub-components
 import MiniPlayerMetadata from './player/MiniPlayerMetadata';
@@ -62,7 +64,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [imageUrl, setImageUrl] = useState<string>('');
     const imageUrlsRef = useRef<Set<string>>(new Set());
     const [progress, setProgress] = useState(0);
+    const [liveMetadata, setLiveMetadata] = useState<{ currentSong?: string; listeners?: number } | null>(null);
     const isFavorite = useMemo(() => favorites.some(s => s.id === currentSong?.id), [favorites, currentSong?.id]);
+    const policy = useMemo(() => getPlaybackPolicy(currentSong as any), [currentSong]);
 
     const { broadcast, sendReaction, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
@@ -163,7 +167,21 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, []);
 
     useEffect(() => {
+        const handleMetadataUpdate = (data: any) => {
+            if (data.id === currentSong?.id) {
+                setLiveMetadata(data.metadata);
+            }
+        };
+
+        eventBus.on(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        return () => {
+            eventBus.off(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        };
+    }, [currentSong?.id]);
+
+    useEffect(() => {
         if (currentSong) {
+            setLiveMetadata(null); // Reset metadata on song change
             getOfflineSong(currentSong.id).then(offlineSong => {
                 let url = '';
                 if (offlineSong?.imageBlob) {
@@ -270,16 +288,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     </div>
 
                     <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
-                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0 hidden md:block">
-                            <input type="range" id="progress" min={0} max={100} step="0.1" defaultValue={0} onChange={handleProgressChange} onClick={(e) => e.stopPropagation()} className="w-full h-[2px] md:h-[3px] cursor-pointer appearance-none bg-transparent" />
-                        </div>
+                        {policy.showDuration && (
+                            <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0 hidden md:block">
+                                <input type="range" id="progress" min={0} max={100} step="0.1" defaultValue={0} onChange={handleProgressChange} onClick={(e) => e.stopPropagation()} className="w-full h-[2px] md:h-[3px] cursor-pointer appearance-none bg-transparent" />
+                            </div>
+                        )}
 
                         <MiniPlayerMetadata
                             imageUrl={imageUrl}
                             name={currentSong.name}
-                            artists={currentSong.primaryArtists}
+                            artists={liveMetadata?.currentSong || currentSong.primaryArtists}
                             isBuffering={isBuffering}
                             onDoubleTap={handleDoubleTap}
+                            isLive={policy.showLiveIndicator}
                         />
 
                         <PlayerControls
@@ -292,13 +313,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             onPrev={(e) => { e.stopPropagation(); dispatch(prevSongAction()); }}
                             onToggleShuffle={(e) => { e.stopPropagation(); dispatch(toggleShuffle()); }}
                             onToggleRepeat={(e) => { e.stopPropagation(); dispatch(toggleRepeatMode()); }}
+                            policy={policy}
                         />
 
                         <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
                             {/* Mobile Controls */}
                             <div className="flex md:hidden items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                                 <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); dispatch(playMusic(currentSong)); }} className="relative w-10 h-10 flex items-center justify-center rounded-xl text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>{isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-1" />}</motion.button>
-                                <IoMdSkipForward onClick={(e) => { e.stopPropagation(); dispatch(nextSong({ isManual: true })); }} size={22} className="w-10 h-10 p-2" />
+                                {policy.canSkipNext && <IoMdSkipForward onClick={(e) => { e.stopPropagation(); dispatch(nextSong({ isManual: true })); }} size={22} className="w-10 h-10 p-2" />}
                             </div>
 
                             <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); dispatch(setSessionModalOpen(true)); }} className="hidden md:block">
@@ -327,6 +349,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 onSetVolume={setUserVolume}
                                 onToggleMoreMenu={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
                                 moreMenuRef={moreMenuRef}
+                            policy={policy}
                             />
                         </div>
                     </div>

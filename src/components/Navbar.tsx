@@ -87,6 +87,8 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
             }
         } catch (error) {
             console.error('Error fetching search results:', error);
+            // Even if search fails, we should clear loading state and potentially show partial results if we implemented it
+            // For now, just ensure it doesn't stay in loading state
         } finally {
             setIsLoading(false);
         }

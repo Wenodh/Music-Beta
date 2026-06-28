@@ -12,12 +12,13 @@ interface MiniPlayerMetadataProps {
     onDoubleTap: (side: 'left' | 'right') => void;
 }
 
-const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps> = ({
+const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps & { isLive?: boolean }> = ({
     imageUrl,
     name,
     artists,
     isBuffering,
-    onDoubleTap
+    onDoubleTap,
+    isLive
 }) => {
     return (
         <div className="flex justify-start items-center gap-3 md:gap-4 flex-1 min-w-0 lg:w-[30vw]">
@@ -40,7 +41,19 @@ const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps> = ({
                 )}
             </div>
             <div className="overflow-hidden flex-1 min-w-0 max-w-[180px] xs:max-w-[240px] flex flex-col justify-center">
-                <Marquee text={decodeHtmlEntities(name)} className="font-bold text-[13px] md:text-base leading-tight" />
+                <div className="flex items-center gap-1.5">
+                    <Marquee text={decodeHtmlEntities(name)} className="font-bold text-[13px] md:text-base leading-tight flex-1" />
+                    {isLive && (
+                        <span
+                            role="status"
+                            aria-label="Live Radio Station"
+                            className="shrink-0 text-[8px] font-bold text-white bg-red-500 px-1 rounded flex items-center gap-0.5 h-3.5"
+                        >
+                            <span className="w-1 h-1 rounded-full bg-white animate-pulse" aria-hidden="true" />
+                            LIVE
+                        </span>
+                    )}
+                </div>
                 <Marquee text={decodeHtmlEntities(artists)} className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium opacity-80" speed={20} />
             </div>
         </div>

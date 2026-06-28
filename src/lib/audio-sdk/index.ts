@@ -2,12 +2,14 @@ import { providerRegistry, SearchOptions } from './registry';
 import { MediaItem, PlayableSource } from './models';
 import { globalCache } from '../cache';
 import { JioSaavnProvider } from './providers/jiosaavn';
+import { RadioBrowserProvider } from './providers/radio-browser';
 
 export class AudioSDK {
     private static instance: AudioSDK;
 
     private constructor() {
         providerRegistry.registerProvider(new JioSaavnProvider());
+        providerRegistry.registerProvider(new RadioBrowserProvider());
     }
 
     public static getInstance(): AudioSDK {
@@ -20,11 +22,28 @@ export class AudioSDK {
     async search(query: string, options?: SearchOptions): Promise<MediaItem[]> {
         const cacheKey = `search_${query}_${JSON.stringify(options)}`;
         return globalCache.wrap(cacheKey, async () => {
-            const providers = providerRegistry.listProviders();
+            let providers = providerRegistry.listProviders();
+
+            // If a specific type is requested, filter providers
+            if (options?.type) {
+                providers = providers.filter(p => p.supportedTypes.includes(options.type!));
+            }
+
             const results = await Promise.all(
                 providers.map(p => p.search(query, options).catch(() => []))
             );
-            return results.flat();
+
+            let flatResults = results.flat();
+
+            // Fallback for Radio: if search returns nothing, get popular
+            if (options?.type === 'radio' && flatResults.length === 0) {
+                const radioProvider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
+                if (radioProvider) {
+                    flatResults = await radioProvider.getPopular(options.limit || 20);
+                }
+            }
+
+            return flatResults;
         });
     }
 

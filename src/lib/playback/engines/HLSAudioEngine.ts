@@ -1,8 +1,10 @@
+import Hls from 'hls.js';
 import { PlaybackEngine, PlaybackEngineEvents } from './types';
 import { PlaybackState } from '../../audio-sdk/models';
 
-export class NativeAudioEngine implements PlaybackEngine {
-    readonly id = 'native';
+export class HLSAudioEngine implements PlaybackEngine {
+    readonly id = 'hls';
+    private hls: Hls | null = null;
     private audio: HTMLAudioElement;
     private events: PlaybackEngineEvents;
     private _state: PlaybackState = 'idle';
@@ -11,10 +13,10 @@ export class NativeAudioEngine implements PlaybackEngine {
         this.events = events;
         this.audio = audio || new Audio();
         this.audio.crossOrigin = 'anonymous';
-        this.setupListeners();
+        this.setupAudioListeners();
     }
 
-    private setupListeners() {
+    private setupAudioListeners() {
         this.audio.onplay = () => this.updateState('playing');
         this.audio.onpause = () => this.updateState('paused');
         this.audio.onwaiting = () => this.updateState('buffering');
@@ -24,8 +26,11 @@ export class NativeAudioEngine implements PlaybackEngine {
             this.events.onEnded();
         };
         this.audio.onerror = (e) => {
-            this.updateState('error');
-            this.events.onError(e);
+            // Only report if HLS isn't already handling it
+            if (!this.hls) {
+                this.updateState('error');
+                this.events.onError(new Error('Audio element error'));
+            }
         };
         this.audio.ontimeupdate = () => {
             this.events.onProgress(this.audio.currentTime, this.audio.duration || 0);
@@ -38,8 +43,27 @@ export class NativeAudioEngine implements PlaybackEngine {
     }
 
     async load(url: string): Promise<void> {
-        this.audio.src = url;
-        this.audio.load();
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        if (this.audio.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            this.audio.src = url;
+        } else if (Hls.isSupported()) {
+            this.hls = new Hls();
+            this.hls.loadSource(url);
+            this.hls.attachMedia(this.audio);
+            this.hls.on(Hls.Events.ERROR, (_, data) => {
+                if (data.fatal) {
+                    this.updateState('error');
+                    this.events.onError(new Error(`HLS fatal error: ${data.type}`));
+                }
+            });
+        } else {
+            throw new Error('HLS is not supported in this browser');
+        }
     }
 
     async play(): Promise<void> {
@@ -52,7 +76,10 @@ export class NativeAudioEngine implements PlaybackEngine {
 
     stop(): void {
         this.audio.pause();
-        this.audio.currentTime = 0;
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
         this.audio.src = '';
         this.updateState('idle');
     }
@@ -69,6 +96,5 @@ export class NativeAudioEngine implements PlaybackEngine {
     get currentTime() { return this.audio.currentTime; }
     get duration() { return this.audio.duration || 0; }
 
-    // Internal access for visualizer compatibility in Phase 1
     get audioElement() { return this.audio; }
 }

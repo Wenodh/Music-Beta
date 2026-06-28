@@ -10,9 +10,11 @@ import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleC
 import { HiQueueList } from 'react-icons/hi2';
 import { IoPeopleOutline } from 'react-icons/io5';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { eventBus, Events } from '../lib/events';
 import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
+import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
 import Visualizer from './Visualizer';
 import Lyrics from './Lyrics';
 import { QueueContent } from './Queue';
@@ -49,6 +51,24 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const [isQueueOverlayOpen, setIsQueueOverlayOpen] = useState(false);
     const [isInfoOverlayOpen, setIsInfoOverlayOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+    const [liveMetadata, setLiveMetadata] = useState<{ currentSong?: string; listeners?: number } | null>(null);
+
+    useEffect(() => {
+        const handleMetadataUpdate = (data: any) => {
+            if (data.id === currentSong?.id) {
+                setLiveMetadata(data.metadata);
+            }
+        };
+
+        eventBus.on(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        return () => {
+            eventBus.off(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        };
+    }, [currentSong?.id]);
+
+    useEffect(() => {
+        setLiveMetadata(null);
+    }, [currentSong?.id]);
 
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
@@ -87,6 +107,8 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
     const { reactions } = useAppSelector(state => state.session);
+
+    const policy = useMemo(() => getPlaybackPolicy(currentSong as any), [currentSong]);
 
     if (!currentSong) return null;
 
@@ -208,7 +230,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             <div className="relative w-full flex items-center justify-center px-2">
                                 <div className="flex-1 min-w-0 text-center">
                                     <h2 className="text-xl sm:text-2xl font-black truncate leading-tight mb-0.5">{decodeHtmlEntities(currentSong.name)}</h2>
-                                    <p className="text-sm sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                                    <p className="text-sm sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(liveMetadata?.currentSong || currentSong.primaryArtists)}</p>
                                 </div>
                                 <div className="absolute right-0 top-1/2 -translate-y-1/2">
                                     <button
@@ -222,47 +244,68 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                             {/* Progress */}
                             <div className="w-full">
-                                <input
-                                    type="range"
-                                    min={0} max={100} step="0.1"
-                                    value={progress}
-                                    onChange={handleProgressChange}
-                                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
-                                    style={{ background: `linear-gradient(to right, ${theme?.accentColor || '#ef4444'} 0%, ${theme?.accentColor || '#ef4444'} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
-                                />
-                                <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
-                                    <span>{formatTime(currentTime)}</span>
-                                    <span>{formatTime(duration)}</span>
-                                </div>
+                                {policy.showDuration ? (
+                                    <>
+                                        <input
+                                            type="range"
+                                            min={0} max={100} step="0.1"
+                                            value={progress}
+                                            onChange={handleProgressChange}
+                                            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
+                                            style={{ background: `linear-gradient(to right, ${theme?.accentColor || '#ef4444'} 0%, ${theme?.accentColor || '#ef4444'} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
+                                        />
+                                        <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
+                                            <span>{formatTime(currentTime)}</span>
+                                            <span>{formatTime(duration)}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div
+                                        role="status"
+                                        aria-label="Live Stream"
+                                        className="flex items-center justify-center gap-2 mb-6"
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+                                        <span className="text-sm font-bold tracking-widest text-red-500">LIVE</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Controls */}
                             <div className="w-full flex items-center justify-between">
-                                <button
-                                    data-testid="shuffle-button"
-                                    onClick={() => dispatch(toggleShuffle())}
-                                    className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
-                                >
-                                    <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
-                                </button>
+                                <div className="w-10">
+                                    {policy.canSeek && (
+                                        <button
+                                            data-testid="shuffle-button"
+                                            onClick={() => dispatch(toggleShuffle())}
+                                            className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
+                                        >
+                                            <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-4 sm:gap-6">
-                                    <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
+                                    {policy.canSkipPrevious && <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
                                     <div onClick={handlePlayPause} className="w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
                                         {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
                                     </div>
-                                    <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
+                                    {policy.canSkipNext && <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
                                 </div>
-                                <button
-                                    data-testid="repeat-button"
-                                    onClick={() => dispatch(toggleRepeatMode())}
-                                    className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
-                                >
-                                    {repeatMode === 'one' ? (
-                                        <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
-                                    ) : (
-                                        <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                <div className="w-10">
+                                    {policy.canSeek && (
+                                        <button
+                                            data-testid="repeat-button"
+                                            onClick={() => dispatch(toggleRepeatMode())}
+                                            className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
+                                        >
+                                            {repeatMode === 'one' ? (
+                                                <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
+                                            ) : (
+                                                <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                            )}
+                                        </button>
                                     )}
-                                </button>
+                                </div>
                             </div>
 
                             {/* Options Bar */}

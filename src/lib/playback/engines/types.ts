@@ -20,4 +20,6 @@ export interface PlaybackEngine {
     readonly state: PlaybackState;
     readonly currentTime: number;
     readonly duration: number;
+
+    readonly audioElement: HTMLAudioElement;
 }

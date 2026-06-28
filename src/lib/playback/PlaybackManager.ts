@@ -1,11 +1,13 @@
 import { eventBus, Events } from '../events';
 import { MediaItem, PlaybackState } from '../audio-sdk/models';
 import { NativeAudioEngine } from './engines/NativeAudioEngine';
+import { HLSAudioEngine } from './engines/HLSAudioEngine';
+import { PlaybackEngine } from './engines/types';
 
 export class PlaybackManager {
     private static instance: PlaybackManager;
-    private engineA: NativeAudioEngine;
-    private engineB: NativeAudioEngine;
+    private engineA: PlaybackEngine;
+    private engineB: PlaybackEngine;
     private activeBuffer: 'A' | 'B' = 'A';
 
     private currentItem: MediaItem | null = null;
@@ -15,6 +17,28 @@ export class PlaybackManager {
     private constructor() {
         this.engineA = new NativeAudioEngine(this.createEngineEvents('A'));
         this.engineB = new NativeAudioEngine(this.createEngineEvents('B'));
+    }
+
+    private updateEngine(buffer: 'A' | 'B', format: 'mp3' | 'aac' | 'hls') {
+        const events = this.createEngineEvents(buffer);
+        const currentEngine = buffer === 'A' ? this.engineA : this.engineB;
+        const audioElement = currentEngine.audioElement;
+
+        if (format === 'hls') {
+            if (currentEngine.id !== 'hls') {
+                currentEngine.stop();
+                const newEngine = new HLSAudioEngine(events, audioElement);
+                if (buffer === 'A') this.engineA = newEngine;
+                else this.engineB = newEngine;
+            }
+        } else {
+            if (currentEngine.id !== 'native') {
+                currentEngine.stop();
+                const newEngine = new NativeAudioEngine(events, audioElement);
+                if (buffer === 'A') this.engineA = newEngine;
+                else this.engineB = newEngine;
+            }
+        }
     }
 
     public static getInstance(): PlaybackManager {
@@ -89,12 +113,14 @@ export class PlaybackManager {
             eventBus.emit(Events.TRACK_CHANGED, item);
 
             const url = item.stream?.url;
+            const format = item.stream?.format || 'mp3';
             if (url) {
                 if (this.isCrossfading) {
                     this.engineA.stop();
                     this.engineB.stop();
                     this.isCrossfading = false;
                 }
+                this.updateEngine(this.activeBuffer, format);
                 await this.activeEngine.load(url);
             } else {
                 throw new Error('No playable stream found for item');
@@ -108,12 +134,15 @@ export class PlaybackManager {
         this.isCrossfading = true;
 
         const nextUrl = nextItem.stream?.url;
+        const nextFormat = nextItem.stream?.format || 'mp3';
         if (!nextUrl) {
             this.isCrossfading = false;
             return;
         }
 
         const active = this.activeEngine;
+        const inactiveBuffer = this.activeBuffer === 'A' ? 'B' : 'A';
+        this.updateEngine(inactiveBuffer, nextFormat);
         const inactive = this.inactiveEngine;
 
         await inactive.load(nextUrl);
@@ -169,12 +198,12 @@ export class PlaybackManager {
     get duration() { return this.activeEngine.duration; }
     get currentMediaItem() { return this.currentItem; }
 
-    // Internal access for visualizer compatibility in Phase 1
+    // Internal access for visualizer compatibility
     get _activeAudioElement() {
-        return this.engineA.audioElement;
+        return this.activeEngine.audioElement;
     }
     get _inactiveAudioElement() {
-        return this.engineB.audioElement;
+        return this.inactiveEngine.audioElement;
     }
 }
 

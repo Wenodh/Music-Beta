@@ -3,7 +3,7 @@ import { Song } from '../types/music';
 import { getNextSong } from '../utils/playlist';
 import { playbackManager } from '../lib/playback/PlaybackManager';
 import { eventBus, Events } from '../lib/events';
-import { songToMediaItem } from '../lib/audio-sdk/adapters';
+import { songToMediaItem } from '../lib/adapters/mediaItemAdapter';
 import { audioSDK } from '../lib/audio-sdk';
 
 interface UseAudioPlaybackProps {

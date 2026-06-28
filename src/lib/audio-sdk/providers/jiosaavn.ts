@@ -1,13 +1,32 @@
 import { AudioProvider, SearchOptions } from '../registry';
 import { MediaItem, PlayableSource } from '../models';
 import { musicApi } from '../../../services/musicApi';
-import { songToMediaItem } from '../adapters';
+import { songToMediaItem } from '../../adapters/mediaItemAdapter';
 import { getOfflineSong } from '../../../utils/db';
 
 export class JioSaavnProvider implements AudioProvider {
     readonly id = 'jiosaavn';
     readonly name = 'JioSaavn';
     readonly supportedTypes = ['song', 'album', 'artist', 'playlist'];
+    readonly capabilities = {
+        search: true,
+        recommendations: true,
+        favorites: true,
+        history: true,
+        downloads: true,
+        continueListening: false,
+        streaming: true,
+        live: false,
+        lyrics: true,
+        speedControl: false,
+        authentication: false,
+    };
+    readonly info = {
+        id: 'jiosaavn',
+        displayName: 'JioSaavn',
+        supportsOffline: true,
+        supportsStreaming: true,
+    };
 
     private blobUrls: Map<string, string> = new Map();
 

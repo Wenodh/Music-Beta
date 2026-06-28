@@ -44,4 +44,5 @@ export const Events = {
     TRACK_CHANGED: 'track:changed',
     QUEUE_CHANGED: 'queue:changed',
     BUFFERING: 'playback:buffering',
+    PLAYBACK_METADATA_UPDATE: 'playback:metadata:update',
 } as const;

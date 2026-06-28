@@ -1,5 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song } from '../../types/music';
+import { FavoriteItem, MediaItem } from '../../lib/audio-sdk/models';
+import { songToMediaItem } from '../../lib/adapters/mediaItemAdapter';
+import { mediaItemToFavorite } from '../../lib/adapters/favoriteAdapter';
 
 interface Playlist {
     id: string;
@@ -9,6 +12,7 @@ interface Playlist {
 
 interface LibraryState {
     favorites: Song[];
+    favoriteItems: FavoriteItem[];
     playlists: Playlist[];
     downloadedIds: string[];
     isSyncing: boolean;
@@ -17,6 +21,7 @@ interface LibraryState {
 
 const initialState: LibraryState = {
     favorites: [],
+    favoriteItems: [],
     playlists: [],
     downloadedIds: [],
     isSyncing: false,
@@ -32,6 +37,17 @@ const librarySlice = createSlice({
         },
         setFavorites: (state, action: PayloadAction<Song[]>) => {
             state.favorites = action.payload;
+            // Background migration: if favoriteItems is empty but we have cloud favorites
+            if (state.favoriteItems.length === 0 && action.payload.length > 0) {
+                state.favoriteItems = action.payload.map(s => mediaItemToFavorite(songToMediaItem(s)));
+            }
+        },
+        setFavoriteItems: (state, action: PayloadAction<FavoriteItem[]>) => {
+            state.favoriteItems = action.payload;
+            // Sync back to legacy favorites for UI compatibility
+            state.favorites = action.payload
+                .filter(f => f.media.type === 'song')
+                .map(f => mediaItemToSong(f.media));
         },
         setPlaylists: (state, action: PayloadAction<Playlist[]>) => {
             state.playlists = action.payload;
@@ -56,6 +72,42 @@ const librarySlice = createSlice({
                 state.favorites.splice(index, 1);
             } else {
                 state.favorites.push(action.payload);
+            }
+
+            // Dual sync for backward compatibility during migration
+            const itemIndex = state.favoriteItems.findIndex(f => f.id === action.payload.id);
+            if (itemIndex >= 0) {
+                state.favoriteItems.splice(itemIndex, 1);
+            } else {
+                state.favoriteItems.push(mediaItemToFavorite(songToMediaItem(action.payload)));
+            }
+        },
+        toggleFavoriteItem: (state, action: PayloadAction<FavoriteItem>) => {
+            const index = state.favoriteItems.findIndex(f => f.id === action.payload.id);
+            if (index >= 0) {
+                state.favoriteItems.splice(index, 1);
+            } else {
+                state.favoriteItems.push(action.payload);
+            }
+
+            // Sync legacy favorites if it's a song
+            if (action.payload.media.type === 'song') {
+                const sIndex = state.favorites.findIndex(s => s.id === action.payload.id);
+                if (sIndex >= 0) {
+                    state.favorites.splice(sIndex, 1);
+                } else {
+                    // This is lossy if we don't have the full song object,
+                    // but mediaItemToSong can recover most of it.
+                    // However, we shouldn't rely on this.
+                }
+            }
+        },
+        migrateFavorites: (state) => {
+            // Path to migrate legacy favorites to favoriteItems
+            if (state.favorites.length > 0 && state.favoriteItems.length === 0) {
+                state.favoriteItems = state.favorites.map(s =>
+                    mediaItemToFavorite(songToMediaItem(s))
+                );
             }
         },
         createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; songs?: Song[]; id?: string }>) => {
@@ -92,6 +144,7 @@ const librarySlice = createSlice({
         },
         clearLibrary: (state) => {
             state.favorites = [];
+            state.favoriteItems = [];
             state.playlists = [];
             state.lastSynced = null;
         },
@@ -107,17 +160,20 @@ const librarySlice = createSlice({
 export const {
     setDownloadedIds,
     setFavorites,
+    setFavoriteItems,
     setPlaylists,
     updatePlaylistSongs,
     addDownloadedId,
     removeDownloadedId,
     toggleFavorite,
+    toggleFavoriteItem,
     createPlaylist,
     deletePlaylist,
     addToPlaylist,
     addBulkToPlaylist,
     removeFromPlaylist,
     clearLibrary,
+    migrateFavorites,
     setSyncing,
     setLastSynced,
 } = librarySlice.actions;

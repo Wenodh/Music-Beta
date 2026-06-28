@@ -1,6 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Song, MusicPlayerState, SearchResults, Album, Artist, Playlist } from '../../types/music';
+import { Song, MusicPlayerState, SearchResults, Album } from '../../types/music';
 import { getNextSong, getPrevSong } from '../../utils/playlist';
+import { HistoryItem, MediaItem } from '../../lib/audio-sdk/models';
+import { songToMediaItem } from '../../lib/adapters/mediaItemAdapter';
 
 const initialState: MusicPlayerState = {
     songs: [],
@@ -11,6 +13,7 @@ const initialState: MusicPlayerState = {
     searchedSongs: [],
     recentSearches: [],
     recentlyPlayed: [],
+    history: [],
     recentlyPlayedAlbums: [],
     sleepTimer: null,
     preferredQuality: '320kbps',
@@ -92,11 +95,23 @@ const musicPlayerSlice = createSlice({
                 state.currentSong = formatSong(songData, state.preferredQuality);
                 state.isPlaying = true;
 
-                // Add to recently played
+                // Add to recently played (Legacy sync)
                 state.recentlyPlayed = [
                     state.currentSong,
                     ...state.recentlyPlayed.filter((s) => s.id !== id),
                 ].slice(0, 20);
+
+                // Sync to new history format
+                const media = songToMediaItem(state.currentSong);
+                state.history = [
+                    {
+                        id: media.id,
+                        media,
+                        playedAt: new Date().toISOString(),
+                        listenedDuration: 0
+                    },
+                    ...(state.history || []).filter(h => h.id !== media.id)
+                ].slice(0, 50);
 
                 // Also ensure it's in the current playlist if not already there
                 if (!state.songs.find(s => s.id === id)) {
@@ -150,6 +165,18 @@ const musicPlayerSlice = createSlice({
                 { ...album, type: 'album' },
                 ...state.recentlyPlayedAlbums.filter((a) => a.id !== album.id),
             ].slice(0, 20) as (Album & { type: string })[];
+        },
+        addToHistory: (state, action: PayloadAction<HistoryItem>) => {
+            state.history = [
+                action.payload,
+                ...(state.history || []).filter(h => h.id !== action.payload.id)
+            ].slice(0, 50);
+        },
+        updateHistoryDuration: (state, action: PayloadAction<{ id: string; duration: number }>) => {
+            const item = (state.history || []).find(h => h.id === action.payload.id);
+            if (item) {
+                item.listenedDuration += action.payload.duration;
+            }
         },
         setPreferredQuality: (state, action: PayloadAction<MusicPlayerState['preferredQuality']>) => {
             state.preferredQuality = action.payload;
@@ -243,6 +270,18 @@ const musicPlayerSlice = createSlice({
                 ].slice(0, 20);
             }
         },
+        playMedia: (state, action: PayloadAction<MediaItem>) => {
+            const media = action.payload;
+            state.history = [
+                {
+                    id: media.id,
+                    media,
+                    playedAt: new Date().toISOString(),
+                    listenedDuration: 0
+                },
+                ...(state.history || []).filter(h => h.id !== media.id)
+            ].slice(0, 50);
+        },
         applyMusicPlayerSettings: (state, action: PayloadAction<Partial<MusicPlayerState>>) => {
             const {
                 preferredQuality,
@@ -287,6 +326,8 @@ export const {
     reorderQueue,
     setRecommendations,
     addRecentlyPlayedAlbum,
+    addToHistory,
+    updateHistoryDuration,
     clearQueue,
     setSettingsOpen,
     setQueueOpen,
@@ -304,6 +345,7 @@ export const {
     toggleShuffle,
     nextSong,
     prevSong,
+    playMedia,
     applyMusicPlayerSettings,
 } = musicPlayerSlice.actions;
 

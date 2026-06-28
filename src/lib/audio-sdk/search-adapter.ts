@@ -1,6 +1,6 @@
 import { Song, Album, Playlist, Artist, SearchResults } from '../../types/music';
 import { MediaItem } from './models';
-import { mediaItemToSong } from './adapters';
+import { mediaItemToSong } from '../adapters/mediaItemAdapter';
 
 export class SearchAdapter {
     static mediaItemsToSearchResults(items: MediaItem[]): SearchResults {
@@ -9,6 +9,7 @@ export class SearchAdapter {
             songs: { results: [] },
             playlists: { results: [] },
             artists: { results: [] },
+            radio: { results: [] },
             topQuery: { results: [] }
         };
 
@@ -41,6 +42,9 @@ export class SearchAdapter {
                         name: item.title,
                         image: item.artwork.map(a => ({ quality: a.quality || 'unknown', url: a.url })),
                     } as unknown as Artist);
+                    break;
+                case 'radio':
+                    results.radio!.results.push(mediaItemToSong(item));
                     break;
             }
         });

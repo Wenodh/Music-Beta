@@ -20,7 +20,7 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
     const navigate = useNavigate();
 
     const handleClick = () => {
-        if ((type === 'song' || data?.type === 'song') && data) {
+        if ((type === 'song' || data?.type === 'song' || type === 'radio' || data?.type === 'radio') && data) {
             dispatch(playMusic(data));
             return;
         }

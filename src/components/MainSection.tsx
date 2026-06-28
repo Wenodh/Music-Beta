@@ -7,6 +7,10 @@ import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { musicApi } from '../services/musicApi';
 import { Album, Song, Artist, Playlist } from '../types/music';
+import { RadioBrowserProvider } from '../lib/audio-sdk/providers/radio-browser';
+import { MediaItem } from '../lib/audio-sdk/models';
+import { providerRegistry } from '../lib/audio-sdk/registry';
+import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
 
 interface MainSectionData {
     albums: Album[];
@@ -19,12 +23,14 @@ interface MainSectionData {
     chill: Playlist[];
     workout: Playlist[];
     latestSongs: Song[];
+    popularRadio: MediaItem[];
+    trendingRadio: MediaItem[];
 }
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
+    const { recentlyPlayed, recentlyPlayedAlbums, history } = useAppSelector((state) => state.musicPlayer);
     const [data, setData] = useState<MainSectionData>({
         albums: [],
         songs: [],
@@ -35,7 +41,9 @@ const MainSection: React.FC = () => {
         devPicks: [],
         chill: [],
         workout: [],
-        latestSongs: []
+        latestSongs: [],
+        popularRadio: [],
+        trendingRadio: []
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -66,6 +74,7 @@ const MainSection: React.FC = () => {
             };
 
             const artistsToFetch = curatedArtists[lang] || [language];
+            const radioProvider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
 
             const results = await Promise.allSettled([
                 musicApi.getTrending(lang, 0, 25),
@@ -77,13 +86,15 @@ const MainSection: React.FC = () => {
                 musicApi.searchPlaylists(`${lang} Chill`, 0, 15),
                 musicApi.searchPlaylists(`${lang} Workout`, 0, 15),
                 musicApi.searchSongs(`${lang} New Songs`, 0, 40),
+                radioProvider ? radioProvider.getPopular(20) : Promise.resolve([]),
+                radioProvider ? radioProvider.getTrending(20) : Promise.resolve([]),
                 ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1))
             ]);
 
             const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T =>
                 result.status === 'fulfilled' ? result.value : defaultValue;
 
-            const artistList = results.slice(9)
+            const artistList = results.slice(11)
                 .filter((r): r is PromiseFulfilledResult<Artist[]> => r.status === 'fulfilled')
                 .map(r => r.value?.[0])
                 .filter(Boolean);
@@ -101,7 +112,9 @@ const MainSection: React.FC = () => {
                 devPicks: devPicksSongs,
                 chill: getValue(results[6], []),
                 workout: getValue(results[7], []),
-                latestSongs: getValue(results[8], [])
+                latestSongs: getValue(results[8], []),
+                popularRadio: getValue(results[9], []),
+                trendingRadio: getValue(results[10], [])
             });
         } catch (error) {
             console.error('Error in fetchData:', error);
@@ -145,8 +158,13 @@ const MainSection: React.FC = () => {
     };
 
     const sections = [
-        { data: recentlyPlayed, title: "Recently Played Songs" },
+        {
+            data: history?.map(h => mediaItemToSong(h.media)) || recentlyPlayed,
+            title: "Recently Played"
+        },
         { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
+        { data: data.popularRadio, title: "Popular Radio Stations" },
+        { data: data.trendingRadio, title: "Trending Radio Stations" },
         { data: data.latestSongs, title: "Latest Songs" },
         { data: data.songs, title: "Trending Songs" },
         { data: data.albums, title: "Trending Albums" },

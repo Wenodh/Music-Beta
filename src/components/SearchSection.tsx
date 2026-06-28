@@ -9,7 +9,7 @@ import { Song, Album, Artist, Playlist } from '../types/music';
 
 const SearchSection: React.FC = () => {
     const { searchedSongs, recentSearches } = useAppSelector((state) => state.musicPlayer);
-    const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
+    const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists' | 'radio'>('songs');
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const location = useLocation();
@@ -80,8 +80,9 @@ const SearchSection: React.FC = () => {
     const albums = (data as any).albums?.results || [];
     const artists = (data as any).artists?.results || [];
     const playlists = (data as any).playlists?.results || [];
+    const radio = (data as any).radio?.results || [];
 
-    const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0;
+    const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0 || radio.length > 0;
     if (!hasResults) {
         return (
             <div className="px-2 sm:px-4 py-20 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-white/20 dark:border-gray-800/20 text-center">
@@ -109,6 +110,7 @@ const SearchSection: React.FC = () => {
         { id: 'albums', label: 'Albums', count: albums.length },
         { id: 'artists', label: 'Artists', count: artists.length },
         { id: 'playlists', label: 'Playlists', count: playlists.length },
+        { id: 'radio', label: 'Radio', count: radio.length },
     ].filter(t => t.count > 0);
 
     return (
@@ -231,6 +233,31 @@ const SearchSection: React.FC = () => {
                                 </div>
                                 <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(playlist.name)}</p>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">Playlist</p>
+                            </motion.div>
+                        ))}
+
+                        {activeTab === 'radio' && radio.map((station: Song) => (
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                key={station.id}
+                                onClick={() => dispatch(playMusic(station))}
+                                className="cursor-pointer group bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all"
+                            >
+                                <div className="relative aspect-square mb-3 overflow-hidden rounded-xl">
+                                    <img
+                                        src={typeof station.image === 'string' ? station.image : station.image?.[2]?.url || ''}
+                                        alt={station.name}
+                                        loading="lazy"
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
+                                            <span>▶</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{decodeHtmlEntities(station.name)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">{decodeHtmlEntities(station.primaryArtists)}</p>
                             </motion.div>
                         ))}
                     </motion.div>

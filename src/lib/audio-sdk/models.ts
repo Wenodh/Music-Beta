@@ -47,4 +47,21 @@ export interface QueueItem {
     context?: string;
 }
 
+export interface HistoryItem {
+    id: string; // Composite ID: provider_type_id
+    mediaItem: MediaItem;
+    playedAt: number;
+    listenedDuration: number;
+    completionPercentage: number;
+    source?: string;
+}
+
+export interface FavoriteItem {
+    id: string; // Composite ID: provider_type_id
+    mediaItem: MediaItem;
+    provider: string;
+    contentType: MediaItemType;
+    createdAt: number;
+}
+
 export type PlaybackState = 'idle' | 'buffering' | 'playing' | 'paused' | 'ended' | 'error';

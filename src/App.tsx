@@ -22,6 +22,7 @@ import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
 import { joinSession } from './features/session/sessionSlice';
 import { hexToRgb } from './utils/colorUtils';
+import { historyService } from './lib/history/HistoryService';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -182,6 +183,9 @@ export const AppContent = () => {
     }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen, isSessionModalOpen]);
 
     useEffect(() => {
+        // Initialize global services
+        (window as any)._historyService = historyService;
+
         // Handle direct room links
         const params = new URLSearchParams(window.location.search);
         const room = params.get('room');
