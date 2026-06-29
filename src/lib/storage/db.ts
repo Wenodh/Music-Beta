@@ -28,10 +28,19 @@ export interface KeyValueEntry {
     value: any;
 }
 
+export interface ListeningEventEntry {
+    id: string;
+    mediaId: string;
+    action: string;
+    timestamp: number;
+    data: any;
+}
+
 export class VibeDatabase extends Dexie {
     downloads!: Table<DownloadEntry>;
     syncQueue!: Table<SyncOperationEntry>;
     keyValue!: Table<KeyValueEntry>;
+    listeningEvents!: Table<ListeningEventEntry>;
 
     constructor() {
         super('VibeDatabase');
@@ -39,6 +48,10 @@ export class VibeDatabase extends Dexie {
             downloads: 'id, provider, type, downloadedAt',
             syncQueue: 'id, type, action, createdAt',
             keyValue: 'key'
+        });
+
+        this.version(2).stores({
+            listeningEvents: 'id, mediaId, action, timestamp'
         });
     }
 }

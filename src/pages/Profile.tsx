@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { motion } from 'framer-motion';
-import { IoHeartOutline, IoLibraryOutline, IoTimeOutline, IoPersonCircleOutline, IoPeopleOutline } from 'react-icons/io5';
-import PageTemplate from '../components/PageTemplate';
+import { IoHeartOutline, IoLibraryOutline, IoTimeOutline, IoPersonCircleOutline, IoPeopleOutline, IoStatsChartOutline, IoFlameOutline, IoSparklesOutline } from 'react-icons/io5';
+import { PageTemplate } from '../components/PageTemplate';
+import { InsightsService, ListeningStats } from '../lib/recommendations/InsightsService';
 import { setSessionModalOpen } from '../features/ui/uiSlice';
 
 const Profile: React.FC = () => {
@@ -10,7 +11,11 @@ const Profile: React.FC = () => {
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { favorites, playlists } = useAppSelector((state) => state.library);
     const { recentlyPlayed } = useAppSelector((state) => state.musicPlayer);
+    const [insights, setInsights] = React.useState<ListeningStats | null>(null);
 
+    useEffect(() => {
+        InsightsService.getStats().then(setInsights);
+    }, []);
 
     const stats = [
         { label: 'Favorites', value: favorites.length, icon: <IoHeartOutline className="text-red-500" /> },
@@ -70,6 +75,39 @@ const Profile: React.FC = () => {
                     <IoPeopleOutline className="absolute -right-8 -bottom-8 text-9xl text-primary/5 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
                 </motion.div>
 
+                {/* Listening Insights */}
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-black flex items-center gap-2 px-2">
+                        <IoStatsChartOutline className="text-primary" /> Listening Insights
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <InsightCard
+                            label="Listening Time"
+                            value={`${insights?.totalHours || 0} hrs`}
+                            icon={<IoTimeOutline />}
+                            color="bg-blue-500/10 text-blue-500"
+                        />
+                        <InsightCard
+                            label="Top Genre"
+                            value={insights?.topGenre || 'None'}
+                            icon={<IoSparklesOutline />}
+                            color="bg-purple-500/10 text-purple-500"
+                        />
+                        <InsightCard
+                            label="Daily Streak"
+                            value={`${insights?.streakDays || 0} days`}
+                            icon={<IoFlameOutline />}
+                            color="bg-orange-500/10 text-orange-500"
+                        />
+                        <InsightCard
+                            label="Completion"
+                            value={`${insights?.completionRate || 0}%`}
+                            icon={<IoHeartOutline />}
+                            color="bg-red-500/10 text-red-500"
+                        />
+                    </div>
+                </div>
+
                 {/* Stats Grid */}
                 {isAuthenticated && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -98,5 +136,21 @@ const Profile: React.FC = () => {
         </PageTemplate>
     );
 };
+
+const InsightCard = ({ label, value, icon, color }: { label: string, value: string, icon: React.ReactNode, color: string }) => (
+    <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-2xl flex flex-col items-center text-center gap-3 shadow-sm hover:shadow-md transition-all"
+    >
+        <div className={`text-2xl p-3 rounded-xl ${color}`}>
+            {icon}
+        </div>
+        <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-0.5">{label}</p>
+            <p className="text-xl font-black">{value}</p>
+        </div>
+    </motion.div>
+);
 
 export default Profile;
