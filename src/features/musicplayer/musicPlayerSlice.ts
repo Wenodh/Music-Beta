@@ -30,6 +30,8 @@ const initialState: MusicPlayerState = {
     isSongRadioEnabled: true,
     downloadSettings: {
         wifiOnly: false,
+        maxConcurrent: 3,
+        storageLimit: 2 * 1024 * 1024 * 1024,
     },
     dailyMix: [],
     lastDailyMixUpdate: 0,

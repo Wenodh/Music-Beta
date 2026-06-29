@@ -12,6 +12,8 @@ import { MediaItem } from '../lib/audio-sdk/models';
 import { providerRegistry } from '../lib/audio-sdk/registry';
 import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
 import { audioSDK } from '../lib/audio-sdk';
+import { DailyMixModule, DiscoveryModule } from '../lib/recommendations/modules';
+import { Recommendation } from '../lib/recommendations/types';
 
 interface MainSectionData {
     albums: Album[];
@@ -53,6 +55,7 @@ const MainSection: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [podcasts, setPodcasts] = useState<MediaItem[]>([]);
+    const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>({});
 
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
@@ -127,6 +130,16 @@ const MainSection: React.FC = () => {
                 recentBooks: getValue(results[12], [])
             });
             setPodcasts(getValue(results[13], []));
+
+            // Load Recommendations
+            const modules = [new DailyMixModule(), new DiscoveryModule()];
+            const recResults = await Promise.all(modules.map(m => m.load()));
+            const recMap: Record<string, Recommendation[]> = {};
+            modules.forEach((m, i) => {
+                if (recResults[i].length > 0) recMap[m.id] = recResults[i];
+            });
+            setRecommendations(recMap);
+
         } catch (error) {
             console.error('Error in fetchData:', error);
         } finally {
@@ -165,8 +178,17 @@ const MainSection: React.FC = () => {
             title: "Continue Listening"
         },
         {
+            data: recommendations['daily-mix']?.map(r => mediaItemToSong(r.media)),
+            title: "Your Daily Mix",
+            subtitle: "Personalized for you"
+        },
+        {
             data: recentlyPlayedUnified,
             title: "Recently Played"
+        },
+        {
+            data: recommendations['discovery']?.map(r => mediaItemToSong(r.media)),
+            title: "Discover Something New"
         },
         { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
         { data: podcasts, title: "Trending Podcasts" },

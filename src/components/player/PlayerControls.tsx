@@ -51,7 +51,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
                 />
             )}
 
-            {policy?.skipBackwardInterval && (
+            {!!policy?.skipBackwardInterval && (
                 <button
                     onClick={() => onSeekRelative?.(-policy.skipBackwardInterval!)}
                     className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer flex flex-col items-center justify-center"
@@ -68,7 +68,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
                 {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
             </motion.button>
 
-            {policy?.skipForwardInterval && (
+            {!!policy?.skipForwardInterval && (
                 <button
                     onClick={() => onSeekRelative?.(policy.skipForwardInterval!)}
                     className="text-gray-700 dark:text-gray-200 hover:text-primary cursor-pointer flex flex-col items-center justify-center"

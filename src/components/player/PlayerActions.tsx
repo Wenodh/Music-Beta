@@ -7,6 +7,7 @@ import { PiShuffleBold } from 'react-icons/pi';
 import { RiShareForwardLine } from 'react-icons/ri';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
+import { IoCloudDoneOutline } from 'react-icons/io5';
 import SleepTimer from '../SleepTimer';
 import { PlaybackPolicy } from '../../lib/playback/PlaybackPolicy';
 
@@ -29,6 +30,7 @@ interface PlayerActionsProps {
     onDownload: () => void;
     onShare: () => void;
     onSetPlaybackSpeed: (speed: number) => void;
+    isDownloaded?: boolean;
     onSetVolume: (volume: number) => void;
     onToggleMoreMenu: (e: React.MouseEvent) => void;
     moreMenuRef: React.RefObject<HTMLDivElement>;
@@ -57,7 +59,8 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
     onSetVolume,
     onToggleMoreMenu,
     moreMenuRef,
-    policy
+    policy,
+    isDownloaded
 }) => {
     return (
         <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
@@ -130,8 +133,19 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
                                 <PiShuffleBold className={isSongRadioEnabled ? 'text-primary' : ''} /> Radio: {isSongRadioEnabled ? 'ON' : 'OFF'}
                             </button>
                             <SleepTimer showLabel />
-                            <button onClick={onDownload} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                                {isDownloading ? <AiOutlineLoading3Quarters className="animate-spin text-primary" /> : <LuHardDriveDownload />} Download
+                            <button
+                                onClick={onDownload}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${isDownloaded ? 'text-accent' : ''}`}
+                                disabled={isDownloaded}
+                            >
+                                {isDownloading ? (
+                                    <AiOutlineLoading3Quarters className="animate-spin text-primary" />
+                                ) : isDownloaded ? (
+                                    <IoCloudDoneOutline className="text-accent" />
+                                ) : (
+                                    <LuHardDriveDownload />
+                                )}
+                                {isDownloaded ? 'Downloaded' : 'Download'}
                             </button>
                             <button onClick={onShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
                                 <RiShareForwardLine /> Share

@@ -23,6 +23,14 @@ export type MediaItemType =
     | 'chapter'
     | 'radio';
 
+export interface SyncMetadata {
+    uuid: string;
+    version: number;
+    updatedAt: string;
+    deviceId: string;
+    deletedAt?: string;
+}
+
 export interface MediaItem {
     id: string;
     provider: string;
@@ -39,6 +47,7 @@ export interface MediaItem {
     genres?: string[];
     publishedAt?: string;
     metadata: Record<string, unknown>;
+    sync?: SyncMetadata;
 }
 
 export interface QueueItem {
@@ -48,30 +57,44 @@ export interface QueueItem {
 }
 
 export interface HistoryItem {
-    id: string; // Composite ID: provider_type_id
+    id: string; // UUID for sync, or composite ID for legacy
     mediaItem: MediaItem;
     playedAt: string | number;
     listenedDuration: number;
-    completionPercentage: number;
+    completionPercentage?: number;
     source?: string;
+    sync?: SyncMetadata;
 }
 
 export interface FavoriteItem {
-    id: string; // Composite ID: provider_type_id
+    id: string; // UUID for sync, or composite ID for legacy
     mediaItem: MediaItem;
     provider: string;
     contentType: MediaItemType;
     createdAt: number;
+    sync?: SyncMetadata;
 }
 
 export interface Bookmark {
     id: string;
     mediaId: string;
-    chapterId: string;
+    provider: string;
+    chapterId?: string;
     position: number;
     title?: string;
     note?: string;
     createdAt: string;
+    sync?: SyncMetadata;
+}
+
+export interface PlaybackPosition {
+    mediaId: string;
+    provider: string;
+    position: number;
+    duration: number;
+    playbackSpeed: number;
+    updatedAt: string;
+    sync?: SyncMetadata;
 }
 
 export type PlaybackState = 'idle' | 'buffering' | 'playing' | 'paused' | 'ended' | 'error';

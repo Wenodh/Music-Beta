@@ -288,7 +288,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 <div className="flex items-center gap-4 sm:gap-6">
                                     {policy.canSkipPrevious && <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
 
-                                    {policy.skipBackwardInterval && (
+                                    {!!policy.skipBackwardInterval && (
                                         <button onClick={() => handleSeek?.(Math.max(0, currentTime - policy.skipBackwardInterval!))}>
                                             <MdReplay10 className="w-8 h-8 sm:w-9 sm:h-9" />
                                         </button>
@@ -298,7 +298,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                         {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
                                     </div>
 
-                                    {policy.skipForwardInterval && (
+                                    {!!policy.skipForwardInterval && (
                                         <button onClick={() => handleSeek?.(Math.min(duration, currentTime + policy.skipForwardInterval!))}>
                                             <MdForward30 className="w-8 h-8 sm:w-9 sm:h-9" />
                                         </button>

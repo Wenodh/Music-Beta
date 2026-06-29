@@ -25,6 +25,7 @@ import SearchSection from './components/SearchSection';
 import ToastContainer from './components/toast/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { useSyncAndDownloads } from './hooks/useSyncAndDownloads';
 
 // Wrapper for lazy components with retry logic
 const lazyRetry = (componentImport: any) =>
@@ -51,6 +52,8 @@ const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 const MediaDetails = lazyRetry(() => import('./pages/MediaDetails'));
 const MediaPersonPage = lazyRetry(() => import('./pages/MediaPersonPage'));
+const Diagnostics = lazyRetry(() => import('./pages/Diagnostics'));
+const DownloadsPage = lazyRetry(() => import('./pages/Downloads'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -81,6 +84,22 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/debug"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><Diagnostics /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/diagnostics"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><Diagnostics /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -193,6 +212,7 @@ const LocationAwareNavbar = () => {
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
+    useSyncAndDownloads();
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
@@ -228,7 +248,13 @@ export const AppContent = () => {
         // Sync Offline Downloads
         getOfflineSongs().then(songs => {
             const ids = songs.map(s => s.id);
-            dispatch(setDownloadedIds(ids));
+            // Include new downloads from StorageService
+            import('./lib/storage/StorageService').then(({ StorageService }) => {
+                StorageService.getAllDownloads().then(downloads => {
+                    const allIds = Array.from(new Set([...ids, ...downloads.map(d => d.id)]));
+                    dispatch(setDownloadedIds(allIds));
+                });
+            });
         });
 
         // Supabase Auth Listener

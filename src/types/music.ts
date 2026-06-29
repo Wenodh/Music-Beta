@@ -117,6 +117,8 @@ export interface MusicPlayerState {
     isSongRadioEnabled: boolean;
     downloadSettings: {
         wifiOnly: boolean;
+        maxConcurrent: number;
+        storageLimit: number;
     };
     dailyMix: Song[];
     lastDailyMixUpdate: number;

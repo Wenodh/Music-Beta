@@ -39,6 +39,7 @@ const BottomBar: React.FC = () => {
                             to={item.path}
                             className="flex flex-col items-center justify-center py-2 relative group flex-1"
                             aria-label={item.label}
+                            aria-current={active ? 'page' : undefined}
                         >
                             <div className={`relative transition-all duration-500 ${active ? 'scale-110' : 'group-active:scale-90 opacity-60'}`}>
                                 {active && (
