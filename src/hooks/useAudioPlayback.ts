@@ -7,6 +7,7 @@ import { songToMediaItem } from '../lib/adapters/mediaItemAdapter';
 import { audioSDK } from '../lib/audio-sdk';
 import { continuityService } from '../lib/continuity';
 import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
+import { syncManager } from '../lib/sync/SyncManager';
 
 interface UseAudioPlaybackProps {
     currentSong: Song | null;
@@ -40,6 +41,7 @@ export const useAudioPlayback = ({
     onTimeUpdate
 }: UseAudioPlaybackProps) => {
     const [isBuffering, setIsBuffering] = useState(false);
+    const lastSyncTimeRef = useRef(0);
 
     const activeAudioRef = useRef<HTMLAudioElement | null>(playbackManager._activeAudioElement);
     const inactiveAudioRef = useRef<HTMLAudioElement | null>(playbackManager._inactiveAudioElement);
@@ -112,6 +114,18 @@ export const useAudioPlayback = ({
         const onProgress = ({ currentTime, duration, item }: { currentTime: number, duration: number, item: any }) => {
             if (item?.id === currentSong?.id) {
                 onTimeUpdate(currentTime, duration);
+
+                // Sync playback position every 10 seconds or when significant change
+                if (Math.abs(currentTime - lastSyncTimeRef.current) > 10) {
+                    lastSyncTimeRef.current = currentTime;
+                    syncManager.enqueue('playback_position', 'update', {
+                        media_id: item.id,
+                        provider: item.provider,
+                        position: currentTime,
+                        duration: duration || 0,
+                        playback_speed: playbackManager._activeAudioElement?.playbackRate || 1
+                    });
+                }
             }
 
             // Gapless/Crossfade logic

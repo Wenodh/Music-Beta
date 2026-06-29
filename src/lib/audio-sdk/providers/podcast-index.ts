@@ -17,7 +17,10 @@ export class PodcastIndexProvider implements AudioProvider {
         recommendations: true,
         favorites: true,
         history: true,
-        downloads: false,
+        downloads: true,
+        resumableDownloads: true,
+        offlinePlayback: true,
+        cloudSync: true,
         continueListening: true,
         streaming: true,
         live: false,
@@ -29,7 +32,7 @@ export class PodcastIndexProvider implements AudioProvider {
     readonly info: ProviderInfo = {
         id: 'podcast-index',
         displayName: 'Podcast Index',
-        supportsOffline: false,
+        supportsOffline: true,
         supportsStreaming: true,
     };
 
@@ -91,6 +94,16 @@ export class PodcastIndexProvider implements AudioProvider {
     }
 
     async getPlayableSource(id: string, _quality?: string): Promise<PlayableSource> {
+        // Check offline storage
+        const { StorageService } = await import('../../storage/StorageService');
+        const offlineData = await StorageService.getDownload(id);
+        if (offlineData?.blob) {
+            return {
+                url: URL.createObjectURL(offlineData.blob),
+                format: 'mp3',
+            };
+        }
+
         const episode = await this.getMedia(id, 'episode');
         if (!episode.stream?.url) throw new Error('No audio URL found for episode');
         return episode.stream;

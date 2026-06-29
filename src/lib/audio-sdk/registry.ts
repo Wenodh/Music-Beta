@@ -12,6 +12,9 @@ export interface ProviderCapabilities {
     favorites: boolean;
     history: boolean;
     downloads: boolean;
+    resumableDownloads?: boolean;
+    offlinePlayback?: boolean;
+    cloudSync?: boolean;
     continueListening: boolean;
     streaming: boolean;
     live: boolean;

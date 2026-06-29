@@ -14,7 +14,10 @@ export class JioSaavnProvider implements AudioProvider {
         favorites: true,
         history: true,
         downloads: true,
-        continueListening: false,
+        resumableDownloads: true,
+        offlinePlayback: true,
+        cloudSync: true,
+        continueListening: true,
         streaming: true,
         live: false,
         lyrics: true,
@@ -63,6 +66,21 @@ export class JioSaavnProvider implements AudioProvider {
     }
 
     async getPlayableSource(id: string, _quality: string = '320kbps'): Promise<PlayableSource> {
+        // First check our new storage service
+        const { StorageService } = await import('../../storage/StorageService');
+        const offlineData = await StorageService.getDownload(id);
+        if (offlineData?.blob) {
+            let url = this.blobUrls.get(id);
+            if (!url) {
+                url = URL.createObjectURL(offlineData.blob);
+                this.blobUrls.set(id, url);
+            }
+            return {
+                url,
+                format: 'mp3',
+            };
+        }
+
         const offlineSong = await getOfflineSong(id);
         if (offlineSong?.audioBlob) {
             // Reuse existing blob URL if available to prevent memory leaks and playback gaps

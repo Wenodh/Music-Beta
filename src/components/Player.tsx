@@ -35,6 +35,7 @@ import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useMediaSession } from '../hooks/useMediaSession';
+import { useSyncAndDownloads } from '../hooks/useSyncAndDownloads';
 import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
 import { playbackManager } from '../lib/playback/PlaybackManager';
 import { eventBus, Events } from '../lib/events';
@@ -60,7 +61,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
-    const { favorites } = useAppSelector((state) => state.library);
+    const { favorites, downloadedIds } = useAppSelector((state) => state.library);
 
     const [imageUrl, setImageUrl] = useState<string>('');
     const imageUrlsRef = useRef<Set<string>>(new Set());
@@ -229,20 +230,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         setTimeout(() => setSeekAnimation(null), 500);
     };
 
+    const { download } = useSyncAndDownloads();
+    const isDownloaded = useMemo(() => currentSong && downloadedIds.includes(currentSong.id), [currentSong, downloadedIds]);
+
     const handleDownloadSong = async () => {
         if (!currentSong) return;
+        if (isDownloaded) return;
+
         setIsDownloading(true);
         try {
-            const songUrl = activeAudioRef.current?.src || '';
-            const res = await fetch(songUrl);
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${currentSong.name}.mp3`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (error) { console.warn('Error downloading the song', error); } finally { setIsDownloading(false); }
+            // Convert legacy Song to MediaItem
+            const { songToMediaItem } = await import('../lib/adapters/mediaItemAdapter');
+            const mediaItem = songToMediaItem(currentSong);
+            await download(mediaItem);
+            dispatch(showToast({ message: 'Added to downloads' }));
+        } catch (error) {
+            console.warn('Error downloading the song', error);
+            dispatch(showToast({ message: 'Failed to add to downloads', type: 'error' }));
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const handleShare = async () => {
@@ -349,7 +356,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 onSetVolume={setUserVolume}
                                 onToggleMoreMenu={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
                                 moreMenuRef={moreMenuRef}
-                            policy={policy}
+                                policy={policy}
+                                isDownloaded={isDownloaded}
                             />
                         </div>
                     </div>

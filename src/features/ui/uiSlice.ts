@@ -1,10 +1,17 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song } from '../../types/music';
 
+export interface ToastAction {
+    label: string;
+    onClick: () => void;
+}
+
 export interface Toast {
     id: string;
     message: string;
     type: 'success' | 'error' | 'info';
+    action?: ToastAction;
+    duration?: number;
 }
 
 interface UIState {
@@ -48,11 +55,13 @@ const uiSlice = createSlice({
     name: 'ui',
     initialState,
     reducers: {
-        showToast: (state, action: PayloadAction<{ message: string; type?: Toast['type'] }>) => {
+        showToast: (state, action: PayloadAction<{ message: string; type?: Toast['type']; action?: ToastAction; duration?: number }>) => {
             state.toasts.push({
                 id: Date.now().toString(),
                 message: action.payload.message,
                 type: action.payload.type || 'success',
+                action: action.payload.action,
+                duration: action.payload.duration,
             });
         },
         removeToast: (state, action: PayloadAction<string>) => {

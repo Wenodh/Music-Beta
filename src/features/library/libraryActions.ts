@@ -12,6 +12,7 @@ import { songToMediaItem } from '../../lib/adapters/mediaItemAdapter';
 import { mediaItemToFavorite } from '../../lib/adapters/favoriteAdapter';
 import { MediaItem } from '../../lib/audio-sdk/models';
 import { fetchSettings } from '../settings/settingsActions';
+import { syncManager } from '../../lib/sync/SyncManager';
 
 export const syncLibrary = createAsyncThunk(
     'library/sync',
@@ -123,32 +124,27 @@ export const toggleFavoriteCloud = createAsyncThunk(
     'library/toggleFavoriteCloud',
     async (item: MediaItem | Song, { getState, dispatch }) => {
         const state = getState() as RootState;
-        const user = state.auth.user;
 
         // Normalize to MediaItem
         const media = 'id' in item && 'provider' in item ? item as MediaItem : songToMediaItem(item as Song);
-        const isFavorite = state.library.favoriteItems.some(f => f.id === media.id);
+        const isFavorite = state.library.favoriteItems.some(f => f.media.id === media.id);
 
         // Update local state first
-        dispatch(toggleFavoriteItem(mediaItemToFavorite(media)));
+        const favoriteItem = mediaItemToFavorite(media);
+        dispatch(toggleFavoriteItem(favoriteItem));
 
-        if (!user) return;
-
-        try {
-            if (isFavorite) {
-                await supabase.from('favorites_v2').delete().eq('user_id', user.id).eq('media_id', media.id);
-            } else {
-                await supabase.from('favorites_v2').upsert({
-                    user_id: user.id,
-                    media_id: media.id,
-                    media_data: media,
-                    created_at: new Date().toISOString()
-                });
+        // Enqueue sync operation
+        await syncManager.enqueue(
+            'favorite',
+            isFavorite ? 'delete' : 'create',
+            {
+                media_id: media.id,
+                provider: media.provider,
+                content_type: media.type,
+                metadata: media,
+                created_at: new Date().toISOString()
             }
-        } catch (error) {
-            console.error('Error toggling favorite on cloud:', error);
-            // Optional: rollback local state on error?
-        }
+        );
     }
 );
 

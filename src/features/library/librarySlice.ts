@@ -17,6 +17,8 @@ interface LibraryState {
     downloadedIds: string[];
     isSyncing: boolean;
     lastSynced: string | null;
+    syncStatus: 'syncing' | 'synced' | 'pending' | 'failed' | 'offline';
+    pendingOps: number;
 }
 
 const initialState: LibraryState = {
@@ -26,6 +28,8 @@ const initialState: LibraryState = {
     downloadedIds: [],
     isSyncing: false,
     lastSynced: null,
+    syncStatus: 'synced',
+    pendingOps: 0,
 };
 
 const librarySlice = createSlice({
@@ -154,6 +158,11 @@ const librarySlice = createSlice({
         setLastSynced: (state, action: PayloadAction<string>) => {
             state.lastSynced = action.payload;
         },
+        updateSyncStatus: (state, action: PayloadAction<{ status: LibraryState['syncStatus']; pendingCount: number; lastSynced?: string }>) => {
+            state.syncStatus = action.payload.status;
+            state.pendingOps = action.payload.pendingCount;
+            if (action.payload.lastSynced) state.lastSynced = action.payload.lastSynced;
+        },
     },
 });
 
@@ -176,6 +185,7 @@ export const {
     migrateFavorites,
     setSyncing,
     setLastSynced,
+    updateSyncStatus,
 } = librarySlice.actions;
 
 export default librarySlice.reducer;

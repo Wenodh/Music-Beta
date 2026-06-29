@@ -3,6 +3,7 @@ import { MediaItem } from '../audio-sdk/models';
 import { store } from '../../store';
 import { updateHistoryDuration, addToHistory } from '../../features/musicplayer/musicPlayerSlice';
 import { getHistoryPolicy } from '../policies/HistoryPolicy';
+import { syncManager } from '../sync/SyncManager';
 
 export class HistoryService {
     private static instance: HistoryService;
@@ -48,12 +49,22 @@ export class HistoryService {
         this.accumulatedDuration = 0;
 
         // Initialize history entry
+        const playedAt = new Date().toISOString();
         store.dispatch(addToHistory({
             id: item.id,
             media: item,
-            playedAt: new Date().toISOString(),
+            playedAt,
             listenedDuration: 0
         }));
+
+        // Sync history entry
+        syncManager.enqueue('history', 'create', {
+            media_id: item.id,
+            provider: item.provider,
+            content_type: item.type,
+            played_at: playedAt,
+            metadata: item,
+        });
 
         this.startHeartbeat();
     }
@@ -94,6 +105,14 @@ export class HistoryService {
                 id: this.currentItem.id,
                 duration: delta
             }));
+
+            // Sync updated duration (debounced in SyncManager)
+            syncManager.enqueue('history', 'update', {
+                media_id: this.currentItem.id,
+                provider: this.currentItem.provider,
+                listened_duration: sessionDuration // Total duration for this session
+            });
+
             this.accumulatedDuration = sessionDuration;
         }
     }

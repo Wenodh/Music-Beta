@@ -11,6 +11,9 @@ import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { removeDownloadedId } from '../features/library/librarySlice';
 import { showToast } from '../features/ui/uiSlice';
+import { DownloadsList } from '../components/downloads/DownloadsList';
+import { StorageUsageInfo } from '../components/downloads/StorageUsageInfo';
+import { DownloadAccessibilityAnnouncer } from '../components/downloads/DownloadAccessibilityAnnouncer';
 
 const Library: React.FC = () => {
     const { favorites, favoriteItems, playlists } = useAppSelector((state) => state.library);
@@ -18,7 +21,7 @@ const Library: React.FC = () => {
     const location = useLocation();
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline'>('favorites');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline' | 'downloads'>('favorites');
     const [offlineSongs, setOfflineSongs] = useState<(OfflineSong & { imageUrl?: string })[]>([]);
 
     const blobUrlsRef = useRef<Set<string>>(new Set());
@@ -123,6 +126,13 @@ const Library: React.FC = () => {
                         Offline
                         {activeTab === 'offline' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
+                    <button
+                        onClick={() => { setActiveTab('downloads'); setSelectedPlaylist(null); }}
+                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'downloads' ? 'text-primary' : 'text-gray-500'}`}
+                    >
+                        Downloads
+                        {activeTab === 'downloads' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-4 pb-4 md:pb-0">
@@ -155,6 +165,23 @@ const Library: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {activeTab === 'downloads' && (
+                <div className="space-y-8">
+                    <DownloadAccessibilityAnnouncer />
+                    <div className="flex flex-col sm:flex-row gap-6">
+                        <div className="flex-1">
+                            <h3 className="text-xl font-bold mb-4">Manage Downloads</h3>
+                            <div className="bg-white/5 p-1 rounded-2xl">
+                                <DownloadsList />
+                            </div>
+                        </div>
+                        <div className="w-full sm:w-80">
+                            <StorageUsageInfo />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {activeTab === 'offline' && (
                 <div className="space-y-6">

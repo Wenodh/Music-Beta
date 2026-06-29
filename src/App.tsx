@@ -25,6 +25,7 @@ import SearchSection from './components/SearchSection';
 import ToastContainer from './components/toast/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { useSyncAndDownloads } from './hooks/useSyncAndDownloads';
 
 // Wrapper for lazy components with retry logic
 const lazyRetry = (componentImport: any) =>
@@ -193,6 +194,7 @@ const LocationAwareNavbar = () => {
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
+    useSyncAndDownloads();
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
@@ -228,7 +230,13 @@ export const AppContent = () => {
         // Sync Offline Downloads
         getOfflineSongs().then(songs => {
             const ids = songs.map(s => s.id);
-            dispatch(setDownloadedIds(ids));
+            // Include new downloads from StorageService
+            import('./lib/storage/StorageService').then(({ StorageService }) => {
+                StorageService.getAllDownloads().then(downloads => {
+                    const allIds = Array.from(new Set([...ids, ...downloads.map(d => d.id)]));
+                    dispatch(setDownloadedIds(allIds));
+                });
+            });
         });
 
         // Supabase Auth Listener
