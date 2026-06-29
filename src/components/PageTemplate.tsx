@@ -25,7 +25,7 @@ interface PageTemplateProps {
 
 const GlobeScene = React.lazy(() => import('./globe/GlobeScene'));
 
-const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children, details: propDetails }) => {
+export const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children, details: propDetails }) => {
     const fetchResult = useFetchDetails(
         propDetails ? '' : (apiUrl || ''),
         getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))

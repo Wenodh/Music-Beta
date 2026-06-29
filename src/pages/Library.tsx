@@ -11,9 +11,10 @@ import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { removeDownloadedId } from '../features/library/librarySlice';
 import { showToast } from '../features/ui/uiSlice';
-import { DownloadsList } from '../components/downloads/DownloadsList';
-import { StorageUsageInfo } from '../components/downloads/StorageUsageInfo';
 import { DownloadAccessibilityAnnouncer } from '../components/downloads/DownloadAccessibilityAnnouncer';
+
+const DownloadsList = React.lazy(() => import('../components/downloads/DownloadsList').then(m => ({ default: m.DownloadsList })));
+const StorageUsageInfo = React.lazy(() => import('../components/downloads/StorageUsageInfo').then(m => ({ default: m.StorageUsageInfo })));
 
 const Library: React.FC = () => {
     const { favorites, favoriteItems, playlists } = useAppSelector((state) => state.library);
@@ -167,20 +168,22 @@ const Library: React.FC = () => {
             </div>
 
             {activeTab === 'downloads' && (
-                <div className="space-y-8">
-                    <DownloadAccessibilityAnnouncer />
-                    <div className="flex flex-col sm:flex-row gap-6">
-                        <div className="flex-1">
-                            <h3 className="text-xl font-bold mb-4">Manage Downloads</h3>
-                            <div className="bg-white/5 p-1 rounded-2xl">
-                                <DownloadsList />
+                <Suspense fallback={<div className="py-20 text-center text-gray-500">Loading Download Manager...</div>}>
+                    <div className="space-y-8">
+                        <DownloadAccessibilityAnnouncer />
+                        <div className="flex flex-col sm:flex-row gap-6">
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold mb-4">Manage Downloads</h3>
+                                <div className="bg-white/5 p-1 rounded-2xl">
+                                    <DownloadsList />
+                                </div>
+                            </div>
+                            <div className="w-full sm:w-80">
+                                <StorageUsageInfo />
                             </div>
                         </div>
-                        <div className="w-full sm:w-80">
-                            <StorageUsageInfo />
-                        </div>
                     </div>
-                </div>
+                </Suspense>
             )}
 
             {activeTab === 'offline' && (
