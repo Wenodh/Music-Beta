@@ -16,6 +16,8 @@ import { getOfflineSongs } from './utils/db';
 import { hexToRgb } from './utils/colorUtils';
 import { historyService } from './lib/history/HistoryService';
 import { sleepTimerService } from './lib/playback/SleepTimerService';
+import { syncManager } from './lib/sync/SyncManager';
+import { StorageService } from './lib/storage/StorageService';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import BottomBar from './components/BottomBar';
@@ -26,6 +28,7 @@ import ToastContainer from './components/toast/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useSyncAndDownloads } from './hooks/useSyncAndDownloads';
+import SocialOnboarding from './features/social/components/SocialOnboarding';
 
 // Wrapper for lazy components with retry logic
 const lazyRetry = (componentImport: any) =>
@@ -46,7 +49,6 @@ const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
 const Library = lazyRetry(() => import('./pages/Library'));
-const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
@@ -54,6 +56,9 @@ const MediaDetails = lazyRetry(() => import('./pages/MediaDetails'));
 const MediaPersonPage = lazyRetry(() => import('./pages/MediaPersonPage'));
 const Diagnostics = lazyRetry(() => import('./pages/Diagnostics'));
 const DownloadsPage = lazyRetry(() => import('./pages/Downloads'));
+const ActivityFeed = lazyRetry(() => import('./features/social/components/ActivityFeed'));
+const NotificationCenter = lazyRetry(() => import('./features/social/components/NotificationCenter'));
+const ProfilePage = lazyRetry(() => import('./features/social/components/ProfilePage'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -84,6 +89,30 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/profile/:userId"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
+                            <PageWrapper><ProfilePage /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/activity"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Activity...</div>}>
+                            <PageWrapper><ActivityFeed /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/notifications"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Notifications...</div>}>
+                            <PageWrapper><NotificationCenter /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -187,7 +216,7 @@ const AnimatedRoutes = () => {
                     path="/profile"
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
-                            <PageWrapper><Profile /></PageWrapper>
+                            <PageWrapper><ProfilePage /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -213,6 +242,16 @@ const LocationAwareNavbar = () => {
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     useSyncAndDownloads();
+    const { user, isAuthenticated } = useAppSelector(state => state.auth);
+    const socialProfile = useAppSelector(state => state.social.currentUserProfile);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
+    useEffect(() => {
+        if (isAuthenticated && user && (!socialProfile || !socialProfile.isOnboarded)) {
+            setShowOnboarding(true);
+        }
+    }, [isAuthenticated, user, socialProfile]);
+
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
@@ -234,6 +273,8 @@ export const AppContent = () => {
         // Initialize global services
         (window as any)._historyService = historyService;
         (window as any)._sleepTimerService = sleepTimerService;
+        (window as any)._syncManager = syncManager;
+        (window as any)._storageService = StorageService;
 
         // Handle direct room links
         const params = new URLSearchParams(window.location.search);
@@ -310,6 +351,7 @@ export const AppContent = () => {
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >
+                {showOnboarding && <SocialOnboarding onComplete={() => setShowOnboarding(false)} />}
                 <LocationAwareNavbar />
                 <BottomBar />
                 <SearchSection />

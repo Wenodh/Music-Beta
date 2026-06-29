@@ -1,5 +1,15 @@
-export type SyncOperationType = 'favorite' | 'history' | 'bookmark' | 'playback_position';
-export type SyncOperationAction = 'create' | 'update' | 'delete';
+export type SyncOperationType =
+    | 'favorite'
+    | 'history'
+    | 'bookmark'
+    | 'playback_position'
+    | 'profile'
+    | 'follow'
+    | 'playlist_op'
+    | 'playlist_member'
+    | 'notification_read';
+
+export type SyncOperationAction = 'create' | 'update' | 'delete' | 'apply';
 
 export interface SyncOperation<T = any> {
     id: string; // UUID
