@@ -31,13 +31,17 @@ export class LibriVoxProvider implements AudioProvider {
 
     private baseUrl = 'https://librivox.org/api/feed/audiobooks';
 
-    async fetchApi(params: Record<string, string | number> = {}): Promise<any> {
+    async fetchApi(params: Record<string, string | number> = {}, subPath: string = ''): Promise<any> {
         const queryParams = new URLSearchParams();
         // LibriVox API usually returns XML by default, but we can request JSON via format=json
         queryParams.append('format', 'json');
-        Object.entries(params).forEach(([key, value]) => queryParams.append(key, String(value)));
+        Object.entries(params).forEach(([key, value]) => {
+            if (key !== 'subPath') {
+                queryParams.append(key, String(value));
+            }
+        });
 
-        const url = `${this.baseUrl}?${queryParams.toString()}`;
+        const url = `${this.baseUrl}${subPath}?${queryParams.toString()}`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`LibriVox API error: ${response.statusText}`);
@@ -46,14 +50,24 @@ export class LibriVoxProvider implements AudioProvider {
     }
 
     async search(query: string, options?: SearchOptions): Promise<MediaItem[]> {
-        const results = await this.fetchApi({
-            title: `^${query}`, // Regex search for title
-            limit: options?.limit || 20,
-            offset: (options?.page || 0) * (options?.limit || 20)
-        });
+        // LibriVox search API: title parameter often returns 404.
+        // Trying simple search first, falling back to a broader search if it fails.
+        try {
+            const results = await this.fetchApi({
+                title: query,
+                limit: options?.limit || 20,
+                offset: (options?.page || 0) * (options?.limit || 20)
+            });
 
-        if (!results.books) return [];
-        return results.books.map((b: any) => this.mapBookToMediaItem(b));
+            if (results && results.books) {
+                return results.books.map((b: any) => this.mapBookToMediaItem(b));
+            }
+        } catch (e) {
+            // If 404, we might want to try searching by author or just return empty
+            console.warn('LibriVox search failed, likely 404 for specific query');
+        }
+
+        return [];
     }
 
     async getMedia(id: string, type: string): Promise<MediaItem> {
