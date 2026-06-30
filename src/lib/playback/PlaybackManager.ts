@@ -2,13 +2,16 @@ import { eventBus, Events } from '../events';
 import { MediaItem, PlaybackState } from '../audio-sdk/models';
 import { NativeAudioEngine } from './engines/NativeAudioEngine';
 import { HLSAudioEngine } from './engines/HLSAudioEngine';
+import { RemotePlaybackEngine } from './engines/RemotePlaybackEngine';
 import { PlaybackEngine } from './engines/types';
+import { RemotePlaybackProvider } from '../platform/types';
 
 export class PlaybackManager {
     private static instance: PlaybackManager;
     private engineA: PlaybackEngine;
     private engineB: PlaybackEngine;
-    private activeBuffer: 'A' | 'B' = 'A';
+    private remoteEngine: RemotePlaybackEngine | null = null;
+    private activeBuffer: 'A' | 'B' | 'remote' = 'A';
 
     private currentItem: MediaItem | null = null;
     private volume: number = 1.0;
@@ -17,6 +20,47 @@ export class PlaybackManager {
     private constructor() {
         this.engineA = new NativeAudioEngine(this.createEngineEvents('A'));
         this.engineB = new NativeAudioEngine(this.createEngineEvents('B'));
+        this.setupInterruptionHandlers();
+    }
+
+    private setupInterruptionHandlers() {
+        // Handle headphone unplug / audio output change
+        if (navigator.mediaSession) {
+            // Some browsers support this via Media Session actions or events
+        }
+
+        // Generic event for audio destination change
+        if (typeof (window as any).AudioContext !== 'undefined') {
+            // Can listen to state changes
+        }
+
+        // We can also listen for the 'pause' event on the audio element
+        // which often fires when headphones are unplugged.
+        this.engineA.audioElement.addEventListener('pause', () => {
+            if (this.activeBuffer === 'A' && this.state === 'playing') {
+                // Potential interruption
+                eventBus.emit('PLAYBACK_INTERRUPTED', 'Headphones disconnected or system pause');
+            }
+        });
+
+        this.engineB.audioElement.addEventListener('pause', () => {
+            if (this.activeBuffer === 'B' && this.state === 'playing') {
+                eventBus.emit('PLAYBACK_INTERRUPTED', 'Headphones disconnected or system pause');
+            }
+        });
+    }
+
+    public setRemoteMode(provider: RemotePlaybackProvider | null) {
+        if (provider) {
+            if (!this.remoteEngine) {
+                this.remoteEngine = new RemotePlaybackEngine(this.createEngineEvents('remote'));
+            }
+            this.remoteEngine.setProvider(provider);
+            this.activeBuffer = 'remote';
+        } else {
+            this.activeBuffer = 'A';
+        }
+        eventBus.emit(Events.PLAYBACK_STATE_CHANGED, this.state);
     }
 
     private updateEngine(buffer: 'A' | 'B', format: 'mp3' | 'aac' | 'hls') {
@@ -48,7 +92,7 @@ export class PlaybackManager {
         return PlaybackManager.instance;
     }
 
-    private createEngineEvents(buffer: 'A' | 'B') {
+    private createEngineEvents(buffer: 'A' | 'B' | 'remote') {
         return {
             onStateChange: (state: PlaybackState) => {
                 if (this.activeBuffer === buffer) {
@@ -100,6 +144,7 @@ export class PlaybackManager {
     }
 
     public get activeEngine() {
+        if (this.activeBuffer === 'remote') return this.remoteEngine!;
         return this.activeBuffer === 'A' ? this.engineA : this.engineB;
     }
 
@@ -120,7 +165,9 @@ export class PlaybackManager {
                     this.engineB.stop();
                     this.isCrossfading = false;
                 }
-                this.updateEngine(this.activeBuffer, format);
+                if (this.activeBuffer !== 'remote') {
+                    this.updateEngine(this.activeBuffer, format);
+                }
                 await this.activeEngine.load(url);
             } else {
                 throw new Error('No playable stream found for item');
@@ -202,6 +249,12 @@ export class PlaybackManager {
     get currentTime() { return this.activeEngine.currentTime; }
     get duration() { return this.activeEngine.duration; }
     get currentMediaItem() { return this.currentItem; }
+
+    public syncRemoteQueue(queue: MediaItem[]) {
+        if (this.activeBuffer === 'remote' && this.remoteEngine) {
+            this.remoteEngine.syncQueue(queue);
+        }
+    }
 
     // Internal access for visualizer compatibility
     get _activeAudioElement() {

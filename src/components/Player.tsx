@@ -34,7 +34,6 @@ import { openPlaylistModal, setAccentColor, setPlayerExpanded, setSessionModalOp
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
-import { useMediaSession } from '../hooks/useMediaSession';
 import { useSyncAndDownloads } from '../hooks/useSyncAndDownloads';
 import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
 import { playbackManager } from '../lib/playback/PlaybackManager';
@@ -137,22 +136,25 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [seek, isHost, isJoined, isInternalAction, broadcast]);
 
-    useMediaSession({
-        currentSong,
-        isPlaying,
-        imageUrl,
-        onPlay: () => {
-            dispatch(playMusic(currentSong));
-            if (isHost && isJoined) broadcast('play', { song: currentSong });
-        },
-        onPause: () => {
-            dispatch(pauseMusic());
-            if (isHost && isJoined) broadcast('pause', {});
-        },
-        onNext: () => dispatch(nextSong({ isManual: true })),
-        onPrev: () => dispatch(prevSongAction()),
-        onSeek: handleManualSeek
-    });
+    useEffect(() => {
+        const onNext = () => dispatch(nextSong({ isManual: true }));
+        const onPrev = () => dispatch(prevSongAction());
+        const onFavorite = (id: string) => {
+            if (currentSong && currentSong.id === id) {
+                dispatch(toggleFavoriteCloud(currentSong) as any);
+            }
+        };
+
+        eventBus.on('COMMAND_NEXT', onNext);
+        eventBus.on('COMMAND_PREVIOUS', onPrev);
+        eventBus.on('COMMAND_FAVORITE', onFavorite);
+
+        return () => {
+            eventBus.off('COMMAND_NEXT', onNext);
+            eventBus.off('COMMAND_PREVIOUS', onPrev);
+            eventBus.off('COMMAND_FAVORITE', onFavorite);
+        };
+    }, [dispatch, currentSong]);
 
     // Revoke image URLs and cleanup
     useEffect(() => {

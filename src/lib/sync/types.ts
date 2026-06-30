@@ -7,7 +7,8 @@ export type SyncOperationType =
     | 'follow'
     | 'playlist_op'
     | 'playlist_member'
-    | 'notification_read';
+    | 'notification_read'
+    | 'active_session';
 
 export type SyncOperationAction = 'create' | 'update' | 'delete' | 'apply';
 
