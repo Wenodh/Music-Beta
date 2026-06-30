@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs, setSettingsOpen, addRecentSearch, setSearchQuery as setSearchQueryAction } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoReloadOutline } from 'react-icons/io5';
-import { useNavigate } from 'react-router-dom';
+import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoReloadOutline, IoNotificationsOutline, IoFlashOutline, IoPersonOutline } from 'react-icons/io5';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { audioSDK } from '../lib/audio-sdk';
 import { SearchAdapter } from '../lib/audio-sdk/search-adapter';
@@ -47,6 +47,8 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     }, [focusSearch]);
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { theme } = useAppSelector((state) => state.ui);
+    const { unreadNotificationCount, currentUserProfile } = useAppSelector((state) => state.social);
+    const location = useLocation();
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -131,17 +133,33 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                         by <span className="text-red-400/80">WENODH</span>
                     </div>
                 </div>
-                <div className="absolute right-0 flex items-center gap-2 md:hidden">
+                <div className="absolute right-0 flex items-center gap-1 sm:gap-2 md:hidden">
+                    {isAuthenticated && (
+                        <button
+                            onClick={() => navigate('/notifications')}
+                            aria-label="Notifications"
+                            className="relative p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
+                        >
+                            <IoNotificationsOutline size={22} />
+                            {unreadNotificationCount > 0 && (
+                                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
+                                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                                </span>
+                            )}
+                        </button>
+                    )}
                     <button
-                        onClick={() => dispatch(setSettingsOpen(true))}
-                        aria-label="Settings"
-                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20 overflow-hidden"
+                        onClick={() => navigate('/profile')}
+                        aria-label="Profile"
+                        className="p-0.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20 overflow-hidden"
                         style={{ borderColor: 'rgba(var(--accent-rgb), 0.2)' }}
                     >
-                        {isAuthenticated && user?.user_metadata?.avatar_url ? (
-                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
+                        {currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url ? (
+                            <img src={currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
-                            <img src="/vibeon-logo.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-primary bg-primary/10">
+                                <IoPersonOutline size={18} />
+                            </div>
                         )}
                     </button>
                 </div>
@@ -205,24 +223,68 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 <button
                     onClick={() => navigate('/globe')}
                     aria-label="Song Globe"
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                    className={`p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/globe' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
                 >
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
                         <IoGlobeOutline size={18} />
                     </div>
                     <span className="text-sm font-bold uppercase tracking-tight">Globe</span>
                 </button>
+
+                {isAuthenticated && (
+                    <>
+                        <button
+                            onClick={() => navigate('/activity')}
+                            aria-label="Activity Feed"
+                            className={`p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/activity' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
+                        >
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                                <IoFlashOutline size={18} />
+                            </div>
+                            <span className="text-sm font-bold uppercase tracking-tight">Feed</span>
+                        </button>
+
+                        <button
+                            onClick={() => navigate('/notifications')}
+                            aria-label="Notifications"
+                            className={`relative p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/notifications' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
+                        >
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                                <IoNotificationsOutline size={18} />
+                            </div>
+                            <span className="text-sm font-bold uppercase tracking-tight">Alerts</span>
+                            {unreadNotificationCount > 0 && (
+                                <span className="absolute top-1 left-6 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
+                                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                                </span>
+                            )}
+                        </button>
+                    </>
+                )}
+
+                <button
+                    onClick={() => navigate('/profile')}
+                    aria-label="Profile"
+                    className={`p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/profile' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
+                >
+                    {currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url ? (
+                        <img src={currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                            <IoPersonOutline size={18} />
+                        </div>
+                    )}
+                    <span className="text-sm font-bold uppercase tracking-tight">Profile</span>
+                </button>
+
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
                     aria-label="Settings"
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
                 >
-                    {isAuthenticated && user?.user_metadata?.avatar_url ? (
-                        <img src={user.user_metadata.avatar_url} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
-                    ) : (
-                        <img src="/vibeon-logo.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
-                    )}
-                    <span className="text-sm font-bold uppercase tracking-tight">Account</span>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-gray-500 bg-gray-100 dark:bg-gray-800">
+                        <IoReloadOutline size={18} className="rotate-45" />
+                    </div>
                 </button>
             </div>
         </motion.nav>

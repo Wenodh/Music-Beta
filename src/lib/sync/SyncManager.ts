@@ -42,7 +42,7 @@ export class SyncManager {
         this.emitSyncState();
 
         // Immediate sync for high priority actions
-        if (type === 'favorite' || type === 'bookmark') {
+        if (type === 'favorite' || type === 'bookmark' || type === 'follow' || type === 'playlist_op') {
             this.sync();
         }
     }
@@ -93,7 +93,7 @@ export class SyncManager {
         if (op.action === 'create' || op.action === 'update') {
             const data = {
                 ...op.payload,
-                user_id: userId,
+                user_id: op.payload.user_id || userId,
                 device_id: this.deviceId,
                 updated_at: new Date().toISOString(),
                 version: (op.payload.version || 0) + 1,
@@ -101,9 +101,6 @@ export class SyncManager {
 
             // Conflict Resolution Logic (Deterministic)
             if (op.type === 'playback_position') {
-                // For playback position, only upsert if remote version/timestamp is older
-                // We use Supabase RPC or a conditional UPSERT if supported,
-                // but here we'll do a simple FETCH-THEN-UPSERT for deterministic control
                 const { data: existing } = await supabase
                     .from(table)
                     .select('version, updated_at')
@@ -116,7 +113,7 @@ export class SyncManager {
                     const isRemoteNewer = existing.version > data.version ||
                         (existing.version === data.version && new Date(existing.updated_at) > new Date(data.updated_at));
 
-                    if (isRemoteNewer) return; // Drop local update if remote is strictly newer
+                    if (isRemoteNewer) return;
                 }
             }
 
@@ -126,11 +123,29 @@ export class SyncManager {
 
             if (error) throw error;
         } else if (op.action === 'delete') {
+            if (op.type === 'follow') {
+                const { error } = await supabase
+                    .from(table)
+                    .delete()
+                    .match({ follower_id: userId, following_id: op.payload.following_id });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from(table)
+                    .update({ deleted_at: new Date().toISOString() })
+                    .match(this.getMatchCriteria(op));
+                if (error) throw error;
+            }
+        } else if (op.action === 'apply' && op.type === 'playlist_op') {
+            // Apply operation-based sync for collaborative playlists
             const { error } = await supabase
-                .from(table)
-                .update({ deleted_at: new Date().toISOString() })
-                .match(this.getMatchCriteria(op));
-
+                .from('playlist_operations')
+                .insert({
+                    playlist_id: op.payload.playlist_id,
+                    user_id: userId,
+                    op_type: op.payload.op_type,
+                    payload: op.payload.payload,
+                });
             if (error) throw error;
         }
     }
@@ -139,7 +154,7 @@ export class SyncManager {
         // In a real implementation, we would fetch only changes since last sync
         // using the 'updated_at' and 'version' columns.
 
-        const tables: SyncOperationType[] = ['favorite', 'history', 'bookmark', 'playback_position'];
+        const tables: SyncOperationType[] = ['favorite', 'history', 'bookmark', 'playback_position', 'profile', 'follow', 'playlist_member'];
 
         for (const type of tables) {
             const table = this.getTableName(type);
@@ -168,6 +183,12 @@ export class SyncManager {
             case 'history': return 'history';
             case 'bookmark': return 'bookmarks';
             case 'playback_position': return 'playback_positions';
+            case 'profile': return 'profiles';
+            case 'follow': return 'follows';
+            case 'playlist_op': return 'playlist_operations';
+            case 'playlist_member': return 'playlist_members';
+            case 'notification_read': return 'notifications';
+            default: return '';
         }
     }
 
@@ -175,6 +196,9 @@ export class SyncManager {
         switch (type) {
             case 'favorite': return 'user_id,provider,media_id';
             case 'playback_position': return 'user_id,provider,media_id';
+            case 'profile': return 'id';
+            case 'follow': return 'follower_id,following_id';
+            case 'playlist_member': return 'playlist_id,user_id';
             default: return 'id';
         }
     }
