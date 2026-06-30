@@ -47,8 +47,57 @@ export class AudioSDK {
                 }
             }
 
-            return flatResults;
+            // Unified Library Deduplication Logic
+            return this.deduplicateSearchResults(flatResults);
         });
+    }
+
+    private deduplicateSearchResults(results: MediaItem[]): MediaItem[] {
+        const canonicalMap = new Map<string, MediaItem>();
+
+        results.forEach(item => {
+            // Simple deduplication based on title and type for now
+            // In a real app, this would use ISRC or other stable IDs
+            const key = `${item.type}_${item.title.toLowerCase()}_${item.subtitle?.toLowerCase() || ''}`;
+
+            if (canonicalMap.has(key)) {
+                const existing = canonicalMap.get(key)!;
+                if (!existing.sources) {
+                    existing.sources = [{
+                        provider: existing.provider,
+                        id: existing.id,
+                        playable: existing.playable,
+                        availability: 'available',
+                        stream: existing.stream
+                    }];
+                }
+
+                // Add source if it doesn't already exist from this provider
+                if (!existing.sources.some(s => s.provider === item.provider)) {
+                    existing.sources.push({
+                        provider: item.provider,
+                        id: item.id,
+                        playable: item.playable,
+                        availability: 'available',
+                        stream: item.stream
+                    });
+                }
+            } else {
+                const newItem = { ...item };
+                if (!newItem.sources) {
+                    newItem.sources = [{
+                        provider: item.provider,
+                        id: item.id,
+                        playable: item.playable,
+                        availability: 'available',
+                        stream: item.stream
+                    }];
+                }
+                canonicalMap.set(key, newItem);
+            }
+        });
+
+        return Array.from(canonicalMap.values());
     }
 
     async getMedia(id: string, providerId: string, type: string): Promise<MediaItem | undefined> {
