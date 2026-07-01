@@ -38,7 +38,14 @@ export const songToMediaItem = (song: Song, provider: string = 'jiosaavn'): Medi
         language: song.language,
         metadata: {
             ...song,
-        }
+        },
+        sources: [{
+            provider,
+            id: song.id,
+            playable: true,
+            stream,
+            availability: 'available'
+        }]
     };
 };
 

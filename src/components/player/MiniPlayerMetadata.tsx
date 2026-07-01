@@ -1,8 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Marquee from '../Marquee';
+import { platformManager } from '../../lib/platform/PlatformIntegrationManager';
 import { decodeHtmlEntities } from '../../utils/decodeHtml';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
+import { MdCast } from 'react-icons/md';
 
 interface MiniPlayerMetadataProps {
     imageUrl: string;
@@ -20,8 +22,14 @@ const MiniPlayerMetadata: React.FC<MiniPlayerMetadataProps & { isLive?: boolean 
     onDoubleTap,
     isLive
 }) => {
+    const { cast } = platformManager.getCapabilities();
     return (
         <div className="flex justify-start items-center gap-3 md:gap-4 flex-1 min-w-0 lg:w-[30vw]">
+            {cast && (
+                <div className="hidden lg:block cursor-pointer text-gray-400 hover:text-primary transition-colors">
+                   <google-cast-launcher style={{ width: '24px', height: '24px', display: 'block' }}></google-cast-launcher>
+                </div>
+            )}
             <div className="relative group shrink-0">
                 <motion.img
                     layoutId="player-album-art"

@@ -2,7 +2,8 @@ import { SyncOperation, SyncState, SyncOperationType, SyncOperationAction } from
 import { StorageService } from '../storage/StorageService';
 import { getDeviceId } from '../storage/db';
 import { supabase } from '../supabase';
-import { eventBus } from '../events';
+import { eventBus, Events } from '../events';
+import { playbackManager } from '../playback/PlaybackManager';
 
 export class SyncManager {
     private isSyncing = false;
@@ -13,12 +14,39 @@ export class SyncManager {
         this.init();
     }
 
+    public getDeviceId(): string {
+        return this.deviceId;
+    }
+
     private async init() {
         this.deviceId = await getDeviceId();
         this.startSyncTimer();
 
         // Listen for online status
         window.addEventListener('online', () => this.sync());
+
+        eventBus.on(Events.PLAYBACK_STARTED, () => {
+            this.updateActiveSession('active');
+        });
+
+        eventBus.on(Events.PLAYBACK_PAUSED, () => {
+            this.updateActiveSession('paused');
+        });
+    }
+
+    private async updateActiveSession(status: 'active' | 'paused') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        this.enqueue('active_session', 'update', {
+            user_id: user.id,
+            device_id: this.deviceId,
+            device_name: navigator.userAgent.split(') ')[0].split(' (')[1] || 'Web Browser',
+            status,
+            media_id: playbackManager.currentMediaItem?.id,
+            position: playbackManager.currentTime,
+            updated_at: new Date().toISOString()
+        });
     }
 
     private startSyncTimer() {
@@ -147,6 +175,15 @@ export class SyncManager {
                     payload: op.payload.payload,
                 });
             if (error) throw error;
+        } else if (op.action === 'update' && op.type === 'active_session') {
+            const { error } = await supabase
+                .from('active_sessions')
+                .upsert({
+                    ...op.payload,
+                    user_id: userId,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+            if (error) throw error;
         }
     }
 
@@ -154,7 +191,7 @@ export class SyncManager {
         // In a real implementation, we would fetch only changes since last sync
         // using the 'updated_at' and 'version' columns.
 
-        const tables: SyncOperationType[] = ['favorite', 'history', 'bookmark', 'playback_position', 'profile', 'follow', 'playlist_member'];
+        const tables: SyncOperationType[] = ['favorite', 'history', 'bookmark', 'playback_position', 'profile', 'follow', 'playlist_member', 'active_session'];
 
         for (const type of tables) {
             const table = this.getTableName(type);
@@ -188,6 +225,7 @@ export class SyncManager {
             case 'playlist_op': return 'playlist_operations';
             case 'playlist_member': return 'playlist_members';
             case 'notification_read': return 'notifications';
+            case 'active_session': return 'active_sessions';
             default: return '';
         }
     }
@@ -199,6 +237,7 @@ export class SyncManager {
             case 'profile': return 'id';
             case 'follow': return 'follower_id,following_id';
             case 'playlist_member': return 'playlist_id,user_id';
+            case 'active_session': return 'user_id';
             default: return 'id';
         }
     }

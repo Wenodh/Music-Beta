@@ -4,6 +4,7 @@ import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
+import LinkedAccountsSettings from './settings/LinkedAccountsSettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoBugOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
@@ -218,6 +219,10 @@ const SettingsDrawer: React.FC = () => {
                                             <IoPeopleOutline size={16} />
                                         </div>
                                     </button>
+                                </section>
+
+                                <section>
+                                    <LinkedAccountsSettings />
                                 </section>
 
                                 <section>

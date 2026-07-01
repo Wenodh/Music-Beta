@@ -18,16 +18,20 @@ import { historyService } from './lib/history/HistoryService';
 import { sleepTimerService } from './lib/playback/SleepTimerService';
 import { syncManager } from './lib/sync/SyncManager';
 import { StorageService } from './lib/storage/StorageService';
+import { playbackManager } from './lib/playback/PlaybackManager';
+import { eventBus } from './lib/events';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import BottomBar from './components/BottomBar';
 import Player from './components/Player';
 import MiniPlayer from './components/MiniPlayer';
+import { AppInitializer } from './components/AppInitializer';
 import SearchSection from './components/SearchSection';
 import ToastContainer from './components/toast/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useSyncAndDownloads } from './hooks/useSyncAndDownloads';
+import { useDeepLinking } from './hooks/useDeepLinking';
 import SocialOnboarding from './features/social/components/SocialOnboarding';
 
 // Wrapper for lazy components with retry logic
@@ -59,6 +63,7 @@ const DownloadsPage = lazyRetry(() => import('./pages/Downloads'));
 const ActivityFeed = lazyRetry(() => import('./features/social/components/ActivityFeed'));
 const NotificationCenter = lazyRetry(() => import('./features/social/components/NotificationCenter'));
 const ProfilePage = lazyRetry(() => import('./features/social/components/ProfilePage'));
+const CreatorDashboard = lazyRetry(() => import('./features/creator/components/CreatorDashboard'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -89,6 +94,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/creator"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Dashboard...</div>}>
+                            <PageWrapper><CreatorDashboard /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -242,6 +255,7 @@ const LocationAwareNavbar = () => {
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     useSyncAndDownloads();
+    useDeepLinking();
     const { user, isAuthenticated } = useAppSelector(state => state.auth);
     const socialProfile = useAppSelector(state => state.social.currentUserProfile);
     const [showOnboarding, setShowOnboarding] = useState(false);
@@ -315,6 +329,36 @@ export const AppContent = () => {
     }, [dispatch]);
 
     useEffect(() => {
+        const handleSyncData = (data: any) => {
+            if (data.type === 'active_session') {
+                const session = data.data[0];
+                if (session && session.device_id !== syncManager.getDeviceId() && session.status === 'active') {
+                    // Another device is playing
+                    if (playbackManager.state === 'playing') {
+                        playbackManager.pause();
+                        dispatch(showToast({
+                            message: `Playback transferred to ${session.device_name}`,
+                            duration: 5000
+                        }));
+                    }
+                }
+            }
+        };
+
+        const handleInterruption = (reason: string) => {
+            dispatch(showToast({ message: reason, type: 'info' }));
+        };
+
+        eventBus.on('SYNC_DATA_RECEIVED', handleSyncData);
+        eventBus.on('PLAYBACK_INTERRUPTED', handleInterruption);
+
+        return () => {
+            eventBus.off('SYNC_DATA_RECEIVED', handleSyncData);
+            eventBus.off('PLAYBACK_INTERRUPTED', handleInterruption);
+        };
+    }, [dispatch]);
+
+    useEffect(() => {
         if (!theme) return;
 
         if (theme.darkMode) {
@@ -351,6 +395,7 @@ export const AppContent = () => {
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >
+                <AppInitializer />
                 {showOnboarding && <SocialOnboarding onComplete={() => setShowOnboarding(false)} />}
                 <LocationAwareNavbar />
                 <BottomBar />
