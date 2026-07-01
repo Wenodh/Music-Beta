@@ -31,8 +31,17 @@ export interface SyncMetadata {
     deletedAt?: string;
 }
 
-export interface MediaItem {
+export interface MediaSource {
+    provider: string;
     id: string;
+    playable: boolean;
+    stream?: PlayableSource;
+    quality?: string;
+    availability: 'available' | 'unavailable' | 'restricted';
+}
+
+export interface MediaItem {
+    id: string; // This can be the provider-specific ID or a canonical ID
     provider: string;
     type: MediaItemType;
     title: string;
@@ -48,6 +57,34 @@ export interface MediaItem {
     publishedAt?: string;
     metadata: Record<string, unknown>;
     sync?: SyncMetadata;
+    canonicalId?: string;
+    sources?: MediaSource[];
+    creatorId?: string;
+    organizationId?: string;
+    accessPolicy?: AccessPolicy;
+    assets?: MediaAsset[];
+}
+
+export interface AccessPolicy {
+    type: 'free' | 'premium' | 'subscriber' | 'purchase';
+    tierId?: string;
+    price?: number;
+    currency?: string;
+}
+
+export interface MediaAsset {
+    id: string;
+    type: 'audio' | 'artwork' | 'transcript' | 'chapters' | 'waveform';
+    url: string;
+    quality?: string;
+    format?: string;
+    size?: number;
+    status: 'pending' | 'processing' | 'ready' | 'error';
+}
+
+export interface CanonicalMediaItem extends Omit<MediaItem, 'provider' | 'stream'> {
+    sources: MediaSource[];
+    primarySource: string; // Provider ID
 }
 
 export interface QueueItem {

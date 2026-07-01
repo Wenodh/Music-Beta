@@ -63,6 +63,7 @@ const DownloadsPage = lazyRetry(() => import('./pages/Downloads'));
 const ActivityFeed = lazyRetry(() => import('./features/social/components/ActivityFeed'));
 const NotificationCenter = lazyRetry(() => import('./features/social/components/NotificationCenter'));
 const ProfilePage = lazyRetry(() => import('./features/social/components/ProfilePage'));
+const CreatorDashboard = lazyRetry(() => import('./features/creator/components/CreatorDashboard'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -93,6 +94,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/creator"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Dashboard...</div>}>
+                            <PageWrapper><CreatorDashboard /></PageWrapper>
                         </Suspense>
                     }
                 />

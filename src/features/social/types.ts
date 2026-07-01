@@ -18,6 +18,7 @@ export interface UserProfile {
     displayName: string;
     avatarUrl?: string;
     bio?: string;
+    role?: 'listener' | 'creator' | 'admin';
     favoriteGenres: string[];
     listeningStats: ListeningStats;
     privacySettings: PrivacySettings;
