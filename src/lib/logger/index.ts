@@ -16,7 +16,9 @@ export class ConsoleTransport implements LogTransport {
     log(entry: LogEntry): void {
         const msg = `[${entry.category}] ${entry.message}`;
         switch (entry.level) {
-            case 'debug': console.debug(msg, entry.data || ''); break;
+            case 'debug':
+                if (import.meta.env.DEV) console.debug(msg, entry.data || '');
+                break;
             case 'info': console.info(msg, entry.data || ''); break;
             case 'warn': console.warn(msg, entry.data || ''); break;
             case 'error': console.error(msg, entry.data || ''); break;
@@ -74,6 +76,10 @@ export class Logger {
 
     exportLogs(): string {
         return JSON.stringify(this.getMemoryLogs(), null, 2);
+    }
+
+    addTransport(transport: LogTransport) {
+        this.transports.push(transport);
     }
 }
 
