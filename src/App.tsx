@@ -40,7 +40,7 @@ const lazyRetry = (componentImport: any) =>
         try {
             return await componentImport();
         } catch (error) {
-            console.error('Error loading chunk:', error);
+            logger.error('Error loading chunk:', error);
             window.location.reload();
             return { default: () => null };
         }

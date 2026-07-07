@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { useRef, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { eventBus, Events } from '../lib/events';
@@ -27,7 +28,7 @@ export const useSyncAndDownloads = () => {
         };
 
         const handleSyncData = (event: { type: string, data: any[] }) => {
-            console.log(`Sync data received for ${event.type}:`, event.data);
+            logger.debug(`Sync data received for ${event.type}:`, event.data);
 
             switch (event.type) {
                 case 'favorite': {

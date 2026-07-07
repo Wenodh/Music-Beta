@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect, useRef } from 'react';
 import { musicApi } from '../services/musicApi';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,7 +51,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                         return;
                     }
                 } catch (error) {
-                    console.warn('Saavn lyrics not found, trying LRCLib...');
+                    logger.warn('Saavn lyrics not found, trying LRCLib...');
                 }
 
                 try {
@@ -70,7 +71,7 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
                         setParsedLyrics([]);
                     }
                 } catch (error) {
-                    console.error('Lyrics fetch error:', error);
+                    logger.error('Lyrics fetch error:', error);
                     setRawLyrics('Lyrics not available for this song.');
                     setParsedLyrics([]);
                 } finally {

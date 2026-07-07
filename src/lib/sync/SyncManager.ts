@@ -4,6 +4,7 @@ import { getDeviceId } from '../storage/db';
 import { supabase } from '../supabase';
 import { eventBus, Events } from '../events';
 import { playbackManager } from '../playback/PlaybackManager';
+import { logger } from '../logger';
 
 export class SyncManager {
     private isSyncing = false;
@@ -12,6 +13,17 @@ export class SyncManager {
 
     constructor() {
         this.init();
+    }
+
+    private handleOnline = () => this.sync();
+    private updateActiveSessionActive = () => this.updateActiveSession("active");
+    private updateActiveSessionPaused = () => this.updateActiveSession("paused");
+
+    public destroy() {
+        window.removeEventListener("online", this.handleOnline);
+        if (this.syncInterval) clearInterval(this.syncInterval);
+        eventBus.off(Events.PLAYBACK_STARTED, this.updateActiveSessionActive);
+        eventBus.off(Events.PLAYBACK_PAUSED, this.updateActiveSessionPaused);
     }
 
     public getDeviceId(): string {
@@ -23,19 +35,15 @@ export class SyncManager {
         this.startSyncTimer();
 
         // Listen for online status
-        window.addEventListener('online', () => this.sync());
+        window.addEventListener("online", this.handleOnline);
 
-        eventBus.on(Events.PLAYBACK_STARTED, () => {
-            this.updateActiveSession('active');
-        });
-
-        eventBus.on(Events.PLAYBACK_PAUSED, () => {
-            this.updateActiveSession('paused');
-        });
+        eventBus.on(Events.PLAYBACK_STARTED, this.updateActiveSessionActive);
+        eventBus.on(Events.PLAYBACK_PAUSED, this.updateActiveSessionPaused);
     }
 
     private async updateActiveSession(status: 'active' | 'paused') {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = await supabase.auth.getUser();
+        const user = data?.user;
         if (!user) return;
 
         this.enqueue('active_session', 'update', {
@@ -78,7 +86,8 @@ export class SyncManager {
     async sync() {
         if (this.isSyncing || !navigator.onLine) return;
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = await supabase.auth.getUser();
+        const user = data?.user;
         if (!user) return;
 
         this.isSyncing = true;
@@ -88,7 +97,7 @@ export class SyncManager {
             await this.processPendingOperations(user.id);
             await this.pullLatest(user.id);
         } catch (error) {
-            console.error('Sync failed:', error);
+            logger.error('Sync', 'Sync failed', error);
         } finally {
             this.isSyncing = false;
             this.emitSyncState();
@@ -103,7 +112,7 @@ export class SyncManager {
                 await this.applyOperation(userId, op);
                 await StorageService.removeSyncOperation(op.id);
             } catch (error: any) {
-                console.error(`Failed to apply operation ${op.id}:`, error);
+                logger.error('Sync', `Failed to apply operation ${op.id}`, error);
                 op.retryCount++;
                 if (op.retryCount < 3) {
                     await StorageService.updateSyncOperation(op);
@@ -118,7 +127,16 @@ export class SyncManager {
     private async applyOperation(userId: string, op: SyncOperation) {
         const table = this.getTableName(op.type);
 
-        if (op.action === 'create' || op.action === 'update') {
+        if (op.action === 'update' && op.type === 'active_session') {
+            const { error: sessionError } = await supabase
+                .from('active_sessions')
+                .upsert({
+                    ...op.payload,
+                    user_id: userId,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+            if (sessionError) throw sessionError;
+        } else if (op.action === 'create' || op.action === 'update') {
             const data = {
                 ...op.payload,
                 user_id: op.payload.user_id || userId,
@@ -145,28 +163,27 @@ export class SyncManager {
                 }
             }
 
-            const { error } = await supabase
+            const { error: upsertError } = await supabase
                 .from(table)
                 .upsert(data, { onConflict: this.getConflictColumns(op.type) });
 
-            if (error) throw error;
+            if (upsertError) throw upsertError;
         } else if (op.action === 'delete') {
             if (op.type === 'follow') {
-                const { error } = await supabase
+                const { error: deleteError } = await supabase
                     .from(table)
                     .delete()
                     .match({ follower_id: userId, following_id: op.payload.following_id });
-                if (error) throw error;
+                if (deleteError) throw deleteError;
             } else {
-                const { error } = await supabase
+                const { error: updateError } = await supabase
                     .from(table)
                     .update({ deleted_at: new Date().toISOString() })
                     .match(this.getMatchCriteria(op));
-                if (error) throw error;
+                if (updateError) throw updateError;
             }
         } else if (op.action === 'apply' && op.type === 'playlist_op') {
-            // Apply operation-based sync for collaborative playlists
-            const { error } = await supabase
+            const { error: playlistError } = await supabase
                 .from('playlist_operations')
                 .insert({
                     playlist_id: op.payload.playlist_id,
@@ -174,23 +191,11 @@ export class SyncManager {
                     op_type: op.payload.op_type,
                     payload: op.payload.payload,
                 });
-            if (error) throw error;
-        } else if (op.action === 'update' && op.type === 'active_session') {
-            const { error } = await supabase
-                .from('active_sessions')
-                .upsert({
-                    ...op.payload,
-                    user_id: userId,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id' });
-            if (error) throw error;
+            if (playlistError) throw playlistError;
         }
     }
 
     private async pullLatest(userId: string) {
-        // In a real implementation, we would fetch only changes since last sync
-        // using the 'updated_at' and 'version' columns.
-
         const tables: SyncOperationType[] = ['favorite', 'history', 'bookmark', 'playback_position', 'profile', 'follow', 'playlist_member', 'active_session'];
 
         for (const type of tables) {
@@ -202,7 +207,7 @@ export class SyncManager {
                 .order('updated_at', { ascending: false });
 
             if (error) {
-                console.error(`Failed to pull ${type}:`, error);
+                logger.error('Sync', `Failed to pull ${type}`, error);
                 continue;
             }
 

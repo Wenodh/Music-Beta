@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
@@ -141,7 +142,7 @@ const MainSection: React.FC = () => {
             setRecommendations(recMap);
 
         } catch (error) {
-            console.error('Error in fetchData:', error);
+            logger.error('Error in fetchData:', error);
         } finally {
             setLoading(false);
         }

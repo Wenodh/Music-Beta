@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
 import { musicApi } from '../services/musicApi';
 import useFetchDetails from '../hooks/useFetchDetails';
@@ -73,7 +74,7 @@ export const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl,
             const type = (details as any).type;
             const id = (details as any).id;
 
-            console.log(`[Recommendations] Fetching for ${type}: ${id}`);
+            logger.debug(`[Recommendations] Fetching for ${type}: ${id}`);
 
             try {
                 if (type === 'album') {
@@ -109,7 +110,7 @@ export const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl,
                     }
                 }
             } catch (error) {
-                console.error('Error fetching recommendations:', error);
+                logger.error('Error fetching recommendations:', error);
             }
         };
 

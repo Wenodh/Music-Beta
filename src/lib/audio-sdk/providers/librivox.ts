@@ -64,7 +64,7 @@ export class LibriVoxProvider implements AudioProvider {
             }
         } catch (e) {
             // If 404, we might want to try searching by author or just return empty
-            console.warn('LibriVox search failed, likely 404 for specific query');
+            logger.warn('LibriVox search failed, likely 404 for specific query');
         }
 
         return [];

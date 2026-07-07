@@ -18,7 +18,7 @@ export const useCollaborativePlaylist = (playlistId: string) => {
             dispatch(updateCollaborativePlaylist(data));
             setOperations(data.operations);
         } catch (error) {
-            console.error('Failed to fetch collaborative playlist', error);
+            logger.error('Failed to fetch collaborative playlist', error);
         } finally {
             setLoading(false);
         }

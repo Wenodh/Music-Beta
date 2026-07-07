@@ -30,6 +30,13 @@ export class PlatformIntegrationManager {
         this.updateCapabilities();
     }
 
+    public destroy() {
+        commandDispatcher.destroy();
+        for (const adapter of this.adapters.values()) {
+            adapter.destroy?.();
+        }
+    }
+
     public async initialize() {
         commandDispatcher.initialize();
         for (const adapter of this.adapters.values()) {

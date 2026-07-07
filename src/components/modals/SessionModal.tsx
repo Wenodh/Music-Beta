@@ -63,7 +63,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                     text: `Join my listening session on Vibe On! Code: ${roomCode}`,
                     url: link,
                 });
-            } catch (err) { console.log(err); }
+            } catch (err) { logger.debug(err); }
         } else {
             copyLink();
         }

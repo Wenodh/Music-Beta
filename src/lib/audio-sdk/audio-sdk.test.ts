@@ -33,7 +33,7 @@ describe('AudioSDK', () => {
             { id: '3', title: 'Song B', subtitle: 'Artist Y', provider: 'p1', type: 'song', artwork: [], playable: true, metadata: {} }
         ];
 
-        // @ts-ignore - testing private method
+        // @ts-expect-error - testing private method
         const deduplicated = sdk.deduplicateSearchResults(items);
 
         expect(deduplicated).toHaveLength(2);

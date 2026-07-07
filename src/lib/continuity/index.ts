@@ -58,7 +58,7 @@ export class ContinuityService {
                 localStorage.removeItem('vibeon_playback_positions');
             }
         } catch (e) {
-            console.error('Failed to load playback positions', e);
+            logger.error('Failed to load playback positions', e);
         }
     }
 
@@ -77,7 +77,7 @@ export class ContinuityService {
         try {
             await savePlaybackPosition(data);
         } catch (e) {
-            console.error('Failed to save playback position', e);
+            logger.error('Failed to save playback position', e);
         }
     }
 
@@ -90,7 +90,7 @@ export class ContinuityService {
         try {
             await deletePlaybackPosition(mediaId);
         } catch (e) {
-            console.error('Failed to delete playback position', e);
+            logger.error('Failed to delete playback position', e);
         }
     }
 }

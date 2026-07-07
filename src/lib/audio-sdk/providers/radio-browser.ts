@@ -189,7 +189,7 @@ export class RadioBrowserProvider implements AudioProvider {
                 });
             }
         } catch (error) {
-            console.error('Radio metadata poll failed', error);
+            logger.error('Radio metadata poll failed', error);
         }
     }
 
