@@ -20,6 +20,7 @@ import { syncManager } from './lib/sync/SyncManager';
 import { StorageService } from './lib/storage/StorageService';
 import { playbackManager } from './lib/playback/PlaybackManager';
 import { eventBus } from './lib/events';
+import { logger } from './lib/logger';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import BottomBar from './components/BottomBar';
