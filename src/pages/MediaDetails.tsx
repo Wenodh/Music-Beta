@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { audioSDK } from '../lib/audio-sdk';
@@ -53,7 +54,7 @@ const MediaDetails: React.FC<MediaDetailsProps> = ({
                     // For now assume they are in metadata or children if any
                 }
             } catch (err: any) {
-                console.error('Error fetching media details:', err);
+                logger.error('Error fetching media details:', err);
                 setError(err.message || 'Failed to load details');
             } finally {
                 setLoading(false);

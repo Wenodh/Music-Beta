@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
@@ -7,9 +8,7 @@ import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { musicApi } from '../services/musicApi';
 import { Album, Song, Artist, Playlist } from '../types/music';
-import { RadioBrowserProvider } from '../lib/audio-sdk/providers/radio-browser';
 import { MediaItem } from '../lib/audio-sdk/models';
-import { providerRegistry } from '../lib/audio-sdk/registry';
 import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
 import { audioSDK } from '../lib/audio-sdk';
 import { DailyMixModule, DiscoveryModule } from '../lib/recommendations/modules';
@@ -26,8 +25,6 @@ interface MainSectionData {
     chill: Playlist[];
     workout: Playlist[];
     latestSongs: Song[];
-    popularRadio: MediaItem[];
-    trendingRadio: MediaItem[];
     popularBooks: MediaItem[];
     recentBooks: MediaItem[];
 }
@@ -47,8 +44,6 @@ const MainSection: React.FC = () => {
         chill: [],
         workout: [],
         latestSongs: [],
-        popularRadio: [],
-        trendingRadio: [],
         popularBooks: [],
         recentBooks: []
     });
@@ -94,24 +89,30 @@ const MainSection: React.FC = () => {
                 musicApi.searchPlaylists(`${lang} Chill`, 0, 15),
                 musicApi.searchPlaylists(`${lang} Workout`, 0, 15),
                 musicApi.searchSongs(`${lang} New Songs`, 0, 40),
-                audioSDK.getPopularRadio(20),
-                audioSDK.getTrendingRadio(20),
                 audioSDK.getPopularAudiobooks(20),
                 audioSDK.getRecentAudiobooks(20),
                 audioSDK.getTrendingPodcasts(15),
                 ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1))
             ]);
 
-            const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T =>
-                result.status === 'fulfilled' ? result.value : defaultValue;
+            const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T => {
+                if (result.status !== 'fulfilled') return defaultValue;
+                const val = result.value as any;
+                // Defensive check: handle if the result is an axios response (contains .data.data)
+                // or if it's already unwrapped (common in our musicApi and audioSDK)
+                if (val && typeof val === 'object' && val.data && val.data.data) {
+                    return val.data.data;
+                }
+                return val ?? defaultValue;
+            };
 
-            const artistList = results.slice(11)
+            const artistList = results.slice(12) // audioSDK results are 9, 10, 11. Artists start at 12.
                 .filter((r): r is PromiseFulfilledResult<Artist[]> => r.status === 'fulfilled')
                 .map(r => r.value?.[0])
                 .filter(Boolean);
 
             const devPicksResult = results[5];
-            const devPicksSongs = devPicksResult.status === 'fulfilled' ? (devPicksResult.value as any).songs || [] : [];
+            const devPicksSongs = devPicksResult.status === 'fulfilled' ? (devPicksResult.value as any).songs || (devPicksResult.value as any).data?.data?.songs || [] : [];
 
             setData({
                 albums: getValue(results[0], []),
@@ -124,12 +125,10 @@ const MainSection: React.FC = () => {
                 chill: getValue(results[6], []),
                 workout: getValue(results[7], []),
                 latestSongs: getValue(results[8], []),
-                popularRadio: getValue(results[9], []),
-                trendingRadio: getValue(results[10], []),
-                popularBooks: getValue(results[11], []),
-                recentBooks: getValue(results[12], [])
+                popularBooks: getValue(results[9], []),
+                recentBooks: getValue(results[10], [])
             });
-            setPodcasts(getValue(results[13], []));
+            setPodcasts(getValue(results[11], []));
 
             // Load Recommendations
             const modules = [new DailyMixModule(), new DiscoveryModule()];
@@ -141,7 +140,7 @@ const MainSection: React.FC = () => {
             setRecommendations(recMap);
 
         } catch (error) {
-            console.error('Error in fetchData:', error);
+            logger.error('Error in fetchData:', error);
         } finally {
             setLoading(false);
         }
@@ -194,8 +193,6 @@ const MainSection: React.FC = () => {
         { data: podcasts, title: "Trending Podcasts" },
         { data: data.popularBooks, title: "Popular Audiobooks" },
         { data: data.recentBooks, title: "Recently Added Audiobooks" },
-        { data: data.popularRadio, title: "Popular Radio Stations" },
-        { data: data.trendingRadio, title: "Trending Radio Stations" },
         { data: data.latestSongs, title: "Latest Songs" },
         { data: data.songs, title: "Trending Songs" },
         { data: data.albums, title: "Trending Albums" },

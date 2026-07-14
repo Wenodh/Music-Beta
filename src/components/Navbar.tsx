@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs, setSettingsOpen, addRecentSearch, setSearchQuery as setSearchQueryAction } from '../features/musicplayer/musicPlayerSlice';
@@ -88,7 +89,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 dispatch(addRecentSearch(query.trim()));
             }
         } catch (error) {
-            console.error('Error fetching search results:', error);
+            logger.error('Error fetching search results:', error);
             // Even if search fails, we should clear loading state and potentially show partial results if we implemented it
             // For now, just ensure it doesn't stay in loading state
         } finally {

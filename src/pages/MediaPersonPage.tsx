@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
@@ -47,7 +48,7 @@ const MediaPersonPage: React.FC = () => {
                     }
                 }
             } catch (error) {
-                console.error('Error fetching person details:', error);
+                logger.error('Error fetching person details:', error);
             } finally {
                 setLoading(false);
             }

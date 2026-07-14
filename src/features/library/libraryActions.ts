@@ -110,7 +110,7 @@ export const syncLibrary = createAsyncThunk(
                 dispatch(showToast({ message: 'Library synced successfully' }));
             }
         } catch (error) {
-            console.error('Error syncing library:', error);
+            logger.error('Error syncing library:', error);
             if (!options.silent) {
                 dispatch(showToast({ message: 'Sync failed', type: 'error' }));
             }
@@ -190,7 +190,7 @@ export const savePlaylistCloud = createAsyncThunk(
             });
             if (error) throw error;
         } catch (error) {
-            console.error('Error saving playlist to cloud:', error);
+            logger.error('Error saving playlist to cloud:', error);
         }
     }
 );
@@ -206,7 +206,7 @@ export const deletePlaylistCloud = createAsyncThunk(
             const { error } = await supabase.from('playlists').delete().eq('user_id', user.id).eq('id', playlistId);
             if (error) throw error;
         } catch (error) {
-            console.error('Error deleting playlist from cloud:', error);
+            logger.error('Error deleting playlist from cloud:', error);
         }
     }
 );

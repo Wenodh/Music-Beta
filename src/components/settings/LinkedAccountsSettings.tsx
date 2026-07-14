@@ -22,7 +22,7 @@ const LinkedAccountsSettings: React.FC = () => {
         try {
             await oauthManager.initiateLogin(providerId);
         } catch (error) {
-            console.error('Failed to initiate login', error);
+            logger.error('Failed to initiate login', error);
         } finally {
             setIsLoading(null);
         }
@@ -34,7 +34,7 @@ const LinkedAccountsSettings: React.FC = () => {
             try {
                 await accountLinkingService.unlinkAccount(providerId);
             } catch (error) {
-                console.error('Failed to disconnect', error);
+                logger.error('Failed to disconnect', error);
             } finally {
                 setIsLoading(null);
             }

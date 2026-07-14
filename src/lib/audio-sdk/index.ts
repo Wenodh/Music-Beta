@@ -52,7 +52,7 @@ export class AudioSDK {
         });
     }
 
-    private deduplicateSearchResults(results: MediaItem[]): MediaItem[] {
+    public deduplicateSearchResults(results: MediaItem[]): MediaItem[] {
         const canonicalMap = new Map<string, MediaItem>();
 
         results.forEach(item => {

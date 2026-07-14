@@ -16,7 +16,7 @@ export const useNotifications = () => {
             const data = await notificationService.getNotifications();
             dispatch(setNotifications(data));
         } catch (error) {
-            console.error('Failed to fetch notifications', error);
+            logger.error('Failed to fetch notifications', error);
         } finally {
             dispatch(setLoading({ key: 'notifications', value: false }));
         }

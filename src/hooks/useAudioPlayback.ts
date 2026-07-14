@@ -8,6 +8,7 @@ import { audioSDK } from '../lib/audio-sdk';
 import { continuityService } from '../lib/continuity';
 import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
 import { syncManager } from '../lib/sync/SyncManager';
+import { preloadManager } from '../lib/playback/PreloadManager';
 
 interface UseAudioPlaybackProps {
     currentSong: Song | null;
@@ -111,9 +112,26 @@ export const useAudioPlayback = ({
 
     // Handle Events
     useEffect(() => {
+        let hasPreloaded = false;
+
         const onProgress = ({ currentTime, duration, item }: { currentTime: number, duration: number, item: any }) => {
             if (item?.id === currentSong?.id) {
                 onTimeUpdate(currentTime, duration);
+
+                // Preload logic (80% or 30s before end)
+                if (!hasPreloaded && duration > 0 && (currentTime / duration > 0.8 || (duration - currentTime) < 30)) {
+                    const next = getNextSong(currentSong!, songs, shuffle, repeatMode, false);
+                    if (next) {
+                        const nextMediaItem = songToMediaItem(next);
+                        audioSDK.getPlayableSource(nextMediaItem, preferredQuality).then(source => {
+                            if (source) {
+                                nextMediaItem.stream = source;
+                                preloadManager.preload(nextMediaItem);
+                                hasPreloaded = true;
+                            }
+                        });
+                    }
+                }
 
                 // Sync playback position every 10 seconds or when significant change
                 if (Math.abs(currentTime - lastSyncTimeRef.current) > 10) {

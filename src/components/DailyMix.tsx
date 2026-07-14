@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import Slider from './Slider';
@@ -45,7 +46,7 @@ const DailyMix: React.FC = () => {
 
                 dispatch(setDailyMix({ songs: shuffled, timestamp: now }));
             } catch (error) {
-                console.error('Error fetching Daily Mix:', error);
+                logger.error('Error fetching Daily Mix:', error);
             } finally {
                 setLoading(false);
             }

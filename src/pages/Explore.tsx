@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { AnimatePresence } from 'framer-motion';
@@ -95,7 +96,7 @@ const Explore: React.FC = () => {
                 }
             }
         } catch (error) {
-            console.error('Error fetching explore songs:', error);
+            logger.error('Error fetching explore songs:', error);
         } finally {
             setLoading(false);
             isFetching.current = false;
@@ -129,7 +130,7 @@ const Explore: React.FC = () => {
             setMetadataList(list);
             setActiveMetadataType(type);
         } catch (error) {
-            console.error('Error fetching metadata:', error);
+            logger.error('Error fetching metadata:', error);
         } finally {
             setLoading(false);
         }

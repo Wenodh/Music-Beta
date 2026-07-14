@@ -18,7 +18,7 @@ export class RemotePlaybackEngine implements PlaybackEngine {
         window.addEventListener('online', () => {
             if (this.provider) {
                 // Attempt to re-sync or reconnect if needed
-                console.log('[RemotePlaybackEngine] Network online, checking provider status');
+                logger.debug('[RemotePlaybackEngine] Network online, checking provider status');
             }
         });
 

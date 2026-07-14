@@ -475,7 +475,7 @@ const SettingsDrawer: React.FC = () => {
                                         className="text-xs text-gray-400 mb-2 cursor-pointer select-none active:scale-95 transition-transform"
                                         onClick={handleVersionTap}
                                     >
-                                        Vibe On Version 1.3.1
+                                        Vibe On Version 1.0.0
                                     </p>
                                     <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
                                         <img src="/developer-photo.webp" alt="WENODH" className="w-4 h-4 rounded-full object-cover" />

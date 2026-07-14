@@ -40,7 +40,7 @@ export class AccountLinkingService {
             .eq('user_id', user.id);
 
         if (error) {
-            console.error('Failed to load linked accounts', error);
+            logger.error('Failed to load linked accounts', error);
             return;
         }
 

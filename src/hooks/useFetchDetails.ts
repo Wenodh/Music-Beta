@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
@@ -33,7 +34,7 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
                 setDetails(data);
                 setImage(stableGetImageUrl(data));
             } catch (err: any) {
-                console.error(err);
+                logger.error(err);
                 setError(err.message || 'Failed to fetch details.');
             } finally {
                 setLoading(false);

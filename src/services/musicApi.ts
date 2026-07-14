@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import { LRUCache } from 'lru-cache';
@@ -37,7 +38,7 @@ axiosRetry(apiClient, {
 apiClient.interceptors.response.use(
     response => response,
     error => {
-        console.error('API Call Error:', error.message);
+        logger.error('API Call Error:', error.message);
         return Promise.reject(error);
     }
 );

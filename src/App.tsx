@@ -20,6 +20,7 @@ import { syncManager } from './lib/sync/SyncManager';
 import { StorageService } from './lib/storage/StorageService';
 import { playbackManager } from './lib/playback/PlaybackManager';
 import { eventBus } from './lib/events';
+import { logger } from './lib/logger';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import BottomBar from './components/BottomBar';
@@ -40,7 +41,7 @@ const lazyRetry = (componentImport: any) =>
         try {
             return await componentImport();
         } catch (error) {
-            console.error('Error loading chunk:', error);
+            logger.error('Error loading chunk:', error);
             window.location.reload();
             return { default: () => null };
         }

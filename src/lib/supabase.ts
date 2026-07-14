@@ -1,3 +1,4 @@
+import { logger } from "./logger";
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -9,7 +10,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Fail-safe placeholders for initialization, but log warnings for debugging
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn(
+    logger.warn(
         'Vibe On: Supabase environment variables are missing.\n' +
         'Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your environment.'
     );

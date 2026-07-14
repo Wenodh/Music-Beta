@@ -42,7 +42,7 @@ export class ProviderHealthManager {
 
     public async checkProvider(providerId: string) {
         const start = Date.now();
-        let status: ProviderHealth['status'] = 'healthy';
+        const status: ProviderHealth['status'] = 'healthy';
 
         try {
             // Lightweight ping simulated

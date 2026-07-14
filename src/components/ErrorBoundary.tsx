@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
@@ -20,7 +21,7 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error('Uncaught error:', error, errorInfo);
+        logger.error('Uncaught error:', error, errorInfo);
 
         // Handle dynamic import failures (MIME type or network errors)
         if (error.message.includes('Failed to fetch dynamically imported module') ||

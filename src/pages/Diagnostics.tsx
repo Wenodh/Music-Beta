@@ -4,7 +4,6 @@ import { featureFlags, FeatureFlags } from '../lib/feature-flags';
 import { logger } from '../lib/logger';
 import { providerRegistry } from '../lib/audio-sdk/registry';
 import { downloadManager } from '../lib/downloads/DownloadManager';
-import { syncManager } from '../lib/sync/SyncManager';
 import { db } from '../lib/storage/db';
 
 const Diagnostics: React.FC = () => {
@@ -62,7 +61,7 @@ const Diagnostics: React.FC = () => {
                         <section>
                             <h3 className="text-sm font-bold text-secondary-text uppercase mb-3">System</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InfoRow label="App Version" value="1.3.1" />
+                                <InfoRow label="App Version" value="1.0.0" />
                                 <InfoRow label="Environment" value={import.meta.env.MODE} />
                                 <InfoRow label="Platform" value={navigator.platform} />
                                 <InfoRow label="Online" value={navigator.onLine ? 'Yes' : 'No'} />

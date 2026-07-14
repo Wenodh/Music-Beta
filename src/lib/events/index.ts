@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 type Handler<T = any> = (event: T) => void;
 
 export class EventBus {
@@ -24,7 +25,7 @@ export class EventBus {
                 try {
                     handler(event);
                 } catch (e) {
-                    console.error(`Error in event handler for ${type}:`, e);
+                    logger.error(`Error in event handler for ${type}:`, e);
                 }
             });
         }

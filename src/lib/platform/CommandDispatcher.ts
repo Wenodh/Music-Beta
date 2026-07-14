@@ -15,7 +15,7 @@ export class CommandDispatcher {
     }
 
     public async dispatch(command: Command, payload?: CommandPayload) {
-        console.log(`[CommandDispatcher] Dispatching command: ${command}`, payload);
+        logger.debug(`[CommandDispatcher] Dispatching command: ${command}`, payload);
 
         switch (command) {
             case 'play':
@@ -70,7 +70,7 @@ export class CommandDispatcher {
                 }
                 break;
             default:
-                console.warn(`[CommandDispatcher] Unknown command: ${command}`);
+                logger.warn(`[CommandDispatcher] Unknown command: ${command}`);
         }
     }
 

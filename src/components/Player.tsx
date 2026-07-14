@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { BiRepeat } from 'react-icons/bi';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
@@ -213,7 +214,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     if (data) {
                         dispatch(setRecommendations({ songId: currentSong.id, recommendations: data }));
                     }
-                }).catch(err => console.error('Error fetching recommendations:', err));
+                }).catch(err => logger.error('Error fetching recommendations:', err));
         }
     }, [currentSong?.id, dispatch]);
 
@@ -247,7 +248,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             await download(mediaItem);
             dispatch(showToast({ message: 'Added to downloads' }));
         } catch (error) {
-            console.warn('Error downloading the song', error);
+            logger.warn('Error downloading the song', error);
             dispatch(showToast({ message: 'Failed to add to downloads', type: 'error' }));
         } finally {
             setIsDownloading(false);
@@ -257,7 +258,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const handleShare = async () => {
         const songUrl = window.location.origin + `/albums/${currentSong?.albumId}`;
         if (navigator.share) {
-            try { await navigator.share({ title: currentSong?.name, text: `Check out ${currentSong?.name} on Vibe On!`, url: songUrl }); } catch (error) { console.log('Error sharing', error); }
+            try { await navigator.share({ title: currentSong?.name, text: `Check out ${currentSong?.name} on Vibe On!`, url: songUrl }); } catch (error) { logger.debug('Error sharing', error); }
         } else {
             navigator.clipboard.writeText(songUrl);
             alert('Link copied to clipboard!');

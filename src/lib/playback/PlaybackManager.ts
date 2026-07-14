@@ -5,6 +5,9 @@ import { HLSAudioEngine } from './engines/HLSAudioEngine';
 import { RemotePlaybackEngine } from './engines/RemotePlaybackEngine';
 import { PlaybackEngine } from './engines/types';
 import { RemotePlaybackProvider } from '../platform/types';
+import { logger } from '../logger';
+
+const TAG = 'PlaybackManager';
 
 export class PlaybackManager {
     private static instance: PlaybackManager;
@@ -153,27 +156,35 @@ export class PlaybackManager {
     }
 
     async play(item: MediaItem) {
-        if (this.currentItem?.id !== item.id) {
-            this.currentItem = item;
-            eventBus.emit(Events.TRACK_CHANGED, item);
+        try {
+            if (this.currentItem?.id !== item.id) {
+                logger.info(TAG, `Switching track to: ${item.title} (${item.id})`);
+                this.currentItem = item;
+                eventBus.emit(Events.TRACK_CHANGED, item);
 
-            const url = item.stream?.url;
-            const format = item.stream?.format || 'mp3';
-            if (url) {
-                if (this.isCrossfading) {
-                    this.engineA.stop();
-                    this.engineB.stop();
-                    this.isCrossfading = false;
+                const url = item.stream?.url;
+                const format = item.stream?.format || 'mp3';
+                if (url) {
+                    if (this.isCrossfading) {
+                        logger.debug(TAG, 'Interrupting crossfade for new track');
+                        this.engineA.stop();
+                        this.engineB.stop();
+                        this.isCrossfading = false;
+                    }
+                    if (this.activeBuffer !== 'remote') {
+                        this.updateEngine(this.activeBuffer, format);
+                    }
+                    await this.activeEngine.load(url);
+                } else {
+                    throw new Error('No playable stream found for item');
                 }
-                if (this.activeBuffer !== 'remote') {
-                    this.updateEngine(this.activeBuffer, format);
-                }
-                await this.activeEngine.load(url);
-            } else {
-                throw new Error('No playable stream found for item');
             }
+            await this.activeEngine.play();
+        } catch (error: any) {
+            logger.error(TAG, `Failed to play item: ${item.title}`, { error: error.message });
+            this.handleError(error instanceof Error ? error : new Error(String(error)));
+            throw error;
         }
-        await this.activeEngine.play();
     }
 
     async startCrossfade(nextItem: MediaItem, duration: number) {

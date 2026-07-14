@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { IoGlobeOutline } from 'react-icons/io5';
@@ -39,7 +40,7 @@ const SongGlobe: React.FC = () => {
                     .flatMap(res => res.value);
                 setApiSongs(allSongs);
             } catch (error) {
-                console.error('Error fetching globe songs:', error);
+                logger.error('Error fetching globe songs:', error);
             } finally {
                 setLoading(false);
             }

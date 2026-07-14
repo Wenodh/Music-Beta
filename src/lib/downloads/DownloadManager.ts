@@ -147,7 +147,7 @@ export class DownloadManager {
             }
 
         } catch (error: any) {
-            console.error(`Download failed for ${task.id}:`, error);
+            logger.error(`Download failed for ${task.id}:`, error);
             task.status = 'failed';
             task.error = error.message;
             this.activeDownloads--;
@@ -194,7 +194,7 @@ export class DownloadManager {
         }
 
         if (!mimeType.startsWith('audio/') && !mimeType.startsWith('application/octet-stream')) {
-            console.warn(`Unexpected MIME type: ${mimeType}`);
+            logger.warn(`Unexpected MIME type: ${mimeType}`);
         }
 
         // Check storage quota

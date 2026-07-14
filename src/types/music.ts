@@ -87,7 +87,8 @@ export interface SearchResults {
     songs: { results: Song[] };
     playlists: { results: Playlist[] };
     artists: { results: Artist[] };
-    radio?: { results: any[] };
+    radio?: { results: Song[] };
+    audiobooks?: { results: any[] };
     topQuery: { results: any[] };
 }
 
