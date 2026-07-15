@@ -27,6 +27,7 @@ import BottomBar from './components/BottomBar';
 import Player from './components/Player';
 import MiniPlayer from './components/MiniPlayer';
 import { AppInitializer } from './components/AppInitializer';
+import ConfigWarning from './components/ConfigWarning';
 import SearchSection from './components/SearchSection';
 import ToastContainer from './components/toast/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
@@ -314,19 +315,36 @@ export const AppContent = () => {
         });
 
         // Supabase Auth Listener
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            dispatch(setUser(session?.user ?? null));
-        });
+        let authSubscription: { unsubscribe: () => void } | null = null;
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            dispatch(setUser(session?.user ?? null));
-            if (event === 'SIGNED_IN' && session?.user) {
-                // Merge local library with cloud on sign in
-                dispatch(syncLibrary({ merge: true }) as any);
+        const initializeAuth = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                dispatch(setUser(session?.user ?? null));
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                    dispatch(setUser(session?.user ?? null));
+                    if (event === 'SIGNED_IN' && session?.user) {
+                        // Merge local library with cloud on sign in
+                        dispatch(syncLibrary({ merge: true }) as any);
+                    }
+                });
+                authSubscription = subscription;
+            } catch (error) {
+                logger.error('Auth', 'Failed to initialize Supabase auth listener', error);
+                // Fallback: stay as guest if auth fails
+                dispatch(setUser(null));
             }
-        });
+        };
 
-        return () => subscription.unsubscribe();
+        initializeAuth();
+
+        return () => {
+            if (authSubscription) {
+                authSubscription.unsubscribe();
+            }
+        };
     }, [dispatch]);
 
     useEffect(() => {
@@ -396,6 +414,7 @@ export const AppContent = () => {
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >
+                <ConfigWarning />
                 <AppInitializer />
                 {showOnboarding && <SocialOnboarding onComplete={() => setShowOnboarding(false)} />}
                 <LocationAwareNavbar />

@@ -42,8 +42,14 @@ export class SyncManager {
     }
 
     private async updateActiveSession(status: 'active' | 'paused') {
-        const { data } = await supabase.auth.getUser();
-        const user = data?.user;
+        let user;
+        try {
+            const { data } = await supabase.auth.getUser();
+            user = data?.user;
+        } catch (error) {
+            logger.error('Sync', 'Failed to get user for active session update', error);
+            return;
+        }
         if (!user) return;
 
         this.enqueue('active_session', 'update', {
@@ -86,8 +92,14 @@ export class SyncManager {
     async sync() {
         if (this.isSyncing || !navigator.onLine) return;
 
-        const { data } = await supabase.auth.getUser();
-        const user = data?.user;
+        let user;
+        try {
+            const { data } = await supabase.auth.getUser();
+            user = data?.user;
+        } catch (error) {
+            logger.error('Sync', 'Failed to get user for sync', error);
+            return;
+        }
         if (!user) return;
 
         this.isSyncing = true;
