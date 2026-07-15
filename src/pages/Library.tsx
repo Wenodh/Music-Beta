@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { deletePlaylist, updatePlaylistSongs } from '../features/library/librarySlice';
 import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
@@ -105,31 +105,31 @@ const Library: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">My Library</h1>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex gap-4">
+                <div className="flex gap-4 overflow-x-auto no-scrollbar -mb-px">
                     <button
                         onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'favorites' && !selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Favorites
                         {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
                         onClick={() => setActiveTab('playlists')}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'playlists' || selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Playlists
                         {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
                         onClick={() => { setActiveTab('offline'); setSelectedPlaylist(null); }}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'offline' ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'offline' ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Offline
                         {activeTab === 'offline' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
                         onClick={() => { setActiveTab('downloads'); setSelectedPlaylist(null); }}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'downloads' ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'downloads' ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Downloads
                         {activeTab === 'downloads' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}

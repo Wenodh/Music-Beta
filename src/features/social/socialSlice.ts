@@ -43,27 +43,28 @@ const socialSlice = createSlice({
             state.currentUserProfile = action.payload;
         },
         setProfile: (state, action: PayloadAction<UserProfile>) => {
+            if (!state.profiles) state.profiles = {};
             state.profiles[action.payload.id] = action.payload;
         },
         setActivityFeed: (state, action: PayloadAction<ActivityItem[]>) => {
             state.activityFeed = action.payload;
         },
         appendActivityFeed: (state, action: PayloadAction<ActivityItem[]>) => {
-            state.activityFeed = [...state.activityFeed, ...action.payload];
+            state.activityFeed = [...(state.activityFeed || []), ...action.payload];
         },
         setNotifications: (state, action: PayloadAction<Notification[]>) => {
             state.notifications = action.payload;
-            state.unreadNotificationCount = action.payload.filter(n => !n.isRead).length;
+            state.unreadNotificationCount = (action.payload || []).filter(n => n && !n.isRead).length;
         },
         addNotification: (state, action: PayloadAction<Notification>) => {
-            state.notifications = [action.payload, ...state.notifications];
+            state.notifications = [action.payload, ...(state.notifications || [])];
             if (!action.payload.isRead) state.unreadNotificationCount++;
         },
         markNotificationRead: (state, action: PayloadAction<string>) => {
-            const notification = state.notifications.find(n => n.id === action.payload);
+            const notification = (state.notifications || []).find(n => n.id === action.payload);
             if (notification && !notification.isRead) {
                 notification.isRead = true;
-                state.unreadNotificationCount = Math.max(0, state.unreadNotificationCount - 1);
+                state.unreadNotificationCount = Math.max(0, (state.unreadNotificationCount || 0) - 1);
             }
         },
         setFollowing: (state, action: PayloadAction<string[]>) => {
@@ -73,9 +74,17 @@ const socialSlice = createSlice({
             state.followers = action.payload;
         },
         updateCollaborativePlaylist: (state, action: PayloadAction<CollaborativePlaylist>) => {
+            if (!state.activeCollaborativePlaylists) state.activeCollaborativePlaylists = {};
             state.activeCollaborativePlaylists[action.payload.id] = action.payload;
         },
         setLoading: (state, action: PayloadAction<{ key: keyof SocialState['loading']; value: boolean }>) => {
+            if (!state.loading) {
+                state.loading = {
+                    profile: false,
+                    feed: false,
+                    notifications: false,
+                };
+            }
             state.loading[action.payload.key] = action.payload.value;
         },
         setError: (state, action: PayloadAction<string | null>) => {
