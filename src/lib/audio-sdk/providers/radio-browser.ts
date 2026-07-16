@@ -101,14 +101,22 @@ export class RadioBrowserProvider implements AudioProvider {
         };
     }
 
-    async getPopular(limit: number = 20, options?: { signal?: AbortSignal }): Promise<MediaItem[]> {
-        const results = await this.fetchApi('stations/topclick', { limit, hidebroken: 'true' }, options?.signal);
+    async getPopular(limit: number = 20, options?: { page?: number, signal?: AbortSignal }): Promise<MediaItem[]> {
+        const results = await this.fetchApi('stations/topclick', {
+            limit,
+            offset: (options?.page || 0) * limit,
+            hidebroken: 'true'
+        }, options?.signal);
         return results.map((s: any) => this.mapToMediaItem(s));
     }
 
-    async getTrending(limit: number = 20, options?: { signal?: AbortSignal }): Promise<MediaItem[]> {
+    async getTrending(limit: number = 20, options?: { page?: number, signal?: AbortSignal }): Promise<MediaItem[]> {
         // Using clicktrend as a proxy for "trending"
-        const results = await this.fetchApi('stations/lastclick', { limit, hidebroken: 'true' }, options?.signal);
+        const results = await this.fetchApi('stations/lastclick', {
+            limit,
+            offset: (options?.page || 0) * limit,
+            hidebroken: 'true'
+        }, options?.signal);
         return results.map((s: any) => this.mapToMediaItem(s));
     }
 
@@ -125,6 +133,23 @@ export class RadioBrowserProvider implements AudioProvider {
             this.fetchApi('tags', { hidebroken: 'true', order: 'stationcount', reverse: 'true', limit: 100 }),
             1000 * 60 * 60 * 24 // 24h
         );
+    }
+
+    async getStationsByMetadata(type: 'countries' | 'languages' | 'tags', value: string, options?: SearchOptions): Promise<MediaItem[]> {
+        const endpoint = type === 'countries' ? `stations/bycountry/${encodeURIComponent(value)}` :
+                       type === 'languages' ? `stations/bylanguage/${encodeURIComponent(value)}` :
+                       `stations/bytag/${encodeURIComponent(value)}`;
+
+        const limit = options?.limit || 30;
+        const results = await this.fetchApi(endpoint, {
+            limit,
+            offset: (options?.page || 0) * limit,
+            hidebroken: 'true',
+            order: 'clickcount',
+            reverse: 'true'
+        }, options?.signal);
+
+        return results.map((s: any) => this.mapToMediaItem(s));
     }
 
     private mapToMediaItem(s: any): MediaItem {
