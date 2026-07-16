@@ -1,10 +1,17 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song } from '../../types/music';
 
+export interface ToastAction {
+    label: string;
+    onClick: () => void;
+}
+
 export interface Toast {
     id: string;
     message: string;
     type: 'success' | 'error' | 'info';
+    action?: ToastAction;
+    duration?: number;
 }
 
 interface UIState {
@@ -48,15 +55,18 @@ const uiSlice = createSlice({
     name: 'ui',
     initialState,
     reducers: {
-        showToast: (state, action: PayloadAction<{ message: string; type?: Toast['type'] }>) => {
+        showToast: (state, action: PayloadAction<{ message: string; type?: Toast['type']; action?: ToastAction; duration?: number }>) => {
+            if (!state.toasts) state.toasts = [];
             state.toasts.push({
                 id: Date.now().toString(),
                 message: action.payload.message,
                 type: action.payload.type || 'success',
+                action: action.payload.action,
+                duration: action.payload.duration,
             });
         },
         removeToast: (state, action: PayloadAction<string>) => {
-            state.toasts = state.toasts.filter((t) => t.id !== action.payload);
+            state.toasts = (state.toasts || []).filter((t) => t.id !== action.payload);
         },
         openPlaylistModal: (state, action: PayloadAction<Song | Song[]>) => {
             state.playlistModal.isOpen = true;
@@ -86,25 +96,29 @@ const uiSlice = createSlice({
             state.isSessionModalOpen = action.payload;
         },
         setAccentColor: (state, action: PayloadAction<string>) => {
+            if (!state.theme) state.theme = initialState.theme;
             state.theme.accentColor = action.payload;
         },
         setOledMode: (state, action: PayloadAction<boolean>) => {
+            if (!state.theme) state.theme = initialState.theme;
             state.theme.isOled = action.payload;
             if (action.payload) {
                 state.theme.darkMode = true;
             }
         },
         setDarkMode: (state, action: PayloadAction<boolean>) => {
+            if (!state.theme) state.theme = initialState.theme;
             state.theme.darkMode = action.payload;
             if (!action.payload) {
                 state.theme.isOled = false;
             }
         },
         setFontStyle: (state, action: PayloadAction<string>) => {
+            if (!state.theme) state.theme = initialState.theme;
             state.theme.fontStyle = action.payload;
         },
         applyThemeSettings: (state, action: PayloadAction<UIState['theme']>) => {
-            state.theme = { ...state.theme, ...action.payload };
+            state.theme = { ...(state.theme || initialState.theme), ...action.payload };
         },
     },
 });

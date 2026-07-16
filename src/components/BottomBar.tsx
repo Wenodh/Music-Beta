@@ -1,15 +1,15 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoGlobeOutline, IoGlobe, IoPersonOutline, IoPerson } from 'react-icons/io5';
+import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoGlobeOutline, IoGlobe, IoFlashOutline, IoFlash } from 'react-icons/io5';
 import { useAppSelector } from '../hooks/redux';
 
 const navItems = [
     { label: 'Home', path: '/', icon: IoHomeOutline, activeIcon: IoHome },
     { label: 'Explore', path: '/explore', icon: IoCompassOutline, activeIcon: IoCompass },
+    { label: 'Feed', path: '/activity', icon: IoFlashOutline, activeIcon: IoFlash },
     { label: 'Globe', path: '/globe', icon: IoGlobeOutline, activeIcon: IoGlobe },
     { label: 'Library', path: '/library', icon: IoLibraryOutline, activeIcon: IoLibrary },
-    { label: 'Profile', path: '/profile', icon: IoPersonOutline, activeIcon: IoPerson },
     { label: 'Search', path: '/search', icon: IoSearchOutline, activeIcon: IoSearch },
 ];
 
@@ -39,6 +39,7 @@ const BottomBar: React.FC = () => {
                             to={item.path}
                             className="flex flex-col items-center justify-center py-2 relative group flex-1"
                             aria-label={item.label}
+                            aria-current={active ? 'page' : undefined}
                         >
                             <div className={`relative transition-all duration-500 ${active ? 'scale-110' : 'group-active:scale-90 opacity-60'}`}>
                                 {active && (

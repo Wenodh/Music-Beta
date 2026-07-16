@@ -87,6 +87,8 @@ export interface SearchResults {
     songs: { results: Song[] };
     playlists: { results: Playlist[] };
     artists: { results: Artist[] };
+    radio?: { results: Song[] };
+    audiobooks?: { results: any[] };
     topQuery: { results: any[] };
 }
 
@@ -98,6 +100,7 @@ export interface MusicPlayerState {
     searchQuery: string;
     searchedSongs: SearchResults | Song[];
     recentlyPlayed: Song[];
+    history?: any[]; // For HistoryItem support in next phases
     recentlyPlayedAlbums: (Album & { type: string })[];
     recentSearches: string[];
     sleepTimer: number | null;
@@ -115,6 +118,8 @@ export interface MusicPlayerState {
     isSongRadioEnabled: boolean;
     downloadSettings: {
         wifiOnly: boolean;
+        maxConcurrent: number;
+        storageLimit: number;
     };
     dailyMix: Song[];
     lastDailyMixUpdate: number;

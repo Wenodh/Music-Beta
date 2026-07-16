@@ -7,7 +7,9 @@ import { PiShuffleBold } from 'react-icons/pi';
 import { RiShareForwardLine } from 'react-icons/ri';
 import { LuHardDriveDownload } from 'react-icons/lu';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
+import { IoCloudDoneOutline } from 'react-icons/io5';
 import SleepTimer from '../SleepTimer';
+import { PlaybackPolicy } from '../../lib/playback/PlaybackPolicy';
 
 interface PlayerActionsProps {
     isFavorite: boolean;
@@ -28,9 +30,11 @@ interface PlayerActionsProps {
     onDownload: () => void;
     onShare: () => void;
     onSetPlaybackSpeed: (speed: number) => void;
+    isDownloaded?: boolean;
     onSetVolume: (volume: number) => void;
     onToggleMoreMenu: (e: React.MouseEvent) => void;
     moreMenuRef: React.RefObject<HTMLDivElement>;
+    policy?: PlaybackPolicy;
 }
 
 const PlayerActions: React.FC<PlayerActionsProps> = ({
@@ -54,7 +58,9 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
     onSetPlaybackSpeed,
     onSetVolume,
     onToggleMoreMenu,
-    moreMenuRef
+    moreMenuRef,
+    policy,
+    isDownloaded
 }) => {
     return (
         <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
@@ -74,22 +80,24 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
                             className="absolute bottom-full right-0 mb-4 w-60 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 py-2 z-[60] overflow-y-auto max-h-[70vh] custom-scrollbar"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="px-4 py-2 border-b dark:border-gray-700">
-                                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-2 uppercase">
-                                    <MdSpeed size={16} /> Speed
+                            {(policy?.canChangeSpeed || !policy) && (
+                                <div className="px-4 py-2 border-b dark:border-gray-700">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-2 uppercase">
+                                        <MdSpeed size={16} /> Speed
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {[0.75, 1, 1.25, 1.5, 1.75, 2].map(speed => (
+                                            <button
+                                                key={speed}
+                                                onClick={() => onSetPlaybackSpeed(speed)}
+                                                className={`flex-[1_0_28%] py-1 rounded-md text-[10px] font-bold ${playbackSpeed === speed ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
+                                            >
+                                                {speed}x
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="flex gap-1">
-                                    {[0.5, 1, 1.5, 2].map(speed => (
-                                        <button
-                                            key={speed}
-                                            onClick={() => onSetPlaybackSpeed(speed)}
-                                            className={`flex-1 py-1 rounded-md text-[10px] font-bold ${playbackSpeed === speed ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
-                                        >
-                                            {speed}x
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                            )}
                             <button onClick={onToggleFavorite} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
                                 {isFavorite ? <IoHeart className="text-primary" /> : <IoHeartOutline />} {isFavorite ? 'Remove Favorite' : 'Add to Favorite'}
                             </button>
@@ -125,8 +133,19 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({
                                 <PiShuffleBold className={isSongRadioEnabled ? 'text-primary' : ''} /> Radio: {isSongRadioEnabled ? 'ON' : 'OFF'}
                             </button>
                             <SleepTimer showLabel />
-                            <button onClick={onDownload} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                                {isDownloading ? <AiOutlineLoading3Quarters className="animate-spin text-primary" /> : <LuHardDriveDownload />} Download
+                            <button
+                                onClick={onDownload}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${isDownloaded ? 'text-accent' : ''}`}
+                                disabled={isDownloaded}
+                            >
+                                {isDownloading ? (
+                                    <AiOutlineLoading3Quarters className="animate-spin text-primary" />
+                                ) : isDownloaded ? (
+                                    <IoCloudDoneOutline className="text-accent" />
+                                ) : (
+                                    <LuHardDriveDownload />
+                                )}
+                                {isDownloaded ? 'Downloaded' : 'Download'}
                             </button>
                             <button onClick={onShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
                                 <RiShareForwardLine /> Share

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { deletePlaylist, updatePlaylistSongs } from '../features/library/librarySlice';
+import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
 import { savePlaylistCloud, deletePlaylistCloud, toggleFavoriteCloud, createPlaylistCloud, removeFromPlaylistCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
@@ -10,14 +11,18 @@ import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { removeDownloadedId } from '../features/library/librarySlice';
 import { showToast } from '../features/ui/uiSlice';
+import { DownloadAccessibilityAnnouncer } from '../components/downloads/DownloadAccessibilityAnnouncer';
+
+const DownloadsList = React.lazy(() => import('../components/downloads/DownloadsList').then(m => ({ default: m.DownloadsList })));
+const StorageUsageInfo = React.lazy(() => import('../components/downloads/StorageUsageInfo').then(m => ({ default: m.StorageUsageInfo })));
 
 const Library: React.FC = () => {
-    const { favorites, playlists } = useAppSelector((state) => state.library);
+    const { favorites, favoriteItems, playlists } = useAppSelector((state) => state.library);
     const dispatch = useAppDispatch();
     const location = useLocation();
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline'>('favorites');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline' | 'downloads'>('favorites');
     const [offlineSongs, setOfflineSongs] = useState<(OfflineSong & { imageUrl?: string })[]>([]);
 
     const blobUrlsRef = useRef<Set<string>>(new Set());
@@ -100,27 +105,34 @@ const Library: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">My Library</h1>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex gap-4">
+                <div className="flex gap-4 overflow-x-auto no-scrollbar -mb-px">
                     <button
                         onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'favorites' && !selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Favorites
                         {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
                         onClick={() => setActiveTab('playlists')}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'playlists' || selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Playlists
                         {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
                         onClick={() => { setActiveTab('offline'); setSelectedPlaylist(null); }}
-                        className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'offline' ? 'text-primary' : 'text-gray-500'}`}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'offline' ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Offline
                         {activeTab === 'offline' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('downloads'); setSelectedPlaylist(null); }}
+                        className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'downloads' ? 'text-primary' : 'text-gray-500'}`}
+                    >
+                        Downloads
+                        {activeTab === 'downloads' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                 </div>
 
@@ -154,6 +166,25 @@ const Library: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {activeTab === 'downloads' && (
+                <Suspense fallback={<div className="py-20 text-center text-gray-500">Loading Download Manager...</div>}>
+                    <div className="space-y-8">
+                        <DownloadAccessibilityAnnouncer />
+                        <div className="flex flex-col sm:flex-row gap-6">
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold mb-4">Manage Downloads</h3>
+                                <div className="bg-white/5 p-1 rounded-2xl">
+                                    <DownloadsList />
+                                </div>
+                            </div>
+                            <div className="w-full sm:w-80">
+                                <StorageUsageInfo />
+                            </div>
+                        </div>
+                    </div>
+                </Suspense>
+            )}
 
             {activeTab === 'offline' && (
                 <div className="space-y-6">
@@ -228,26 +259,18 @@ const Library: React.FC = () => {
 
             {activeTab === 'favorites' && !selectedPlaylist && (
                 <div className="space-y-6">
-                    {favorites.length > 0 && (
+                    {favoriteItems.length > 0 && (
                         <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
                             <button
                                 onClick={() => {
-                                    dispatch(setSongs(favorites));
-                                    dispatch(playMusic(favorites[0]));
+                                    const items = favoriteItems.map(f => f.media);
+                                    const songsFromItems = items.filter(i => i.type === 'song').map(mediaItemToSong);
+                                    dispatch(setSongs(songsFromItems));
+                                    dispatch(playMusic(songsFromItems[0]));
                                 }}
                                 className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
                             >
                                 <IoPlay /> Play All
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const shuffled = [...favorites].sort(() => Math.random() - 0.5);
-                                    dispatch(setSongs(shuffled));
-                                    dispatch(playMusic(shuffled[0]));
-                                }}
-                                className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
-                            >
-                                <IoShuffle /> Shuffle
                             </button>
                         </div>
                     )}
@@ -255,43 +278,50 @@ const Library: React.FC = () => {
                         ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
                         : "space-y-1 sm:space-y-2"
                     }>
-                        {favorites.length > 0 ? (
-                            [...favorites].sort((a, b) => {
-                                if (sortBy === 'name') return a.name.localeCompare(b.name);
-                                if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-                                return 0; // Default is date, but favorites aren't timestamped, so we keep order
-                            }).map((song) => (
+                        {favoriteItems.length > 0 ? (
+                            [...favoriteItems].sort((a, b) => {
+                                if (sortBy === 'name') return a.media.title.localeCompare(b.media.title);
+                                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                            }).map((item) => (
                                 <motion.div
-                                    key={song.id}
+                                    key={item.id}
                                     layout
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
                                     onClick={() => {
-                                        dispatch(setSongs(favorites));
-                                        dispatch(playMusic(song));
+                                        if (item.media.type === 'song') {
+                                            const song = mediaItemToSong(item.media);
+                                            dispatch(playMusic(song));
+                                        } else {
+                                            // Directly play MediaItem for Radio
+                                            dispatch(playMusic(mediaItemToSong(item.media)));
+                                        }
                                     }}
                                 >
                                     <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
                                         <img
-                                            src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
-                                            alt={song.name}
+                                            src={item.media.artwork[item.media.artwork.length - 1]?.url || ''}
+                                            alt={item.media.title}
                                             loading="lazy"
                                             className="w-full h-full object-cover"
                                         />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <IoHeart className="text-primary text-xl" />
                                         </div>
+                                        {item.media.type === 'radio' && (
+                                            <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg">LIVE</div>
+                                        )}
                                     </div>
                                     <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
                                         <div className="min-w-0">
-                                            <p className="font-semibold truncate text-sm">{song.name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                            <p className="font-semibold truncate text-sm">{item.media.title}</p>
+                                            <p className="text-xs text-gray-500 truncate">{item.media.subtitle}</p>
                                         </div>
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                dispatch(toggleFavoriteCloud(song) as any);
+                                                dispatch(toggleFavoriteCloud(item.media) as any);
                                             }}
                                             className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary rounded-full transition-all"
                                         >

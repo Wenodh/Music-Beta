@@ -38,11 +38,11 @@ export const uploadSettings = createAsyncThunk(
                 }, { onConflict: 'user_id' });
 
             if (error) {
-                console.error('Supabase error uploading settings:', error);
+                logger.error('Supabase error uploading settings:', error);
                 throw error;
             }
         } catch (error) {
-            console.error('Error uploading settings:', error);
+            logger.error('Error uploading settings:', error);
         }
     }
 );
@@ -64,7 +64,7 @@ export const fetchSettings = createAsyncThunk(
                 .limit(1);
 
             if (error) {
-                console.error('Supabase error fetching settings:', error);
+                logger.error('Supabase error fetching settings:', error);
                 throw error;
             }
 
@@ -81,11 +81,11 @@ export const fetchSettings = createAsyncThunk(
                 }
             } else {
                 // If no settings exist in cloud, upload current local settings
-                console.log('No cloud settings found, uploading local settings...');
+                logger.debug('No cloud settings found, uploading local settings...');
                 dispatch(uploadSettings() as any);
             }
         } catch (error) {
-            console.error('Error fetching settings:', error);
+            logger.error('Error fetching settings:', error);
         }
     }
 );

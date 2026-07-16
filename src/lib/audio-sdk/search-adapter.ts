@@ -1,6 +1,6 @@
-import { Song, Album, Playlist, Artist, SearchResults } from '../../types/music';
+import { Album, Playlist, Artist, SearchResults } from '../../types/music';
 import { MediaItem } from './models';
-import { mediaItemToSong } from './adapters';
+import { mediaItemToSong } from '../adapters/mediaItemAdapter';
 
 export class SearchAdapter {
     static mediaItemsToSearchResults(items: MediaItem[]): SearchResults {
@@ -9,11 +9,13 @@ export class SearchAdapter {
             songs: { results: [] },
             playlists: { results: [] },
             artists: { results: [] },
+            radio: { results: [] },
+            audiobooks: { results: [] },
             topQuery: { results: [] }
         };
 
         items.forEach(item => {
-            const metadata = item.metadata as Record<string, unknown>;
+            const metadata = item.metadata as Record<string, any>;
             switch(item.type) {
                 case 'song':
                     results.songs.results.push(mediaItemToSong(item));
@@ -24,7 +26,8 @@ export class SearchAdapter {
                         id: item.id,
                         name: item.title,
                         image: item.artwork.map(a => ({ quality: a.quality || 'unknown', url: a.url })),
-                    } as unknown as Album);
+                        artist: (metadata.artist as string) || (item.subtitle as string) || ''
+                    } as Album);
                     break;
                 case 'playlist':
                     results.playlists.results.push({
@@ -32,7 +35,7 @@ export class SearchAdapter {
                         id: item.id,
                         name: item.title,
                         image: item.artwork.map(a => ({ quality: a.quality || 'unknown', url: a.url })),
-                    } as unknown as Playlist);
+                    } as Playlist);
                     break;
                 case 'artist':
                     results.artists.results.push({
@@ -40,7 +43,13 @@ export class SearchAdapter {
                         id: item.id,
                         name: item.title,
                         image: item.artwork.map(a => ({ quality: a.quality || 'unknown', url: a.url })),
-                    } as unknown as Artist);
+                    } as Artist);
+                    break;
+                case 'radio':
+                    results.radio?.results.push(mediaItemToSong(item));
+                    break;
+                case 'audiobook':
+                    results.audiobooks?.results.push(item);
                     break;
             }
         });

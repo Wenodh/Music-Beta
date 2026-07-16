@@ -7,9 +7,9 @@ export class NativeAudioEngine implements PlaybackEngine {
     private events: PlaybackEngineEvents;
     private _state: PlaybackState = 'idle';
 
-    constructor(events: PlaybackEngineEvents) {
+    constructor(events: PlaybackEngineEvents, audio?: HTMLAudioElement) {
         this.events = events;
-        this.audio = new Audio();
+        this.audio = audio || new Audio();
         this.audio.crossOrigin = 'anonymous';
         this.setupListeners();
     }
@@ -63,6 +63,10 @@ export class NativeAudioEngine implements PlaybackEngine {
 
     setVolume(volume: number): void {
         this.audio.volume = volume;
+    }
+
+    setPlaybackSpeed(speed: number): void {
+        this.audio.playbackRate = speed;
     }
 
     get state() { return this._state; }

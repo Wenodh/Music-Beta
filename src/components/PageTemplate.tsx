@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
 import { musicApi } from '../services/musicApi';
 import useFetchDetails from '../hooks/useFetchDetails';
@@ -20,15 +21,24 @@ interface PageTemplateProps {
     getImageUrl?: (data: any) => string;
     title?: string;
     children?: React.ReactNode;
+    details?: any; // Added to support passing pre-fetched details
 }
 
 const GlobeScene = React.lazy(() => import('./globe/GlobeScene'));
 
-const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children }) => {
-    const { details, loading, error, image: fetchedImage } = useFetchDetails(
-        apiUrl || '',
+export const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children, details: propDetails }) => {
+    const fetchResult = useFetchDetails(
+        propDetails ? '' : (apiUrl || ''),
         getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))
     );
+
+    const details = propDetails || fetchResult.details;
+    const loading = propDetails ? false : fetchResult.loading;
+    const error = propDetails ? null : fetchResult.error;
+    const fetchedImage = propDetails
+        ? (Array.isArray(propDetails.image) ? propDetails.image[propDetails.image.length-1]?.url : propDetails.image)
+        : fetchResult.image;
+
     const dispatch = useAppDispatch();
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list' | 'globe'>('list');
@@ -64,7 +74,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
             const type = (details as any).type;
             const id = (details as any).id;
 
-            console.log(`[Recommendations] Fetching for ${type}: ${id}`);
+            logger.debug(`[Recommendations] Fetching for ${type}: ${id}`);
 
             try {
                 if (type === 'album') {
@@ -100,7 +110,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     }
                 }
             } catch (error) {
-                console.error('Error fetching recommendations:', error);
+                logger.error('Error fetching recommendations:', error);
             }
         };
 
@@ -128,7 +138,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
     const handlePlayAll = () => {
         if (sortedSongs.length > 0) {
-            dispatch(playMusic(sortedSongs[0]));
+            dispatch(setSongs(sortedSongs));
+            dispatch(playMusic({ ...sortedSongs[0], forcePlay: true }));
         }
     };
 
@@ -357,7 +368,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                         exit={{ opacity: 0, scale: 0.9 }}
                                         whileHover={{ y: -5 }}
                                         className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all relative"
-                                        onClick={() => dispatch(playMusic(song))}
+                                        onClick={() => {
+                                            dispatch(setSongs(sortedSongs));
+                                            dispatch(playMusic({ ...song, forcePlay: true }));
+                                        }}
                                     >
                                         <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-md">
                                             <img

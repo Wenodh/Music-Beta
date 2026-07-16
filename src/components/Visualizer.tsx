@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React, { useEffect, useRef } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { FREQUENCIES } from '../constants/equalizer';
@@ -50,7 +51,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
             el._gainNode = gainNode;
             el._visualizerContext = context;
         } catch (e) {
-            console.error("Error setting up audio source", e);
+            logger.error("Error setting up audio source", e);
         }
     };
 
@@ -88,7 +89,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
             isInitialized = true;
         } catch (err) {
-            console.warn('Failed to initialize audio visualizer singleton:', err);
+            logger.warn('Failed to initialize audio visualizer singleton:', err);
         }
     };
 

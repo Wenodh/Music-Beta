@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
@@ -84,7 +85,7 @@ const SongsList: React.FC<SongsListProps> = ({
                 dispatch(removeDownloadedId(id));
                 dispatch(showToast({ message: 'Removed from downloads' }));
             } catch (error) {
-                console.error('Failed to remove download', error);
+                logger.error('Failed to remove download', error);
             }
             return;
         }
@@ -131,7 +132,7 @@ const SongsList: React.FC<SongsListProps> = ({
             dispatch(addDownloadedId(id));
             dispatch(showToast({ message: 'Saved for offline' }));
         } catch (error) {
-            console.error('Download failed', error);
+            logger.error('Download failed', error);
             dispatch(showToast({ message: 'Download failed' }));
         } finally {
             setIsDownloading(false);

@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { BiRepeat } from 'react-icons/bi';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
@@ -34,7 +35,10 @@ import { openPlaylistModal, setAccentColor, setPlayerExpanded, setSessionModalOp
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
-import { useMediaSession } from '../hooks/useMediaSession';
+import { useSyncAndDownloads } from '../hooks/useSyncAndDownloads';
+import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
+import { playbackManager } from '../lib/playback/PlaybackManager';
+import { eventBus, Events } from '../lib/events';
 
 // Sub-components
 import MiniPlayerMetadata from './player/MiniPlayerMetadata';
@@ -57,12 +61,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
-    const { favorites } = useAppSelector((state) => state.library);
+    const { favorites, downloadedIds } = useAppSelector((state) => state.library);
 
     const [imageUrl, setImageUrl] = useState<string>('');
     const imageUrlsRef = useRef<Set<string>>(new Set());
     const [progress, setProgress] = useState(0);
+    const [liveMetadata, setLiveMetadata] = useState<{ currentSong?: string; listeners?: number } | null>(null);
     const isFavorite = useMemo(() => favorites.some(s => s.id === currentSong?.id), [favorites, currentSong?.id]);
+    const policy = useMemo(() => getPlaybackPolicy(currentSong as any), [currentSong]);
 
     const { broadcast, sendReaction, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
@@ -121,14 +127,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     });
 
     useEffect(() => {
-        if (activeAudioRef.current) {
-            try {
-                activeAudioRef.current.playbackRate = playbackSpeed;
-            } catch (e) {
-                console.warn("Failed to set playback rate", e);
-            }
-        }
-    }, [playbackSpeed, activeAudioRef]);
+        playbackManager.setPlaybackSpeed(playbackSpeed);
+    }, [playbackSpeed]);
 
     const handleManualSeek = useCallback((time: number) => {
         seek(time);
@@ -137,22 +137,25 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [seek, isHost, isJoined, isInternalAction, broadcast]);
 
-    useMediaSession({
-        currentSong,
-        isPlaying,
-        imageUrl,
-        onPlay: () => {
-            dispatch(playMusic(currentSong));
-            if (isHost && isJoined) broadcast('play', { song: currentSong });
-        },
-        onPause: () => {
-            dispatch(pauseMusic());
-            if (isHost && isJoined) broadcast('pause', {});
-        },
-        onNext: () => dispatch(nextSong({ isManual: true })),
-        onPrev: () => dispatch(prevSongAction()),
-        onSeek: handleManualSeek
-    });
+    useEffect(() => {
+        const onNext = () => dispatch(nextSong({ isManual: true }));
+        const onPrev = () => dispatch(prevSongAction());
+        const onFavorite = (id: string) => {
+            if (currentSong && currentSong.id === id) {
+                dispatch(toggleFavoriteCloud(currentSong) as any);
+            }
+        };
+
+        eventBus.on('COMMAND_NEXT', onNext);
+        eventBus.on('COMMAND_PREVIOUS', onPrev);
+        eventBus.on('COMMAND_FAVORITE', onFavorite);
+
+        return () => {
+            eventBus.off('COMMAND_NEXT', onNext);
+            eventBus.off('COMMAND_PREVIOUS', onPrev);
+            eventBus.off('COMMAND_FAVORITE', onFavorite);
+        };
+    }, [dispatch, currentSong]);
 
     // Revoke image URLs and cleanup
     useEffect(() => {
@@ -163,7 +166,21 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, []);
 
     useEffect(() => {
+        const handleMetadataUpdate = (data: any) => {
+            if (data.id === currentSong?.id) {
+                setLiveMetadata(data.metadata);
+            }
+        };
+
+        eventBus.on(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        return () => {
+            eventBus.off(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        };
+    }, [currentSong?.id]);
+
+    useEffect(() => {
         if (currentSong) {
+            setLiveMetadata(null); // Reset metadata on song change
             getOfflineSong(currentSong.id).then(offlineSong => {
                 let url = '';
                 if (offlineSong?.imageBlob) {
@@ -197,7 +214,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     if (data) {
                         dispatch(setRecommendations({ songId: currentSong.id, recommendations: data }));
                     }
-                }).catch(err => console.error('Error fetching recommendations:', err));
+                }).catch(err => logger.error('Error fetching recommendations:', err));
         }
     }, [currentSong?.id, dispatch]);
 
@@ -216,26 +233,32 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         setTimeout(() => setSeekAnimation(null), 500);
     };
 
+    const { download } = useSyncAndDownloads();
+    const isDownloaded = useMemo(() => currentSong && downloadedIds.includes(currentSong.id), [currentSong, downloadedIds]);
+
     const handleDownloadSong = async () => {
         if (!currentSong) return;
+        if (isDownloaded) return;
+
         setIsDownloading(true);
         try {
-            const songUrl = activeAudioRef.current?.src || '';
-            const res = await fetch(songUrl);
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${currentSong.name}.mp3`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (error) { console.warn('Error downloading the song', error); } finally { setIsDownloading(false); }
+            // Convert legacy Song to MediaItem
+            const { songToMediaItem } = await import('../lib/adapters/mediaItemAdapter');
+            const mediaItem = songToMediaItem(currentSong);
+            await download(mediaItem);
+            dispatch(showToast({ message: 'Added to downloads' }));
+        } catch (error) {
+            logger.warn('Error downloading the song', error);
+            dispatch(showToast({ message: 'Failed to add to downloads', type: 'error' }));
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const handleShare = async () => {
         const songUrl = window.location.origin + `/albums/${currentSong?.albumId}`;
         if (navigator.share) {
-            try { await navigator.share({ title: currentSong?.name, text: `Check out ${currentSong?.name} on Vibe On!`, url: songUrl }); } catch (error) { console.log('Error sharing', error); }
+            try { await navigator.share({ title: currentSong?.name, text: `Check out ${currentSong?.name} on Vibe On!`, url: songUrl }); } catch (error) { logger.debug('Error sharing', error); }
         } else {
             navigator.clipboard.writeText(songUrl);
             alert('Link copied to clipboard!');
@@ -270,16 +293,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     </div>
 
                     <div className="flex justify-between items-center py-2.5 px-4 md:py-3 md:px-4 lg:px-8 relative">
-                        <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0 hidden md:block">
-                            <input type="range" id="progress" min={0} max={100} step="0.1" defaultValue={0} onChange={handleProgressChange} onClick={(e) => e.stopPropagation()} className="w-full h-[2px] md:h-[3px] cursor-pointer appearance-none bg-transparent" />
-                        </div>
+                        {policy.showDuration && (
+                            <div className="absolute top-0 left-6 right-6 md:left-0 md:right-0 hidden md:block">
+                                <input type="range" id="progress" min={0} max={100} step="0.1" defaultValue={0} onChange={handleProgressChange} onClick={(e) => e.stopPropagation()} className="w-full h-[2px] md:h-[3px] cursor-pointer appearance-none bg-transparent" />
+                            </div>
+                        )}
 
                         <MiniPlayerMetadata
                             imageUrl={imageUrl}
                             name={currentSong.name}
-                            artists={currentSong.primaryArtists}
+                            artists={liveMetadata?.currentSong || currentSong.primaryArtists}
                             isBuffering={isBuffering}
                             onDoubleTap={handleDoubleTap}
+                            isLive={policy.showLiveIndicator}
                         />
 
                         <PlayerControls
@@ -292,13 +318,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             onPrev={(e) => { e.stopPropagation(); dispatch(prevSongAction()); }}
                             onToggleShuffle={(e) => { e.stopPropagation(); dispatch(toggleShuffle()); }}
                             onToggleRepeat={(e) => { e.stopPropagation(); dispatch(toggleRepeatMode()); }}
+                            onSeekRelative={(offset) => {
+                                const current = activeAudioRef.current?.currentTime || 0;
+                                const duration = activeAudioRef.current?.duration || 0;
+                                handleManualSeek(Math.max(0, Math.min(duration, current + offset)));
+                            }}
+                            policy={policy}
                         />
 
                         <div className="flex lg:w-[30vw] justify-end items-center gap-2 md:gap-5">
                             {/* Mobile Controls */}
                             <div className="flex md:hidden items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                                 <motion.button whileTap={{ scale: 0.85 }} onClick={(e) => { e.stopPropagation(); dispatch(playMusic(currentSong)); }} className="relative w-10 h-10 flex items-center justify-center rounded-xl text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>{isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-1" />}</motion.button>
-                                <IoMdSkipForward onClick={(e) => { e.stopPropagation(); dispatch(nextSong({ isManual: true })); }} size={22} className="w-10 h-10 p-2" />
+                                {policy.canSkipNext && <IoMdSkipForward onClick={(e) => { e.stopPropagation(); dispatch(nextSong({ isManual: true })); }} size={22} className="w-10 h-10 p-2" />}
                             </div>
 
                             <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); dispatch(setSessionModalOpen(true)); }} className="hidden md:block">
@@ -323,10 +355,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 onToggleRadio={() => { dispatch(setSongRadioEnabled(!isSongRadioEnabled)); setIsMoreMenuOpen(false); }}
                                 onDownload={() => { handleDownloadSong(); setIsMoreMenuOpen(false); }}
                                 onShare={() => { handleShare(); setIsMoreMenuOpen(false); }}
-                                onSetPlaybackSpeed={setPlaybackSpeed}
+                                onSetPlaybackSpeed={policy.canChangeSpeed ? setPlaybackSpeed : undefined}
                                 onSetVolume={setUserVolume}
                                 onToggleMoreMenu={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
                                 moreMenuRef={moreMenuRef}
+                                policy={policy}
+                                isDownloaded={isDownloaded}
                             />
                         </div>
                     </div>

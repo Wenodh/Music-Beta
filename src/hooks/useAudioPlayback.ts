@@ -3,8 +3,12 @@ import { Song } from '../types/music';
 import { getNextSong } from '../utils/playlist';
 import { playbackManager } from '../lib/playback/PlaybackManager';
 import { eventBus, Events } from '../lib/events';
-import { songToMediaItem } from '../lib/audio-sdk/adapters';
+import { songToMediaItem } from '../lib/adapters/mediaItemAdapter';
 import { audioSDK } from '../lib/audio-sdk';
+import { continuityService } from '../lib/continuity';
+import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
+import { syncManager } from '../lib/sync/SyncManager';
+import { preloadManager } from '../lib/playback/PreloadManager';
 
 interface UseAudioPlaybackProps {
     currentSong: Song | null;
@@ -38,6 +42,7 @@ export const useAudioPlayback = ({
     onTimeUpdate
 }: UseAudioPlaybackProps) => {
     const [isBuffering, setIsBuffering] = useState(false);
+    const lastSyncTimeRef = useRef(0);
 
     const activeAudioRef = useRef<HTMLAudioElement | null>(playbackManager._activeAudioElement);
     const inactiveAudioRef = useRef<HTMLAudioElement | null>(playbackManager._inactiveAudioElement);
@@ -73,13 +78,29 @@ export const useAudioPlayback = ({
 
             if (source?.url) {
                 mediaItem.stream = source;
+                const policy = getPlaybackPolicy(mediaItem);
+                const isNewTrack = playbackManager.currentMediaItem?.id !== mediaItem.id;
 
                 if (isPlaying) {
                     await playbackManager.play(mediaItem);
+
+                    if (isNewTrack && policy.canResume) {
+                        const saved = continuityService.getPosition(mediaItem.id);
+                        if (saved && saved.position > 10 && saved.position < (saved.duration - 15)) {
+                            playbackManager.seek(saved.position);
+                        }
+                    }
                 } else if (playbackManager.currentMediaItem?.id === mediaItem.id) {
                     playbackManager.pause();
                 } else if (!isPlaying) {
                     await playbackManager.play(mediaItem);
+
+                    if (isNewTrack && policy.canResume) {
+                        const saved = continuityService.getPosition(mediaItem.id);
+                        if (saved && saved.position > 10 && saved.position < (saved.duration - 15)) {
+                            playbackManager.seek(saved.position);
+                        }
+                    }
                     playbackManager.pause();
                 }
             }
@@ -91,9 +112,38 @@ export const useAudioPlayback = ({
 
     // Handle Events
     useEffect(() => {
+        let hasPreloaded = false;
+
         const onProgress = ({ currentTime, duration, item }: { currentTime: number, duration: number, item: any }) => {
             if (item?.id === currentSong?.id) {
                 onTimeUpdate(currentTime, duration);
+
+                // Preload logic (80% or 30s before end)
+                if (!hasPreloaded && duration > 0 && (currentTime / duration > 0.8 || (duration - currentTime) < 30)) {
+                    const next = getNextSong(currentSong!, songs, shuffle, repeatMode, false);
+                    if (next) {
+                        const nextMediaItem = songToMediaItem(next);
+                        audioSDK.getPlayableSource(nextMediaItem, preferredQuality).then(source => {
+                            if (source) {
+                                nextMediaItem.stream = source;
+                                preloadManager.preload(nextMediaItem);
+                                hasPreloaded = true;
+                            }
+                        });
+                    }
+                }
+
+                // Sync playback position every 10 seconds or when significant change
+                if (Math.abs(currentTime - lastSyncTimeRef.current) > 10) {
+                    lastSyncTimeRef.current = currentTime;
+                    syncManager.enqueue('playback_position', 'update', {
+                        media_id: item.id,
+                        provider: item.provider,
+                        position: currentTime,
+                        duration: duration || 0,
+                        playback_speed: playbackManager._activeAudioElement?.playbackRate || 1
+                    });
+                }
             }
 
             // Gapless/Crossfade logic

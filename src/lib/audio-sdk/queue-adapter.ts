@@ -1,6 +1,6 @@
 import { Song } from '../../types/music';
 import { MediaItem } from '../audio-sdk/models';
-import { songToMediaItem } from '../audio-sdk/adapters';
+import { songToMediaItem } from '../adapters/mediaItemAdapter';
 
 export class QueueAdapter {
     static getMediaItems(songs: Song[]): MediaItem[] {

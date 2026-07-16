@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from "../lib/logger";
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
@@ -7,6 +8,11 @@ import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { musicApi } from '../services/musicApi';
 import { Album, Song, Artist, Playlist } from '../types/music';
+import { MediaItem } from '../lib/audio-sdk/models';
+import { mediaItemToSong } from '../lib/adapters/mediaItemAdapter';
+import { audioSDK } from '../lib/audio-sdk';
+import { DailyMixModule, DiscoveryModule } from '../lib/recommendations/modules';
+import { Recommendation } from '../lib/recommendations/types';
 
 interface MainSectionData {
     albums: Album[];
@@ -19,12 +25,14 @@ interface MainSectionData {
     chill: Playlist[];
     workout: Playlist[];
     latestSongs: Song[];
+    popularBooks: MediaItem[];
+    recentBooks: MediaItem[];
 }
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { recentlyPlayed, recentlyPlayedAlbums } = useAppSelector((state) => state.musicPlayer);
+    const { recentlyPlayed, recentlyPlayedAlbums, history } = useAppSelector((state) => state.musicPlayer);
     const [data, setData] = useState<MainSectionData>({
         albums: [],
         songs: [],
@@ -35,10 +43,14 @@ const MainSection: React.FC = () => {
         devPicks: [],
         chill: [],
         workout: [],
-        latestSongs: []
+        latestSongs: [],
+        popularBooks: [],
+        recentBooks: []
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    const [podcasts, setPodcasts] = useState<MediaItem[]>([]);
+    const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>({});
 
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
@@ -77,19 +89,30 @@ const MainSection: React.FC = () => {
                 musicApi.searchPlaylists(`${lang} Chill`, 0, 15),
                 musicApi.searchPlaylists(`${lang} Workout`, 0, 15),
                 musicApi.searchSongs(`${lang} New Songs`, 0, 40),
+                audioSDK.getPopularAudiobooks(20),
+                audioSDK.getRecentAudiobooks(20),
+                audioSDK.getTrendingPodcasts(15),
                 ...artistsToFetch.map(name => musicApi.searchArtists(name, 0, 1))
             ]);
 
-            const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T =>
-                result.status === 'fulfilled' ? result.value : defaultValue;
+            const getValue = <T,>(result: PromiseSettledResult<T>, defaultValue: T): T => {
+                if (result.status !== 'fulfilled') return defaultValue;
+                const val = result.value as any;
+                // Defensive check: handle if the result is an axios response (contains .data.data)
+                // or if it's already unwrapped (common in our musicApi and audioSDK)
+                if (val && typeof val === 'object' && val.data && val.data.data) {
+                    return val.data.data;
+                }
+                return val ?? defaultValue;
+            };
 
-            const artistList = results.slice(9)
+            const artistList = results.slice(12) // audioSDK results are 9, 10, 11. Artists start at 12.
                 .filter((r): r is PromiseFulfilledResult<Artist[]> => r.status === 'fulfilled')
                 .map(r => r.value?.[0])
                 .filter(Boolean);
 
             const devPicksResult = results[5];
-            const devPicksSongs = devPicksResult.status === 'fulfilled' ? (devPicksResult.value as any).songs || [] : [];
+            const devPicksSongs = devPicksResult.status === 'fulfilled' ? (devPicksResult.value as any).songs || (devPicksResult.value as any).data?.data?.songs || [] : [];
 
             setData({
                 albums: getValue(results[0], []),
@@ -101,10 +124,23 @@ const MainSection: React.FC = () => {
                 devPicks: devPicksSongs,
                 chill: getValue(results[6], []),
                 workout: getValue(results[7], []),
-                latestSongs: getValue(results[8], [])
+                latestSongs: getValue(results[8], []),
+                popularBooks: getValue(results[9], []),
+                recentBooks: getValue(results[10], [])
             });
+            setPodcasts(getValue(results[11], []));
+
+            // Load Recommendations
+            const modules = [new DailyMixModule(), new DiscoveryModule()];
+            const recResults = await Promise.all(modules.map(m => m.load()));
+            const recMap: Record<string, Recommendation[]> = {};
+            modules.forEach((m, i) => {
+                if (recResults[i].length > 0) recMap[m.id] = recResults[i];
+            });
+            setRecommendations(recMap);
+
         } catch (error) {
-            console.error('Error in fetchData:', error);
+            logger.error('Error in fetchData:', error);
         } finally {
             setLoading(false);
         }
@@ -113,6 +149,71 @@ const MainSection: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
+    };
+
+    const continueListening = useMemo(() => {
+        return (history || [])
+            .filter(h => h.completionPercentage < 95 && h.listenedDuration > 5 && h.media.type !== 'radio')
+            .map(h => ({
+                ...mediaItemToSong(h.media),
+                _history: h
+            })) || [];
+    }, [history]);
+
+    const recentlyPlayedUnified = useMemo(() => {
+        if (history && history.length > 0) {
+            return history.map(h => mediaItemToSong(h.media));
+        }
+        return recentlyPlayed;
+    }, [history, recentlyPlayed]);
+
+    const sections = [
+        {
+            data: continueListening,
+            title: "Continue Listening"
+        },
+        {
+            data: recommendations['daily-mix']?.map(r => mediaItemToSong(r.media)),
+            title: "Your Daily Mix",
+            subtitle: "Personalized for you"
+        },
+        {
+            data: recentlyPlayedUnified,
+            title: "Recently Played"
+        },
+        {
+            data: recommendations['discovery']?.map(r => mediaItemToSong(r.media)),
+            title: "Discover Something New"
+        },
+        { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
+        { data: podcasts, title: "Trending Podcasts" },
+        { data: data.popularBooks, title: "Popular Audiobooks" },
+        { data: data.recentBooks, title: "Recently Added Audiobooks" },
+        { data: data.latestSongs, title: "Latest Songs" },
+        { data: data.songs, title: "Trending Songs" },
+        { data: data.albums, title: "Trending Albums" },
+        { data: data.artists, title: "Featured Artists" },
+        { data: data.playlists, title: "Top Playlists" },
+        { data: data.meditation, title: "Meditation" },
+        { data: data.work, title: "Work" },
+        { data: data.devPicks, title: "Developer's Picks" },
+        { data: data.chill, title: "Chill" },
+        { data: data.workout, title: "Workout" }
+    ];
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
 
     if (isOffline) {
         return (
@@ -138,36 +239,6 @@ const MainSection: React.FC = () => {
             </div>
         );
     }
-
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
-    };
-
-    const sections = [
-        { data: recentlyPlayed, title: "Recently Played Songs" },
-        { data: recentlyPlayedAlbums, title: "Recently Played Albums" },
-        { data: data.latestSongs, title: "Latest Songs" },
-        { data: data.songs, title: "Trending Songs" },
-        { data: data.albums, title: "Trending Albums" },
-        { data: data.artists, title: "Featured Artists" },
-        { data: data.playlists, title: "Top Playlists" },
-        { data: data.meditation, title: "Meditation" },
-        { data: data.work, title: "Work" },
-        { data: data.devPicks, title: "Developer's Picks" },
-        { data: data.chill, title: "Chill" },
-        { data: data.workout, title: "Workout" }
-    ];
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
-    };
 
     return (
         <motion.div

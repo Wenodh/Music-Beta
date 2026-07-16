@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 type Handler<T = any> = (event: T) => void;
 
 export class EventBus {
@@ -24,7 +25,7 @@ export class EventBus {
                 try {
                     handler(event);
                 } catch (e) {
-                    console.error(`Error in event handler for ${type}:`, e);
+                    logger.error(`Error in event handler for ${type}:`, e);
                 }
             });
         }
@@ -44,4 +45,7 @@ export const Events = {
     TRACK_CHANGED: 'track:changed',
     QUEUE_CHANGED: 'queue:changed',
     BUFFERING: 'playback:buffering',
+    PLAYBACK_METADATA_UPDATE: 'playback:metadata:update',
+    BOOKMARK_ADDED: 'bookmark:added',
+    BOOKMARK_REMOVED: 'bookmark:removed',
 } as const;

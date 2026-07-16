@@ -4,12 +4,42 @@ export interface SearchOptions {
     page?: number;
     limit?: number;
     type?: string;
+    signal?: AbortSignal;
+}
+
+export interface ProviderCapabilities {
+    search: boolean;
+    recommendations: boolean;
+    favorites: boolean;
+    history: boolean;
+    downloads: boolean;
+    resumableDownloads?: boolean;
+    offlinePlayback?: boolean;
+    cloudSync?: boolean;
+    continueListening: boolean;
+    streaming: boolean;
+    live: boolean;
+    lyrics: boolean;
+    speedControl: boolean;
+    authentication: boolean;
+}
+
+export interface ProviderInfo {
+    id: string;
+    displayName: string;
+    icon?: string;
+    website?: string;
+    version?: string;
+    supportsOffline: boolean;
+    supportsStreaming: boolean;
 }
 
 export interface AudioProvider {
     readonly id: string;
     readonly name: string;
     readonly supportedTypes: string[];
+    readonly capabilities: ProviderCapabilities;
+    readonly info: ProviderInfo;
 
     search(query: string, options?: SearchOptions): Promise<MediaItem[]>;
     getMedia(id: string, type: string): Promise<MediaItem>;
