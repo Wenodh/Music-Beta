@@ -43,7 +43,10 @@ export class AudioSDK {
             if (options?.type === 'radio' && flatResults.length === 0) {
                 const radioProvider = providerRegistry.getProvider('radio-browser') as RadioBrowserProvider;
                 if (radioProvider) {
-                    flatResults = await radioProvider.getPopular(options.limit || 20);
+                    flatResults = await radioProvider.getPopular(options.limit || 20, {
+                        page: options.page || 0,
+                        signal: options.signal
+                    });
                 }
             }
 
@@ -56,9 +59,15 @@ export class AudioSDK {
         const canonicalMap = new Map<string, MediaItem>();
 
         results.forEach(item => {
-            // Simple deduplication based on title and type for now
-            // In a real app, this would use ISRC or other stable IDs
-            const key = `${item.type}_${item.title.toLowerCase()}_${item.subtitle?.toLowerCase() || ''}`;
+            // Priority 1: Use canonicalId if available
+            // Priority 2: Use provider + id for uniqueness
+            // Priority 3: Fallback to type + title + subtitle for fuzzy deduplication
+            let key = item.canonicalId || `${item.provider}:${item.id}`;
+
+            // For radio stations from radio-browser, id is stationuuid which is already unique
+            if (item.provider === 'radio-browser') {
+                key = `radio:${item.id}`;
+            }
 
             if (canonicalMap.has(key)) {
                 const existing = canonicalMap.get(key)!;
