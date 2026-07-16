@@ -4,6 +4,7 @@ export interface SearchOptions {
     page?: number;
     limit?: number;
     type?: string;
+    signal?: AbortSignal;
 }
 
 export interface ProviderCapabilities {

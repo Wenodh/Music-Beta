@@ -33,9 +33,8 @@ const RadioSection: React.FC<RadioSectionProps> = ({
     });
 
     useEffect(() => {
-        reset();
         loadMore(true);
-    }, [language, selectedMetadata, activeMetadataType, reset, loadMore]);
+    }, [language, selectedMetadata, activeMetadataType, loadMore]);
 
     const distributedItems = useMemo(() => {
         return Array.from({ length: columns }, (_, i) =>

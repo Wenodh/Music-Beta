@@ -5,7 +5,7 @@ import { MediaItem } from '../../../lib/audio-sdk/models';
 
 export function useMusicExplore(language: string) {
     const fetchMusic = useCallback(async (page: number, signal: AbortSignal) => {
-        return audioSDK.search(language, { page, limit: 30, signal });
+        return audioSDK.search(language, { page, limit: 30, signal, type: 'song' });
     }, [language]);
 
     return useExplorePagination<MediaItem>({

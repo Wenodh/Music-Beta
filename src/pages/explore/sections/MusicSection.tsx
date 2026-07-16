@@ -22,9 +22,8 @@ const MusicSection: React.FC<MusicSectionProps> = ({ language, columns }) => {
     });
 
     useEffect(() => {
-        reset();
         loadMore(true);
-    }, [language, reset, loadMore]);
+    }, [language, loadMore]);
 
     const distributedItems = useMemo(() => {
         return Array.from({ length: columns }, (_, i) =>

@@ -30,9 +30,16 @@ export function useExplorePagination<T>({
 
     const abortControllerRef = useRef<AbortController | null>(null);
     const isFetchingRef = useRef(false);
+    const stateRef = useRef(state);
+
+    // Sync ref with state
+    useEffect(() => {
+        stateRef.current = state;
+    }, [state]);
 
     const loadMore = useCallback(async (isReset = false) => {
-        if (!isReset && (isFetchingRef.current || !state.hasMore)) return;
+        const currentState = stateRef.current;
+        if (!isReset && (isFetchingRef.current || !currentState.hasMore)) return;
 
         // Cancel previous request if any
         if (abortControllerRef.current) {
@@ -43,7 +50,7 @@ export function useExplorePagination<T>({
         abortControllerRef.current = controller;
         isFetchingRef.current = true;
 
-        const nextPage = isReset ? initialPage : state.page;
+        const nextPage = isReset ? initialPage : currentState.page;
 
         setState(prev => ({ ...prev, loading: true, error: null }));
 
@@ -86,7 +93,7 @@ export function useExplorePagination<T>({
                 isFetchingRef.current = false;
             }
         }
-    }, [fetchFn, state.page, state.hasMore, initialPage, pageSize]);
+    }, [fetchFn, initialPage, pageSize]);
 
     const reset = useCallback(() => {
         setState({
