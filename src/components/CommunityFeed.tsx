@@ -56,7 +56,7 @@ const CommunityFeed: React.FC = () => {
                             exit={{ opacity: 0, scale: 0.95 }}
                             className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors group cursor-pointer"
                         >
-                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                 <img src={activity.image} alt="" className="w-6 h-6 object-contain opacity-50 group-hover:opacity-100 transition-opacity" />
                             </div>
                             <div className="flex-1 min-w-0">

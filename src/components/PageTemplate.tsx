@@ -1,5 +1,6 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { musicApi } from '../services/musicApi';
 import useFetchDetails from '../hooks/useFetchDetails';
 import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
@@ -20,15 +21,24 @@ interface PageTemplateProps {
     getImageUrl?: (data: any) => string;
     title?: string;
     children?: React.ReactNode;
+    details?: any; // Added to support passing pre-fetched details
 }
 
 const GlobeScene = React.lazy(() => import('./globe/GlobeScene'));
 
-const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children }) => {
-    const { details, loading, error, image: fetchedImage } = useFetchDetails(
-        apiUrl || '',
+export const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children, details: propDetails }) => {
+    const fetchResult = useFetchDetails(
+        propDetails ? '' : (apiUrl || ''),
         getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))
     );
+
+    const details = propDetails || fetchResult.details;
+    const loading = propDetails ? false : fetchResult.loading;
+    const error = propDetails ? null : fetchResult.error;
+    const fetchedImage = propDetails
+        ? (Array.isArray(propDetails.image) ? propDetails.image[propDetails.image.length-1]?.url : propDetails.image)
+        : fetchResult.image;
+
     const dispatch = useAppDispatch();
     const { favorites } = useAppSelector((state) => state.library);
     const [viewMode, setViewMode] = useState<'grid' | 'list' | 'globe'>('list');
@@ -64,7 +74,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
             const type = (details as any).type;
             const id = (details as any).id;
 
-            console.log(`[Recommendations] Fetching for ${type}: ${id}`);
+            logger.debug(`[Recommendations] Fetching for ${type}: ${id}`);
 
             try {
                 if (type === 'album') {
@@ -81,9 +91,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     if (!artistName) artistName = (details as any).primaryArtists || (details as any).artist;
 
                     if (artistName) {
-                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`);
-                        if (moreByRes.data?.data?.results && Array.isArray(moreByRes.data.data.results)) {
-                            const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
+                        const moreByResults = await musicApi.getTrending(decodeHtmlEntities(artistName), 0, 10);
+                        if (moreByResults && Array.isArray(moreByResults)) {
+                            const results = moreByResults.filter((a: any) => a.id !== id);
                             setRecommendations(prev => ({ ...prev, moreByArtist: results }));
                         }
                     }
@@ -92,15 +102,15 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     if (playlistName) {
                         // Clean playlist name for better search (remove common bracketed info)
                         const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
-                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`);
-                        if (similarRes.data?.data?.results && Array.isArray(similarRes.data.data.results)) {
-                            const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
+                        const similarResults = await musicApi.searchPlaylists(query, 0, 10);
+                        if (similarResults && Array.isArray(similarResults)) {
+                            const results = similarResults.filter((p: any) => p.id !== id);
                             setRecommendations(prev => ({ ...prev, similarCollections: results }));
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error fetching recommendations:', error);
+                logger.error('Error fetching recommendations:', error);
             }
         };
 
@@ -128,7 +138,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
 
     const handlePlayAll = () => {
         if (sortedSongs.length > 0) {
-            dispatch(playMusic(sortedSongs[0]));
+            dispatch(setSongs(sortedSongs));
+            dispatch(playMusic({ ...sortedSongs[0], forcePlay: true }));
         }
     };
 
@@ -305,9 +316,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                                         }}
                                                         className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${
                                                             sortBy === option.id
-                                                                ? 'text-primary bg-primary/10 dark:bg-primary/10'
+                                                                ? 'text-primary'
                                                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                         }`}
+                                                        style={sortBy === option.id ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
                                                     >
                                                         {option.label}
                                                     </button>
@@ -356,7 +368,10 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                                         exit={{ opacity: 0, scale: 0.9 }}
                                         whileHover={{ y: -5 }}
                                         className="group cursor-pointer bg-white/20 dark:bg-gray-800/20 p-3 rounded-2xl border border-white/10 hover:border-primary/30 transition-all relative"
-                                        onClick={() => dispatch(playMusic(song))}
+                                        onClick={() => {
+                                            dispatch(setSongs(sortedSongs));
+                                            dispatch(playMusic({ ...song, forcePlay: true }));
+                                        }}
                                     >
                                         <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-md">
                                             <img
@@ -418,7 +433,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     <div className="flex flex-wrap gap-3 sm:gap-4">
                         {(details as any).followerCount && (
                             <div className="bg-white/5 dark:bg-gray-800/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                     <IoPeopleOutline size={20} />
                                 </div>
                                 <div>

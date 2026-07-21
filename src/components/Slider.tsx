@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { MdOutlineArrowBackIos, MdOutlineArrowForwardIos } from 'react-icons/md';
 import AlbumItem from './AlbumItem';
 
@@ -9,6 +9,26 @@ interface SliderProps {
 
 const Slider: React.FC<SliderProps> = ({ data, title }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const sectionRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.unobserve(entry.target);
+                }
+            },
+            { rootMargin: '200px' }
+        );
+
+        if (sectionRef.current) {
+            observer.observe(sectionRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollRef.current) {
@@ -22,7 +42,7 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
     };
 
     return (
-        <div className="relative group mb-8 sm:mb-12">
+        <div ref={sectionRef} className="relative group mb-8 sm:mb-12 min-h-[150px]">
             <h2 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4">{title}</h2>
             <div className="relative">
                 <button
@@ -36,7 +56,7 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
                     className="flex overflow-x-auto gap-3 sm:gap-4 scrollbar-hide no-scrollbar"
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
-                    {data && Array.isArray(data) && data.map((item: any) => (
+                    {isVisible && data && Array.isArray(data) && data.map((item: any) => (
                         <AlbumItem
                             key={item.id}
                             id={item.id}
@@ -47,6 +67,7 @@ const Slider: React.FC<SliderProps> = ({ data, title }) => {
                             data={item}
                         />
                     ))}
+                    {!isVisible && <div className="h-40 w-full" />}
                 </div>
                 <button
                     onClick={() => scroll('right')}

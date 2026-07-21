@@ -1,8 +1,8 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import Slider from './Slider';
-import { suggestions } from '../constants';
+import { musicApi } from '../services/musicApi';
 import { motion } from 'framer-motion';
 import { setDailyMix } from '../features/musicplayer/musicPlayerSlice';
 
@@ -14,11 +14,11 @@ const DailyMix: React.FC = () => {
 
     useEffect(() => {
         const fetchMix = async () => {
-            if (!recentlyPlayed || recentlyPlayed.length === 0) return;
+            if (!recentlyPlayed || !Array.isArray(recentlyPlayed) || recentlyPlayed.length === 0) return;
 
             const now = Date.now();
             // Only update if cooldown has passed or if we have no songs yet
-            if (dailyMix && dailyMix.length > 0 && (now - lastDailyMixUpdate < COOLDOWN)) {
+            if (dailyMix && Array.isArray(dailyMix) && dailyMix.length > 0 && (now - lastDailyMixUpdate < COOLDOWN)) {
                 return;
             }
 
@@ -26,13 +26,13 @@ const DailyMix: React.FC = () => {
             try {
                 // Get a few recent songs to base suggestions on
                 const baseSongs = recentlyPlayed.slice(0, 3);
-                const suggestPromises = baseSongs.map(song => axios.get(suggestions(song.id)));
+                const suggestPromises = baseSongs.map(song => musicApi.getSuggestions(song.id));
                 const results = await Promise.allSettled(suggestPromises);
 
                 let allSuggestions: any[] = [];
                 results.forEach(res => {
                     if (res.status === 'fulfilled') {
-                        allSuggestions = [...allSuggestions, ...(res.value.data.data || [])];
+                        allSuggestions = [...allSuggestions, ...res.value];
                     }
                 });
 
@@ -46,7 +46,7 @@ const DailyMix: React.FC = () => {
 
                 dispatch(setDailyMix({ songs: shuffled, timestamp: now }));
             } catch (error) {
-                console.error('Error fetching Daily Mix:', error);
+                logger.error('Error fetching Daily Mix:', error);
             } finally {
                 setLoading(false);
             }
@@ -60,7 +60,7 @@ const DailyMix: React.FC = () => {
         visible: { y: 0, opacity: 1 }
     };
 
-    if (loading || !dailyMix || dailyMix.length === 0) return null;
+    if (loading || !dailyMix || !Array.isArray(dailyMix) || dailyMix.length === 0) return null;
 
     return (
         <motion.div

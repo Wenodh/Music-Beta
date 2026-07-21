@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { showToast } from '../features/ui/uiSlice';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 
 interface AlbumItemProps {
@@ -14,13 +15,28 @@ interface AlbumItemProps {
     data?: any;
 }
 
+const formatRemainingTime = (seconds: number) => {
+    if (seconds <= 0) return '';
+    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(mins / 60);
+    if (hours > 0) return `${hours}h ${mins % 60}m left`;
+    return `${mins}m left`;
+};
+
 const AlbumItem: React.FC<AlbumItemProps> = (props) => {
     const { id, image, name, artists, type, data } = props;
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
 
     const handleClick = () => {
-        if ((type === 'song' || data?.type === 'song') && data) {
+        const isRadio = type === 'radio' || data?.type === 'radio';
+        const isLive = isRadio || type === 'episode' || data?.type === 'episode' || type === 'song' || data?.type === 'song';
+
+        if (isLive && data) {
+            if (isRadio && !navigator.onLine) {
+                dispatch(showToast({ message: 'Internet connection required for Live Radio', type: 'error' }));
+                return;
+            }
             dispatch(playMusic(data));
             return;
         }
@@ -29,6 +45,10 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
             navigate(`/playlists/${id}`);
         } else if (type === 'artist') {
             navigate(`/artists/${id}`);
+        } else if (type === 'podcast' || data?.type === 'podcast') {
+            navigate(`/podcasts/${id}`);
+        } else if (data?.provider && data?.type) {
+            navigate(`/details/${data.provider}/${data.type}/${id}`);
         } else {
             navigate(`/albums/${id}`);
         }
@@ -59,6 +79,22 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
                 <p className="font-bold text-sm truncate group-hover:text-primary transition-colors leading-tight">{decodeHtmlEntities(name)}</p>
                 {artists && (
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{decodeHtmlEntities(artists)}</p>
+                )}
+                {data?._history && (
+                    <div className="mt-1.5 w-full">
+                        <div className="flex justify-between items-center mb-1">
+                             <span className="text-[9px] text-gray-500 font-bold uppercase">
+                                 {formatRemainingTime(data._history.mediaItem.duration - data._history.listenedDuration)}
+                             </span>
+                             <span className="text-[9px] text-primary font-bold">{Math.round(data._history.completionPercentage)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 h-1 rounded-full overflow-hidden">
+                            <div
+                                className="bg-primary h-full"
+                                style={{ width: `${data._history.completionPercentage}%` }}
+                            />
+                        </div>
+                    </div>
                 )}
             </div>
         </motion.div>

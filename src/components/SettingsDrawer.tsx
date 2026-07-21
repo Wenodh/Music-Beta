@@ -4,8 +4,9 @@ import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
+import LinkedAccountsSettings from './settings/LinkedAccountsSettings';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoBugOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
@@ -23,6 +24,8 @@ const SettingsDrawer: React.FC = () => {
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
+    const [versionTaps, setVersionTaps] = useState(0);
+    const [isDevMode, setIsDevMode] = useState(localStorage.getItem('vibe_dev_mode') === 'true');
 
     const accentColors = [
         { name: 'Red', value: '#ef4444' },
@@ -50,6 +53,16 @@ const SettingsDrawer: React.FC = () => {
     ];
 
     const qualities = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+
+    const handleVersionTap = () => {
+        const newTaps = versionTaps + 1;
+        setVersionTaps(newTaps);
+        if (newTaps === 7) {
+            localStorage.setItem('vibe_dev_mode', 'true');
+            setIsDevMode(true);
+            dispatch(showToast({ message: 'Developer Mode Unlocked!' }));
+        }
+    };
 
     useEffect(() => {
         if (isSettingsOpen) {
@@ -150,7 +163,8 @@ const SettingsDrawer: React.FC = () => {
                                                     <button
                                                         onClick={handleSync}
                                                         disabled={isSyncing}
-                                                        className={`p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors ${isSyncing ? 'animate-spin' : ''}`}
+                                                        className={`p-2 text-primary rounded-lg transition-colors ${isSyncing ? 'animate-spin' : ''}`}
+                                                        style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}
                                                         title="Sync Library"
                                                     >
                                                         <IoSyncOutline size={20} />
@@ -189,10 +203,11 @@ const SettingsDrawer: React.FC = () => {
                                             dispatch(setSettingsOpen(false));
                                             dispatch(setSessionModalOpen(true));
                                         }}
-                                        className="w-full flex items-center justify-between p-4 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all mt-4 group border border-primary/20"
+                                        className="w-full flex items-center justify-between p-4 hover:bg-primary/20 rounded-2xl transition-all mt-4 group border border-primary/20"
+                                        style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-primary/20 rounded-xl group-hover:scale-110 transition-transform">
+                                            <div className="p-2 rounded-xl group-hover:scale-110 transition-transform" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                                 <IoPeopleOutline className="text-primary" size={20} />
                                             </div>
                                             <div className="text-left">
@@ -200,10 +215,14 @@ const SettingsDrawer: React.FC = () => {
                                                 <p className="text-[10px] text-primary/60">Listen with friends</p>
                                             </div>
                                         </div>
-                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/20 group-hover:bg-primary text-primary group-hover:text-white transition-all">
+                                        <div className="w-8 h-8 flex items-center justify-center rounded-full group-hover:bg-primary text-primary group-hover:text-white transition-all" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                             <IoPeopleOutline size={16} />
                                         </div>
                                     </button>
+                                </section>
+
+                                <section>
+                                    <LinkedAccountsSettings />
                                 </section>
 
                                 <section>
@@ -342,7 +361,8 @@ const SettingsDrawer: React.FC = () => {
                                                 <button
                                                     onClick={handleDeleteAll}
                                                     disabled={storageInfo.count === 0}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}
                                                 >
                                                     <IoTrashOutline /> Delete All
                                                 </button>
@@ -440,7 +460,23 @@ const SettingsDrawer: React.FC = () => {
                                     Privacy Policy
                                 </button>
                                 <div className="flex flex-col items-center">
-                                    <p className="text-xs text-gray-400 mb-2">Vibe On Version 1.3.1</p>
+                                    {isDevMode && (
+                                        <button
+                                            onClick={() => {
+                                                navigate('/debug');
+                                                dispatch(setSettingsOpen(false));
+                                            }}
+                                            className="mb-4 flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-all"
+                                        >
+                                            <IoBugOutline size={16} /> Developer Diagnostics
+                                        </button>
+                                    )}
+                                    <p
+                                        className="text-xs text-gray-400 mb-2 cursor-pointer select-none active:scale-95 transition-transform"
+                                        onClick={handleVersionTap}
+                                    >
+                                        Vibe On Version 1.0.0
+                                    </p>
                                     <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
                                         <img src="/developer-photo.webp" alt="WENODH" className="w-4 h-4 rounded-full object-cover" />
                                         <p className="text-[10px] text-gray-500 font-medium">Made with ❤️ by <span className="font-bold text-primary">WENODH</span></p>

@@ -2,9 +2,17 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { supabase } from '../../lib/supabase';
 import { RootState } from '../../store';
 import { Song } from '../../types/music';
-import { setFavorites, setPlaylists, setSyncing, setLastSynced, toggleFavorite, createPlaylist, addToPlaylist, addBulkToPlaylist, removeFromPlaylist } from './librarySlice';
+import {
+    setFavorites, setFavoriteItems, setPlaylists, setSyncing, setLastSynced,
+    toggleFavorite, toggleFavoriteItem, createPlaylist,
+    addToPlaylist, addBulkToPlaylist, removeFromPlaylist
+} from './librarySlice';
 import { showToast } from '../ui/uiSlice';
+import { songToMediaItem } from '../../lib/adapters/mediaItemAdapter';
+import { mediaItemToFavorite } from '../../lib/adapters/favoriteAdapter';
+import { MediaItem } from '../../lib/audio-sdk/models';
 import { fetchSettings } from '../settings/settingsActions';
+import { syncManager } from '../../lib/sync/SyncManager';
 
 export const syncLibrary = createAsyncThunk(
     'library/sync',
@@ -18,32 +26,48 @@ export const syncLibrary = createAsyncThunk(
 
         dispatch(setSyncing(true));
         try {
-            // 1. Sync Favorites
+            // 1. Sync Favorites (Try new table first)
             const { data: cloudFavs, error: favError } = await supabase
-                .from('favorites')
-                .select('song_id, song_data')
+                .from('favorites_v2')
+                .select('media_id, media_data, created_at')
                 .eq('user_id', user.id);
 
-            if (favError) throw favError;
+            if (favError && favError.code !== 'PGRST116') {
+                 // Fallback to legacy favorites if v2 doesn't exist or fails
+                 const { data: legacyFavs } = await supabase
+                    .from('favorites')
+                    .select('song_id, song_data')
+                    .eq('user_id', user.id);
 
-            let finalFavorites = cloudFavs?.map(f => f.song_data as Song) || [];
+                 if (legacyFavs) {
+                     const migrated = legacyFavs.map(f => mediaItemToFavorite(songToMediaItem(f.song_data as Song)));
+                     dispatch(setFavoriteItems(migrated));
+                 }
+            } else {
+                let finalFavoriteItems = cloudFavs?.map(f => ({
+                    id: f.media_id,
+                    media: f.media_data as MediaItem,
+                    createdAt: f.created_at
+                })) || [];
 
-            if (options.merge) {
-                // Merge local into cloud
-                const cloudIds = new Set(finalFavorites.map(s => s.id));
-                const newToCloud = localFavorites.filter(s => !cloudIds.has(s.id));
+                if (options.merge) {
+                    const localItems = state.library.favoriteItems;
+                    const cloudIds = new Set(finalFavoriteItems.map(f => f.id));
+                    const newToCloud = localItems.filter(f => !cloudIds.has(f.id));
 
-                if (newToCloud.length > 0) {
-                    const upserts = newToCloud.map(song => ({
-                        user_id: user.id,
-                        song_id: song.id,
-                        song_data: song
-                    }));
-                    await supabase.from('favorites').upsert(upserts);
-                    finalFavorites = [...finalFavorites, ...newToCloud];
+                    if (newToCloud.length > 0) {
+                        const upserts = newToCloud.map(f => ({
+                            user_id: user.id,
+                            media_id: f.id,
+                            media_data: f.media,
+                            created_at: f.createdAt
+                        }));
+                        await supabase.from('favorites_v2').upsert(upserts);
+                        finalFavoriteItems = [...finalFavoriteItems, ...newToCloud];
+                    }
                 }
+                dispatch(setFavoriteItems(finalFavoriteItems));
             }
-            dispatch(setFavorites(finalFavorites));
 
             // 2. Sync Playlists
             const { data: cloudPlaylists, error: pleError } = await supabase
@@ -86,7 +110,7 @@ export const syncLibrary = createAsyncThunk(
                 dispatch(showToast({ message: 'Library synced successfully' }));
             }
         } catch (error) {
-            console.error('Error syncing library:', error);
+            logger.error('Error syncing library:', error);
             if (!options.silent) {
                 dispatch(showToast({ message: 'Sync failed', type: 'error' }));
             }
@@ -98,30 +122,29 @@ export const syncLibrary = createAsyncThunk(
 
 export const toggleFavoriteCloud = createAsyncThunk(
     'library/toggleFavoriteCloud',
-    async (song: Song, { getState, dispatch }) => {
+    async (item: MediaItem | Song, { getState, dispatch }) => {
         const state = getState() as RootState;
-        const user = state.auth.user;
-        const isFavorite = state.library.favorites.some(s => s.id === song.id);
 
-        // Update local state first for responsiveness
-        dispatch(toggleFavorite(song));
+        // Normalize to MediaItem
+        const media = 'id' in item && 'provider' in item ? item as MediaItem : songToMediaItem(item as Song);
+        const isFavorite = state.library.favoriteItems.some(f => f.media.id === media.id);
 
-        if (!user) return;
+        // Update local state first
+        const favoriteItem = mediaItemToFavorite(media);
+        dispatch(toggleFavoriteItem(favoriteItem));
 
-        try {
-            if (isFavorite) {
-                await supabase.from('favorites').delete().eq('user_id', user.id).eq('song_id', song.id);
-            } else {
-                await supabase.from('favorites').upsert({
-                    user_id: user.id,
-                    song_id: song.id,
-                    song_data: song
-                });
+        // Enqueue sync operation
+        await syncManager.enqueue(
+            'favorite',
+            isFavorite ? 'delete' : 'create',
+            {
+                media_id: media.id,
+                provider: media.provider,
+                content_type: media.type,
+                metadata: media,
+                created_at: new Date().toISOString()
             }
-        } catch (error) {
-            console.error('Error toggling favorite on cloud:', error);
-            // Optional: rollback local state on error?
-        }
+        );
     }
 );
 
@@ -167,7 +190,7 @@ export const savePlaylistCloud = createAsyncThunk(
             });
             if (error) throw error;
         } catch (error) {
-            console.error('Error saving playlist to cloud:', error);
+            logger.error('Error saving playlist to cloud:', error);
         }
     }
 );
@@ -183,7 +206,7 @@ export const deletePlaylistCloud = createAsyncThunk(
             const { error } = await supabase.from('playlists').delete().eq('user_id', user.id).eq('id', playlistId);
             if (error) throw error;
         } catch (error) {
-            console.error('Error deleting playlist from cloud:', error);
+            logger.error('Error deleting playlist from cloud:', error);
         }
     }
 );

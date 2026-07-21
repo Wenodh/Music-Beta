@@ -4,15 +4,18 @@ import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { IoChevronDown, IoEllipsisHorizontal, IoHeartOutline, IoHeart, IoAddCircleOutline, IoOptionsOutline, IoClose } from 'react-icons/io5';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
+import { MdForward30, MdReplay10 } from 'react-icons/md';
 import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
 import { HiQueueList } from 'react-icons/hi2';
 import { IoPeopleOutline } from 'react-icons/io5';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { eventBus, Events } from '../lib/events';
 import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
+import { getPlaybackPolicy } from '../lib/playback/PlaybackPolicy';
 import Visualizer from './Visualizer';
 import Lyrics from './Lyrics';
 import { QueueContent } from './Queue';
@@ -49,6 +52,24 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const [isQueueOverlayOpen, setIsQueueOverlayOpen] = useState(false);
     const [isInfoOverlayOpen, setIsInfoOverlayOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+    const [liveMetadata, setLiveMetadata] = useState<{ currentSong?: string; listeners?: number } | null>(null);
+
+    useEffect(() => {
+        const handleMetadataUpdate = (data: any) => {
+            if (data.id === currentSong?.id) {
+                setLiveMetadata(data.metadata);
+            }
+        };
+
+        eventBus.on(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        return () => {
+            eventBus.off(Events.PLAYBACK_METADATA_UPDATE, handleMetadataUpdate);
+        };
+    }, [currentSong?.id]);
+
+    useEffect(() => {
+        setLiveMetadata(null);
+    }, [currentSong?.id]);
 
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
@@ -68,7 +89,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
     const currentIndex = songs.findIndex(s => s.id === currentSong?.id);
     const songStack = useMemo(() => {
-        if (!currentSong || songs.length === 0) return [];
+        if (!currentSong || !Array.isArray(songs) || songs.length === 0) return [];
         const stack = [];
         const safeIndex = Math.max(0, currentIndex);
         for (let i = 0; i < Math.min(3, songs.length); i++) {
@@ -87,6 +108,8 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
 
     const { reactions } = useAppSelector(state => state.session);
+
+    const policy = useMemo(() => getPlaybackPolicy(currentSong as any), [currentSong]);
 
     if (!currentSong) return null;
 
@@ -121,7 +144,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     <div className="absolute inset-0 z-0">
                         <motion.div
                             className="absolute inset-0 opacity-30 blur-[120px] saturate-[2]"
-                            style={{ backgroundColor: theme.accentColor }}
+                            style={{ backgroundColor: theme?.accentColor || '#ef4444' }}
                         />
                         <Visualizer audioRefs={audioRefs} isPlaying={isPlaying} />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
@@ -145,11 +168,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     </div>
 
                     {/* Main Layout Container */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-4 sm:gap-y-8">
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-6 sm:gap-y-10">
 
                         {/* Card Stack & Floating Menu */}
                         <div
-                            className="relative w-full flex-1 max-h-[40vh] aspect-square max-w-[280px] xs:max-w-[320px] sm:max-w-[380px] z-[20] flex items-center justify-center"
+                            className="relative w-full aspect-square max-w-[300px] xs:max-w-[340px] sm:max-w-[400px] max-h-[42vh] z-[20] flex items-center justify-center mx-auto"
                             style={{ perspective: '1200px' }}
                         >
                             <AnimatePresence mode="popLayout">
@@ -208,7 +231,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             <div className="relative w-full flex items-center justify-center px-2">
                                 <div className="flex-1 min-w-0 text-center">
                                     <h2 className="text-xl sm:text-2xl font-black truncate leading-tight mb-0.5">{decodeHtmlEntities(currentSong.name)}</h2>
-                                    <p className="text-sm sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(currentSong.primaryArtists)}</p>
+                                    <p className="text-sm sm:text-lg text-primary font-bold opacity-90 truncate">{decodeHtmlEntities(liveMetadata?.currentSong || currentSong.primaryArtists)}</p>
                                 </div>
                                 <div className="absolute right-0 top-1/2 -translate-y-1/2">
                                     <button
@@ -222,47 +245,82 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
                             {/* Progress */}
                             <div className="w-full">
-                                <input
-                                    type="range"
-                                    min={0} max={100} step="0.1"
-                                    value={progress}
-                                    onChange={handleProgressChange}
-                                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
-                                    style={{ background: `linear-gradient(to right, ${theme.accentColor} 0%, ${theme.accentColor} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
-                                />
-                                <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
-                                    <span>{formatTime(currentTime)}</span>
-                                    <span>{formatTime(duration)}</span>
-                                </div>
+                                {policy.showDuration ? (
+                                    <>
+                                        <input
+                                            type="range"
+                                            min={0} max={100} step="0.1"
+                                            value={progress}
+                                            onChange={handleProgressChange}
+                                            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-3"
+                                            style={{ background: `linear-gradient(to right, ${theme?.accentColor || '#ef4444'} 0%, ${theme?.accentColor || '#ef4444'} ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)` }}
+                                        />
+                                        <div className="flex justify-between text-[10px] sm:text-xs font-bold text-gray-400 px-1">
+                                            <span>{formatTime(currentTime)}</span>
+                                            <span>{formatTime(duration)}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div
+                                        role="status"
+                                        aria-label="Live Stream"
+                                        className="flex items-center justify-center gap-2 mb-6"
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+                                        <span className="text-sm font-bold tracking-widest text-red-500">LIVE</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Controls */}
                             <div className="w-full flex items-center justify-between">
-                                <button
-                                    data-testid="shuffle-button"
-                                    onClick={() => dispatch(toggleShuffle())}
-                                    className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
-                                >
-                                    <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
-                                </button>
+                                <div className="w-10">
+                                    {policy.canSeek && (
+                                        <button
+                                            data-testid="shuffle-button"
+                                            onClick={() => dispatch(toggleShuffle())}
+                                            className={`p-2 transition-all ${shuffle ? 'text-white' : 'text-gray-500'}`}
+                                        >
+                                            <PiShuffleBold className="w-5 h-5 sm:w-6 sm:h-6" style={shuffle ? { color: theme.accentColor } : {}} />
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-4 sm:gap-6">
-                                    <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
+                                    {policy.canSkipPrevious && <IoMdSkipBackward onClick={handlePrev} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
+
+                                    {!!policy.skipBackwardInterval && (
+                                        <button onClick={() => handleSeek?.(Math.max(0, currentTime - policy.skipBackwardInterval!))}>
+                                            <MdReplay10 className="w-8 h-8 sm:w-9 sm:h-9" />
+                                        </button>
+                                    )}
+
                                     <div onClick={handlePlayPause} className="w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-full bg-white text-black shadow-xl active:scale-90 transition-transform">
                                         {isPlaying ? <FaPause className="w-6 h-6 sm:w-7 sm:h-7" /> : <FaPlay className="w-6 h-6 sm:w-7 sm:h-7 ml-1" />}
                                     </div>
-                                    <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />
-                                </div>
-                                <button
-                                    data-testid="repeat-button"
-                                    onClick={() => dispatch(toggleRepeatMode())}
-                                    className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
-                                >
-                                    {repeatMode === 'one' ? (
-                                        <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
-                                    ) : (
-                                        <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+
+                                    {!!policy.skipForwardInterval && (
+                                        <button onClick={() => handleSeek?.(Math.min(duration, currentTime + policy.skipForwardInterval!))}>
+                                            <MdForward30 className="w-8 h-8 sm:w-9 sm:h-9" />
+                                        </button>
                                     )}
-                                </button>
+
+                                    {policy.canSkipNext && <IoMdSkipForward onClick={handleNext} className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer" />}
+                                </div>
+                                <div className="w-10">
+                                    {policy.canSeek && (
+                                        <button
+                                            data-testid="repeat-button"
+                                            onClick={() => dispatch(toggleRepeatMode())}
+                                            className={`p-2 transition-all ${repeatMode !== 'none' ? 'text-white' : 'text-gray-500'}`}
+                                        >
+                                            {repeatMode === 'one' ? (
+                                                <PiRepeatOnceBold className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: theme.accentColor }} />
+                                            ) : (
+                                                <BiRepeat className="w-5 h-5 sm:w-6 sm:h-6" style={repeatMode === 'all' ? { color: theme.accentColor } : {}} />
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Options Bar */}
@@ -448,7 +506,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 <div className="flex items-center justify-between p-6 border-b border-white/10">
                                     <div className="flex items-center gap-2">
                                         <h2 className="text-xl font-bold">Queue</h2>
-                                        <span className="text-xs text-gray-500 font-bold">{songs.length} Tracks</span>
+                                        <span className="text-xs text-gray-500 font-bold">{(songs || []).length} Tracks</span>
                                     </div>
                                     <button onClick={() => setIsQueueOverlayOpen(false)} className="p-2 bg-white/10 rounded-full">
                                         <IoChevronDown size={24} />
@@ -501,7 +559,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             ))}
                                         </div>
 
-                                        {recommendations.length > 0 && (
+                                        {recommendations && Array.isArray(recommendations) && recommendations.length > 0 && (
                                             <div>
                                                 <h4 className="text-lg font-black mb-4">You might also like</h4>
                                                 <div className="space-y-3">
@@ -511,7 +569,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                                             onClick={() => { dispatch(playMusic(song)); setIsInfoOverlayOpen(false); }}
                                                             className="flex items-center gap-4 bg-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer"
                                                         >
-                                                            <img src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image} className="w-12 h-12 rounded-xl object-cover" />
+                                                            <img src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image} className="w-12 h-12 rounded-xl object-cover" />
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-bold truncate">{decodeHtmlEntities(song.name)}</p>
                                                                 <p className="text-xs text-gray-400 truncate">{decodeHtmlEntities(song.primaryArtists)}</p>
