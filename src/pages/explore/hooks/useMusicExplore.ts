@@ -5,7 +5,8 @@ import { MediaItem } from '../../../lib/audio-sdk/models';
 
 export function useMusicExplore(language: string) {
     const fetchMusic = useCallback(async (page: number, signal: AbortSignal) => {
-        return audioSDK.search(language, { page, limit: 30, signal, type: 'song' });
+        // JioSaavn API uses 1-based page indexing, so map 0-based page index to 1-based index
+        return audioSDK.search(language, { page: page + 1, limit: 30, signal, type: 'song' });
     }, [language]);
 
     return useExplorePagination<MediaItem>({

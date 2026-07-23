@@ -19,6 +19,58 @@ describe('AudioSDK', () => {
 
         audiobookDiscoveryService.registerMetadataProvider(new OpenLibraryProvider());
         audiobookDiscoveryService.registerAudiobookProvider(new LibriVoxProvider());
+
+        // Mock global fetch to avoid real network hits and speed up unit tests
+        global.fetch = vi.fn().mockImplementation(async (url: string) => {
+            if (url.includes('openlibrary.org/search.json')) {
+                if (url.includes('Dracula')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            docs: [{ title: 'Dracula', author_name: ['Bram Stoker'], cover_i: 12345 }]
+                        })
+                    };
+                }
+                if (url.includes('Odyssey')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            docs: [{ title: 'The Odyssey', author_name: ['Homer'], cover_i: 6789 }]
+                        })
+                    };
+                }
+                return {
+                    ok: true,
+                    json: async () => ({ docs: [] })
+                };
+            }
+            if (url.includes('librivox.org/api/feed/audiobooks')) {
+                if (url.includes('Dracula')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            books: [{ id: '123', title: 'Dracula', authors: [{ first_name: 'Bram', last_name: 'Stoker' }], totaltimesecs: 3600 }]
+                        })
+                    };
+                }
+                if (url.includes('Odyssey')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            books: [{ id: '456', title: 'The Odyssey', authors: [{ first_name: 'Homer', last_name: '' }], totaltimesecs: 4000 }]
+                        })
+                    };
+                }
+                return {
+                    ok: true,
+                    json: async () => ({ books: [] })
+                };
+            }
+            return {
+                ok: true,
+                json: async () => ({})
+            };
+        });
     });
 
     it('should be a singleton', () => {
@@ -180,7 +232,7 @@ describe('AudioSDK', () => {
             const mockMeta = {
                 id: 'mock-meta',
                 searchBooks: async () => [
-                    { title: 'The Odyssey', authors: ['Homer'], coverUrl: 'odyssey.jpg' }
+                    { title: 'The Odyssey', authors: ['H Homer'], coverUrl: 'odyssey.jpg' }
                 ]
             };
             const mockAudio = {
