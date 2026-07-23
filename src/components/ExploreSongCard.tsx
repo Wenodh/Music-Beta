@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { IoPlay } from 'react-icons/io5';
 import { useAppDispatch } from '../hooks/redux';
 import { playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { showToast } from '../features/ui/uiSlice';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { Song } from '../types/music';
 
@@ -30,6 +31,10 @@ const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
 
     const handlePlay = (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (song.type === 'radio' && !navigator.onLine) {
+            dispatch(showToast({ message: 'Internet connection required for Live Radio', type: 'error' }));
+            return;
+        }
         dispatch(playMusic({ ...song, forcePlay: true }));
     };
 

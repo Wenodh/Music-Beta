@@ -1,4 +1,5 @@
-// @ts-ignore
+import { logger } from "../lib/logger";
+// @ts-expect-error - colorthief types might not match exactly with the library version
 import { getColor } from 'colorthief';
 
 export const getDominantColor = (imageUrl: string): Promise<string> => {
@@ -32,7 +33,7 @@ export const getDominantColor = (imageUrl: string): Promise<string> => {
 
                 resolve(hex);
             } catch (error) {
-                console.error('Error extracting color:', error);
+                logger.error('Error extracting color:', error);
                 resolve('#ef4444'); // Fallback
             }
         };

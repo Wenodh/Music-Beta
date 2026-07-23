@@ -1,11 +1,12 @@
+import { logger } from "../lib/logger";
 import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setSearchedSongs, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoCompassOutline, IoGlobeOutline } from 'react-icons/io5';
-import { useNavigate } from 'react-router-dom';
+import { setSearchedSongs, setSettingsOpen, addRecentSearch, setSearchQuery as setSearchQueryAction } from '../features/musicplayer/musicPlayerSlice';
+import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoReloadOutline, IoNotificationsOutline, IoFlashOutline, IoPersonOutline } from 'react-icons/io5';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
-import { search as searchUrl } from '../constants';
+import { audioSDK } from '../lib/audio-sdk';
+import { SearchAdapter } from '../lib/audio-sdk/search-adapter';
 import debounce from 'lodash/debounce';
 
 const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { focusSearch?: boolean; isVisible?: boolean }) => {
@@ -13,7 +14,9 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const navigate = useNavigate();
     const inputRef = React.useRef<HTMLInputElement>(null);
     const navRef = React.useRef<HTMLElement>(null);
-    const [searchQuery, setSearchQuery] = useState('');
+    const { searchQuery: persistedSearchQuery } = useAppSelector(state => state.musicPlayer);
+    const [searchQuery, setSearchQuery] = useState(persistedSearchQuery || '');
+    const [isLoading, setIsLoading] = useState(false);
 
     // Dynamic height measurement
     useEffect(() => {
@@ -45,6 +48,8 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     }, [focusSearch]);
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { theme } = useAppSelector((state) => state.ui);
+    const { unreadNotificationCount, currentUserProfile } = useAppSelector((state) => state.social);
+    const location = useLocation();
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -72,14 +77,23 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const fetchSearchResults = async (query: string) => {
         if (!query.trim()) {
             dispatch(setSearchedSongs([]));
+            setIsLoading(false);
             return;
         }
+        setIsLoading(true);
         try {
-            const res = await axios.get(`${searchUrl}${query}`);
-            // Global search returns topQuery, songs, albums, artists, playlists
-            dispatch(setSearchedSongs(res.data.data));
+            const mediaItems = await audioSDK.search(query);
+            const results = SearchAdapter.mediaItemsToSearchResults(mediaItems);
+            dispatch(setSearchedSongs(results));
+            if (query.trim().length > 2) {
+                dispatch(addRecentSearch(query.trim()));
+            }
         } catch (error) {
-            console.error('Error fetching search results:', error);
+            logger.error('Error fetching search results:', error);
+            // Even if search fails, we should clear loading state and potentially show partial results if we implemented it
+            // For now, just ensure it doesn't stay in loading state
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -90,6 +104,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const query = e.target.value;
         setSearchQuery(query);
+        dispatch(setSearchQueryAction(query));
         debouncedSearch(query);
     };
 
@@ -119,16 +134,33 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                         by <span className="text-red-400/80">WENODH</span>
                     </div>
                 </div>
-                <div className="absolute right-0 flex items-center gap-2 md:hidden">
+                <div className="absolute right-0 flex items-center gap-1 sm:gap-2 md:hidden">
+                    {isAuthenticated && (
+                        <button
+                            onClick={() => navigate('/notifications')}
+                            aria-label="Notifications"
+                            className="relative p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
+                        >
+                            <IoNotificationsOutline size={22} />
+                            {unreadNotificationCount > 0 && (
+                                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
+                                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                                </span>
+                            )}
+                        </button>
+                    )}
                     <button
-                        onClick={() => dispatch(setSettingsOpen(true))}
-                        aria-label="Settings"
-                        className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20 overflow-hidden"
+                        onClick={() => navigate('/profile')}
+                        aria-label="Profile"
+                        className="p-0.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20 overflow-hidden"
+                        style={{ borderColor: 'rgba(var(--accent-rgb), 0.2)' }}
                     >
-                        {isAuthenticated && user?.user_metadata?.avatar_url ? (
-                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
+                        {currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url ? (
+                            <img src={currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
-                            <img src="/vibeon-logo.png" alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-primary bg-primary/10">
+                                <IoPersonOutline size={18} />
+                            </div>
                         )}
                     </button>
                 </div>
@@ -141,15 +173,21 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 <div className="relative w-full group">
                     <input
                         ref={inputRef}
+                        data-testid="search-input"
                         type="text"
                         value={searchQuery}
                         onChange={handleSearchChange}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         placeholder="Search for songs, albums, artists..."
-                        className={`w-full p-2 sm:p-2.5 pl-10 sm:pl-11 rounded-2xl bg-gray-100/50 border-2 border-transparent focus:border-primary/50 focus:bg-white focus:outline-none transition-all shadow-inner text-base ${theme.isOled ? 'dark:bg-black/50 dark:focus:bg-black' : 'dark:bg-gray-800/50 dark:focus:bg-gray-900'}`}
+                        className={`w-full p-2 sm:p-2.5 pl-10 sm:pl-11 rounded-2xl bg-gray-100/50 border-2 border-transparent focus:bg-white focus:outline-none transition-all shadow-inner text-base ${theme.isOled ? 'dark:bg-black/50 dark:focus:bg-black' : 'dark:bg-gray-800/50 dark:focus:bg-gray-900'}`}
+                        style={{ borderFocusColor: 'rgba(var(--accent-rgb), 0.5)' } as any}
                     />
-                    <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
+                    {isLoading ? (
+                        <IoReloadOutline className="absolute left-4 top-1/2 -translate-y-1/2 text-primary animate-spin" size={20} />
+                    ) : (
+                        <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
+                    )}
 
                     <AnimatePresence>
                         {searchQuery && (
@@ -160,6 +198,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                                 type="button"
                                 onClick={() => {
                                     setSearchQuery('');
+                                    dispatch(setSearchQueryAction(''));
                                     dispatch(setSearchedSongs([]));
                                 }}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
@@ -177,7 +216,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                     aria-label="Explore"
                     className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
                 >
-                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
                         <IoCompassOutline size={18} />
                     </div>
                     <span className="text-sm font-bold uppercase tracking-tight">Explore</span>
@@ -185,24 +224,68 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 <button
                     onClick={() => navigate('/globe')}
                     aria-label="Song Globe"
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                    className={`p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/globe' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
                 >
-                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
                         <IoGlobeOutline size={18} />
                     </div>
                     <span className="text-sm font-bold uppercase tracking-tight">Globe</span>
                 </button>
+
+                {isAuthenticated && (
+                    <>
+                        <button
+                            onClick={() => navigate('/activity')}
+                            aria-label="Activity Feed"
+                            className={`p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/activity' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
+                        >
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                                <IoFlashOutline size={18} />
+                            </div>
+                            <span className="text-sm font-bold uppercase tracking-tight">Feed</span>
+                        </button>
+
+                        <button
+                            onClick={() => navigate('/notifications')}
+                            aria-label="Notifications"
+                            className={`relative p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/notifications' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
+                        >
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                                <IoNotificationsOutline size={18} />
+                            </div>
+                            <span className="text-sm font-bold uppercase tracking-tight">Alerts</span>
+                            {unreadNotificationCount > 0 && (
+                                <span className="absolute top-1 left-6 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
+                                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                                </span>
+                            )}
+                        </button>
+                    </>
+                )}
+
+                <button
+                    onClick={() => navigate('/profile')}
+                    aria-label="Profile"
+                    className={`p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 overflow-hidden ${location.pathname === '/profile' ? 'border-primary/40 bg-primary/5' : 'border-primary/10'}`}
+                >
+                    {currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url ? (
+                        <img src={currentUserProfile?.avatarUrl || user?.user_metadata?.avatar_url} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                            <IoPersonOutline size={18} />
+                        </div>
+                    )}
+                    <span className="text-sm font-bold uppercase tracking-tight">Profile</span>
+                </button>
+
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}
                     aria-label="Settings"
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95"
                 >
-                    {isAuthenticated && user?.user_metadata?.avatar_url ? (
-                        <img src={user.user_metadata.avatar_url} alt="Profile" className="w-7 h-7 rounded-full object-cover" />
-                    ) : (
-                        <img src="/vibeon-logo.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
-                    )}
-                    <span className="text-sm font-bold uppercase tracking-tight">Account</span>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-gray-500 bg-gray-100 dark:bg-gray-800">
+                        <IoReloadOutline size={18} className="rotate-45" />
+                    </div>
                 </button>
             </div>
         </motion.nav>

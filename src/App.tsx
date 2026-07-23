@@ -1,50 +1,71 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Player from './components/Player';
-import BottomBar from './components/BottomBar';
-import SearchSection from './components/SearchSection';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import ErrorBoundary from './components/ErrorBoundary';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ToastContainer from './components/toast/ToastContainer';
-import MiniPlayer from './components/MiniPlayer';
-import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
-import { useAppSelector, useAppDispatch } from './hooks/redux';
-import { getOfflineSongs } from './utils/db';
-import { setDownloadedIds } from './features/library/librarySlice';
-import { syncLibrary } from './features/library/libraryActions';
-import { supabase } from './lib/supabase';
+import { store, persistor } from './store';
+import { useAppDispatch, useAppSelector } from './hooks/redux';
+import { setAccentColor, showToast, removeToast, closePlaylistModal, setEqualizerOpen, setPlayerExpanded, setLyricsOpen, setSessionModalOpen } from './features/ui/uiSlice';
 import { setUser } from './features/auth/authSlice';
+import { setCurrentTime, nextSong, prevSong, playMusic, pauseMusic, setRecommendations, setQueueOpen, setSongRadioEnabled, setVisualizerStyle, toggleRepeatMode, toggleShuffle, applyMusicPlayerSettings, addToHistory, updateHistoryDuration } from './features/musicplayer/musicPlayerSlice';
+import { syncLibrary, toggleFavoriteCloud } from './features/library/libraryActions';
+import { setDownloadedIds } from './features/library/librarySlice';
 import { joinSession } from './features/session/sessionSlice';
+import { supabase } from './lib/supabase';
+import { getOfflineSongs } from './utils/db';
 import { hexToRgb } from './utils/colorUtils';
+import { historyService } from './lib/history/HistoryService';
+import { sleepTimerService } from './lib/playback/SleepTimerService';
+import { syncManager } from './lib/sync/SyncManager';
+import { StorageService } from './lib/storage/StorageService';
+import { playbackManager } from './lib/playback/PlaybackManager';
+import { eventBus } from './lib/events';
+import { logger } from './lib/logger';
+import ErrorBoundary from './components/ErrorBoundary';
+import Navbar from './components/Navbar';
+import BottomBar from './components/BottomBar';
+import Player from './components/Player';
+import MiniPlayer from './components/MiniPlayer';
+import { AppInitializer } from './components/AppInitializer';
+import ConfigWarning from './components/ConfigWarning';
+import SearchSection from './components/SearchSection';
+import ToastContainer from './components/toast/ToastContainer';
+import ScrollToTop from './components/ScrollToTop';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+import { useSyncAndDownloads } from './hooks/useSyncAndDownloads';
+import { useDeepLinking } from './hooks/useDeepLinking';
+import SocialOnboarding from './features/social/components/SocialOnboarding';
 
-const lazyRetry = (componentImport: () => Promise<any>) => {
-    return lazy(async () => {
+// Wrapper for lazy components with retry logic
+const lazyRetry = (componentImport: any) =>
+    lazy(async () => {
         try {
             return await componentImport();
         } catch (error) {
-            // If the chunk load fails, try one reload
-            console.error('Chunk load failed, reloading...', error);
+            logger.error('Error loading chunk:', error);
             window.location.reload();
             return { default: () => null };
         }
     });
-};
 
+// Lazy load pages
 const Home = lazyRetry(() => import('./pages/Home'));
 const Explore = lazyRetry(() => import('./pages/Explore'));
 const AlbumDetails = lazyRetry(() => import('./pages/AlbumDetails'));
 const ArtistPage = lazyRetry(() => import('./pages/ArtistPage'));
 const PlaylistPage = lazyRetry(() => import('./pages/PlaylistPage'));
 const Library = lazyRetry(() => import('./pages/Library'));
-const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const MediaDetails = lazyRetry(() => import('./pages/MediaDetails'));
+const MediaPersonPage = lazyRetry(() => import('./pages/MediaPersonPage'));
+const Diagnostics = lazyRetry(() => import('./pages/Diagnostics'));
+const DownloadsPage = lazyRetry(() => import('./pages/Downloads'));
+const ActivityFeed = lazyRetry(() => import('./features/social/components/ActivityFeed'));
+const NotificationCenter = lazyRetry(() => import('./features/social/components/NotificationCenter'));
+const ProfilePage = lazyRetry(() => import('./features/social/components/ProfilePage'));
+const CreatorDashboard = lazyRetry(() => import('./features/creator/components/CreatorDashboard'));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -75,6 +96,70 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/creator"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Dashboard...</div>}>
+                            <PageWrapper><CreatorDashboard /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/profile/:userId"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
+                            <PageWrapper><ProfilePage /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/activity"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Activity...</div>}>
+                            <PageWrapper><ActivityFeed /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/notifications"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Notifications...</div>}>
+                            <PageWrapper><NotificationCenter /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/debug"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><Diagnostics /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/diagnostics"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><Diagnostics /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/podcasts/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Podcast...</div>}>
+                            <PageWrapper><MediaDetails provider="podcast-index" type="podcast" /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/details/:provider/:type/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading Details...</div>}>
+                            <PageWrapper><MediaDetails /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -127,6 +212,14 @@ const AnimatedRoutes = () => {
                     }
                 />
                 <Route
+                    path="/person/:provider/:type/:id"
+                    element={
+                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                            <PageWrapper><MediaPersonPage /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
                     path="/playlists/:id"
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Playlist...</div>}>
@@ -138,7 +231,7 @@ const AnimatedRoutes = () => {
                     path="/profile"
                     element={
                         <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
-                            <PageWrapper><Profile /></PageWrapper>
+                            <PageWrapper><ProfilePage /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -163,6 +256,18 @@ const LocationAwareNavbar = () => {
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
+    useSyncAndDownloads();
+    useDeepLinking();
+    const { user, isAuthenticated } = useAppSelector(state => state.auth);
+    const socialProfile = useAppSelector(state => state.social.currentUserProfile);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
+    useEffect(() => {
+        if (isAuthenticated && user && (!socialProfile || !socialProfile.isOnboarded)) {
+            setShowOnboarding(true);
+        }
+    }, [isAuthenticated, user, socialProfile]);
+
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
@@ -181,6 +286,12 @@ export const AppContent = () => {
     }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen, isSessionModalOpen]);
 
     useEffect(() => {
+        // Initialize global services
+        (window as any)._historyService = historyService;
+        (window as any)._sleepTimerService = sleepTimerService;
+        (window as any)._syncManager = syncManager;
+        (window as any)._storageService = StorageService;
+
         // Handle direct room links
         const params = new URLSearchParams(window.location.search);
         const room = params.get('room');
@@ -194,23 +305,76 @@ export const AppContent = () => {
         // Sync Offline Downloads
         getOfflineSongs().then(songs => {
             const ids = songs.map(s => s.id);
-            dispatch(setDownloadedIds(ids));
+            // Include new downloads from StorageService
+            import('./lib/storage/StorageService').then(({ StorageService }) => {
+                StorageService.getAllDownloads().then(downloads => {
+                    const allIds = Array.from(new Set([...ids, ...downloads.map(d => d.id)]));
+                    dispatch(setDownloadedIds(allIds));
+                });
+            });
         });
 
         // Supabase Auth Listener
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            dispatch(setUser(session?.user ?? null));
-        });
+        let authSubscription: { unsubscribe: () => void } | null = null;
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            dispatch(setUser(session?.user ?? null));
-            if (event === 'SIGNED_IN' && session?.user) {
-                // Merge local library with cloud on sign in
-                dispatch(syncLibrary({ merge: true }) as any);
+        const initializeAuth = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                dispatch(setUser(session?.user ?? null));
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                    dispatch(setUser(session?.user ?? null));
+                    if (event === 'SIGNED_IN' && session?.user) {
+                        // Merge local library with cloud on sign in
+                        dispatch(syncLibrary({ merge: true }) as any);
+                    }
+                });
+                authSubscription = subscription;
+            } catch (error) {
+                logger.error('Auth', 'Failed to initialize Supabase auth listener', error);
+                // Fallback: stay as guest if auth fails
+                dispatch(setUser(null));
             }
-        });
+        };
 
-        return () => subscription.unsubscribe();
+        initializeAuth();
+
+        return () => {
+            if (authSubscription) {
+                authSubscription.unsubscribe();
+            }
+        };
+    }, [dispatch]);
+
+    useEffect(() => {
+        const handleSyncData = (data: any) => {
+            if (data.type === 'active_session') {
+                const session = data.data[0];
+                if (session && session.device_id !== syncManager.getDeviceId() && session.status === 'active') {
+                    // Another device is playing
+                    if (playbackManager.state === 'playing') {
+                        playbackManager.pause();
+                        dispatch(showToast({
+                            message: `Playback transferred to ${session.device_name}`,
+                            duration: 5000
+                        }));
+                    }
+                }
+            }
+        };
+
+        const handleInterruption = (reason: string) => {
+            dispatch(showToast({ message: reason, type: 'info' }));
+        };
+
+        eventBus.on('SYNC_DATA_RECEIVED', handleSyncData);
+        eventBus.on('PLAYBACK_INTERRUPTED', handleInterruption);
+
+        return () => {
+            eventBus.off('SYNC_DATA_RECEIVED', handleSyncData);
+            eventBus.off('PLAYBACK_INTERRUPTED', handleInterruption);
+        };
     }, [dispatch]);
 
     useEffect(() => {
@@ -250,6 +414,9 @@ export const AppContent = () => {
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >
+                <ConfigWarning />
+                <AppInitializer />
+                {showOnboarding && <SocialOnboarding onComplete={() => setShowOnboarding(false)} />}
                 <LocationAwareNavbar />
                 <BottomBar />
                 <SearchSection />
@@ -259,6 +426,7 @@ export const AppContent = () => {
                     </AnimatePresence>
                 </main>
                 <Player onShowMiniPlayer={() => setIsMiniPlayerOpen(true)} />
+                <ScrollToTop />
                 <AnimatePresence>
                     {isMiniPlayerOpen && <MiniPlayer onClose={() => setIsMiniPlayerOpen(false)} />}
                 </AnimatePresence>

@@ -7,6 +7,7 @@ import languageReducer from './features/language/languageSlice';
 import libraryReducer from './features/library/librarySlice';
 import uiReducer from './features/ui/uiSlice';
 import authReducer from './features/auth/authSlice';
+import socialReducer from './features/social/socialSlice';
 import sessionReducer from './features/session/sessionSlice';
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { uploadSettings } from './features/settings/settingsActions';
@@ -74,13 +75,14 @@ const rootReducer = combineReducers({
     library: libraryReducer,
     ui: uiReducer,
     auth: authReducer,
+    social: socialReducer,
     session: persistReducer(sessionPersistConfig, sessionReducer),
 });
 
 const persistConfig = {
     key: 'root',
     storage,
-    whitelist: ['musicPlayer', 'language', 'library', 'ui', 'auth'],
+    whitelist: ['musicPlayer', 'language', 'library', 'ui', 'auth', 'social'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

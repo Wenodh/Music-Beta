@@ -63,7 +63,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                     text: `Join my listening session on Vibe On! Code: ${roomCode}`,
                     url: link,
                 });
-            } catch (err) { console.log(err); }
+            } catch (err) { logger.debug(err); }
         } else {
             copyLink();
         }
@@ -95,7 +95,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/5">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-primary/20 text-primary">
+                        <div className="p-2 rounded-xl text-primary" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                             <IoPeopleOutline size={24} />
                         </div>
                         <h2 className="text-xl font-bold text-white">Group Session</h2>
@@ -190,7 +190,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                     {participants.map((p) => (
                                         <div key={p.id} className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/5">
-                                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs overflow-hidden border border-primary/20">
+                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-primary font-bold text-xs overflow-hidden border border-primary/20" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.2)' }}>
                                                 {p.avatar ? <img src={p.avatar} alt="" className="w-full h-full object-cover" /> : p.name[0]}
                                             </div>
                                             <div className="flex-1 min-w-0">

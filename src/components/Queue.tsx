@@ -26,8 +26,9 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className={`flex items-center gap-3 p-2 rounded-xl group mb-1 transition-colors ${
-                isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
+                isActive ? 'text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800/40'
             }`}
+            style={isActive ? { backgroundColor: 'rgba(var(--accent-rgb), 0.15)' } : {}}
         >
             <div
                 onPointerDown={(e) => {
@@ -40,7 +41,7 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
             </div>
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" onClick={() => onPlay(song)}>
                 <img
-                    src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image}
+                                    src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image}
                     alt=""
                     className="w-10 h-10 rounded object-cover"
                 />
@@ -82,7 +83,7 @@ export const QueueContent: React.FC = () => {
                 </AnimatePresence>
             </Reorder.Group>
 
-            {recommendations.length > 0 && (
+            {recommendations && Array.isArray(recommendations) && recommendations.length > 0 && (
                 <div className="mt-6 mb-4 px-2">
                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 px-2 uppercase tracking-wider">
                         Suggested Songs
@@ -94,7 +95,7 @@ export const QueueContent: React.FC = () => {
                             onClick={() => dispatch(playMusic(song))}
                         >
                             <img
-                                src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image}
+                                src={Array.isArray(song.image) ? song.image[(song.image.length || 0) - 1]?.url : song.image}
                                 alt=""
                                 className="w-10 h-10 rounded object-cover"
                             />
@@ -107,7 +108,8 @@ export const QueueContent: React.FC = () => {
                                     e.stopPropagation();
                                     dispatch(reorderQueue([...songs, song]));
                                 }}
-                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-primary/10 dark:bg-red-900/20 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
+                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
+                                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.15)' }}
                             >
                                 ADD
                             </button>
@@ -144,10 +146,10 @@ const Queue: React.FC = () => {
                         <div className="p-5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
                             <div>
                                 <h2 className="text-xl font-bold">Queue</h2>
-                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{songs.length} Songs</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{(songs || []).length} Songs</p>
                             </div>
                             <div className="flex items-center gap-1">
-                                {songs.length > 0 && (
+                                {songs && Array.isArray(songs) && songs.length > 0 && (
                                     <button
                                         onClick={() => {
                                             if (window.confirm('Clear all songs from queue?')) {

@@ -1,11 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export interface Toast {
-    id: string;
-    message: string;
-    type: 'success' | 'error' | 'info';
-}
+import { Toast } from '../../features/ui/uiSlice';
 
 interface ToastContainerProps {
     toasts: Toast[];
@@ -18,12 +14,13 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
     React.useEffect(() => {
         if (isHovered) return;
 
+        const duration = toast.duration || (toast.action ? 10000 : 3000);
         const timer = setTimeout(() => {
             onRemove(toast.id);
-        }, 3000);
+        }, duration);
 
         return () => clearTimeout(timer);
-    }, [isHovered, toast.id, onRemove]);
+    }, [isHovered, toast.id, onRemove, toast.action, toast.duration]);
 
     return (
         <motion.div
@@ -34,20 +31,43 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className={`px-4 py-3 rounded-xl shadow-lg border backdrop-blur-md flex items-center gap-3 min-w-[200px] ${
+            <div className={`px-4 py-3 rounded-xl shadow-lg border backdrop-blur-md flex flex-col gap-3 min-w-[240px] ${
                 toast.type === 'success'
                     ? 'bg-green-500/90 border-green-400 text-white'
                     : toast.type === 'error'
-                    ? 'bg-primary/90 border-red-400 text-white'
+                    ? 'border-red-400 text-white'
                     : 'bg-gray-800/90 border-gray-700 text-white'
-            }`}>
-                <span className="text-sm font-medium">{toast.message}</span>
-                <button
-                    onClick={() => onRemove(toast.id)}
-                    className="ml-auto hover:opacity-70"
-                >
-                    ✕
-                </button>
+            }`}
+            style={toast.type === 'error' ? { backgroundColor: 'rgba(var(--accent-rgb), 0.9)' } : {}}
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium flex-1">{toast.message}</span>
+                    <button
+                        onClick={() => onRemove(toast.id)}
+                        className="hover:opacity-70 text-xs p-1"
+                    >
+                        ✕
+                    </button>
+                </div>
+                {toast.action && (
+                    <div className="flex justify-end gap-2 mt-1">
+                        <button
+                            onClick={() => {
+                                toast.action?.onClick();
+                                onRemove(toast.id);
+                            }}
+                            className="px-3 py-1 bg-white text-black text-xs font-bold rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                            {toast.action.label}
+                        </button>
+                        <button
+                            onClick={() => onRemove(toast.id)}
+                            className="px-3 py-1 bg-white/10 text-white text-xs font-bold rounded-lg hover:bg-white/20 transition-colors"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                )}
             </div>
         </motion.div>
     );
