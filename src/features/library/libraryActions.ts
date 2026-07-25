@@ -5,6 +5,27 @@ import { Song } from '../../types/music';
 import { setFavorites, setPlaylists, setSyncing, setLastSynced, toggleFavorite, createPlaylist, addToPlaylist, addBulkToPlaylist, removeFromPlaylist } from './librarySlice';
 import { showToast } from '../ui/uiSlice';
 import { fetchSettings } from '../settings/settingsActions';
+import { setRecentlyPlayed } from '../musicplayer/musicPlayerSlice';
+
+export const uploadHistoryCloud = createAsyncThunk(
+    'library/uploadHistoryCloud',
+    async (song: Song, { getState }) => {
+        const state = getState() as RootState;
+        const user = state.auth.user;
+        if (!user) return;
+
+        try {
+            await supabase.from('listening_history').upsert({
+                user_id: user.id,
+                song_id: song.id,
+                song_data: song,
+                played_at: new Date().toISOString()
+            }, { onConflict: 'user_id,song_id' });
+        } catch (error) {
+            console.error('Error uploading listening history:', error);
+        }
+    }
+);
 
 export const syncLibrary = createAsyncThunk(
     'library/sync',
@@ -78,8 +99,46 @@ export const syncLibrary = createAsyncThunk(
             }
             dispatch(setPlaylists(finalPlaylists));
 
+            // 3. Sync Listening History
+            const { data: cloudHistory, error: histError } = await supabase
+                .from('listening_history')
+                .select('song_id, song_data, played_at')
+                .eq('user_id', user.id)
+                .order('played_at', { ascending: false })
+                .limit(20);
+
+            if (histError) throw histError;
+
+            let finalHistory = cloudHistory?.map(h => h.song_data as Song) || [];
+
+            if (options.merge) {
+                // Merge local recently played into cloud
+                const localHistory = state.musicPlayer.recentlyPlayed;
+                const cloudIds = new Set(finalHistory.map(s => s.id));
+                const newToCloud = localHistory.filter(s => !cloudIds.has(s.id));
+
+                if (newToCloud.length > 0) {
+                    const upserts = newToCloud.map(song => ({
+                        user_id: user.id,
+                        song_id: song.id,
+                        song_data: song,
+                        played_at: new Date().toISOString()
+                    }));
+                    await supabase.from('listening_history').upsert(upserts);
+
+                    const merged = [...localHistory, ...finalHistory];
+                    const seen = new Set();
+                    finalHistory = merged.filter(s => {
+                        if (seen.has(s.id)) return false;
+                        seen.add(s.id);
+                        return true;
+                    });
+                }
+            }
+            dispatch(setRecentlyPlayed(finalHistory.slice(0, 20)));
+
             dispatch(setLastSynced(new Date().toISOString()));
-            // 3. Sync Settings (Cloud overrides local as requested)
+            // 4. Sync Settings (Cloud overrides local as requested)
             await dispatch(fetchSettings() as any);
 
             if (!options.silent) {

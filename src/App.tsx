@@ -362,7 +362,20 @@ export const AppContent = () => {
             }
         });
 
-        return () => subscription.unsubscribe();
+        const handleOnline = () => {
+            const state = store.getState();
+            if (state.auth.user) {
+                // Trigger silent library and settings sync on reconnect
+                dispatch(syncLibrary({ merge: true, silent: true }) as any);
+            }
+        };
+
+        window.addEventListener('online', handleOnline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            subscription.unsubscribe();
+        };
     }, [dispatch]);
 
     useEffect(() => {

@@ -24,6 +24,7 @@ interface UIState {
         darkMode: boolean;
         fontStyle: string;
     };
+    settingsUpdatedAt: number;
 }
 
 const initialState: UIState = {
@@ -42,6 +43,7 @@ const initialState: UIState = {
         darkMode: true,
         fontStyle: 'Standard',
     },
+    settingsUpdatedAt: 0,
 };
 
 const uiSlice = createSlice({
@@ -106,6 +108,15 @@ const uiSlice = createSlice({
         applyThemeSettings: (state, action: PayloadAction<UIState['theme']>) => {
             state.theme = { ...state.theme, ...action.payload };
         },
+        updateSettingsTimestamp: (state) => {
+            state.settingsUpdatedAt = Date.now();
+        },
+        setSettingsUpdatedAt: (state, action: PayloadAction<number>) => {
+            state.settingsUpdatedAt = action.payload;
+        },
+        resetSettingsTimestamp: (state) => {
+            state.settingsUpdatedAt = 0;
+        },
     },
 });
 
@@ -122,6 +133,9 @@ export const {
     setOledMode,
     setDarkMode,
     setFontStyle,
-    applyThemeSettings
+    applyThemeSettings,
+    updateSettingsTimestamp,
+    setSettingsUpdatedAt,
+    resetSettingsTimestamp
 } = uiSlice.actions;
 export default uiSlice.reducer;

@@ -17,7 +17,9 @@ CREATE POLICY "Users can view their own settings" ON public.user_settings
 CREATE POLICY "Users can insert their own settings" ON public.user_settings
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own settings" ON public.user_settings
-    FOR UPDATE USING (auth.uid() = user_id);
+    FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own settings" ON public.user_settings
+    FOR DELETE USING (auth.uid() = user_id);
 
 
 -- 2. Favorites Table
@@ -70,3 +72,26 @@ CREATE POLICY "Users can delete their own playlists" ON public.playlists
 -- Enable Realtime for Group Sessions (Broadcasting)
 -- Note: Realtime is enabled per table or via Channels.
 -- Ensure "Realtime" is toggled ON in your Supabase Dashboard for the project.
+
+
+-- 5. Listening History Table
+-- Stores user's recently played/listening history songs.
+CREATE TABLE IF NOT EXISTS public.listening_history (
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    song_id TEXT NOT NULL,
+    song_data JSONB NOT NULL,
+    played_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (user_id, song_id)
+);
+
+-- Enable RLS for listening_history
+ALTER TABLE public.listening_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own history" ON public.listening_history
+    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own history" ON public.listening_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own history" ON public.listening_history
+    FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own history" ON public.listening_history
+    FOR DELETE USING (auth.uid() = user_id);

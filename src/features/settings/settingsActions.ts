@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { supabase } from '../../lib/supabase';
 import { RootState } from '../../store';
-import { applyThemeSettings } from '../ui/uiSlice';
+import { applyThemeSettings, setSettingsUpdatedAt } from '../ui/uiSlice';
 import { applyMusicPlayerSettings } from '../musicplayer/musicPlayerSlice';
 import { setLanguage } from '../language/languageSlice';
 
@@ -25,7 +25,8 @@ export const uploadSettings = createAsyncThunk(
                 visualizerStyle: state.musicPlayer.visualizerStyle,
                 repeatMode: state.musicPlayer.repeatMode,
                 shuffle: state.musicPlayer.shuffle,
-            }
+            },
+            updatedAt: state.ui.settingsUpdatedAt,
         };
 
         try {
@@ -69,15 +70,30 @@ export const fetchSettings = createAsyncThunk(
             }
 
             if (data && data.length > 0 && data[0].settings) {
-                const settings = data[0].settings;
-                if (settings.language) {
-                    dispatch(setLanguage(settings.language));
+                const settings = data[0].settings as any;
+                const cloudUpdatedAt = settings.updatedAt || 0;
+                const localUpdatedAt = state.ui.settingsUpdatedAt || 0;
+
+                if (localUpdatedAt > cloudUpdatedAt) {
+                    console.log('Local settings are newer than cloud, uploading local settings...');
+                    dispatch(uploadSettings() as any);
+                    return;
                 }
-                if (settings.theme) {
-                    dispatch(applyThemeSettings(settings.theme));
-                }
-                if (settings.musicPlayer) {
-                    dispatch(applyMusicPlayerSettings(settings.musicPlayer));
+
+                if (cloudUpdatedAt > localUpdatedAt) {
+                    console.log('Cloud settings are newer than local, applying cloud settings...');
+                    if (settings.language) {
+                        dispatch(setLanguage(settings.language));
+                    }
+                    if (settings.theme) {
+                        dispatch(applyThemeSettings(settings.theme));
+                    }
+                    if (settings.musicPlayer) {
+                        dispatch(applyMusicPlayerSettings(settings.musicPlayer));
+                    }
+                    dispatch(setSettingsUpdatedAt(cloudUpdatedAt));
+                } else {
+                    console.log('Local and cloud settings are synchronized.');
                 }
             } else {
                 // If no settings exist in cloud, upload current local settings
