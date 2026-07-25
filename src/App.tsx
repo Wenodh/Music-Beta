@@ -1,5 +1,7 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import { BrowserRouter, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import Navbar from './components/Navbar';
 import Player from './components/Player';
 import BottomBar from './components/BottomBar';
@@ -12,7 +14,8 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
-import { showToast, removeToast, closePlaylistModal, setLyricsOpen } from './features/ui/uiSlice';
+import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen } from './features/ui/uiSlice';
+import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds } from './features/library/librarySlice';
@@ -166,6 +169,155 @@ export const AppContent = () => {
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+    const navigationType = useNavigationType();
+
+    // Use a ref to keep track of our in-app route history stack
+    const historyStackRef = useRef<string[]>([location.pathname]);
+
+    // Track the current state of overlays and routes in refs so the back-button listener callback
+    // (which registers once) always has access to the most up-to-date state.
+    const stateRef = useRef({
+        pathname: location.pathname,
+        isPlayerExpanded,
+        isSettingsOpen,
+        isQueueOpen,
+        isEqualizerOpen,
+        isLyricsOpen,
+        playlistModalOpen: playlistModal.isOpen,
+        isSessionModalOpen,
+    });
+
+    useEffect(() => {
+        stateRef.current = {
+            pathname: location.pathname,
+            isPlayerExpanded,
+            isSettingsOpen,
+            isQueueOpen,
+            isEqualizerOpen,
+            isLyricsOpen,
+            playlistModalOpen: playlistModal.isOpen,
+            isSessionModalOpen,
+        };
+    }, [
+        location.pathname,
+        isPlayerExpanded,
+        isSettingsOpen,
+        isQueueOpen,
+        isEqualizerOpen,
+        isLyricsOpen,
+        playlistModal.isOpen,
+        isSessionModalOpen,
+    ]);
+
+    // Keep track of our route history
+    useEffect(() => {
+        const currentPath = location.pathname;
+        const stack = historyStackRef.current;
+
+        if (navigationType === 'PUSH') {
+            stack.push(currentPath);
+        } else if (navigationType === 'REPLACE') {
+            if (stack.length > 0) {
+                stack[stack.length - 1] = currentPath;
+            } else {
+                stack.push(currentPath);
+            }
+        } else if (navigationType === 'POP') {
+            const index = stack.lastIndexOf(currentPath);
+            if (index !== -1) {
+                historyStackRef.current = stack.slice(0, index + 1);
+            } else {
+                // If the path was not in stack, treat it as the new root of the stack
+                historyStackRef.current = [currentPath];
+            }
+        }
+    }, [location.pathname, navigationType]);
+
+    // Capacitor Native Android back button listener
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) {
+            return;
+        }
+
+        let isMounted = true;
+        let backListenerHandle: any = null;
+
+        const registerListener = async () => {
+            const handle = await CapApp.addListener('backButton', () => {
+                const {
+                    pathname,
+                    isPlayerExpanded: playerOpen,
+                    isSettingsOpen: settingsOpen,
+                    isQueueOpen: queueOpen,
+                    isEqualizerOpen: eqOpen,
+                    isLyricsOpen: lyricsOpen,
+                    playlistModalOpen: playlistOpen,
+                    isSessionModalOpen: sessionOpen,
+                } = stateRef.current;
+
+                // 1. Close active overlays first (topmost to bottommost priority)
+                if (playlistOpen) {
+                    dispatch(closePlaylistModal());
+                    return;
+                }
+                if (sessionOpen) {
+                    dispatch(setSessionModalOpen(false));
+                    return;
+                }
+                if (eqOpen) {
+                    dispatch(setEqualizerOpen(false));
+                    return;
+                }
+                if (lyricsOpen) {
+                    dispatch(setLyricsOpen(false));
+                    return;
+                }
+                if (queueOpen) {
+                    dispatch(setQueueOpen(false));
+                    return;
+                }
+                if (settingsOpen) {
+                    dispatch(setSettingsOpen(false));
+                    return;
+                }
+                if (playerOpen) {
+                    dispatch(setPlayerExpanded(false));
+                    return;
+                }
+
+                // 2. Route Navigation
+                const stack = historyStackRef.current;
+                if (stack.length > 1) {
+                    // There is in-app history, so navigate back
+                    navigate(-1);
+                } else if (pathname !== '/') {
+                    // Deep-linked fallback: no history and current page is not home, go to "/"
+                    navigate('/', { replace: true });
+                } else {
+                    // Already at "/" and no history: allow app to exit
+                    CapApp.exitApp();
+                }
+            });
+
+            if (!isMounted) {
+                handle.remove();
+            } else {
+                backListenerHandle = handle;
+            }
+        };
+
+        registerListener();
+
+        return () => {
+            isMounted = false;
+            if (backListenerHandle) {
+                backListenerHandle.remove();
+            }
+        };
+    }, [dispatch, navigate]);
 
     // Scroll Lock when overlays are open
     useEffect(() => {
