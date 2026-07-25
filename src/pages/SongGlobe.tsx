@@ -16,6 +16,9 @@ const SongGlobe: React.FC = () => {
 
     // Fetch API songs once when language or category changes
     useEffect(() => {
+        const controller = new AbortController();
+        let isAborted = false;
+
         const fetchGlobeSongs = async () => {
             try {
                 setLoading(true);
@@ -34,19 +37,31 @@ const SongGlobe: React.FC = () => {
                     `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=1&limit=40`
                 ];
 
-                const results = await Promise.allSettled(queries.map(q => axios.get(q)));
+                const results = await Promise.allSettled(queries.map(q => axios.get(q, { signal: controller.signal })));
+                if (isAborted) return;
+
                 const allSongs = results
                     .filter((res): res is PromiseFulfilledResult<any> => res.status === 'fulfilled')
                     .flatMap(res => res.value.data.data.results || []);
                 setApiSongs(allSongs);
             } catch (error) {
+                if (axios.isCancel(error)) {
+                    return;
+                }
                 console.error('Error fetching globe songs:', error);
             } finally {
-                setLoading(false);
+                if (!isAborted) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchGlobeSongs();
+
+        return () => {
+            isAborted = true;
+            controller.abort();
+        };
     }, [activeCategory]);
 
     // Compute combined unique songs

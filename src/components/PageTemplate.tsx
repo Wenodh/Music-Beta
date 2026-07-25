@@ -58,6 +58,9 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
     }, [details, dispatch]);
 
     useEffect(() => {
+        const controller = new AbortController();
+        let isAborted = false;
+
         const fetchRecommendations = async () => {
             if (!details || !(details as any).id || !(details as any).type) return;
 
@@ -81,8 +84,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     if (!artistName) artistName = (details as any).primaryArtists || (details as any).artist;
 
                     if (artistName) {
-                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`);
-                        if (moreByRes.data?.data?.results && Array.isArray(moreByRes.data.data.results)) {
+                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`, { signal: controller.signal });
+                        if (moreByRes.data?.data?.results && Array.isArray(moreByRes.data.data.results) && !isAborted) {
                             const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
                             setRecommendations(prev => ({ ...prev, moreByArtist: results }));
                         }
@@ -92,19 +95,27 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                     if (playlistName) {
                         // Clean playlist name for better search (remove common bracketed info)
                         const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
-                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`);
-                        if (similarRes.data?.data?.results && Array.isArray(similarRes.data.data.results)) {
+                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`, { signal: controller.signal });
+                        if (similarRes.data?.data?.results && Array.isArray(similarRes.data.data.results) && !isAborted) {
                             const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
                             setRecommendations(prev => ({ ...prev, similarCollections: results }));
                         }
                     }
                 }
             } catch (error) {
+                if (axios.isCancel(error)) {
+                    return;
+                }
                 console.error('Error fetching recommendations:', error);
             }
         };
 
         fetchRecommendations();
+
+        return () => {
+            isAborted = true;
+            controller.abort();
+        };
     }, [details?.id, details?.type]);
 
     const sortedSongs = [...rawSongs].sort((a: any, b: any) => {

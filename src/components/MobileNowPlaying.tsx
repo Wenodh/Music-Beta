@@ -269,28 +269,28 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                             <div className="w-full flex items-center justify-around bg-white/5 backdrop-blur-xl rounded-3xl p-1 border border-white/10">
                                 <button
                                     onClick={() => setIsLyricsOverlayOpen(true)}
-                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                    className="p-2.5 xs:p-3 sm:p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
                                 >
                                     <MdOutlineLyrics size={24} className="text-gray-300" />
                                     <span className="text-[10px] font-bold uppercase text-gray-500">Lyrics</span>
                                 </button>
                                 <button
                                     onClick={() => onOpenSession?.()}
-                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                    className="p-2.5 xs:p-3 sm:p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
                                 >
                                     <IoPeopleOutline size={24} className={isJoined ? 'text-primary' : 'text-gray-300'} />
                                     <span className="text-[10px] font-bold uppercase text-gray-500">Session</span>
                                 </button>
                                 <button
                                     onClick={() => dispatch(openPlaylistModal(currentSong!))}
-                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                    className="p-2.5 xs:p-3 sm:p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
                                 >
                                     <IoAddCircleOutline size={24} className="text-gray-300" />
                                     <span className="text-[10px] font-bold uppercase text-gray-500">Add</span>
                                 </button>
                                 <button
                                     onClick={() => setIsMoreMenuOpen(true)}
-                                    className="p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                    className="p-2.5 xs:p-3 sm:p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
                                 >
                                     <IoEllipsisHorizontal size={24} className="text-gray-300" />
                                     <span className="text-[10px] font-bold uppercase text-gray-500">More</span>

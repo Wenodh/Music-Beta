@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
 import { IoSearchOutline, IoCompassOutline, IoGlobeOutline } from 'react-icons/io5';
@@ -14,6 +14,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const inputRef = React.useRef<HTMLInputElement>(null);
     const navRef = React.useRef<HTMLElement>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     // Dynamic height measurement
     useEffect(() => {
@@ -69,33 +70,70 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
         return () => window.removeEventListener('scroll', handleScroll);
     }, [lastScrollY, isSearchFocused]);
 
-    const fetchSearchResults = async (query: string) => {
+    const fetchSearchResults = useCallback(async (query: string, signal?: AbortSignal) => {
         if (!query.trim()) {
             dispatch(setSearchedSongs([]));
             return;
         }
         try {
-            const res = await axios.get(`${searchUrl}${query}`);
+            const res = await axios.get(`${searchUrl}${query}`, { signal });
             // Global search returns topQuery, songs, albums, artists, playlists
             dispatch(setSearchedSongs(res.data.data));
         } catch (error) {
+            if (axios.isCancel(error)) {
+                // Silently handle abort
+                return;
+            }
             console.error('Error fetching search results:', error);
         }
-    };
+    }, [dispatch]);
 
-    const debouncedSearch = debounce((query: string) => {
-        fetchSearchResults(query);
-    }, 500);
+    // Use a ref to always have the latest stable reference to fetchSearchResults
+    const fetchSearchResultsRef = useRef(fetchSearchResults);
+    useEffect(() => {
+        fetchSearchResultsRef.current = fetchSearchResults;
+    }, [fetchSearchResults]);
+
+    const debouncedSearch = useMemo(() => {
+        return debounce((query: string, signal?: AbortSignal) => {
+            fetchSearchResultsRef.current(query, signal);
+        }, 300);
+    }, []);
+
+    // Clean up debounce and active request on unmount
+    useEffect(() => {
+        return () => {
+            debouncedSearch.cancel();
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [debouncedSearch]);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const query = e.target.value;
         setSearchQuery(query);
-        debouncedSearch(query);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        debouncedSearch(query, controller.signal);
     };
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        fetchSearchResults(searchQuery);
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        fetchSearchResults(searchQuery, controller.signal);
     };
 
     const finalVisible = propVisible !== undefined ? propVisible : (isVisible || isSearchFocused);
@@ -160,6 +198,9 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                                 type="button"
                                 onClick={() => {
                                     setSearchQuery('');
+                                    if (abortControllerRef.current) {
+                                        abortControllerRef.current.abort();
+                                    }
                                     dispatch(setSearchedSongs([]));
                                 }}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"

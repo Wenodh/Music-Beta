@@ -18,20 +18,25 @@ const Explore: React.FC = () => {
     const observer = useRef<IntersectionObserver | null>(null);
     const isFetching = useRef(false);
     const columns = useMasonryColumns();
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const updateHasMore = useCallback((value: boolean) => {
         hasMoreRef.current = value;
         setHasMore(value);
     }, []);
 
-    const fetchSongs = useCallback(async (pageNum: number, isReset = false) => {
-        if (isFetching.current || (!hasMoreRef.current && !isReset)) return;
+    const fetchSongs = useCallback(async (pageNum: number, isReset = false, signal?: AbortSignal) => {
+        if (isFetching.current && !isReset) return;
+        if (!hasMoreRef.current && !isReset) return;
 
         try {
             isFetching.current = true;
             setLoading(true);
+            if (isReset) {
+                setSongs([]); // Clear stale results immediately to show skeleton
+            }
             const query = language;
-            const res = await axios.get(`${songsUrl}?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`);
+            const res = await axios.get(`${songsUrl}?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`, { signal });
             const newSongs = res.data.data.results || [];
 
             if (newSongs.length === 0) {
@@ -40,17 +45,35 @@ const Explore: React.FC = () => {
                 setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
             }
         } catch (error) {
+            if (axios.isCancel(error)) {
+                return;
+            }
             console.error('Error fetching explore songs:', error);
         } finally {
-            setLoading(false);
-            isFetching.current = false;
+            if (!signal?.aborted) {
+                setLoading(false);
+                isFetching.current = false;
+            }
         }
     }, [language, updateHasMore]);
 
     useEffect(() => {
         // Reset and fetch when language changes
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         updateHasMore(true);
-        fetchSongs(0, true);
+        isFetching.current = false;
+        fetchSongs(0, true, controller.signal);
+
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
     }, [language, fetchSongs, updateHasMore]);
 
     const lastSongElementRef = useCallback((node: HTMLDivElement) => {
@@ -59,7 +82,9 @@ const Explore: React.FC = () => {
         observer.current = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting && hasMore && !isFetching.current) {
                 const nextPage = Math.floor(songs.length / 30);
-                fetchSongs(nextPage);
+                const controller = new AbortController();
+                abortControllerRef.current = controller;
+                fetchSongs(nextPage, false, controller.signal);
             }
         });
         if (node) observer.current.observe(node);
