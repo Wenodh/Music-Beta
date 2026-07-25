@@ -24,6 +24,7 @@ import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
 import { joinSession } from './features/session/sessionSlice';
 import { hexToRgb } from './utils/colorUtils';
+import { Browser } from '@capacitor/browser';
 import { Logger } from './lib/logger';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
@@ -360,6 +361,11 @@ export const AppContent = () => {
                         } else {
                             Logger.info('OAuth code exchange succeeded, session active!');
                         }
+
+                        // Close the browser sheet overlay to bring user back into the app gracefully
+                        await Browser.close().catch(err => {
+                            Logger.warn('Error closing native browser sheet', { error: err instanceof Error ? err.message : String(err) });
+                        });
                     }
                 } catch (err) {
                     Logger.error('Error processing deep link payload', { error: err instanceof Error ? err.message : String(err) });

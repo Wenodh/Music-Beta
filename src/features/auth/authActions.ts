@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../../lib/supabase';
 import { AppDispatch } from '../../store';
 import { clearLibrary } from '../library/librarySlice';
@@ -10,23 +11,53 @@ import { Logger } from '../../lib/logger';
 export const signInWithGoogle = () => async (dispatch: AppDispatch) => {
     dispatch(setLoading(true));
 
-    // Explicitly use the current origin for redirect on web to avoid cross-domain issues in multi-environment setups.
-    // For native platforms, use the canonical custom URL scheme.
-    const redirectUrl = Capacitor.isNativePlatform()
+    const isNative = Capacitor.isNativePlatform();
+    const redirectUrl = isNative
         ? 'com.wenodh.vibeon://auth/callback'
         : window.location.origin;
 
-    Logger.info('Initiating Google OAuth flow', { redirectUrl });
+    Logger.info('Initiating Google OAuth flow', { redirectUrl, isNative });
 
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: redirectUrl,
-        },
-    });
+    try {
+        if (isNative) {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: redirectUrl,
+                    skipBrowserRedirect: true,
+                },
+            });
 
-    if (error) {
-        dispatch(setError(error.message));
+            if (error) {
+                dispatch(setError(error.message));
+                dispatch(setLoading(false));
+                return;
+            }
+
+            if (data?.url) {
+                Logger.info('Opening OAuth URL in external native browser', { url: data.url });
+                await Browser.open({ url: data.url, windowName: '_system' });
+            } else {
+                dispatch(setError('Failed to generate OAuth authorization URL.'));
+                dispatch(setLoading(false));
+            }
+        } else {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: redirectUrl,
+                },
+            });
+
+            if (error) {
+                dispatch(setError(error.message));
+                dispatch(setLoading(false));
+            }
+        }
+    } catch (err) {
+        Logger.error('Exception during Google OAuth initiation', { error: err instanceof Error ? err.message : String(err) });
+        dispatch(setError(err instanceof Error ? err.message : String(err)));
+        dispatch(setLoading(false));
     }
 };
 
