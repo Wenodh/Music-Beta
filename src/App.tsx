@@ -24,6 +24,7 @@ import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
 import { joinSession } from './features/session/sessionSlice';
 import { hexToRgb } from './utils/colorUtils';
+import { Logger } from './lib/logger';
 
 const lazyRetry = (componentImport: () => Promise<any>) => {
     return lazy(async () => {
@@ -331,6 +332,56 @@ export const AppContent = () => {
             document.body.style.overflow = '';
         };
     }, [isPlayerExpanded, isSettingsOpen, isQueueOpen, isEqualizerOpen, isLyricsOpen, playlistModal.isOpen, isSessionModalOpen]);
+
+    // Capacitor Native Android deep link listener for Google OAuth callbacks
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) {
+            return;
+        }
+
+        let isMounted = true;
+        let urlListenerHandle: any = null;
+
+        const registerUrlListener = async () => {
+            const handle = await CapApp.addListener('appUrlOpen', async (data) => {
+                if (!isMounted) return;
+
+                Logger.info('Deep link received by application', { url: data.url });
+
+                try {
+                    const parsedUrl = new URL(data.url);
+                    const code = parsedUrl.searchParams.get('code');
+
+                    if (code) {
+                        Logger.info('Auth authorization code detected, executing token exchange.');
+                        const { error } = await supabase.auth.exchangeCodeForSession(code);
+                        if (error) {
+                            Logger.error('OAuth code exchange failed', { error: error.message });
+                        } else {
+                            Logger.info('OAuth code exchange succeeded, session active!');
+                        }
+                    }
+                } catch (err) {
+                    Logger.error('Error processing deep link payload', { error: err instanceof Error ? err.message : String(err) });
+                }
+            });
+
+            if (!isMounted) {
+                handle.remove();
+            } else {
+                urlListenerHandle = handle;
+            }
+        };
+
+        registerUrlListener();
+
+        return () => {
+            isMounted = false;
+            if (urlListenerHandle) {
+                urlListenerHandle.remove();
+            }
+        };
+    }, []);
 
     useEffect(() => {
         // Handle direct room links
