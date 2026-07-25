@@ -48,9 +48,9 @@ const BottomBar: React.FC = () => {
                                     />
                                 )}
                                 {active ? (
-                                    <ActiveIcon size={26} className="text-primary relative z-10 drop-shadow-[0_0_8px_rgba(var(--accent-rgb),0.6)]" />
+                                    <ActiveIcon className="w-5 h-5 xs:w-[26px] xs:h-[26px] text-primary relative z-10 drop-shadow-[0_0_8px_rgba(var(--accent-rgb),0.6)]" />
                                 ) : (
-                                    <Icon size={24} className="text-gray-500 dark:text-gray-400 relative z-10" />
+                                    <Icon className="w-[18px] h-[18px] xs:w-6 xs:h-6 text-gray-500 dark:text-gray-400 relative z-10" />
                                 )}
                             </div>
                             <AnimatePresence>
@@ -59,7 +59,7 @@ const BottomBar: React.FC = () => {
                                         initial={{ opacity: 0, y: 5 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: 5 }}
-                                        className="text-[10px] font-black mt-1 text-primary uppercase tracking-[0.15em] drop-shadow-[0_0_5px_rgba(var(--accent-rgb),0.4)]"
+                                        className="text-[8px] xs:text-[10px] font-black mt-1 text-primary uppercase tracking-[0.05em] xs:tracking-[0.15em] drop-shadow-[0_0_5px_rgba(var(--accent-rgb),0.4)]"
                                     >
                                         {item.label}
                                     </motion.span>

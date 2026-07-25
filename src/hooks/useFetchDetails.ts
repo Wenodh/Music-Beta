@@ -20,27 +20,44 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
     const stableGetImageUrl = useCallback(getImageUrl, []);
 
     useEffect(() => {
+        const controller = new AbortController();
+        let isAborted = false;
+
         const fetchDetails = async () => {
             if (!apiUrl) return;
             try {
                 setLoading(true);
                 setError(null);
-                const response = await axios.get(apiUrl);
+                const response = await axios.get(apiUrl, { signal: controller.signal });
                 const data = response.data?.data;
                 if (!data) {
                     throw new Error('No data received from server');
                 }
-                setDetails(data);
-                setImage(stableGetImageUrl(data));
+                if (!isAborted) {
+                    setDetails(data);
+                    setImage(stableGetImageUrl(data));
+                }
             } catch (err: any) {
-                console.error(err);
-                setError(err.message || 'Failed to fetch details.');
+                if (axios.isCancel(err)) {
+                    return;
+                }
+                if (!isAborted) {
+                    console.error(err);
+                    setError(err.message || 'Failed to fetch details.');
+                }
             } finally {
-                setLoading(false);
+                if (!isAborted) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchDetails();
+
+        return () => {
+            isAborted = true;
+            controller.abort();
+        };
     }, [apiUrl, stableGetImageUrl]);
 
     return { details, loading, error, image };

@@ -53,6 +53,9 @@ const MainSection: React.FC = () => {
 
     useEffect(() => {
         if (isOffline) return;
+        const controller = new AbortController();
+        let isAborted = false;
+
         const fetchData = async () => {
             try {
                 setLoading(true);
@@ -79,19 +82,21 @@ const MainSection: React.FC = () => {
                 const sanitizedSearchArtist = getSanitizedUrl(searchArtist);
 
                 const results = await Promise.allSettled([
-                    axios.get(`${modules}${language}&page=0&limit=25`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`),
-                    axios.get(`${playlistSearch}${language}`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
-                    axios.get(`${playlistById}158224644`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`),
+                    axios.get(`${modules}${language}&page=0&limit=25`, { signal: controller.signal }),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`, { signal: controller.signal }),
+                    axios.get(`${playlistSearch}${language}`, { signal: controller.signal }),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`, { signal: controller.signal }),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`, { signal: controller.signal }),
+                    axios.get(`${playlistById}158224644`, { signal: controller.signal }),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`, { signal: controller.signal }),
+                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`, { signal: controller.signal }),
+                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`, { signal: controller.signal }),
                     ...artistsToFetch.map(name => {
-                        return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
+                        return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`, { signal: controller.signal });
                     })
                 ]);
+
+                if (isAborted) return;
 
                 const albumsRes = results[0];
                 const songsRes = results[1];
@@ -139,13 +144,23 @@ const MainSection: React.FC = () => {
                     latestSongs: latestSongs
                 });
             } catch (error) {
+                if (axios.isCancel(error)) {
+                    return;
+                }
                 console.error('Error in fetchData:', error);
             } finally {
-                setLoading(false);
+                if (!isAborted) {
+                    setLoading(false);
+                }
             }
         };
         fetchData();
-    }, [language]);
+
+        return () => {
+            isAborted = true;
+            controller.abort();
+        };
+    }, [language, isOffline]);
 
     if (isOffline) {
         return (
