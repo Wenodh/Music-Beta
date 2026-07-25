@@ -2,6 +2,8 @@ import { supabase } from '../../lib/supabase';
 import { AppDispatch } from '../../store';
 import { clearLibrary } from '../library/librarySlice';
 import { setLoading, setError, setUser } from './authSlice';
+import { resetSettingsTimestamp } from '../ui/uiSlice';
+import { setRecentlyPlayed } from '../musicplayer/musicPlayerSlice';
 
 export const signInWithGoogle = () => async (dispatch: AppDispatch) => {
     dispatch(setLoading(true));
@@ -29,5 +31,7 @@ export const signOut = () => async (dispatch: AppDispatch) => {
     } else {
         dispatch(setUser(null));
         dispatch(clearLibrary());
+        dispatch(resetSettingsTimestamp());
+        dispatch(setRecentlyPlayed([]));
     }
 };

@@ -258,3 +258,78 @@ When modularizing providers under the planned future `AudioSDK`:
 ### OAuth Deep Link Redirect Failures on Device
 * Ensure your SHA-1 debug key matches the credentials configured inside Google Console.
 * Confirm that `com.wenodh.vibeon://login` is registered inside Supabase's Redirect URI panel.
+
+---
+
+## ☁️ Settings Persistence & Cloud Sync
+
+### 1. Settings Synchronization Architecture
+Vibe On synchronizes user settings and preferences across devices using Supabase and a local-first design pattern.
+* **Sync Trigger**: Whenever a synced preference is changed in Redux, a Redux listener middleware (`settingsListener` in `src/store.ts`) dispatches an update action to update a local `settingsUpdatedAt` timestamp, debounces for 1000ms, and calls `uploadSettings` to upload the settings JSON object to the `user_settings` Supabase table.
+* **Synchronized Preferences**:
+  * **Language**: State is stored in the `language` slice.
+  * **Theme & Personalization**: Accent color, dark mode toggle, OLED mode toggle, font style. State is stored in the `ui` slice.
+  * **Playback & Audio**: Playback quality, Equalizer (enabled/disabled status, custom bands, selected preset), gapless playback, crossfade duration, song radio toggle, visualizer style, repeat mode, shuffle toggle, download settings (download over Wi-Fi only). State is stored in the `musicPlayer` slice.
+
+### 2. Local-Only Preferences
+To maintain device-specific usability, certain settings are intentionally kept local/device-specific:
+* **`sleepTimer`**: Countdowns are specific to the physical device.
+* **Active Navigation & Drawer States**: `isSettingsOpen`, `isQueueOpen`, `isEqualizerOpen`, `isLyricsOpen`, `isPlayerExpanded`, `isSessionModalOpen`, `playlistModal.isOpen`, and active screen route are temporary local screen states.
+* **Playback Progress (`currentTime`)**: Active track position is specific to the current device's audio state.
+
+### 3. Listening History Synchronization (Recently Played)
+Listening history is treated as a core database domain table rather than a standard user setting.
+* **Database Table**: `listening_history` stores songs played by authenticated users with a `played_at` timestamp.
+* **Synchronization**: An auto-sync `historyListener` middleware in `src/store.ts` automatically dispatches `uploadHistoryCloud` when `playMusic` is executed.
+* **Library Sync**: During manual/automatic library syncs (`syncLibrary` in `libraryActions.ts`), cloud and local history lists are deterministically merged and deduplicated, displaying the latest 20 items. Local history remains cached via Redux Persist for instant app startup. On logout, local history cache is explicitly wiped out.
+
+### 4. Deterministic Conflict Resolution
+To handle offline edits without losing user progress:
+* Every settings payload is stamped with a local Unix milliseconds timestamp `updatedAt`.
+* When fetching settings from Supabase, the app compares the local `settingsUpdatedAt` timestamp with the cloud `settings.updatedAt` timestamp:
+  * If **local is newer**, the app preserves local changes and dispatches `uploadSettings` to update the cloud.
+  * If **cloud is newer**, the app applies the cloud settings and updates the local timestamp.
+  * If **timestamps are equal**, no write operations occur, preventing infinite sync loops.
+* **Multi-user isolation**: On `signOut`, the local settings timestamp is explicitly reset to `0` to prevent settings leaking or overwriting settings of other accounts when they log in on the same device.
+* **Automatic Sync on Reconnect**: App registers an `online` window event listener that triggers a silent library and settings synchronization when connection is restored.
+
+### 5. Supabase Schema Definitions & RLS Policies
+```sql
+-- 1. User Settings Table
+CREATE TABLE IF NOT EXISTS public.user_settings (
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own settings" ON public.user_settings
+    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own settings" ON public.user_settings
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own settings" ON public.user_settings
+    FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own settings" ON public.user_settings
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- 2. Listening History Table
+CREATE TABLE IF NOT EXISTS public.listening_history (
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    song_id TEXT NOT NULL,
+    song_data JSONB NOT NULL,
+    played_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (user_id, song_id)
+);
+
+ALTER TABLE public.listening_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own history" ON public.listening_history
+    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own history" ON public.listening_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own history" ON public.listening_history
+    FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own history" ON public.listening_history
+    FOR DELETE USING (auth.uid() = user_id);
+```

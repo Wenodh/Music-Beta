@@ -11,7 +11,7 @@ import sessionReducer from './features/session/sessionSlice';
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { uploadSettings } from './features/settings/settingsActions';
 import { setLanguage } from './features/language/languageSlice';
-import { setAccentColor, setDarkMode, setOledMode } from './features/ui/uiSlice';
+import { setAccentColor, setDarkMode, setOledMode, setFontStyle, updateSettingsTimestamp } from './features/ui/uiSlice';
 import {
     setPreferredQuality,
     setEqualizerEnabled,
@@ -23,8 +23,10 @@ import {
     setWifiOnly,
     setVisualizerStyle,
     toggleRepeatMode,
-    toggleShuffle
+    toggleShuffle,
+    playMusic
 } from './features/musicplayer/musicPlayerSlice';
+import { uploadHistoryCloud } from './features/library/libraryActions';
 
 // Create listener middleware for automatic settings sync
 const settingsListener = createListenerMiddleware();
@@ -35,6 +37,7 @@ settingsListener.startListening({
         setAccentColor,
         setDarkMode,
         setOledMode,
+        setFontStyle,
         setPreferredQuality,
         setEqualizerEnabled,
         setEqualizerBand,
@@ -48,6 +51,9 @@ settingsListener.startListening({
         toggleShuffle
     ),
     effect: async (action, listenerApi) => {
+        // Dispatch updateSettingsTimestamp first to update local timestamp
+        listenerApi.dispatch(updateSettingsTimestamp());
+
         // Debounce or just upload? user asked for "immediately"
         // We'll use a small debounce to avoid spamming the DB during rapid changes (like slider moves)
         // listenerApi.cancelActiveInstances() is removed as it can cause TypeErrors in some environments
@@ -59,6 +65,20 @@ settingsListener.startListening({
 
         listenerApi.dispatch(uploadSettings() as any);
     },
+});
+
+// Create listener middleware for history/recently played sync
+const historyListener = createListenerMiddleware();
+
+historyListener.startListening({
+    actionCreator: playMusic,
+    effect: async (action, listenerApi) => {
+        await listenerApi.delay(100);
+        const state = listenerApi.getState() as RootState;
+        if (state.auth.user && state.musicPlayer.currentSong) {
+            listenerApi.dispatch(uploadHistoryCloud(state.musicPlayer.currentSong) as any);
+        }
+    }
 });
 
 // Combine reducers
@@ -90,7 +110,7 @@ export const store = configureStore({
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: false,
-        }).prepend(settingsListener.middleware),
+        }).prepend(settingsListener.middleware, historyListener.middleware),
 });
 
 if (import.meta.env.DEV) {

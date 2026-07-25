@@ -247,6 +247,9 @@ const musicPlayerSlice = createSlice({
             if (repeatMode) state.repeatMode = repeatMode;
             if (shuffle !== undefined) state.shuffle = shuffle;
         },
+        setRecentlyPlayed: (state, action: PayloadAction<Song[]>) => {
+            state.recentlyPlayed = action.payload.slice(0, 20);
+        },
     },
 });
 
@@ -282,6 +285,7 @@ export const {
     nextSong,
     prevSong,
     applyMusicPlayerSettings,
+    setRecentlyPlayed,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
