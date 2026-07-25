@@ -32,9 +32,9 @@
 ## 📖 Documentation
 
 - **[User Guide](./docs/USER_GUIDE.md)**: How to use the app and its features.
-- **[Developer Guide](./docs/DEVELOPER_GUIDE.md)**: Technical setup, architecture, and contribution guidelines.
-- **[Android Auth Guide](./docs/ANDROID_AUTH_GUIDE.md)**: Steps to configure Google OAuth for Android.
+- **[Developer Guide](./docs/DEVELOPER_GUIDE.md)**: Technical setup, architecture, and contribution guidelines (including Google OAuth Android configurations).
 - **[Database Schema](./docs/supabase_schema.sql)**: SQL definitions for Supabase setup.
+- **[AI Agent Instructions](./AGENTS.md)**: Rules and guidelines for AI coding assistants working on the project.
 
 ## 🚀 Quick Start
 
