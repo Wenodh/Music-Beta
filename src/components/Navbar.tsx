@@ -159,13 +159,6 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 </div>
                 <div className="absolute right-0 flex items-center gap-2 md:hidden">
                     <button
-                        onClick={() => navigate('/search')}
-                        aria-label="Search"
-                        className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center justify-center border-2 border-primary/10 overflow-hidden"
-                    >
-                        <IoSearchOutline size={18} className="text-gray-700 dark:text-gray-300" />
-                    </button>
-                    <button
                         onClick={() => dispatch(setSettingsOpen(true))}
                         aria-label="Settings"
                         className="p-1 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 border-2 border-primary/20 overflow-hidden"
