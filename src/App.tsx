@@ -467,7 +467,8 @@ export const AppContent = () => {
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
                 '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
-                '--bottom-bar-height': currentSong ? '150px' : '65px',
+                '--bottom-bar-height': currentSong ? 'calc(148px + env(safe-area-inset-bottom))' : 'calc(70px + env(safe-area-inset-bottom))',
+                '--player-pill-bottom': 'calc(70px + env(safe-area-inset-bottom))',
                 paddingTop: 'var(--navbar-height, 80px)',
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
