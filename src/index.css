@@ -135,3 +135,18 @@ input[type="range"]::-webkit-slider-thumb {
 :root {
   --accent-rgb: 239, 68, 68;
 }
+
+/* Low-End Device / Disable Animations mode */
+html.disable-animations,
+html.disable-animations *,
+html.disable-animations *::before,
+html.disable-animations *::after {
+  animation: none !important;
+  transition: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.disable-animations {
+  scroll-behavior: auto !important;
+}

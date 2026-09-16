@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, setDisableAnimations, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
@@ -301,6 +301,21 @@ const SettingsDrawer: React.FC = () => {
                                             >
                                                 <motion.div
                                                     animate={{ x: theme.isOled ? 20 : 2 }}
+                                                    className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                            <div>
+                                                <p className="text-sm font-medium">Disable Animations</p>
+                                                <p className="text-[10px] text-gray-500">Improve low-end device smoothness</p>
+                                            </div>
+                                            <button
+                                                onClick={() => dispatch(setDisableAnimations(!theme.disableAnimations))}
+                                                className={`w-10 h-5 rounded-full transition-colors relative ${theme.disableAnimations ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                            >
+                                                <motion.div
+                                                    animate={{ x: theme.disableAnimations ? 20 : 2 }}
                                                     className="w-4 h-4 bg-white rounded-full absolute top-0.5"
                                                 />
                                             </button>

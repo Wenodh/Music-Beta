@@ -23,6 +23,7 @@ interface UIState {
         isOled: boolean;
         darkMode: boolean;
         fontStyle: string;
+        disableAnimations: boolean;
     };
     settingsUpdatedAt: number;
 }
@@ -42,6 +43,7 @@ const initialState: UIState = {
         isOled: false,
         darkMode: true,
         fontStyle: 'Standard',
+        disableAnimations: false,
     },
     settingsUpdatedAt: 0,
 };
@@ -105,6 +107,9 @@ const uiSlice = createSlice({
         setFontStyle: (state, action: PayloadAction<string>) => {
             state.theme.fontStyle = action.payload;
         },
+        setDisableAnimations: (state, action: PayloadAction<boolean>) => {
+            state.theme.disableAnimations = action.payload;
+        },
         applyThemeSettings: (state, action: PayloadAction<UIState['theme']>) => {
             state.theme = { ...state.theme, ...action.payload };
         },
@@ -133,6 +138,7 @@ export const {
     setOledMode,
     setDarkMode,
     setFontStyle,
+    setDisableAnimations,
     applyThemeSettings,
     updateSettingsTimestamp,
     setSettingsUpdatedAt,
