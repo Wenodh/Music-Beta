@@ -242,4 +242,4 @@ const SongsList: React.FC<SongsListProps> = ({
     );
 };
 
-export default SongsList;
+export default React.memo(SongsList);

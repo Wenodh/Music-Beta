@@ -11,7 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { Provider } from 'react-redux';
 import { persistor, store } from './store';
 import { PersistGate } from 'redux-persist/integration/react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen } from './features/ui/uiSlice';
@@ -449,7 +449,13 @@ export const AppContent = () => {
         } else {
             document.body.classList.remove('oled-mode');
         }
-    }, [theme?.darkMode, theme?.isOled]);
+
+        if (theme.disableAnimations) {
+            document.documentElement.classList.add('disable-animations');
+        } else {
+            document.documentElement.classList.remove('disable-animations');
+        }
+    }, [theme?.darkMode, theme?.isOled, theme?.disableAnimations]);
 
     const getFontStyle = () => {
         switch (theme?.fontStyle) {
@@ -462,17 +468,18 @@ export const AppContent = () => {
     };
 
     return (
-        <div
-            className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
-            style={{
-                '--accent-color': theme?.accentColor || '#ef4444',
-                '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
-                '--bottom-bar-height': currentSong ? 'calc(148px + env(safe-area-inset-bottom))' : 'calc(70px + env(safe-area-inset-bottom))',
-                '--player-pill-bottom': 'calc(70px + env(safe-area-inset-bottom))',
-                paddingTop: 'var(--navbar-height, 80px)',
-                fontFamily: getFontStyle()
-            } as React.CSSProperties}
-        >
+        <MotionConfig reducedMotion={theme?.disableAnimations ? 'always' : 'user'}>
+            <div
+                className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
+                style={{
+                    '--accent-color': theme?.accentColor || '#ef4444',
+                    '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
+                    '--bottom-bar-height': currentSong ? 'calc(148px + env(safe-area-inset-bottom))' : 'calc(70px + env(safe-area-inset-bottom))',
+                    '--player-pill-bottom': 'calc(70px + env(safe-area-inset-bottom))',
+                    paddingTop: 'var(--navbar-height, 80px)',
+                    fontFamily: getFontStyle()
+                } as React.CSSProperties}
+            >
                 <LocationAwareNavbar />
                 <BottomBar />
                 <SearchSection />
@@ -503,7 +510,8 @@ export const AppContent = () => {
                     toasts={toasts}
                     removeToast={(id) => dispatch(removeToast(id))}
                 />
-        </div>
+            </div>
+        </MotionConfig>
     );
 };
 

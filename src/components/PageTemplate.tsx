@@ -9,7 +9,11 @@ import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSongs, playMusic, addRecentlyPlayedAlbum } from '../features/musicplayer/musicPlayerSlice';
 import { openPlaylistModal, showToast } from '../features/ui/uiSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
+import { addDownloadedId } from '../features/library/librarySlice';
+import { saveSongOffline } from '../utils/db';
 import { IoGridOutline, IoListOutline, IoGlobeOutline, IoFilterOutline, IoPlay, IoHeart, IoHeartOutline, IoAdd, IoPeopleOutline, IoLogoTwitter, IoLogoFacebook, IoCheckmarkCircle } from 'react-icons/io5';
+import { LuHardDriveDownload } from 'react-icons/lu';
+import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
@@ -30,13 +34,15 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
         getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))
     );
     const dispatch = useAppDispatch();
-    const { favorites } = useAppSelector((state) => state.library);
+    const { favorites, downloadedIds } = useAppSelector((state) => state.library);
+    const { downloadSettings, preferredQuality } = useAppSelector((state) => state.musicPlayer);
     const [viewMode, setViewMode] = useState<'grid' | 'list' | 'globe'>('list');
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
     const [isBioExpanded, setIsBioExpanded] = useState(false);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [isBulkDownloading, setIsBulkDownloading] = useState(false);
     const [visibleSongsCount, setVisibleSongsCount] = useState(30);
     const [recommendations, setRecommendations] = useState<{
         moreByArtist: any[];
@@ -163,11 +169,95 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
         );
     };
 
+    const handleSelectAllToggle = () => {
+        if (selectedSongs.length === rawSongs.length) {
+            setSelectedSongs([]);
+        } else {
+            setSelectedSongs(rawSongs.map((s: any) => s.id));
+        }
+    };
+
     const handleBulkAddToPlaylist = () => {
         if (selectedSongs.length === 0) return;
         const songsToBulkAdd = sortedSongs.filter(s => selectedSongs.includes(s.id));
         dispatch(openPlaylistModal(songsToBulkAdd));
         dispatch(showToast({ message: `Ready to add ${selectedSongs.length} songs` }));
+    };
+
+    const handleBulkDownload = async () => {
+        if (selectedSongs.length === 0 || isBulkDownloading) return;
+
+        // Check WiFi settings if enabled
+        if (downloadSettings.wifiOnly) {
+            const connection = (navigator as any).connection;
+            if (connection && connection.type && connection.type !== 'wifi') {
+                dispatch(showToast({ message: 'Download waiting for Wi-Fi' }));
+                return;
+            }
+        }
+
+        const songsToDownload = rawSongs.filter((s: any) => selectedSongs.includes(s.id) && !downloadedIds.includes(s.id));
+
+        if (songsToDownload.length === 0) {
+            dispatch(showToast({ message: 'Selected songs are already downloaded' }));
+            return;
+        }
+
+        setIsBulkDownloading(true);
+        dispatch(showToast({ message: `Downloading ${songsToDownload.length} songs...` }));
+
+        let downloadedCount = 0;
+        for (const song of songsToDownload) {
+            try {
+                let url = '';
+                const downloadUrl = song.downloadUrl || song.music;
+                if (Array.isArray(downloadUrl)) {
+                    url = downloadUrl.find((d: any) => d.quality === preferredQuality)?.url || downloadUrl[downloadUrl.length - 1]?.url;
+                } else {
+                    url = downloadUrl;
+                }
+
+                if (!url) continue;
+
+                const audioRes = await fetch(url);
+                const audioBlob = await audioRes.blob();
+
+                const image = song.image;
+                const imageUrl = Array.isArray(image) ? image[image.length - 1]?.url : image;
+                let imageBlob = new Blob();
+                if (imageUrl) {
+                    try {
+                        const imageRes = await fetch(imageUrl);
+                        imageBlob = await imageRes.blob();
+                    } catch (e) {
+                        console.warn('Failed to fetch image blob for bulk download', e);
+                    }
+                }
+
+                const parsedArtists = (song.primaryArtists && typeof song.primaryArtists === 'object')
+                    ? (song.primaryArtists as any).primary?.map((a: any) => a.name).join(', ') || (song.primaryArtists as any).all?.map((a: any) => a.name).join(', ')
+                    : (song.primaryArtists || '');
+
+                const songData: Song = {
+                    id: song.id,
+                    name: song.name,
+                    primaryArtists: parsedArtists,
+                    duration: song.duration,
+                    image: song.image,
+                    downloadUrl: song.downloadUrl || song.music,
+                    album: song.album || details
+                };
+
+                await saveSongOffline(songData, audioBlob, imageBlob);
+                dispatch(addDownloadedId(song.id));
+                downloadedCount++;
+            } catch (err) {
+                console.error(`Failed to download song ${song.name}`, err);
+            }
+        }
+
+        setIsBulkDownloading(false);
+        dispatch(showToast({ message: `Downloaded ${downloadedCount} songs offline` }));
     };
 
     const songs = sortedSongs.slice(0, visibleSongsCount);
@@ -244,15 +334,42 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title,
                             >
                                 {isSelectionMode ? 'Cancel' : 'Select'}
                             </button>
-                            {isSelectionMode && selectedSongs.length > 0 && (
-                                <motion.button
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    onClick={handleBulkAddToPlaylist}
-                                    className="bg-primary text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-lg whitespace-nowrap"
+                            {isSelectionMode && (
+                                <button
+                                    onClick={handleSelectAllToggle}
+                                    className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all whitespace-nowrap"
                                 >
-                                    Add {selectedSongs.length} to Playlist
-                                </motion.button>
+                                    {selectedSongs.length === rawSongs.length && rawSongs.length > 0 ? 'Deselect All' : 'Select All'}
+                                </button>
+                            )}
+                            {isSelectionMode && selectedSongs.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <motion.button
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        onClick={handleBulkAddToPlaylist}
+                                        className="bg-primary text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-lg whitespace-nowrap"
+                                    >
+                                        Add {selectedSongs.length} to Playlist
+                                    </motion.button>
+                                    <motion.button
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        onClick={handleBulkDownload}
+                                        disabled={isBulkDownloading}
+                                        className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5 disabled:opacity-50"
+                                    >
+                                        {isBulkDownloading ? (
+                                            <>
+                                                <AiOutlineLoading3Quarters className="animate-spin text-xs" /> Downloading...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <LuHardDriveDownload size={13} /> Download ({selectedSongs.length})
+                                            </>
+                                        )}
+                                    </motion.button>
+                                </div>
                             )}
                         </div>
 
