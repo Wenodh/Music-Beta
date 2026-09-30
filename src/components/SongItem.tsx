@@ -11,7 +11,7 @@ interface SongItemProps {
     primaryArtists?: string;
 }
 
-const SongItem: React.FC<SongItemProps> = ({
+const SongItem: React.FC<SongItemProps> = React.memo(({
     id,
     title,
     image,
@@ -19,8 +19,9 @@ const SongItem: React.FC<SongItemProps> = ({
     primaryArtists,
 }) => {
     const navigate = useNavigate();
-    const { currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
-    const isCurrent = currentSong?.id === id;
+    const currentSongId = useAppSelector((state) => state.musicPlayer.currentSong?.id);
+    const isPlaying = useAppSelector((state) => state.musicPlayer.isPlaying);
+    const isCurrent = currentSongId === id;
 
     const handleClick = () => {
         if (type === 'playlist') {
@@ -71,6 +72,8 @@ const SongItem: React.FC<SongItemProps> = ({
             )}
         </div>
     );
-};
+});
+
+SongItem.displayName = 'SongItem';
 
 export default SongItem;

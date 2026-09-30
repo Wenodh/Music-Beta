@@ -70,6 +70,8 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     </motion.div>
 );
 
+import { CardSkeleton, PageHeaderSkeleton } from './components/Skeleton';
+
 const AnimatedRoutes = () => {
     const location = useLocation();
     return (
@@ -78,7 +80,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                        <Suspense fallback={<div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">{Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)}</div>}>
                             <PageWrapper><Home /></PageWrapper>
                         </Suspense>
                     }
@@ -86,7 +88,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/globe"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Song Globe...</div>}>
+                        <Suspense fallback={<div className="p-10 text-center"><div className="w-64 h-64 mx-auto rounded-full bg-white/5 animate-pulse" /></div>}>
                             <PageWrapper><SongGlobe /></PageWrapper>
                         </Suspense>
                     }
@@ -94,7 +96,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/search"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Search...</div>}>
+                        <Suspense fallback={<div className="p-4 space-y-4">{Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}</div>}>
                             <PageWrapper><Search /></PageWrapper>
                         </Suspense>
                     }
@@ -102,7 +104,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/explore"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Explore...</div>}>
+                        <Suspense fallback={<div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">{Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)}</div>}>
                             <PageWrapper><Explore /></PageWrapper>
                         </Suspense>
                     }
@@ -110,7 +112,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/albums/:id"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Album...</div>}>
+                        <Suspense fallback={<div className="p-4"><PageHeaderSkeleton /></div>}>
                             <PageWrapper><AlbumDetails /></PageWrapper>
                         </Suspense>
                     }
@@ -118,7 +120,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/library"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Library...</div>}>
+                        <Suspense fallback={<div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">{Array.from({ length: 8 }).map((_, i) => <CardSkeleton key={i} />)}</div>}>
                             <PageWrapper><Library /></PageWrapper>
                         </Suspense>
                     }
@@ -126,7 +128,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/artists/:id"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Artist...</div>}>
+                        <Suspense fallback={<div className="p-4"><PageHeaderSkeleton /></div>}>
                             <PageWrapper><ArtistPage /></PageWrapper>
                         </Suspense>
                     }
@@ -134,7 +136,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/playlists/:id"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Playlist...</div>}>
+                        <Suspense fallback={<div className="p-4"><PageHeaderSkeleton /></div>}>
                             <PageWrapper><PlaylistPage /></PageWrapper>
                         </Suspense>
                     }
@@ -142,7 +144,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/profile"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading Profile...</div>}>
+                        <Suspense fallback={<div className="p-4"><PageHeaderSkeleton /></div>}>
                             <PageWrapper><Profile /></PageWrapper>
                         </Suspense>
                     }
@@ -150,7 +152,7 @@ const AnimatedRoutes = () => {
                 <Route
                     path="/privacy"
                     element={
-                        <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                        <Suspense fallback={<div className="p-6 space-y-4 max-w-3xl mx-auto"><div className="h-8 w-1/3 bg-white/5 animate-pulse rounded" /><div className="h-4 w-full bg-white/5 animate-pulse rounded" /><div className="h-4 w-5/6 bg-white/5 animate-pulse rounded" /></div>}>
                             <PageWrapper><PrivacyPolicy /></PageWrapper>
                         </Suspense>
                     }
