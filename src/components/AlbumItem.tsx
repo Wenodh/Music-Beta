@@ -14,7 +14,7 @@ interface AlbumItemProps {
     data?: any;
 }
 
-const AlbumItem: React.FC<AlbumItemProps> = (props) => {
+const AlbumItem: React.FC<AlbumItemProps> = React.memo((props) => {
     const { id, image, name, artists, type, data } = props;
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
@@ -63,6 +63,8 @@ const AlbumItem: React.FC<AlbumItemProps> = (props) => {
             </div>
         </motion.div>
     );
-};
+});
+
+AlbumItem.displayName = 'AlbumItem';
 
 export default AlbumItem;
