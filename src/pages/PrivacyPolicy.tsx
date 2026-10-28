@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { PiShieldCheck } from 'react-icons/pi';
 
@@ -19,16 +18,16 @@ const PrivacyPolicy = () => {
 
             <div className="space-y-10 text-gray-300 leading-relaxed">
                 <section className="space-y-4 p-6 bg-primary/5 border border-primary/10 rounded-2xl">
-                    <h2 className="text-xl font-bold text-white">Developer's Note</h2>
+                    <h2 className="text-xl font-bold text-white">Developer&apos;s Note</h2>
                     <p className="italic">
-                        "I created Vibe On as a personal project to practice and showcase my learnings in modern web development and Android app publishing. This application serves as a portfolio piece to demonstrate my technical skills as I pursue a career as a software engineer. Every feature, from the dynamic theme engine to the native Android integration, is a result of my dedication to learning and implementation."
+                        &quot;I created Vibe On as a personal project to practice and showcase my learnings in modern web development and Android app publishing. This application serves as a portfolio piece to demonstrate my technical skills as I pursue a career as a software engineer. Every feature, from the dynamic theme engine to the native Android integration, is a result of my dedication to learning and implementation.&quot;
                     </p>
                 </section>
 
                 <section className="space-y-4">
                     <h2 className="text-2xl font-bold text-white">1. Introduction</h2>
                     <p>
-                        Vibe On ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how your personal information is collected, used, and disclosed by Vibe On.
+                        Vibe On (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains how your personal information is collected, used, and disclosed by Vibe On.
                     </p>
                 </section>
 
@@ -74,7 +73,7 @@ const PrivacyPolicy = () => {
                 <section className="space-y-4">
                     <h2 className="text-2xl font-bold text-white">6. Changes to This Policy</h2>
                     <p>
-                        We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date.
+                        We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date.
                     </p>
                 </section>
             </div>

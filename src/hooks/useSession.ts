@@ -12,11 +12,8 @@ import {
 import {
     playMusic,
     pauseMusic,
-    setCurrentTime,
-    setCurrentSong,
     setSongs
 } from '../features/musicplayer/musicPlayerSlice';
-import { Song } from '../types/music';
 
 export const useSession = () => {
     const dispatch = useAppDispatch();
@@ -27,7 +24,6 @@ export const useSession = () => {
     const userId = user?.id || anonymousId;
 
     const channelRef = useRef<RealtimeChannel | null>(null);
-    const lastEventRef = useRef<{ type: string; timestamp: number; songId?: string } | null>(null);
 
     const isInternalAction = useRef(false);
 

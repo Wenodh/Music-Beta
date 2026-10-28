@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { deletePlaylist, updatePlaylistSongs } from '../features/library/librarySlice';
-import { savePlaylistCloud, deletePlaylistCloud, toggleFavoriteCloud, createPlaylistCloud, removeFromPlaylistCloud } from '../features/library/libraryActions';
+import { deletePlaylist } from '../features/library/librarySlice';
+import { deletePlaylistCloud, toggleFavoriteCloud, createPlaylistCloud, removeFromPlaylistCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { removeDownloadedId } from '../features/library/librarySlice';
+import { extractImageUrl } from '../utils/imageUtils';
 import { showToast } from '../features/ui/uiSlice';
 
 const Library: React.FC = () => {
@@ -274,7 +275,7 @@ const Library: React.FC = () => {
                                 >
                                     <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
                                         <img
-                                            src={Array.isArray(song.image) ? song.image[song.image.length - 1].url : song.image}
+                                            src={extractImageUrl(song as any)}
                                             alt={song.name}
                                             loading="lazy"
                                             className="w-full h-full object-cover"
@@ -338,7 +339,7 @@ const Library: React.FC = () => {
                             <div className={`relative bg-gray-100 dark:bg-gray-800 overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'} flex items-center justify-center`}>
                                 {playlist.songs.length > 0 ? (
                                     <img
-                                        src={Array.isArray(playlist.songs[0].image) ? playlist.songs[0].image[playlist.songs[0].image.length - 1].url : playlist.songs[0].image}
+                                        src={extractImageUrl(playlist.songs[0] as any)}
                                         className="w-full h-full object-cover"
                                         loading="lazy"
                                         alt=""
@@ -416,7 +417,7 @@ const Library: React.FC = () => {
                                 }}
                             >
                                 <img
-                                    src={Array.isArray(song.image) ? song.image[0].url : song.image}
+                                    src={extractImageUrl(song as any)}
                                     alt=""
                                     loading="lazy"
                                     className="w-12 h-12 rounded-lg object-cover"

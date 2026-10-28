@@ -5,7 +5,7 @@ import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDu
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoWifiOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';

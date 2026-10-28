@@ -13,6 +13,7 @@ import { IoGridOutline, IoListOutline, IoGlobeOutline, IoFilterOutline, IoPlay, 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Song } from '../types/music';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { extractImageUrl } from '../utils/imageUtils';
 import { search as searchUrl, album as albumSearchUrl, playlistSearch as playlistSearchUrl } from '../constants';
 
 interface PageTemplateProps {
@@ -24,10 +25,10 @@ interface PageTemplateProps {
 
 const GlobeScene = React.lazy(() => import('./globe/GlobeScene'));
 
-const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl, title, children }) => {
+const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl = extractImageUrl, title, children }) => {
     const { details, loading, error, image: fetchedImage } = useFetchDetails(
         apiUrl || '',
-        getImageUrl || ((d: any) => (d.image ? (Array.isArray(d.image) ? d.image[d.image.length - 1].url : d.image) : ''))
+        getImageUrl
     );
     const dispatch = useAppDispatch();
     const { favorites } = useAppSelector((state) => state.library);
