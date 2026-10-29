@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { extractImageUrl } from '../utils/imageUtils';
 
 interface FetchDetailsResult<T> {
     details: T | null;
@@ -10,14 +11,12 @@ interface FetchDetailsResult<T> {
 
 const useFetchDetails = <T extends { name?: string; title?: string }>(
     apiUrl: string,
-    getImageUrl: (data: T) => string
+    getImageUrl: (data: T) => string = extractImageUrl as unknown as (data: T) => string
 ): FetchDetailsResult<T> => {
     const [details, setDetails] = useState<T | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [image, setImage] = useState<string>('');
-
-    const stableGetImageUrl = useCallback(getImageUrl, []);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -35,15 +34,16 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
                 }
                 if (!isAborted) {
                     setDetails(data);
-                    setImage(stableGetImageUrl(data));
+                    setImage(getImageUrl(data));
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 if (axios.isCancel(err)) {
                     return;
                 }
                 if (!isAborted) {
+                    const errorMessage = err instanceof Error ? err.message : 'Failed to fetch details.';
                     console.error(err);
-                    setError(err.message || 'Failed to fetch details.');
+                    setError(errorMessage);
                 }
             } finally {
                 if (!isAborted) {
@@ -58,7 +58,7 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
             isAborted = true;
             controller.abort();
         };
-    }, [apiUrl, stableGetImageUrl]);
+    }, [apiUrl, getImageUrl]);
 
     return { details, loading, error, image };
 };

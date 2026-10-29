@@ -273,8 +273,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         playbackRate: activeAudio.playbackRate || 1,
                         position: activeAudio.currentTime || 0,
                     });
-                } catch (e) {
-                    console.error('Error setting MediaSession position state:', e);
+                } catch {
+                    // Suppress or log MediaSession position errors
                 }
             }
         }
@@ -370,7 +370,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         playbackRate: activeAudio.playbackRate || 1,
                         position: currentTime || 0,
                     });
-                } catch (e) {}
+                } catch {
+                    // Suppress or log MediaSession position errors
+                }
             }
 
             // Update Progress Bar

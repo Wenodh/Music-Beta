@@ -63,7 +63,7 @@ const musicPlayerSlice = createSlice({
             state.searchedSongs = action.payload;
         },
         playMusic: (state, action: PayloadAction<Song & { forcePlay?: boolean } | any>) => {
-            const { audioBlob, imageBlob, forcePlay, ...songData } = action.payload;
+            const { forcePlay, ...songData } = action.payload;
             const id = songData.id;
 
             // Toggle play/pause if current song is clicked again (unless forcePlay is true)

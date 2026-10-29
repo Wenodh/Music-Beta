@@ -18,6 +18,7 @@ module.exports = {
     ],
     '@typescript-eslint/no-explicit-any': 'warn',
     'react/prop-types': 'off',
+    'react/no-unknown-property': 'off',
   },
   settings: {
     react: {

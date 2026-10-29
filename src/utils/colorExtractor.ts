@@ -1,4 +1,4 @@
-// @ts-ignore
+// @ts-expect-error colorthief lacks export declarations in some module environments
 import { getColor } from 'colorthief';
 
 export const getDominantColor = (imageUrl: string): Promise<string> => {

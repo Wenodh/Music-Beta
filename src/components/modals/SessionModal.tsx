@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { IoClose, IoCopyOutline, IoShareOutline, IoPeopleOutline, IoLogInOutline, IoAddCircleOutline } from 'react-icons/io5';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
@@ -126,7 +126,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {activeTab === 'join' && !isJoined && (
                         <form onSubmit={handleJoinSession} className="space-y-6 text-center">
-                            <p className="text-gray-400 text-sm">Enter a 6-digit code to join a friend's session.</p>
+                            <p className="text-gray-400 text-sm">Enter a 6-digit code to join a friend&apos;s session.</p>
                             <input
                                 type="text"
                                 value={joinCode}

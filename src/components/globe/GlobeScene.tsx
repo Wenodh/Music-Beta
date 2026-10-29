@@ -167,7 +167,7 @@ const Globe: React.FC<{ songs: Song[], selectedSongId: string | null, onSelect: 
     const groupRef = useRef<THREE.Group>(null);
     const { theme } = useAppSelector(state => state.ui);
 
-    useFrame((state) => {
+    useFrame(() => {
         if (groupRef.current) {
             groupRef.current.rotation.y += 0.001;
         }

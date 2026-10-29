@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import { IoGlobeOutline } from 'react-icons/io5';
-import { songs as songsUrl, modules } from '../constants';
+import { songs as songsUrl } from '../constants';
 import { Song } from '../types/music';
 
 const GlobeScene = lazy(() => import('../components/globe/GlobeScene'));

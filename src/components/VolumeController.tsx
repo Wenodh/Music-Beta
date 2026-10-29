@@ -1,5 +1,4 @@
-import React, { useRef, useEffect } from 'react';
-import { useAppSelector } from '../hooks/redux';
+import React, { useEffect } from 'react';
 
 interface VolumeControllerProps {
     isVolumeVisible: boolean;
