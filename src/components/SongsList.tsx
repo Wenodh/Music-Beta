@@ -39,7 +39,7 @@ const SongsList: React.FC<SongsListProps> = ({
     isSelectionMode
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, downloadSettings, preferredQuality } = useAppSelector((state) => state.musicPlayer);
+    const { currentSong, isPlaying, downloadSettings, preferredQuality } = useAppSelector((state) => state.musicPlayer);
     const { favorites, downloadedIds } = useAppSelector((state) => state.library);
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -179,11 +179,28 @@ const SongsList: React.FC<SongsListProps> = ({
                         src={Array.isArray(image) ? image[0]?.url : image}
                         alt={name}
                         loading="lazy"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-sm"
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-sm ${isCurrent ? 'brightness-75' : ''}`}
                     />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/song:opacity-100 transition-opacity rounded-lg">
-                        <span className="text-white text-xs">▶</span>
-                    </div>
+                    {isCurrent ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+                            <div className="flex gap-0.5 items-end h-4">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div
+                                        key={i}
+                                        className={`w-1 bg-primary rounded-full ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-1.5'}`}
+                                        style={{
+                                            animationDelay: `${i * 0.1}s`,
+                                            height: isPlaying ? undefined : `${(i % 3 + 1) * 3}px`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/song:opacity-100 transition-opacity rounded-lg">
+                            <span className="text-white text-xs">▶</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex flex-col min-w-0">
                     <p className="font-semibold text-xs sm:text-sm truncate">

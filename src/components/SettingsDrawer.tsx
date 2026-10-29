@@ -98,14 +98,14 @@ const SettingsDrawer: React.FC = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={() => dispatch(setSettingsOpen(false))}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300]"
                     />
                     <motion.div
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className={`fixed right-0 top-0 bottom-0 w-full sm:max-w-sm md:max-w-md bg-white shadow-2xl z-[110] overflow-y-auto ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-900'}`}
+                        className={`fixed right-0 top-0 bottom-0 w-full sm:max-w-sm md:max-w-md bg-white shadow-2xl z-[310] overflow-y-auto ${theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-900'}`}
                     >
                         <div className="p-6 pb-32">
                             <div className="flex justify-between items-center mb-8">

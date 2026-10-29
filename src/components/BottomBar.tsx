@@ -2,7 +2,8 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoGlobeOutline, IoGlobe, IoPersonOutline, IoPerson } from 'react-icons/io5';
-import { useAppSelector } from '../hooks/redux';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { setSettingsOpen, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 
 const navItems = [
     { label: 'Home', path: '/', icon: IoHomeOutline, activeIcon: IoHome },
@@ -15,7 +16,13 @@ const navItems = [
 
 const BottomBar: React.FC = () => {
     const location = useLocation();
+    const dispatch = useAppDispatch();
     const { theme } = useAppSelector((state) => state.ui);
+
+    const handleNavClick = () => {
+        dispatch(setSettingsOpen(false));
+        dispatch(setQueueOpen(false));
+    };
 
     const isActive = (path: string) => {
         if (path === '/') return location.pathname === '/';
@@ -23,7 +30,7 @@ const BottomBar: React.FC = () => {
     };
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-3 pb-3 pb-safe pointer-events-none">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[350] px-3 pb-3 pb-safe pointer-events-none">
             <div className={`pointer-events-auto flex items-center justify-around w-full max-w-md mx-auto px-0.5 py-1 rounded-[20px] shadow-[0_12px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.4)] backdrop-blur-2xl border border-white/10 dark:border-white/5 relative overflow-hidden transition-colors duration-500 ${theme.isOled ? 'bg-black/95' : 'bg-white/85 dark:bg-gray-950/85'}`}>
                 {/* Premium subtle inner ambient glow */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-30 pointer-events-none" />
@@ -37,6 +44,7 @@ const BottomBar: React.FC = () => {
                         <Link
                             key={item.label}
                             to={item.path}
+                            onClick={handleNavClick}
                             className="flex flex-col items-center justify-center py-1 relative group flex-1 rounded-xl cursor-pointer select-none min-w-0"
                             aria-label={item.label}
                         >

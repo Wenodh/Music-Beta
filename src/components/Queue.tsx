@@ -16,6 +16,7 @@ interface QueueItemProps {
 
 const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove }) => {
     const dragControls = useDragControls();
+    const isPlaying = useAppSelector((state) => state.musicPlayer.isPlaying);
 
     return (
         <Reorder.Item
@@ -39,11 +40,29 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
                 <IoReorderThreeOutline size={20} className={isActive ? 'text-red-400' : 'text-gray-400'} />
             </div>
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" onClick={() => onPlay(song)}>
-                <img
-                    src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image}
-                    alt=""
-                    className="w-10 h-10 rounded object-cover"
-                />
+                <div className="relative w-10 h-10 rounded overflow-hidden shrink-0">
+                    <img
+                        src={Array.isArray(song.image) ? song.image[song.image.length - 1]?.url : song.image}
+                        alt=""
+                        className={`w-full h-full object-cover ${isActive ? 'brightness-75' : ''}`}
+                    />
+                    {isActive && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <div className="flex gap-0.5 items-end h-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div
+                                        key={i}
+                                        className={`w-0.5 bg-primary rounded-full ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-1'}`}
+                                        style={{
+                                            animationDelay: `${i * 0.1}s`,
+                                            height: isPlaying ? undefined : `${(i % 3 + 1) * 2}px`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{song.name}</p>
                     <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
@@ -132,14 +151,14 @@ const Queue: React.FC = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={() => dispatch(setQueueOpen(false))}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300]"
                     />
                     <motion.div
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[110] border-l border-gray-200 dark:border-gray-800 flex flex-col"
+                        className="fixed right-0 top-0 bottom-0 w-full xs:w-80 bg-white dark:bg-gray-900 shadow-2xl z-[310] border-l border-gray-200 dark:border-gray-800 flex flex-col"
                     >
                         <div className="p-5 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
                             <div>
