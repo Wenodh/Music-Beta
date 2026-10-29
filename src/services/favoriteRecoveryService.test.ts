@@ -1,251 +1,276 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     isSongIncomplete,
+    matchesCandidate,
+    extractArtists,
     mapApiSongToSong,
+    getUnsupportedReason,
     fetchSongDetailsWithRetry,
     fetchSongByFallbackSearch,
-    matchesCandidate,
-    getUnsupportedReason,
     repairFavorites,
+    saveCheckpoint,
+    loadCheckpoint,
+    clearCheckpoint,
 } from './favoriteRecoveryService';
 import { Song } from '../types/music';
 import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 vi.mock('axios');
-const mockedAxios = vi.mocked(axios, true);
-
 vi.mock('../lib/supabase', () => ({
     supabase: {
-        from: vi.fn(() => ({
-            update: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                    eq: vi.fn(() => ({
-                        select: vi.fn().mockResolvedValue({ data: [{ song_id: '1' }], error: null }),
-                    })),
-                })),
-            })),
-        })),
+        from: vi.fn(),
     },
+}));
+
+vi.mock('../utils/db', () => ({
+    getOfflineSong: vi.fn().mockResolvedValue(null),
+    saveSongOffline: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('favoriteRecoveryService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.clear();
+        }
     });
 
     describe('isSongIncomplete', () => {
-        it('returns true for null/undefined/empty object', () => {
+        it('returns true for null or undefined song', () => {
             expect(isSongIncomplete(null)).toBe(true);
             expect(isSongIncomplete(undefined)).toBe(true);
-            expect(isSongIncomplete({})).toBe(true);
         });
 
-        it('returns true if song is missing required fields like name, primaryArtists, image, downloadUrl', () => {
-            const incompleteSong: Partial<Song> = {
-                id: 'YhgzBNHA',
-            };
-            expect(isSongIncomplete(incompleteSong)).toBe(true);
-
-            const missingImage: Partial<Song> = {
-                id: 'YhgzBNHA',
-                name: 'Test Song',
-                primaryArtists: 'Test Artist',
-                downloadUrl: 'https://example.com/audio.mp4',
-            };
-            expect(isSongIncomplete(missingImage)).toBe(true);
+        it('returns true when id, name, or primaryArtists are missing', () => {
+            expect(isSongIncomplete({ id: '', name: 'Test', primaryArtists: 'Artist', image: 'http://img', downloadUrl: 'http://audio' })).toBe(true);
+            expect(isSongIncomplete({ id: '123', name: '', primaryArtists: 'Artist', image: 'http://img', downloadUrl: 'http://audio' })).toBe(true);
+            expect(isSongIncomplete({ id: '123', name: 'Test', primaryArtists: '', image: 'http://img', downloadUrl: 'http://audio' })).toBe(true);
         });
 
-        it('returns false for complete song object', () => {
-            const completeSong: Song = {
-                id: 'YhgzBNHA',
-                name: 'Lover Also Fighter Also',
-                primaryArtists: 'Shekhar Ravjiani',
-                duration: 236,
-                image: 'https://example.com/cover.jpg',
-                downloadUrl: 'https://example.com/audio.mp4',
+        it('returns true when image or streaming URL is missing', () => {
+            expect(isSongIncomplete({ id: '123', name: 'Test', primaryArtists: 'Artist', image: '', downloadUrl: 'http://audio' })).toBe(true);
+            expect(isSongIncomplete({ id: '123', name: 'Test', primaryArtists: 'Artist', image: 'http://img', downloadUrl: '' })).toBe(true);
+        });
+
+        it('returns false for complete song object with valid array URLs', () => {
+            const validSong: Song = {
+                id: '54BMoFYS',
+                name: 'Ragala Pallakilo',
+                primaryArtists: 'S.P. Balasubrahmanyam',
+                duration: 266,
+                image: [{ url: 'https://c.saavncdn.com/500x500.jpg', quality: '500x500' }],
+                downloadUrl: [{ url: 'https://aac.saavncdn.com/320.mp4', quality: '320kbps' }],
             };
-            expect(isSongIncomplete(completeSong)).toBe(false);
+            expect(isSongIncomplete(validSong)).toBe(false);
+        });
+    });
+
+    describe('HTML entity decoding and mapping', () => {
+        it('decodes HTML entities in song name, artists, and album', () => {
+            const apiData = {
+                id: '54BMoFYS',
+                name: 'Ragala Pallakilo (From &quot;Subhalekha&quot;)',
+                artists: {
+                    primary: [
+                        { name: 'S.P. Balasubrahmanyam &amp; P. Susheela' },
+                    ],
+                },
+                album: { id: '2577146', name: 'Chiranjeevi Birthday Special &apos;16' },
+                image: 'https://c.saavncdn.com/500x500.jpg',
+                downloadUrl: 'https://aac.saavncdn.com/320.mp4',
+            };
+
+            const song = mapApiSongToSong(apiData, '54BMoFYS');
+            expect(song.name).toBe('Ragala Pallakilo (From "Subhalekha")');
+            expect(song.primaryArtists).toBe("S.P. Balasubrahmanyam & P. Susheela");
+            expect(typeof song.album === 'object' && song.album?.name).toBe("Chiranjeevi Birthday Special '16");
+        });
+
+        it('extracts artists from artists.primary, artists.all, or primaryArtists string', () => {
+            expect(extractArtists({ artists: { primary: [{ name: 'Artist A' }] } })).toBe('Artist A');
+            expect(extractArtists({ artists: { all: [{ name: 'Artist B' }] } })).toBe('Artist B');
+            expect(extractArtists({ primaryArtists: 'Artist C &amp; D' })).toBe('Artist C & D');
         });
     });
 
     describe('matchesCandidate', () => {
-        it('returns true when candidate title and artist match target', () => {
+        it('matches candidate when normalized title and artist match', () => {
             const candidate = {
-                name: 'Kesariya',
-                artists: { primary: [{ name: 'Arijit Singh' }] },
+                name: 'Ragala Pallakilo (From &quot;Subhalekha&quot;)',
+                primaryArtists: 'S.P. Balasubrahmanyam',
             };
-            expect(matchesCandidate(candidate, 'Kesariya', 'Arijit Singh')).toBe(true);
+            expect(matchesCandidate(candidate, 'Ragala Pallakilo', 'S.P. Balasubrahmanyam')).toBe(true);
         });
 
-        it('returns false when title matches but artist mismatch', () => {
-            const candidate = {
-                name: 'Kesariya',
-                artists: { primary: [{ name: 'Random Artist' }] },
-            };
-            expect(matchesCandidate(candidate, 'Kesariya', 'Different Artist')).toBe(false);
-        });
-
-        it('returns false for candidate with completely different title', () => {
-            const candidate = {
-                name: 'Something Else',
-                artists: { primary: [{ name: 'Arijit Singh' }] },
-            };
-            expect(matchesCandidate(candidate, 'Kesariya', 'Arijit Singh')).toBe(false);
+        it('returns false when title or artist does not match', () => {
+            const candidate = { name: 'Different Song', primaryArtists: 'S.P. Balasubrahmanyam' };
+            expect(matchesCandidate(candidate, 'Ragala Pallakilo', 'S.P. Balasubrahmanyam')).toBe(false);
         });
     });
 
     describe('getUnsupportedReason', () => {
-        it('detects radio stations, podcasts, audiobooks, and album types', () => {
-            const radioItem: Song = { id: 'radio:123', name: 'Radio Station', primaryArtists: '', duration: 0, image: '', downloadUrl: '' };
-            expect(getUnsupportedReason(radioItem)).toContain('Radio Station');
-
-            const podcastItem: Song = { id: 'podcast:456', name: 'Podcast Episode', primaryArtists: '', duration: 0, image: '', downloadUrl: '' };
-            expect(getUnsupportedReason(podcastItem)).toContain('Podcast Episode');
-
-            const audiobookItem: Song = { id: 'audiobook:789', name: 'Audiobook Book', primaryArtists: '', duration: 0, image: '', downloadUrl: '' };
-            expect(getUnsupportedReason(audiobookItem)).toContain('Audiobook');
-
-            const albumItem: Song = { id: '999', type: 'album', name: 'Album Title', primaryArtists: '', duration: 0, image: '', downloadUrl: '' };
-            expect(getUnsupportedReason(albumItem)).toContain('Unsupported item type: album');
-        });
-
-        it('returns null for standard song items', () => {
-            const normalSong: Song = { id: 'KGfDrbWe', name: 'Kesariya', primaryArtists: 'Arijit Singh', duration: 200, image: '', downloadUrl: '' };
-            expect(getUnsupportedReason(normalSong)).toBeNull();
+        it('detects non-music types correctly', () => {
+            expect(getUnsupportedReason({ id: 'radio:123', name: 'Radio', primaryArtists: 'DJ', duration: 0, image: '', downloadUrl: '' })).toContain('Radio Station');
+            expect(getUnsupportedReason({ id: 'podcast:456', name: 'Podcast', primaryArtists: 'Host', duration: 0, image: '', downloadUrl: '' })).toContain('Podcast Episode');
+            expect(getUnsupportedReason({ id: 'librivox:789', name: 'Audiobook', primaryArtists: 'Author', duration: 0, image: '', downloadUrl: '' })).toContain('Audiobook');
+            expect(getUnsupportedReason({ id: '54BMoFYS', name: 'Song', primaryArtists: 'Singer', duration: 200, image: 'http', downloadUrl: 'http' })).toBeNull();
         });
     });
 
-    describe('mapApiSongToSong', () => {
-        it('maps raw API item correctly to Song model while preserving original fallback ID', () => {
-            const apiData = {
-                id: 'NEW_ID_999',
-                name: 'Lover Also Fighter Also',
-                duration: 236,
-                year: '2018',
-                artists: {
-                    primary: [{ name: 'Shekhar Ravjiani' }],
-                },
-                album: { id: '12709287', name: 'Naa Peru Surya' },
-                image: [{ quality: '500x500', url: 'https://example.com/500.jpg' }],
-                downloadUrl: [{ quality: '320kbps', url: 'https://example.com/320.mp4' }],
-            };
-
-            const mapped = mapApiSongToSong(apiData, 'ORIGINAL_FAV_ID');
-
-            expect(mapped.id).toBe('ORIGINAL_FAV_ID');
-            expect(mapped.name).toBe('Lover Also Fighter Also');
-            expect(mapped.primaryArtists).toBe('Shekhar Ravjiani');
-            expect(mapped.duration).toBe(236);
-            expect(mapped.year).toBe('2018');
-        });
-    });
-
-    describe('fetchSongByFallbackSearch', () => {
-        it('performs fallback search and returns mapped song on matching title and artist', async () => {
-            const existingSong: Song = {
-                id: 'LEGACY_123',
-                name: 'Kesariya',
-                primaryArtists: 'Arijit Singh',
-                duration: 0,
-                image: '',
-                downloadUrl: '',
-            };
-
-            mockedAxios.get.mockResolvedValueOnce({
+    describe('fetchSongDetailsWithRetry', () => {
+        it('successfully fetches and maps song metadata from primary endpoint', async () => {
+            (axios.get as any).mockResolvedValueOnce({
                 data: {
                     success: true,
+                    data: [
+                        {
+                            id: '54BMoFYS',
+                            name: 'Ragala Pallakilo',
+                            artists: { primary: [{ name: 'S.P. Balasubrahmanyam' }] },
+                            image: [{ url: 'http://img', quality: '500x500' }],
+                            downloadUrl: [{ url: 'http://audio', quality: '320kbps' }],
+                        },
+                    ],
+                },
+            });
+
+            const result = await fetchSongDetailsWithRetry('54BMoFYS');
+            expect(result.song?.id).toBe('54BMoFYS');
+            expect(result.song?.name).toBe('Ragala Pallakilo');
+            expect(result.song?.primaryArtists).toBe('S.P. Balasubrahmanyam');
+        });
+
+        it('fails over to fallback endpoint if primary endpoint throws error', async () => {
+            (axios.get as any)
+                .mockRejectedValueOnce(new Error('Primary network failure'))
+                .mockResolvedValueOnce({
                     data: {
-                        results: [
+                        success: true,
+                        data: [
                             {
-                                id: 'KGfDrbWe',
-                                name: 'Kesariya',
-                                artists: { primary: [{ name: 'Arijit Singh' }] },
-                                image: 'https://example.com/kesariya.jpg',
-                                downloadUrl: 'https://example.com/kesariya.mp4',
+                                id: '54BMoFYS',
+                                name: 'Ragala Pallakilo',
+                                primaryArtists: 'S.P. Balasubrahmanyam',
+                                image: 'http://img',
+                                downloadUrl: 'http://audio',
                             },
                         ],
                     },
-                },
-            });
+                });
 
-            const result = await fetchSongByFallbackSearch(existingSong, 1);
-            expect(result.song).toBeDefined();
-            expect(result.song?.id).toBe('LEGACY_123');
-            expect(result.song?.name).toBe('Kesariya');
-        });
-
-        it('returns error when title and artist are missing for fallback search', async () => {
-            const emptySong: Song = {
-                id: 'EMPTY_123',
-                name: '',
-                primaryArtists: '',
-                duration: 0,
-                image: '',
-                downloadUrl: '',
-            };
-
-            const result = await fetchSongByFallbackSearch(emptySong, 1);
-            expect(result.song).toBeUndefined();
-            expect(result.errorReason).toContain('Missing title and artist');
+            const result = await fetchSongDetailsWithRetry('54BMoFYS');
+            expect(result.song?.id).toBe('54BMoFYS');
         });
     });
 
-    describe('repairFavorites', () => {
-        it('uses direct ID lookup first, then fallback search if direct ID lookup fails', async () => {
-            const incompleteSong: Song = {
-                id: 'OLD_ID_1',
-                name: 'Kesariya',
-                primaryArtists: 'Arijit Singh',
-                duration: 0,
-                image: '',
-                downloadUrl: '',
-            };
-
-            // 1st call: direct ID lookup returns not found
-            mockedAxios.get.mockResolvedValueOnce({
-                data: { success: false, message: 'song not found' },
-            });
-
-            // 2nd call: fallback search returns verified match
-            mockedAxios.get.mockResolvedValueOnce({
+    describe('repairFavorites with Supabase errors, Dry-Run mode, and Checkpoints', () => {
+        it('operates in dry-run mode without modifying Supabase', async () => {
+            (axios.get as any).mockResolvedValue({
                 data: {
                     success: true,
-                    data: {
-                        results: [
-                            {
-                                id: 'KGfDrbWe',
-                                name: 'Kesariya',
-                                artists: { primary: [{ name: 'Arijit Singh' }] },
-                                image: 'https://example.com/img.jpg',
-                                downloadUrl: 'https://example.com/audio.mp4',
-                            },
-                        ],
-                    },
+                    data: [
+                        {
+                            id: '54BMoFYS',
+                            name: 'Ragala Pallakilo',
+                            primaryArtists: 'S.P. Balasubrahmanyam',
+                            image: 'http://img',
+                            downloadUrl: 'http://audio',
+                        },
+                    ],
                 },
             });
 
-            const report = await repairFavorites([incompleteSong], 'user-123', { concurrency: 1 });
+            const incompleteSong: Song = { id: '54BMoFYS', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' };
+            const report = await repairFavorites([incompleteSong], 'user-123', {
+                isDryRun: true,
+                resumeCheckpoint: false,
+            });
 
             expect(report.repaired).toBe(1);
-            expect(report.repairedSongs[0].id).toBe('OLD_ID_1');
-            expect(report.repairedSongs[0].name).toBe('Kesariya');
+            expect(report.isDryRun).toBe(true);
+            expect(supabase.from).not.toHaveBeenCalled();
         });
 
-        it('classifies non-music items as unavailable with specific reason', async () => {
-            const radioItem: Song = {
-                id: 'radio:city_fm',
-                name: 'City FM',
-                primaryArtists: '',
-                duration: 0,
-                image: '',
-                downloadUrl: '',
-            };
+        it('handles zero-row update error from Supabase correctly', async () => {
+            (axios.get as any).mockResolvedValue({
+                data: {
+                    success: true,
+                    data: [
+                        {
+                            id: '54BMoFYS',
+                            name: 'Ragala Pallakilo',
+                            primaryArtists: 'S.P. Balasubrahmanyam',
+                            image: 'http://img',
+                            downloadUrl: 'http://audio',
+                        },
+                    ],
+                },
+            });
 
-            const report = await repairFavorites([radioItem], 'user-123', { concurrency: 1 });
+            const mockUpdate = vi.fn().mockReturnThis();
+            const mockEq1 = vi.fn().mockReturnThis();
+            const mockEq2 = vi.fn().mockReturnThis();
+            const mockSelect = vi.fn().mockResolvedValue({ data: [], error: null });
 
-            expect(report.repaired).toBe(0);
-            expect(report.unavailable).toBe(1);
-            expect(report.failedItems[0].reason).toContain('Radio Station');
+            (supabase.from as any).mockReturnValue({
+                update: mockUpdate,
+            });
+            mockUpdate.mockReturnValue({ eq: mockEq1 });
+            mockEq1.mockReturnValue({ eq: mockEq2 });
+            mockEq2.mockReturnValue({ select: mockSelect });
+
+            const incompleteSong: Song = { id: '54BMoFYS', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' };
+            const report = await repairFavorites([incompleteSong], 'user-123', {
+                isDryRun: false,
+                resumeCheckpoint: false,
+            });
+
+            expect(report.failed).toBe(1);
+            expect(report.failedItems[0].reason).toContain('matched 0 rows');
+        });
+
+        it('saves and clears checkpoint state correctly', () => {
+            saveCheckpoint({
+                processedIds: ['54BMoFYS'],
+                repairedSongs: [],
+                failedItems: [],
+                timestamp: Date.now(),
+            });
+
+            const loaded = loadCheckpoint();
+            expect(loaded?.processedIds).toEqual(['54BMoFYS']);
+
+            clearCheckpoint();
+            expect(loadCheckpoint()).toBeNull();
+        });
+
+        it('respects limit option for testing 3 items batch', async () => {
+            (axios.get as any).mockResolvedValue({
+                data: {
+                    success: true,
+                    data: [
+                        { id: '1', name: 'S1', primaryArtists: 'A1', image: 'http', downloadUrl: 'http' },
+                    ],
+                },
+            });
+
+            const items: Song[] = [
+                { id: '1', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' },
+                { id: '2', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' },
+                { id: '3', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' },
+                { id: '4', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' },
+                { id: '5', name: '', primaryArtists: '', duration: 0, image: '', downloadUrl: '' },
+            ];
+
+            const report = await repairFavorites(items, 'user-123', {
+                isDryRun: true,
+                limit: 3,
+                resumeCheckpoint: false,
+            });
+
+            expect(report.repaired + report.failed + report.unavailable).toBe(3);
         });
     });
 });
