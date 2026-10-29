@@ -18,6 +18,7 @@ interface UIState {
     isLyricsOpen: boolean;
     isPlayerExpanded: boolean;
     isSessionModalOpen: boolean;
+    isImportExportModalOpen: boolean;
     theme: {
         accentColor: string;
         isOled: boolean;
@@ -37,6 +38,7 @@ const initialState: UIState = {
     isLyricsOpen: false,
     isPlayerExpanded: false,
     isSessionModalOpen: false,
+    isImportExportModalOpen: false,
     theme: {
         accentColor: '#ef4444', // Default red-500
         isOled: false,
@@ -87,6 +89,9 @@ const uiSlice = createSlice({
         setSessionModalOpen: (state, action: PayloadAction<boolean>) => {
             state.isSessionModalOpen = action.payload;
         },
+        setImportExportModalOpen: (state, action: PayloadAction<boolean>) => {
+            state.isImportExportModalOpen = action.payload;
+        },
         setAccentColor: (state, action: PayloadAction<string>) => {
             state.theme.accentColor = action.payload;
         },
@@ -129,6 +134,7 @@ export const {
     setLyricsOpen,
     setPlayerExpanded,
     setSessionModalOpen,
+    setImportExportModalOpen,
     setAccentColor,
     setOledMode,
     setDarkMode,

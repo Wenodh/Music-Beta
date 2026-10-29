@@ -177,6 +177,8 @@ The codebase directory layout is structured as follows:
 │   │   ├── session/            # Group Session parameters & real-time reactions
 │   │   └── ui/                 # Dynamic theme, modals, drawer controls
 │   ├── hooks/                  # React Hooks (useSession, useFetchDetails)
+│   ├── lib/                    # Portability, Supabase, Logger adapters
+│   │   └── portability/        # Import/Export parsers, exporters, matching engine
 │   ├── pages/                  # Top-level Router Page components
 │   ├── types/                  # TypeScript interface definitions (music.ts)
 │   ├── utils/                  # Utility helpers (IndexedDB db.ts, lyrics parser)

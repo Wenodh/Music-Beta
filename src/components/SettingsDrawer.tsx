@@ -2,10 +2,10 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen } from '../features/ui/uiSlice';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
@@ -289,6 +289,23 @@ const SettingsDrawer: React.FC = () => {
                                                 <span className="text-sm font-medium">My Library</span>
                                             </div>
                                             <span className="text-gray-400 text-xs">View all</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                dispatch(setSettingsOpen(false));
+                                                dispatch(setImportExportModalOpen(true));
+                                            }}
+                                            className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <IoSwapHorizontalOutline className="text-primary" size={20} />
+                                                <div>
+                                                    <p className="text-sm font-medium text-left">Import & Export</p>
+                                                    <p className="text-[10px] text-gray-500 text-left">Backup, restore or convert CSV/M3U</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-gray-400 text-xs">Open</span>
                                         </button>
                                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
                                             <div>

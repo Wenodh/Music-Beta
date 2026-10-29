@@ -36,6 +36,14 @@ Bring your music to life visually with five custom canvas-based visualizers:
 * Choose between **Bars**, **Waveform**, **Particles**, **Circular**, and **Pixel** grid visualizers.
 * Access and switch modes instantly from the player menu to match your current music vibe.
 
+### 6. Portable Music Library Import & Export
+Take full ownership of your music collection:
+* **Backup & Restore**: Export your complete Vibe On library (favorites and playlists) as a versioned JSON backup (`vibeon-library` v1) and safely restore or merge it anytime.
+* **Format Conversions**: Export playlists or favorites as CSV spreadsheet files, M3U/M3U8 player playlists, or plain text track lists.
+* **Import External Playlists**: Import files from CSV, TXT, M3U/M3U8, or Vibe On backups.
+* **Track Matching & Resolution**: Preview parsed tracks before importing with automated catalog matching, inline manual search resolution, and non-destructive merge options.
+* **Access Points**: Open the Import & Export tool directly from the Settings Drawer or via the action toolbar on your Library page.
+
 ---
 
 ## 🎨 Interface Personalization & Modern Design
