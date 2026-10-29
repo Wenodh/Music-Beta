@@ -15,6 +15,7 @@ export interface OfflineSong extends Song {
     imageBlob: Blob;
     downloadedAt: number;
     size: number;
+    quality?: string;
 }
 
 /**
@@ -44,12 +45,18 @@ export const initDB = (): Promise<IDBDatabase> => {
  * @param {Blob} imageBlob - The cover art image blob.
  * @returns {Promise<void>}
  */
-export const saveSongOffline = async (song: Song, audioBlob: Blob, imageBlob: Blob): Promise<void> => {
+export const saveSongOffline = async (
+    song: Song,
+    audioBlob: Blob,
+    imageBlob: Blob,
+    quality?: string
+): Promise<void> => {
     const db = await initDB();
     const offlineSong: OfflineSong = {
         ...song,
         audioBlob,
         imageBlob,
+        quality,
         downloadedAt: Date.now(),
         size: audioBlob.size + imageBlob.size,
     };
@@ -126,6 +133,22 @@ export const deleteAllDownloads = async (): Promise<void> => {
         const request = store.clear();
 
         request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+/**
+ * Retrieves all downloaded song IDs from offline storage.
+ * @returns {Promise<string[]>}
+ */
+export const getDownloadedSongIds = async (): Promise<string[]> => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAllKeys();
+
+        request.onsuccess = () => resolve(request.result.map(k => String(k)));
         request.onerror = () => reject(request.error);
     });
 };
