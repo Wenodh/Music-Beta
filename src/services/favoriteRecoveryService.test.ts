@@ -199,5 +199,50 @@ describe('favoriteRecoveryService', () => {
             expect(report.repaired).toBe(1);
             expect(report.repairedSongs[0].name).toBe('Repaired Song 2');
         });
+
+        it('supports forceAll option to recheck all songs', async () => {
+            const completeSong: Song = {
+                id: '1',
+                name: 'Complete Song',
+                primaryArtists: 'Artist 1',
+                duration: 180,
+                image: 'https://example.com/1.jpg',
+                downloadUrl: 'https://example.com/1.mp4',
+            };
+
+            mockedAxios.get.mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: [
+                        {
+                            id: '1',
+                            name: 'Rechecked Complete Song',
+                            artists: { primary: [{ name: 'Artist 1' }] },
+                            image: 'https://example.com/1-new.jpg',
+                            downloadUrl: 'https://example.com/1-new.mp4',
+                        },
+                    ],
+                },
+            });
+
+            const report = await repairFavorites([completeSong], 'user-123', {
+                concurrency: 1,
+                forceAll: true,
+            });
+
+            expect(report.totalChecked).toBe(1);
+            expect(report.alreadyComplete).toBe(0);
+            expect(report.repaired).toBe(1);
+            expect(report.repairedSongs[0].name).toBe('Rechecked Complete Song');
+        });
+
+        it('returns zero repaired for empty favorites list without throwing', async () => {
+            const report = await repairFavorites([], 'user-123');
+
+            expect(report.totalChecked).toBe(0);
+            expect(report.alreadyComplete).toBe(0);
+            expect(report.repaired).toBe(0);
+            expect(mockedAxios.get).not.toHaveBeenCalled();
+        });
     });
 });

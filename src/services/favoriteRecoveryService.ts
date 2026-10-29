@@ -23,6 +23,7 @@ export interface RecoveryOptions {
     concurrency?: number;
     maxRetries?: number;
     signal?: AbortSignal;
+    forceAll?: boolean;
     onProgress?: (progress: RecoveryProgress) => void;
     onSongRepaired?: (repairedSong: Song) => void;
 }
@@ -207,9 +208,11 @@ export async function repairFavorites(
 
     const incompleteSongs: Song[] = [];
 
-    // 1. Identify complete vs incomplete
+    // 1. Identify complete vs incomplete (or force all if forceAll option is true)
+    const forceAll = options.forceAll ?? false;
+
     for (const song of favorites) {
-        if (!isSongIncomplete(song)) {
+        if (!forceAll && !isSongIncomplete(song)) {
             report.alreadyComplete++;
         } else {
             incompleteSongs.push(song);

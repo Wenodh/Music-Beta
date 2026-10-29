@@ -355,7 +355,7 @@ const Library: React.FC = () => {
 
             {activeTab === 'favorites' && !selectedPlaylist && (
                 <div className="space-y-6">
-                    <div className="flex gap-2 sm:gap-4 items-center overflow-x-auto pb-2 scrollbar-hide">
+                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center pb-1">
                         {favorites.length > 0 && (
                             <>
                                 <button
@@ -363,7 +363,7 @@ const Library: React.FC = () => {
                                         dispatch(setSongs(favorites));
                                         dispatch(playMusic(favorites[0]));
                                     }}
-                                    className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
                                 >
                                     <IoPlay /> Play All
                                 </button>
@@ -373,13 +373,13 @@ const Library: React.FC = () => {
                                         dispatch(setSongs(shuffled));
                                         dispatch(playMusic(shuffled[0]));
                                     }}
-                                    className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
                                 >
                                     <IoShuffle /> Shuffle
                                 </button>
                                 <button
                                     onClick={() => setIsBulkModalOpen(true)}
-                                    className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap"
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 text-primary hover:bg-primary/20 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap"
                                 >
                                     <IoCloudDownload size={16} /> Download All
                                 </button>
@@ -388,7 +388,7 @@ const Library: React.FC = () => {
 
                         <button
                             onClick={() => setIsManagerModalOpen(true)}
-                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap relative"
+                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap relative"
                             title="Open Download Manager"
                         >
                             <IoCloudDownloadOutline className="text-primary" size={18} />
@@ -402,7 +402,7 @@ const Library: React.FC = () => {
 
                         <button
                             onClick={() => setIsRepairModalOpen(true)}
-                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap ml-auto"
+                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
                             title="Repair missing favorite metadata"
                         >
                             <IoBuild className="text-primary" /> Repair Favorites
