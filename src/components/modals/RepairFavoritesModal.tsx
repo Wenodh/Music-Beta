@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose, IoBuild, IoCheckmarkCircle, IoAlertCircle, IoHelpCircle, IoRefresh, IoStop } from 'react-icons/io5';
+import { IoClose, IoBuild, IoCheckmarkCircle, IoAlertCircle, IoRefresh, IoStop } from 'react-icons/io5';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setFavorites } from '../../features/library/librarySlice';
@@ -53,7 +53,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
         const updatedFavoritesMap = new Map(currentFavorites.map((s) => [s.id, s]));
 
         const songsToProcess = retryFailedOnly && report?.failedItems.length
-            ? currentFavorites.filter((s) => report.failedItems.some((f) => f.songId === s.id))
+            ? currentFavorites.filter((s) => report.failedItems.some((f) => f.songId === s.id && f.isRetryable))
             : currentFavorites;
 
         try {
@@ -77,9 +77,9 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
             } else {
                 setStatus('completed');
                 if (finalReport.repaired > 0) {
-                    dispatch(showToast({ message: `Successfully repaired ${finalReport.repaired} song${finalReport.repaired === 1 ? '' : 's'}.` }));
+                    dispatch(showToast({ message: `Successfully repaired ${finalReport.repaired} item${finalReport.repaired === 1 ? '' : 's'}.` }));
                 } else if (finalReport.failed > 0) {
-                    dispatch(showToast({ message: `${finalReport.failed} song(s) failed to repair. You can retry.` }));
+                    dispatch(showToast({ message: `${finalReport.failed} item(s) failed to repair. You can retry.` }));
                 } else {
                     dispatch(showToast({ message: 'All favorites are up to date.' }));
                 }
@@ -175,7 +175,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                             </label>
                                             {isForceMode && (
                                                 <p className="text-[11px] text-amber-600 dark:text-amber-400 pl-6 leading-relaxed">
-                                                    ⚠️ Warning: Force recheck will re-query the provider for all {favorites.length} favorite songs. This will make multiple network requests to verify artwork and playback links.
+                                                    ⚠️ Warning: Force recheck will re-query the provider for all {favorites.length} favorite items. This will make multiple network requests to verify artwork and playback links.
                                                 </p>
                                             )}
                                         </div>
@@ -183,8 +183,8 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                 ) : (
                                     <div className="space-y-3">
                                         <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                                            {incompleteCount} of your favorite songs are missing metadata (e.g. artwork, artist details, or audio URLs).
-                                            Repairing will fetch details directly from JioSaavn and update your account.
+                                            {incompleteCount} of your favorite items are missing metadata (e.g. artwork, artist details, or audio URLs).
+                                            Repairing will fetch details directly or via fallback search and update your account.
                                         </p>
                                         <div className="p-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200/60 dark:border-gray-800 text-xs">
                                             <label className="flex items-center gap-2 font-medium cursor-pointer text-gray-700 dark:text-gray-300">
@@ -194,7 +194,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                                     onChange={(e) => setIsForceMode(e.target.checked)}
                                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                                 />
-                                                Force Recheck All ({favorites.length} songs)
+                                                Force Recheck All ({favorites.length} items)
                                             </label>
                                         </div>
                                     </div>
@@ -272,17 +272,25 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                             <span className="font-semibold text-emerald-600">{report.repaired}</span>
                                         </div>
                                         <div className="flex justify-between p-1.5 rounded bg-white dark:bg-gray-900">
-                                            <span className="text-rose-600 font-medium">Unavailable:</span>
+                                            <span className="text-rose-600 font-medium">Unavailable / Unsupported:</span>
                                             <span className="font-semibold text-rose-600">{report.unavailable}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 {report.failedItems.length > 0 && (
-                                    <div className="p-3 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-500/20 text-xs flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <IoAlertCircle size={18} className="shrink-0" />
-                                            <span>{report.failedItems.length} songs failed due to temporary network errors.</span>
+                                    <div className="p-3 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-500/20 text-xs space-y-2">
+                                        <div className="flex items-center gap-2 font-semibold">
+                                            <IoAlertCircle size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span>Unresolved Items ({report.failedItems.length})</span>
+                                        </div>
+                                        <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
+                                            {report.failedItems.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between gap-2 p-1 bg-white/50 dark:bg-gray-900/50 rounded border border-amber-500/10">
+                                                    <span className="font-mono text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{item.songId}</span>
+                                                    <span className="text-amber-700 dark:text-amber-300 text-right truncate">{item.reason}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}
