@@ -18,7 +18,8 @@ import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizer
 import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { getOfflineSongs } from './utils/db';
-import { setDownloadedIds } from './features/library/librarySlice';
+import { setDownloadedIds, addDownloadedId } from './features/library/librarySlice';
+import { downloadManager } from './services/downloadManager';
 import { syncLibrary } from './features/library/libraryActions';
 import { supabase } from './lib/supabase';
 import { setUser } from './features/auth/authSlice';
@@ -171,7 +172,8 @@ const LocationAwareNavbar = () => {
 export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
-    const { currentSong, isSettingsOpen, isQueueOpen } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
+    const wifiOnly = downloadSettings?.wifiOnly ?? false;
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
     const navigate = useNavigate();
@@ -402,7 +404,11 @@ export const AppContent = () => {
             window.history.pushState({path:newurl},'',newurl);
         }
 
-        // Sync Offline Downloads
+        // Sync Offline Downloads & Initialize Download Manager
+        downloadManager.init((songId) => {
+            dispatch(addDownloadedId(songId));
+        });
+
         getOfflineSongs().then(songs => {
             const ids = songs.map(s => s.id);
             dispatch(setDownloadedIds(ids));
@@ -436,6 +442,14 @@ export const AppContent = () => {
             subscription.unsubscribe();
         };
     }, [dispatch]);
+
+    useEffect(() => {
+        downloadManager.setWifiOnly(wifiOnly);
+    }, [wifiOnly]);
+
+    useEffect(() => {
+        downloadManager.setPreferredQuality(preferredQuality);
+    }, [preferredQuality]);
 
     useEffect(() => {
         if (!theme) return;

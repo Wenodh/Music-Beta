@@ -1,26 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import { deletePlaylist } from '../features/library/librarySlice';
+import { deletePlaylist, removeDownloadedId } from '../features/library/librarySlice';
 import { deletePlaylistCloud, toggleFavoriteCloud, createPlaylistCloud, removeFromPlaylistCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle, IoBuild } from 'react-icons/io5';
+import {
+    IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline,
+    IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle, IoBuild,
+    IoCloudDownloadOutline, IoCheckmarkCircle, IoTimeOutline, IoAlertCircle, IoRefresh
+} from 'react-icons/io5';
 import { RepairFavoritesModal } from '../components/modals/RepairFavoritesModal';
+import { BulkDownloadModal } from '../components/modals/BulkDownloadModal';
+import { DownloadManagerModal } from '../components/modals/DownloadManagerModal';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
-import { removeDownloadedId } from '../features/library/librarySlice';
 import { extractImageUrl } from '../utils/imageUtils';
 import { showToast } from '../features/ui/uiSlice';
+import { downloadManager, DownloadJob, DownloadSummary } from '../services/downloadManager';
+import { Song } from '../types/music';
 
 const Library: React.FC = () => {
-    const { favorites, playlists } = useAppSelector((state) => state.library);
+    const { favorites, playlists, downloadedIds } = useAppSelector((state) => state.library);
+    const { preferredQuality } = useAppSelector((state) => state.musicPlayer);
     const dispatch = useAppDispatch();
     const location = useLocation();
+
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'offline'>('favorites');
     const [offlineSongs, setOfflineSongs] = useState<(OfflineSong & { imageUrl?: string })[]>([]);
+
+    const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
+
+    const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
+
+    const [downloadJobsMap, setDownloadJobsMap] = useState<Map<string, DownloadJob>>(new Map());
+    const [downloadSummary, setDownloadSummary] = useState<DownloadSummary>({
+        total: 0,
+        completed: 0,
+        failed: 0,
+        downloading: 0,
+        waiting: 0,
+        paused: 0,
+        isPausedForWifi: false,
+        totalBytesDownloaded: 0,
+    });
 
     const blobUrlsRef = useRef<Set<string>>(new Set());
 
@@ -32,10 +60,6 @@ const Library: React.FC = () => {
     useEffect(() => {
         return () => revokeAllBlobUrls();
     }, [revokeAllBlobUrls]);
-    const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
-    const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
@@ -50,6 +74,17 @@ const Library: React.FC = () => {
         }
     }, [activeTab]);
 
+    useEffect(() => {
+        const unsubscribe = downloadManager.subscribe((jobs, summary) => {
+            const map = new Map<string, DownloadJob>();
+            jobs.forEach(j => map.set(j.id, j));
+            setDownloadJobsMap(map);
+            setDownloadSummary(summary);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
     const loadOfflineSongs = async () => {
         revokeAllBlobUrls();
         const songs = await getOfflineSongs();
@@ -63,7 +98,7 @@ const Library: React.FC = () => {
 
     const handleDeleteOffline = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        await deleteOfflineSong(id);
+        await downloadManager.removeDownloadedSong(id);
         dispatch(removeDownloadedId(id));
         dispatch(showToast({ message: 'Removed from offline' }));
         loadOfflineSongs();
@@ -94,6 +129,95 @@ const Library: React.FC = () => {
             setNewPlaylistName('');
             setIsCreating(false);
         }
+    };
+
+    const handleSingleDownload = async (e: React.MouseEvent, song: Song) => {
+        e.stopPropagation();
+        const added = await downloadManager.enqueueSong(song, preferredQuality);
+        if (added) {
+            dispatch(showToast({ message: `Added "${song.name}" to download queue` }));
+        } else if (downloadedIds.includes(song.id)) {
+            dispatch(showToast({ message: `"${song.name}" is already downloaded` }));
+        }
+    };
+
+    const handleConfirmBulkDownload = async (mode: 'all' | 'missing') => {
+        const downloadedSet = new Set(downloadedIds);
+        const songsToQueue = mode === 'missing'
+            ? favorites.filter(s => !downloadedSet.has(s.id))
+            : favorites;
+
+        if (songsToQueue.length === 0) {
+            dispatch(showToast({ message: 'All selected songs are already downloaded' }));
+            return;
+        }
+
+        const res = await downloadManager.enqueueSongs(songsToQueue, preferredQuality);
+        dispatch(showToast({ message: `Queued ${res.added} song(s) for download` }));
+        setIsManagerModalOpen(true);
+    };
+
+    const renderDownloadButton = (song: Song) => {
+        const isDownloaded = downloadedIds.includes(song.id);
+        const job = downloadJobsMap.get(song.id);
+
+        if (isDownloaded || job?.status === 'completed') {
+            return (
+                <button
+                    onClick={(e) => handleDeleteOffline(e, song.id)}
+                    className="p-1.5 text-green-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                    title="Downloaded (Click to remove local file)"
+                >
+                    <IoCheckmarkCircle size={18} />
+                </button>
+            );
+        }
+
+        if (job) {
+            if (job.status === 'downloading') {
+                return (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setIsManagerModalOpen(true); }}
+                        className="p-1 text-primary animate-spin"
+                        title={`Downloading ${job.progress}%`}
+                    >
+                        <span className="text-[10px] font-bold">{job.progress}%</span>
+                    </button>
+                );
+            }
+            if (job.status === 'waiting' || job.status === 'paused') {
+                return (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setIsManagerModalOpen(true); }}
+                        className="p-1.5 text-amber-500 hover:bg-amber-500/10 rounded-full transition-all"
+                        title={job.error || 'Waiting in queue...'}
+                    >
+                        <IoTimeOutline size={18} />
+                    </button>
+                );
+            }
+            if (job.status === 'failed') {
+                return (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); downloadManager.retryJob(song.id); }}
+                        className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                        title={`Failed: ${job.error || 'Click to retry'}`}
+                    >
+                        <IoRefresh size={18} />
+                    </button>
+                );
+            }
+        }
+
+        return (
+            <button
+                onClick={(e) => handleSingleDownload(e, song)}
+                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-gray-400 hover:text-primary rounded-full transition-all"
+                title="Download for offline playback"
+            >
+                <IoCloudDownloadOutline size={18} />
+            </button>
+        );
     };
 
     const currentPlaylist = playlists.find(p => p.id === selectedPlaylist);
@@ -253,8 +377,29 @@ const Library: React.FC = () => {
                                 >
                                     <IoShuffle /> Shuffle
                                 </button>
+                                <button
+                                    onClick={() => setIsBulkModalOpen(true)}
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap"
+                                >
+                                    <IoCloudDownload size={16} /> Download All
+                                </button>
                             </>
                         )}
+
+                        <button
+                            onClick={() => setIsManagerModalOpen(true)}
+                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap relative"
+                            title="Open Download Manager"
+                        >
+                            <IoCloudDownloadOutline className="text-primary" size={18} />
+                            <span>Downloads</span>
+                            {(downloadSummary.downloading > 0 || downloadSummary.waiting > 0) && (
+                                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-primary text-white rounded-full animate-pulse">
+                                    {downloadSummary.downloading + downloadSummary.waiting}
+                                </span>
+                            )}
+                        </button>
+
                         <button
                             onClick={() => setIsRepairModalOpen(true)}
                             className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap ml-auto"
@@ -263,6 +408,30 @@ const Library: React.FC = () => {
                             <IoBuild className="text-primary" /> Repair Favorites
                         </button>
                     </div>
+
+                    {/* Active Queue Banner if downloading */}
+                    {(downloadSummary.downloading > 0 || downloadSummary.waiting > 0) && (
+                        <div
+                            onClick={() => setIsManagerModalOpen(true)}
+                            className="bg-gradient-to-r from-primary/10 via-red-500/10 to-primary/10 border border-primary/20 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer hover:border-primary/40 transition-all shadow-sm"
+                        >
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="p-2 bg-primary text-white rounded-xl animate-pulse">
+                                    <IoCloudDownload size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs sm:text-sm font-bold truncate">
+                                        Downloading Favorites Queue...
+                                    </p>
+                                    <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                                        {downloadSummary.completed} of {downloadSummary.total} completed ({downloadSummary.downloading} active, {downloadSummary.waiting} waiting)
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="text-xs font-bold text-primary underline shrink-0">View Queue</span>
+                        </div>
+                    )}
+
                     <div className={viewMode === 'grid'
                         ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
                         : "space-y-1 sm:space-y-2"
@@ -271,7 +440,7 @@ const Library: React.FC = () => {
                             [...favorites].sort((a, b) => {
                                 if (sortBy === 'name') return a.name.localeCompare(b.name);
                                 if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
-                                return 0; // Default is date, but favorites aren't timestamped, so we keep order
+                                return 0;
                             }).map((song) => (
                                 <motion.div
                                     key={song.id}
@@ -296,19 +465,23 @@ const Library: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                             <p className="font-semibold truncate text-sm">{song.name}</p>
                                             <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
                                         </div>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                dispatch(toggleFavoriteCloud(song) as any);
-                                            }}
-                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
-                                        >
-                                            <IoTrash size={14} />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            {renderDownloadButton(song)}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    dispatch(toggleFavoriteCloud(song) as any);
+                                                }}
+                                                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                                title="Remove from favorites"
+                                            >
+                                                <IoTrash size={14} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </motion.div>
                             ))
@@ -471,6 +644,20 @@ const Library: React.FC = () => {
             <RepairFavoritesModal
                 isOpen={isRepairModalOpen}
                 onClose={() => setIsRepairModalOpen(false)}
+            />
+
+            <BulkDownloadModal
+                isOpen={isBulkModalOpen}
+                onClose={() => setIsBulkModalOpen(false)}
+                onConfirm={handleConfirmBulkDownload}
+                totalFavorites={favorites}
+                downloadedIds={downloadedIds}
+                preferredQuality={preferredQuality}
+            />
+
+            <DownloadManagerModal
+                isOpen={isManagerModalOpen}
+                onClose={() => setIsManagerModalOpen(false)}
             />
 
             <AnimatePresence>
