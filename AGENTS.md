@@ -5,7 +5,7 @@ This document provides core instructions, principles, standards, and rules for A
 ---
 
 ## 🎧 What is Vibe On?
-**Vibe On** is a premium, high-fidelity music application designed for discovery and an immersive listening experience. It features a modern React 18, TypeScript, and Tailwind CSS frontend, styled with glassmorphism and animated with Framer Motion. The web application is compiled and wrapped for native mobile deployment on Android using **Capacitor v8**.
+**Vibe On** is a premium, high-fidelity music application designed for discovery and an immersive listening experience. It features a modernized React 18, TypeScript, and Tailwind CSS frontend, styled with enhanced glassmorphism, dynamic ambient lighting, Cyber color theme accents (Electric Violet, Cyber Cyan, Neon Emerald, Sunset Rose, Amber), Plus Jakarta Sans & Outfit typography, and fluid Framer Motion micro-interactions. The web application is compiled and wrapped for native mobile deployment on Android using **Capacitor v8**.
 
 ### Current Architecture Summary
 Vibe On operates as a state-driven Single Page Application (SPA).

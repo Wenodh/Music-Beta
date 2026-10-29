@@ -11,6 +11,7 @@ Vibe On is a high-performance, hybrid single-page application built on a modern 
 ```
        ┌────────────────────────────────────────────────────────┐
        │                       UI Layer                         │
+       │  Modern Glassmorphism / Cyber Themes / Plus Jakarta    │
        │     React 18 / Tailwind CSS / Framer Motion Pages      │
        └───────────────┬────────────────────────┬───────────────┘
                        │                        │

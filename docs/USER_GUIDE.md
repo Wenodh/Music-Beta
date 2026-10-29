@@ -38,7 +38,10 @@ Bring your music to life visually with five custom canvas-based visualizers:
 
 ---
 
-## 🎨 Interface Personalization
+## 🎨 Interface Personalization & Modern Design
+
+### Modernized Glassmorphism & Cyber Themes
+Vibe On features an upgraded glassmorphism design system built with fluid glass panels, modern **Plus Jakarta Sans** and **Outfit** typography, dynamic album artwork reactive ambient lighting, and vibrant Cyber accent color palettes (Electric Violet, Cyber Cyan, Neon Emerald, Sunset Rose, Amber).
 
 ### Dynamic Themes
 Vibe On utilizes a state-of-the-art **Dynamic Theme Engine**. The primary interface accents and background gradients automatically adapt to match the color palette of the current track's album art.
