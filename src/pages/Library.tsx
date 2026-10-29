@@ -6,11 +6,14 @@ import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
 import {
     IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline,
     IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle, IoBuild,
-    IoCloudDownloadOutline, IoCheckmarkCircle, IoTimeOutline, IoAlertCircle, IoRefresh
+    IoCloudDownloadOutline, IoCheckmarkCircle, IoTimeOutline, IoAlertCircle, IoRefresh,
+    IoSwapHorizontal
 } from 'react-icons/io5';
 import { RepairFavoritesModal } from '../components/modals/RepairFavoritesModal';
 import { BulkDownloadModal } from '../components/modals/BulkDownloadModal';
 import { DownloadManagerModal } from '../components/modals/DownloadManagerModal';
+import { ImportExportModal } from '../components/modals/ImportExportModal';
+import { setImportExportModalOpen } from '../features/ui/uiSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
@@ -407,6 +410,14 @@ const Library: React.FC = () => {
                         >
                             <IoBuild className="text-primary" /> Repair Favorites
                         </button>
+
+                        <button
+                            onClick={() => dispatch(setImportExportModalOpen(true))}
+                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
+                            title="Import or export music library"
+                        >
+                            <IoSwapHorizontal className="text-primary" size={18} /> Import / Export
+                        </button>
                     </div>
 
                     {/* Active Queue Banner if downloading */}
@@ -659,6 +670,8 @@ const Library: React.FC = () => {
                 isOpen={isManagerModalOpen}
                 onClose={() => setIsManagerModalOpen(false)}
             />
+
+            <ImportExportModal />
 
             <AnimatePresence>
                 {isCreating && (
