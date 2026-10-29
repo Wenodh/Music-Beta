@@ -32,8 +32,8 @@ export function exportToCsv(songs: Song[], playlistName?: string): string {
         const sourceUrl =
             typeof song.downloadUrl === 'string'
                 ? song.downloadUrl
-                : Array.isArray(song.downloadUrl)
-                ? song.downloadUrl[0]?.url || ''
+                : Array.isArray(song.downloadUrl) && song.downloadUrl.length > 0
+                ? song.downloadUrl[song.downloadUrl.length - 1]?.url || song.downloadUrl[0]?.url || ''
                 : '';
 
         rows.push([
@@ -52,7 +52,8 @@ export function exportToCsv(songs: Song[], playlistName?: string): string {
         ]);
     });
 
-    return rows.map((r) => r.map(escapeCsvField).join(',')).join('\r\n');
+    const csvContent = rows.map((r) => r.map(escapeCsvField).join(',')).join('\r\n');
+    return `\uFEFF${csvContent}`;
 }
 
 function escapeCsvField(field: string): string {
