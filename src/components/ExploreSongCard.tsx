@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { IoPlay } from 'react-icons/io5';
-import { useAppDispatch } from '../hooks/redux';
-import { playMusic } from '../features/musicplayer/musicPlayerSlice';
+import { IoPlay, IoPause } from 'react-icons/io5';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { playMusic, pauseMusic } from '../features/musicplayer/musicPlayerSlice';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { Song } from '../types/music';
 
@@ -24,13 +24,24 @@ const aspectRatios = [
 
 const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
     const dispatch = useAppDispatch();
+    const currentSongId = useAppSelector((state) => state.musicPlayer.currentSong?.id);
+    const isPlaying = useAppSelector((state) => state.musicPlayer.isPlaying);
+    const isCurrent = currentSongId === song.id;
 
     // Use a more complex sequence to avoid repetitive patterns in columns
     const aspectClass = aspectRatios[(index * 3 + index % 7) % aspectRatios.length];
 
     const handlePlay = (e: React.MouseEvent) => {
         e.stopPropagation();
-        dispatch(playMusic({ ...song, forcePlay: true }));
+        if (isCurrent) {
+            if (isPlaying) {
+                dispatch(pauseMusic());
+            } else {
+                dispatch(playMusic({ ...song, forcePlay: true }));
+            }
+        } else {
+            dispatch(playMusic({ ...song, forcePlay: true }));
+        }
     };
 
     const imageUrl = Array.isArray(song.image)
@@ -61,12 +72,32 @@ const ExploreSongCard: React.FC<ExploreSongCardProps> = ({ song, index }) => {
                 {/* Elegant Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/60 opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
 
-                {/* Play Button Center */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 scale-90 group-hover:scale-100">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center text-white shadow-2xl">
-                        <IoPlay size={20} className="ml-1 sm:text-2xl" />
+                {/* Visual Playing Overlay / Center Control */}
+                {isCurrent ? (
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2 transition-all duration-300">
+                        <div className="flex gap-1 items-end h-6">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div
+                                    key={i}
+                                    className={`w-1.5 bg-primary rounded-full ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-2'}`}
+                                    style={{
+                                        animationDelay: `${i * 0.1}s`,
+                                        height: isPlaying ? undefined : `${(i % 3 + 1) * 5}px`
+                                    }}
+                                />
+                            ))}
+                        </div>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/80 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-2xl transition-transform hover:scale-105">
+                            {isPlaying ? <IoPause size={20} /> : <IoPlay size={20} className="ml-0.5" />}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 scale-90 group-hover:scale-100">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center text-white shadow-2xl">
+                            <IoPlay size={20} className="ml-1 sm:text-2xl" />
+                        </div>
+                    </div>
+                )}
 
                 {/* Info Overlay (Bottom) */}
                 <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 transform translate-y-1 group-hover:translate-y-0 transition-transform duration-500">

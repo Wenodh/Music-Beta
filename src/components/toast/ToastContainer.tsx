@@ -55,7 +55,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
 
 const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeToast }) => {
     return (
-        <div className="fixed bottom-24 right-4 z-[200] flex flex-col gap-2 pointer-events-none">
+        <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[9999] flex flex-col gap-2 pointer-events-none max-w-sm w-full px-2">
             <AnimatePresence>
                 {toasts.map((toast) => (
                     <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
