@@ -38,22 +38,22 @@ const SongItem: React.FC<SongItemProps> = React.memo(({
     return (
         <div
             onClick={handleClick}
-            className="flex flex-col items-center p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+            className="flex flex-col items-center p-3 sm:p-4 rounded-2xl glass-card hover:border-primary/40 cursor-pointer group transition-all duration-300"
         >
-            <div className="relative w-full aspect-square mb-3 overflow-hidden rounded-lg shadow-lg">
+            <div className="relative w-full aspect-square mb-3 overflow-hidden rounded-xl shadow-xl">
                 <img
                     src={imageUrl}
                     alt={title}
                     loading="lazy"
-                    className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 ${isCurrent ? 'brightness-50' : ''}`}
+                    className={`w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out ${isCurrent ? 'brightness-50' : ''}`}
                 />
                 {isCurrent && (
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs">
                         <div className="flex gap-1 items-end h-8">
                             {[1, 2, 3, 4].map((i) => (
                                 <div
                                     key={i}
-                                    className={`w-1.5 bg-primary rounded-full ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-2'}`}
+                                    className={`w-1.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--accent-rgb),0.8)] ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-2'}`}
                                     style={{
                                         animationDelay: `${i * 0.1}s`,
                                         height: isPlaying ? undefined : `${(i % 3 + 1) * 6}px`
@@ -64,9 +64,9 @@ const SongItem: React.FC<SongItemProps> = React.memo(({
                     </div>
                 )}
             </div>
-            <p className="text-sm font-semibold text-center truncate w-full">{decodeHtmlEntities(title)}</p>
+            <p className="text-sm font-bold text-center truncate w-full group-hover:text-primary transition-colors">{decodeHtmlEntities(title)}</p>
             {primaryArtists && (
-                <p className="text-xs text-gray-500 text-center truncate w-full">
+                <p className="text-xs text-slate-400 text-center truncate w-full mt-0.5 font-medium">
                     {decodeHtmlEntities(primaryArtists)}
                 </p>
             )}

@@ -12,6 +12,7 @@
 
 ## ✨ Premium Features
 
+- **🎨 Modernized Glassmorphism UI**: Sleek glass panels, ambient artwork color glow, vibrant Cyber color accents (Electric Violet, Cyber Cyan, Neon Emerald, Sunset Rose, Amber), and modern Plus Jakarta Sans typography.
 - **🎴 3D Discovery**: A Tinder-style gesture-driven interface for exploring albums and tracks.
 - **🎤 Synced Lyrics**: Beautifully animated, time-synced lyrics with one-tap seeking (Apple Music style).
 - **👥 Group Sessions**: Listen together in real-time with friends. Sync play, pause, and seek events across devices.
