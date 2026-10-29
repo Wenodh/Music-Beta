@@ -1,7 +1,24 @@
 import { supabase } from '../lib/supabase';
 import { Song } from '../types/music';
 import axios from 'axios';
-import { url as API_BASE_URL } from '../constants';
+import { url as DEFAULT_API_BASE_URL } from '../constants';
+import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { getOfflineSong, saveSongOffline } from '../utils/db';
+
+export const PRIMARY_API_BASE_URL = 'https://elitejiosaavn-api.vercel.app';
+export const FALLBACK_API_BASE_URL = DEFAULT_API_BASE_URL || 'https://jiosaavn-api-cyan-theta.vercel.app';
+
+export const CHECKPOINT_STORAGE_KEY = 'vibeon_repair_favorites_checkpoint';
+
+const getStorage = () => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage;
+    }
+    if (typeof localStorage !== 'undefined') {
+        return localStorage;
+    }
+    return null;
+};
 
 export interface RecoveryProgress {
     totalChecked: number;
@@ -9,6 +26,7 @@ export interface RecoveryProgress {
     repaired: number;
     failed: number;
     unavailable: number;
+    isDryRun?: boolean;
     currentSongId?: string;
     currentSongName?: string;
     isCancelled: boolean;
@@ -24,8 +42,57 @@ export interface RecoveryOptions {
     maxRetries?: number;
     signal?: AbortSignal;
     forceAll?: boolean;
+    isDryRun?: boolean;
+    primaryApiUrl?: string;
+    fallbackApiUrl?: string;
+    resumeCheckpoint?: boolean;
+    limit?: number;
     onProgress?: (progress: RecoveryProgress) => void;
     onSongRepaired?: (repairedSong: Song) => void;
+}
+
+export interface CheckpointState {
+    processedIds: string[];
+    repairedSongs: Song[];
+    failedItems: { songId: string; reason: string; isRetryable: boolean }[];
+    timestamp: number;
+}
+
+export function saveCheckpoint(checkpoint: CheckpointState): void {
+    try {
+        const storage = getStorage();
+        if (storage) {
+            storage.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(checkpoint));
+        }
+    } catch (e) {
+        console.warn('Failed to save repair checkpoint to storage:', e);
+    }
+}
+
+export function loadCheckpoint(): CheckpointState | null {
+    try {
+        const storage = getStorage();
+        if (storage) {
+            const data = storage.getItem(CHECKPOINT_STORAGE_KEY);
+            if (data) {
+                return JSON.parse(data);
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load repair checkpoint from storage:', e);
+    }
+    return null;
+}
+
+export function clearCheckpoint(): void {
+    try {
+        const storage = getStorage();
+        if (storage) {
+            storage.removeItem(CHECKPOINT_STORAGE_KEY);
+        }
+    } catch (e) {
+        console.warn('Failed to clear repair checkpoint from storage:', e);
+    }
 }
 
 /**
@@ -66,7 +133,7 @@ function hasValidMediaUrl(urlData: any): boolean {
  * Normalizes string for title/artist matching.
  */
 function normalizeString(str: string): string {
-    return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return decodeHtmlEntities(str).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
@@ -93,14 +160,42 @@ export function matchesCandidate(candidate: any, targetName?: string, targetArti
 }
 
 /**
- * Maps raw JioSaavn API response payload item to a standard Vibe On Song model.
+ * Extracts artist string from API object with HTML entity decoding.
+ */
+export function extractArtists(apiData: any): string {
+    if (!apiData) return '';
+    if (typeof apiData.artists === 'object' && apiData.artists !== null) {
+        if (Array.isArray(apiData.artists.primary) && apiData.artists.primary.length > 0) {
+            return decodeHtmlEntities(apiData.artists.primary.map((a: any) => a.name).filter(Boolean).join(', '));
+        }
+        if (Array.isArray(apiData.artists.all) && apiData.artists.all.length > 0) {
+            return decodeHtmlEntities(apiData.artists.all.map((a: any) => a.name).filter(Boolean).join(', '));
+        }
+    }
+    if (typeof apiData.primaryArtists === 'string') {
+        return decodeHtmlEntities(apiData.primaryArtists);
+    }
+    return '';
+}
+
+/**
+ * Maps raw JioSaavn API response payload item to a standard Vibe On Song model with HTML entity decoding and field preservation.
  */
 export function mapApiSongToSong(apiData: any, fallbackId: string, existingSong?: Partial<Song>): Song {
-    const primaryArtists = extractArtists(apiData) || (typeof apiData.primaryArtists === 'string' ? apiData.primaryArtists : '');
+    const rawName = apiData.name || apiData.title || existingSong?.name || existingSong?.title || `Song ${fallbackId}`;
+    const name = decodeHtmlEntities(rawName);
 
-    const album = apiData.album && typeof apiData.album === 'object'
-        ? { id: String(apiData.album.id || ''), name: String(apiData.album.name || '') }
-        : (existingSong?.album || '');
+    const primaryArtists = extractArtists(apiData) || decodeHtmlEntities(existingSong?.primaryArtists || 'Unknown Artist');
+
+    let album: any = existingSong?.album || '';
+    if (apiData.album && typeof apiData.album === 'object') {
+        album = {
+            id: String(apiData.album.id || ''),
+            name: decodeHtmlEntities(String(apiData.album.name || '')),
+        };
+    } else if (typeof apiData.album === 'string' && apiData.album.trim() !== '') {
+        album = decodeHtmlEntities(apiData.album);
+    }
 
     const image = apiData.image && (Array.isArray(apiData.image) ? apiData.image.length > 0 : Boolean(apiData.image))
         ? apiData.image
@@ -116,8 +211,8 @@ export function mapApiSongToSong(apiData: any, fallbackId: string, existingSong?
     const newSong: Song = {
         ...existingSong,
         id: fallbackId, // Retain original favorite song_id
-        name: apiData.name || existingSong?.name || existingSong?.title || `Song ${fallbackId}`,
-        primaryArtists: primaryArtists || existingSong?.primaryArtists || 'Unknown Artist',
+        name,
+        primaryArtists,
         duration,
         image,
         downloadUrl,
@@ -126,20 +221,6 @@ export function mapApiSongToSong(apiData: any, fallbackId: string, existingSong?
     };
 
     return newSong;
-}
-
-export function extractArtists(apiData: any): string {
-    if (!apiData) return '';
-    if (typeof apiData.artists === 'object' && apiData.artists !== null) {
-        if (Array.isArray(apiData.artists.primary) && apiData.artists.primary.length > 0) {
-            return apiData.artists.primary.map((a: any) => a.name).filter(Boolean).join(', ');
-        }
-        if (Array.isArray(apiData.artists.all) && apiData.artists.all.length > 0) {
-            return apiData.artists.all.map((a: any) => a.name).filter(Boolean).join(', ');
-        }
-    }
-    if (typeof apiData.primaryArtists === 'string') return apiData.primaryArtists;
-    return '';
 }
 
 /**
@@ -166,73 +247,72 @@ export function getUnsupportedReason(song: Song): string | null {
 }
 
 /**
- * Fetches song details from the JioSaavn API with retry, timeout, and backoff support.
+ * Fetches song details with automatic primary/fallback endpoint failover, retries, and backoff.
  */
 export async function fetchSongDetailsWithRetry(
     songId: string,
     maxRetries = 3,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    primaryApiUrl = PRIMARY_API_BASE_URL,
+    fallbackApiUrl = FALLBACK_API_BASE_URL
 ): Promise<{ song?: Song; errorReason?: string; isNotFound?: boolean; isRetryable?: boolean }> {
-    let attempt = 0;
-    const endpoint = `${API_BASE_URL}/api/songs/${encodeURIComponent(songId)}`;
+    const endpoints = [primaryApiUrl, fallbackApiUrl].filter((url, idx, self) => url && self.indexOf(url) === idx);
 
-    while (attempt <= maxRetries) {
-        if (signal?.aborted) {
-            return { errorReason: 'Operation cancelled', isRetryable: false };
-        }
+    for (const baseUrl of endpoints) {
+        let attempt = 0;
+        const endpoint = `${baseUrl}/api/songs/${encodeURIComponent(songId)}`;
 
-        try {
-            const response = await axios.get(endpoint, {
-                signal,
-                timeout: 10000,
-            });
-
-            if (response.data && response.data.success && Array.isArray(response.data.data) && response.data.data.length > 0) {
-                const apiItem = response.data.data[0];
-                if (apiItem) {
-                    const mappedSong = mapApiSongToSong(apiItem, songId);
-                    return { song: mappedSong };
-                }
-            }
-
-            // If success is false or data is empty
-            if (response.data && response.data.success === false) {
-                const msg = response.data.message || 'Song not found';
-                if (msg.toLowerCase().includes('not found')) {
-                    return { errorReason: msg, isNotFound: true, isRetryable: false };
-                }
-            }
-
-            return { errorReason: 'Song not found or empty response', isNotFound: true, isRetryable: false };
-        } catch (err: any) {
-            if (axios.isCancel(err) || signal?.aborted) {
+        while (attempt <= maxRetries) {
+            if (signal?.aborted) {
                 return { errorReason: 'Operation cancelled', isRetryable: false };
             }
 
-            const status = err.response?.status;
-            if (status === 404) {
-                return { errorReason: 'Song not found (404)', isNotFound: true, isRetryable: false };
+            try {
+                const response = await axios.get(endpoint, {
+                    signal,
+                    timeout: 10000,
+                });
+
+                if (response.data && response.data.success && Array.isArray(response.data.data) && response.data.data.length > 0) {
+                    const apiItem = response.data.data[0];
+                    if (apiItem) {
+                        const mappedSong = mapApiSongToSong(apiItem, songId);
+                        return { song: mappedSong };
+                    }
+                }
+
+                if (response.data && response.data.success === false) {
+                    const msg = response.data.message || 'Song not found';
+                    if (msg.toLowerCase().includes('not found')) {
+                        return { errorReason: msg, isNotFound: true, isRetryable: false };
+                    }
+                }
+
+                break;
+            } catch (err: any) {
+                if (axios.isCancel(err) || signal?.aborted) {
+                    return { errorReason: 'Operation cancelled', isRetryable: false };
+                }
+
+                const status = err.response?.status;
+                if (status === 404) {
+                    break;
+                }
+
+                const isRetryable = status === 429 || (status >= 500 && status < 600) || !status;
+                attempt++;
+
+                if (attempt > maxRetries || !isRetryable) {
+                    break;
+                }
+
+                const backoffMs = Math.pow(2, attempt) * 400 + Math.random() * 200;
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
             }
-
-            // Retryable errors: 429 (rate limit), 5xx (server error), network/timeout errors
-            const isRetryable = status === 429 || (status >= 500 && status < 600) || !status;
-            attempt++;
-
-            if (attempt > maxRetries || !isRetryable) {
-                return {
-                    errorReason: err.message || `HTTP ${status || 'Network Error'}`,
-                    isNotFound: false,
-                    isRetryable,
-                };
-            }
-
-            // Exponential backoff with jitter
-            const backoffMs = Math.pow(2, attempt) * 500 + Math.random() * 200;
-            await new Promise((resolve) => setTimeout(resolve, backoffMs));
         }
     }
 
-    return { errorReason: 'Max retries exceeded', isRetryable: true };
+    return { errorReason: 'Song not found across API endpoints', isNotFound: true, isRetryable: false };
 }
 
 /**
@@ -241,66 +321,68 @@ export async function fetchSongDetailsWithRetry(
 export async function fetchSongByFallbackSearch(
     existingSong: Song,
     maxRetries = 2,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    primaryApiUrl = PRIMARY_API_BASE_URL,
+    fallbackApiUrl = FALLBACK_API_BASE_URL
 ): Promise<{ song?: Song; errorReason?: string; isNotFound?: boolean; isRetryable?: boolean }> {
     const title = existingSong.name || existingSong.title;
     const artist = existingSong.primaryArtists;
 
-    if (!title || typeof title !== 'string' || title.trim() === '') {
-        return { errorReason: 'Missing title and artist for fallback search', isNotFound: true, isRetryable: false };
+    if (!title || typeof title !== 'string' || title.trim() === '' || title.startsWith('Song ')) {
+        return { errorReason: 'Insufficient metadata for confident fallback search', isNotFound: true, isRetryable: false };
     }
 
-    const query = artist ? `${title} ${artist}` : title;
-    const searchUrl = `${API_BASE_URL}/api/search/songs?query=${encodeURIComponent(query.trim())}&limit=10`;
+    const query = artist && artist !== 'Unknown Artist' ? `${title} ${artist}` : title;
+    const endpoints = [primaryApiUrl, fallbackApiUrl].filter((url, idx, self) => url && self.indexOf(url) === idx);
 
-    let attempt = 0;
-    while (attempt <= maxRetries) {
-        if (signal?.aborted) {
-            return { errorReason: 'Operation cancelled', isRetryable: false };
-        }
+    for (const baseUrl of endpoints) {
+        const searchUrl = `${baseUrl}/api/search/songs?query=${encodeURIComponent(query.trim())}&limit=10`;
+        let attempt = 0;
 
-        try {
-            const response = await axios.get(searchUrl, {
-                signal,
-                timeout: 10000,
-            });
-
-            const results = response.data?.data?.results || response.data?.results || response.data?.data;
-            if (Array.isArray(results) && results.length > 0) {
-                for (const candidate of results) {
-                    if (matchesCandidate(candidate, title, artist)) {
-                        const mapped = mapApiSongToSong(candidate, existingSong.id, existingSong);
-                        if (!isSongIncomplete(mapped)) {
-                            return { song: mapped };
-                        }
-                    }
-                }
-            }
-
-            return { errorReason: 'Fallback search returned no verified matches', isNotFound: true, isRetryable: false };
-        } catch (err: any) {
-            if (axios.isCancel(err) || signal?.aborted) {
+        while (attempt <= maxRetries) {
+            if (signal?.aborted) {
                 return { errorReason: 'Operation cancelled', isRetryable: false };
             }
 
-            const status = err.response?.status;
-            const isRetryable = status === 429 || (status >= 500 && status < 600) || !status;
-            attempt++;
+            try {
+                const response = await axios.get(searchUrl, {
+                    signal,
+                    timeout: 10000,
+                });
 
-            if (attempt > maxRetries || !isRetryable) {
-                return {
-                    errorReason: err.message || `Fallback search HTTP ${status || 'Network Error'}`,
-                    isNotFound: false,
-                    isRetryable,
-                };
+                const results = response.data?.data?.results || response.data?.results || response.data?.data;
+                if (Array.isArray(results) && results.length > 0) {
+                    for (const candidate of results) {
+                        if (matchesCandidate(candidate, title, artist)) {
+                            const mapped = mapApiSongToSong(candidate, existingSong.id, existingSong);
+                            if (!isSongIncomplete(mapped)) {
+                                return { song: mapped };
+                            }
+                        }
+                    }
+                }
+
+                break;
+            } catch (err: any) {
+                if (axios.isCancel(err) || signal?.aborted) {
+                    return { errorReason: 'Operation cancelled', isRetryable: false };
+                }
+
+                const status = err.response?.status;
+                const isRetryable = status === 429 || (status >= 500 && status < 600) || !status;
+                attempt++;
+
+                if (attempt > maxRetries || !isRetryable) {
+                    break;
+                }
+
+                const backoffMs = Math.pow(2, attempt) * 400 + Math.random() * 200;
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
             }
-
-            const backoffMs = Math.pow(2, attempt) * 500 + Math.random() * 200;
-            await new Promise((resolve) => setTimeout(resolve, backoffMs));
         }
     }
 
-    return { errorReason: 'Fallback search max retries exceeded', isRetryable: true };
+    return { errorReason: 'Fallback search returned no verified matches', isNotFound: true, isRetryable: false };
 }
 
 /**
@@ -312,30 +394,65 @@ export async function repairFavorites(
     userId?: string,
     options: RecoveryOptions = {}
 ): Promise<RecoveryReport> {
-    const { concurrency = 5, maxRetries = 3, signal, onProgress, onSongRepaired } = options;
+    const {
+        concurrency = 5,
+        maxRetries = 3,
+        signal,
+        forceAll = false,
+        isDryRun = false,
+        primaryApiUrl = PRIMARY_API_BASE_URL,
+        fallbackApiUrl = FALLBACK_API_BASE_URL,
+        resumeCheckpoint = true,
+        limit,
+        onProgress,
+        onSongRepaired,
+    } = options;
 
-    const report: RecoveryReport = {
-        totalChecked: favorites.length,
-        alreadyComplete: 0,
-        repaired: 0,
-        failed: 0,
-        unavailable: 0,
-        isCancelled: false,
-        repairedSongs: [],
-        failedItems: [],
-    };
-
-    const incompleteSongs: Song[] = [];
-
-    // 1. Identify complete vs incomplete (or force all if forceAll option is true)
-    const forceAll = options.forceAll ?? false;
+    let incompleteSongs: Song[] = [];
+    let alreadyCompleteCount = 0;
 
     for (const song of favorites) {
         if (!forceAll && !isSongIncomplete(song)) {
-            report.alreadyComplete++;
+            alreadyCompleteCount++;
         } else {
             incompleteSongs.push(song);
         }
+    }
+
+    if (typeof limit === 'number' && limit > 0) {
+        incompleteSongs = incompleteSongs.slice(0, limit);
+    }
+
+    // Load checkpoint state if resuming
+    let checkpoint = resumeCheckpoint ? loadCheckpoint() : null;
+    const processedSet = new Set<string>(checkpoint?.processedIds || []);
+
+    const report: RecoveryReport = {
+        totalChecked: favorites.length,
+        alreadyComplete: alreadyCompleteCount,
+        repaired: checkpoint?.repairedSongs?.length || 0,
+        failed: 0,
+        unavailable: 0,
+        isDryRun,
+        isCancelled: false,
+        repairedSongs: checkpoint?.repairedSongs || [],
+        failedItems: checkpoint?.failedItems || [],
+    };
+
+    // Recalculate failed / unavailable counts from checkpoint
+    if (checkpoint?.failedItems) {
+        for (const item of checkpoint.failedItems) {
+            if (item.reason.includes('Unsupported item type') || item.reason.includes('Unavailable')) {
+                report.unavailable++;
+            } else {
+                report.failed++;
+            }
+        }
+    }
+
+    // Filter out already processed items if checkpoint active
+    if (processedSet.size > 0) {
+        incompleteSongs = incompleteSongs.filter((s) => !processedSet.has(s.id));
     }
 
     if (onProgress) {
@@ -347,7 +464,6 @@ export async function repairFavorites(
         return report;
     }
 
-    // Process in concurrency chunks
     let currentIndex = 0;
 
     const processNext = async (song: Song): Promise<void> => {
@@ -363,28 +479,35 @@ export async function repairFavorites(
         const unsupportedReason = getUnsupportedReason(song);
         if (unsupportedReason) {
             report.unavailable++;
-            report.failedItems.push({
+            const itemError = {
                 songId: song.id,
                 reason: unsupportedReason,
                 isRetryable: false,
+            };
+            report.failedItems.push(itemError);
+            processedSet.add(song.id);
+
+            saveCheckpoint({
+                processedIds: Array.from(processedSet),
+                repairedSongs: report.repairedSongs,
+                failedItems: report.failedItems,
+                timestamp: Date.now(),
             });
+
             if (onProgress) onProgress({ ...report });
             return;
         }
 
-        // Try direct lookup first
-        let result = await fetchSongDetailsWithRetry(song.id, maxRetries, signal);
+        // Fetch direct lookup
+        let result = await fetchSongDetailsWithRetry(song.id, maxRetries, signal, primaryApiUrl, fallbackApiUrl);
 
-        // If direct lookup returned not found, attempt fallback search by title/artist
+        // Fallback search if direct lookup returned not found
         if ((!result.song && result.isNotFound) || (result.song && isSongIncomplete(result.song))) {
-            const fallbackResult = await fetchSongByFallbackSearch(song, maxRetries, signal);
+            const fallbackResult = await fetchSongByFallbackSearch(song, maxRetries, signal, primaryApiUrl, fallbackApiUrl);
             if (fallbackResult.song) {
                 result = fallbackResult;
-            } else if (!result.song) {
-                // If direct lookup had non-retryable reason and fallback also failed, preserve failure reason
-                if (fallbackResult.errorReason) {
-                    result.errorReason = `${result.errorReason || 'Lookup failed'} | ${fallbackResult.errorReason}`;
-                }
+            } else if (!result.song && fallbackResult.errorReason) {
+                result.errorReason = `${result.errorReason || 'Lookup failed'} | ${fallbackResult.errorReason}`;
             }
         }
 
@@ -394,11 +517,9 @@ export async function repairFavorites(
         }
 
         if (result.song) {
-            // Merge with existing song to preserve local attributes
             const mergedSong = mapApiSongToSong(result.song, song.id, song);
 
-            // Update Supabase if user ID is present and Supabase client is available
-            if (userId) {
+            if (!isDryRun && userId) {
                 try {
                     const { data, error } = await supabase
                         .from('favorites')
@@ -415,6 +536,13 @@ export async function repairFavorites(
                             reason: `Database error: ${error.message}`,
                             isRetryable: true,
                         });
+                        processedSet.add(song.id);
+                        saveCheckpoint({
+                            processedIds: Array.from(processedSet),
+                            repairedSongs: report.repairedSongs,
+                            failedItems: report.failedItems,
+                            timestamp: Date.now(),
+                        });
                         if (onProgress) onProgress({ ...report });
                         return;
                     }
@@ -427,6 +555,13 @@ export async function repairFavorites(
                             reason: 'Database update matched 0 rows (item missing or permission denied)',
                             isRetryable: false,
                         });
+                        processedSet.add(song.id);
+                        saveCheckpoint({
+                            processedIds: Array.from(processedSet),
+                            repairedSongs: report.repairedSongs,
+                            failedItems: report.failedItems,
+                            timestamp: Date.now(),
+                        });
                         if (onProgress) onProgress({ ...report });
                         return;
                     }
@@ -438,13 +573,41 @@ export async function repairFavorites(
                         reason: `Database error: ${dbErr.message || 'Unknown error'}`,
                         isRetryable: true,
                     });
+                    processedSet.add(song.id);
+                    saveCheckpoint({
+                        processedIds: Array.from(processedSet),
+                        repairedSongs: report.repairedSongs,
+                        failedItems: report.failedItems,
+                        timestamp: Date.now(),
+                    });
                     if (onProgress) onProgress({ ...report });
                     return;
                 }
             }
 
+            // Sync with local offline storage if song was downloaded offline
+            if (!isDryRun) {
+                try {
+                    const offlineSong = await getOfflineSong(song.id);
+                    if (offlineSong) {
+                        await saveSongOffline(mergedSong, offlineSong.audioBlob, offlineSong.imageBlob, offlineSong.quality);
+                    }
+                } catch (e) {
+                    console.warn(`Failed to update offline IndexedDB metadata for song ${song.id}:`, e);
+                }
+            }
+
             report.repaired++;
             report.repairedSongs.push(mergedSong);
+            processedSet.add(song.id);
+
+            saveCheckpoint({
+                processedIds: Array.from(processedSet),
+                repairedSongs: report.repairedSongs,
+                failedItems: report.failedItems,
+                timestamp: Date.now(),
+            });
+
             if (onSongRepaired) {
                 onSongRepaired(mergedSong);
             }
@@ -455,12 +618,26 @@ export async function repairFavorites(
                 reason: result.errorReason || 'Unavailable on provider',
                 isRetryable: false,
             });
+            processedSet.add(song.id);
+            saveCheckpoint({
+                processedIds: Array.from(processedSet),
+                repairedSongs: report.repairedSongs,
+                failedItems: report.failedItems,
+                timestamp: Date.now(),
+            });
         } else {
             report.failed++;
             report.failedItems.push({
                 songId: song.id,
                 reason: result.errorReason || 'Fetch error',
                 isRetryable: result.isRetryable ?? true,
+            });
+            processedSet.add(song.id);
+            saveCheckpoint({
+                processedIds: Array.from(processedSet),
+                repairedSongs: report.repairedSongs,
+                failedItems: report.failedItems,
+                timestamp: Date.now(),
             });
         }
 
@@ -469,9 +646,7 @@ export async function repairFavorites(
         }
     };
 
-    // Worker pool execution for bounded concurrency
     const workers: Promise<void>[] = [];
-
     const worker = async () => {
         while (currentIndex < incompleteSongs.length && !signal?.aborted) {
             const songToProcess = incompleteSongs[currentIndex++];
@@ -488,6 +663,9 @@ export async function repairFavorites(
 
     if (signal?.aborted) {
         report.isCancelled = true;
+    } else {
+        // Clear checkpoint if fully finished
+        clearCheckpoint();
     }
 
     return report;

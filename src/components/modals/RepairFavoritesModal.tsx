@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose, IoBuild, IoCheckmarkCircle, IoAlertCircle, IoRefresh, IoStop } from 'react-icons/io5';
+import { IoClose, IoBuild, IoCheckmarkCircle, IoAlertCircle, IoRefresh, IoStop, IoEyeOutline, IoPlay } from 'react-icons/io5';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setFavorites } from '../../features/library/librarySlice';
@@ -8,8 +8,11 @@ import { showToast } from '../../features/ui/uiSlice';
 import {
     isSongIncomplete,
     repairFavorites,
+    loadCheckpoint,
+    clearCheckpoint,
     RecoveryProgress,
     RecoveryReport,
+    CheckpointState,
 } from '../../services/favoriteRecoveryService';
 
 interface RepairFavoritesModalProps {
@@ -24,8 +27,10 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
 
     const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'cancelled'>('idle');
     const [isForceMode, setIsForceMode] = useState(false);
+    const [isDryRun, setIsDryRun] = useState(false);
     const [progress, setProgress] = useState<RecoveryProgress | null>(null);
     const [report, setReport] = useState<RecoveryReport | null>(null);
+    const [checkpoint, setCheckpoint] = useState<CheckpointState | null>(null);
 
     const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -35,15 +40,23 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
         if (!isOpen) {
             setStatus('idle');
             setIsForceMode(false);
+            setIsDryRun(false);
             setProgress(null);
             setReport(null);
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
+        } else {
+            setCheckpoint(loadCheckpoint());
         }
     }, [isOpen]);
 
-    const handleStartRepair = async (forceMode = false, retryFailedOnly = false) => {
+    const handleStartRepair = async (
+        forceMode = false,
+        retryFailedOnly = false,
+        limit?: number,
+        dryRunMode = isDryRun
+    ) => {
         if (favorites.length === 0) return;
 
         setStatus('running');
@@ -52,31 +65,49 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
         const currentFavorites = [...favorites];
         const updatedFavoritesMap = new Map(currentFavorites.map((s) => [s.id, s]));
 
-        const songsToProcess = retryFailedOnly && report?.failedItems.length
-            ? currentFavorites.filter((s) => report.failedItems.some((f) => f.songId === s.id && f.isRetryable))
-            : currentFavorites;
+        let songsToProcess = currentFavorites;
+        if (retryFailedOnly && report?.failedItems.length) {
+            songsToProcess = currentFavorites.filter((s) => report.failedItems.some((f) => f.songId === s.id && f.isRetryable));
+        }
+
+        // If testing 3 records and song 54BMoFYS exists in favorites, put 54BMoFYS first
+        if (limit === 3) {
+            const song54BMoFYS = currentFavorites.find((s) => s.id === '54BMoFYS');
+            if (song54BMoFYS) {
+                const others = currentFavorites.filter((s) => s.id !== '54BMoFYS');
+                songsToProcess = [song54BMoFYS, ...others];
+            }
+        }
 
         try {
             const finalReport = await repairFavorites(songsToProcess, user?.id, {
                 concurrency: 5,
                 maxRetries: 3,
                 forceAll: forceMode,
+                isDryRun: dryRunMode,
+                limit,
                 signal: abortControllerRef.current.signal,
                 onProgress: (latestProgress) => {
                     setProgress(latestProgress);
                 },
                 onSongRepaired: (repairedSong) => {
-                    updatedFavoritesMap.set(repairedSong.id, repairedSong);
-                    dispatch(setFavorites(Array.from(updatedFavoritesMap.values())));
+                    if (!dryRunMode) {
+                        updatedFavoritesMap.set(repairedSong.id, repairedSong);
+                        dispatch(setFavorites(Array.from(updatedFavoritesMap.values())));
+                    }
                 },
             });
 
             setReport(finalReport);
+            setCheckpoint(loadCheckpoint());
+
             if (abortControllerRef.current?.signal.aborted || finalReport.isCancelled) {
                 setStatus('cancelled');
             } else {
                 setStatus('completed');
-                if (finalReport.repaired > 0) {
+                if (dryRunMode) {
+                    dispatch(showToast({ message: `Dry Run finished. Found ${finalReport.repaired} item(s) repairable.` }));
+                } else if (finalReport.repaired > 0) {
                     dispatch(showToast({ message: `Successfully repaired ${finalReport.repaired} item${finalReport.repaired === 1 ? '' : 's'}.` }));
                 } else if (finalReport.failed > 0) {
                     dispatch(showToast({ message: `${finalReport.failed} item(s) failed to repair. You can retry.` }));
@@ -88,6 +119,12 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
             console.error('Repair favorites error:', err);
             setStatus('completed');
         }
+    };
+
+    const handleClearCheckpoint = () => {
+        clearCheckpoint();
+        setCheckpoint(null);
+        dispatch(showToast({ message: 'Saved repair progress cleared.' }));
     };
 
     const handleCancel = () => {
@@ -147,6 +184,32 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                     </div>
                                 </div>
 
+                                {checkpoint && checkpoint.processedIds.length > 0 && (
+                                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-2 text-xs text-blue-800 dark:text-blue-300">
+                                        <div className="flex items-center justify-between font-semibold">
+                                            <span>Interrupted Repair Checkpoint Found</span>
+                                            <span className="font-mono">{checkpoint.processedIds.length} processed</span>
+                                        </div>
+                                        <p className="text-[11px] text-blue-700 dark:text-blue-400">
+                                            You can resume repairing from where you left off or clear saved progress.
+                                        </p>
+                                        <div className="flex gap-2 pt-1">
+                                            <button
+                                                onClick={() => handleStartRepair(isForceMode, false, undefined, false)}
+                                                className="px-3 py-1 bg-blue-600 text-white rounded-lg font-medium text-[11px] hover:bg-blue-700 transition-colors flex items-center gap-1"
+                                            >
+                                                <IoPlay size={12} /> Resume Batch
+                                            </button>
+                                            <button
+                                                onClick={handleClearCheckpoint}
+                                                className="px-3 py-1 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-[11px] hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                Clear Checkpoint
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {favorites.length === 0 ? (
                                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
                                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -156,37 +219,18 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                             Add songs to your favorites and return here if artwork or details ever appear missing.
                                         </p>
                                     </div>
-                                ) : incompleteCount === 0 ? (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3 p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 text-xs">
-                                            <IoCheckmarkCircle size={20} className="shrink-0" />
-                                            <span>All {favorites.length} favorites are up to date with complete metadata!</span>
-                                        </div>
-
-                                        <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200/60 dark:border-gray-800 text-xs space-y-2">
-                                            <label className="flex items-center gap-2 font-semibold cursor-pointer text-gray-800 dark:text-gray-200">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isForceMode}
-                                                    onChange={(e) => setIsForceMode(e.target.checked)}
-                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                                                />
-                                                Force Recheck All Favorites
-                                            </label>
-                                            {isForceMode && (
-                                                <p className="text-[11px] text-amber-600 dark:text-amber-400 pl-6 leading-relaxed">
-                                                    ⚠️ Warning: Force recheck will re-query the provider for all {favorites.length} favorite items. This will make multiple network requests to verify artwork and playback links.
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                                            {incompleteCount} of your favorite items are missing metadata (e.g. artwork, artist details, or audio URLs).
-                                            Repairing will fetch details directly or via fallback search and update your account.
-                                        </p>
-                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200/60 dark:border-gray-800 text-xs">
+                                        <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200/60 dark:border-gray-800 text-xs space-y-2">
+                                            <label className="flex items-center gap-2 font-medium cursor-pointer text-gray-700 dark:text-gray-300">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isDryRun}
+                                                    onChange={(e) => setIsDryRun(e.target.checked)}
+                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <span>Dry-Run Mode (Analyze & preview without database changes)</span>
+                                            </label>
                                             <label className="flex items-center gap-2 font-medium cursor-pointer text-gray-700 dark:text-gray-300">
                                                 <input
                                                     type="checkbox"
@@ -194,7 +238,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                                     onChange={(e) => setIsForceMode(e.target.checked)}
                                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                                 />
-                                                Force Recheck All ({favorites.length} items)
+                                                <span>Force Recheck All ({favorites.length} items)</span>
                                             </label>
                                         </div>
                                     </div>
@@ -207,14 +251,13 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                 <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                                     <span className="flex items-center gap-2 font-medium">
                                         <AiOutlineLoading3Quarters className="animate-spin text-primary" size={14} />
-                                        Recovering metadata...
+                                        {progress.isDryRun ? 'Executing Dry-Run Analysis...' : 'Recovering metadata...'}
                                     </span>
                                     <span className="font-mono">
                                         {progress.repaired + progress.failed + progress.unavailable} / {isForceMode ? favorites.length : incompleteCount}
                                     </span>
                                 </div>
 
-                                {/* Progress Bar */}
                                 <div className="w-full bg-gray-100 dark:bg-gray-800 h-2.5 rounded-full overflow-hidden">
                                     <motion.div
                                         className="bg-primary h-full rounded-full"
@@ -255,8 +298,11 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                         {(status === 'completed' || status === 'cancelled') && report && (
                             <div className="space-y-4">
                                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 space-y-2">
-                                    <h4 className="font-semibold text-xs text-gray-900 dark:text-white uppercase tracking-wider">
-                                        {status === 'cancelled' ? 'Repair Cancelled' : 'Repair Summary'}
+                                    <h4 className="font-semibold text-xs text-gray-900 dark:text-white uppercase tracking-wider flex items-center justify-between">
+                                        <span>{status === 'cancelled' ? 'Repair Cancelled' : report.isDryRun ? 'Dry-Run Analysis Summary' : 'Repair Summary'}</span>
+                                        {report.isDryRun && (
+                                            <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px]">Dry-Run</span>
+                                        )}
                                     </h4>
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="flex justify-between p-1.5 rounded bg-white dark:bg-gray-900">
@@ -278,13 +324,30 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                     </div>
                                 </div>
 
+                                {report.repairedSongs.length > 0 && (
+                                    <div className="p-3 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 rounded-xl border border-emerald-500/20 text-xs space-y-2">
+                                        <div className="flex items-center gap-2 font-semibold">
+                                            <IoCheckmarkCircle size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                            <span>Repaired Samples ({report.repairedSongs.length})</span>
+                                        </div>
+                                        <div className="max-h-28 overflow-y-auto space-y-1 pr-1 text-[11px]">
+                                            {report.repairedSongs.slice(0, 5).map((song) => (
+                                                <div key={song.id} className="flex justify-between gap-2 p-1 bg-white/50 dark:bg-gray-900/50 rounded">
+                                                    <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{song.name}</span>
+                                                    <span className="text-gray-500 truncate max-w-[120px]">{song.primaryArtists}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {report.failedItems.length > 0 && (
                                     <div className="p-3 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-500/20 text-xs space-y-2">
                                         <div className="flex items-center gap-2 font-semibold">
                                             <IoAlertCircle size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
                                             <span>Unresolved Items ({report.failedItems.length})</span>
                                         </div>
-                                        <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
+                                        <div className="max-h-28 overflow-y-auto space-y-1.5 pr-1 text-[11px]">
                                             {report.failedItems.map((item, idx) => (
                                                 <div key={idx} className="flex justify-between gap-2 p-1 bg-white/50 dark:bg-gray-900/50 rounded border border-amber-500/10">
                                                     <span className="font-mono text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{item.songId}</span>
@@ -299,30 +362,40 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800 gap-2">
                         {status === 'idle' && (
                             <>
                                 <button
-                                    onClick={onClose}
-                                    className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    onClick={() => handleStartRepair(isForceMode, false, 3, false)}
+                                    disabled={favorites.length === 0}
+                                    className="px-3 py-2 rounded-xl text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                                 >
-                                    {favorites.length === 0 ? 'Close' : 'Cancel'}
+                                    <IoPlay size={14} />
+                                    Test 3 Items
                                 </button>
-                                <button
-                                    onClick={() => handleStartRepair(isForceMode, false)}
-                                    disabled={favorites.length === 0 || (incompleteCount === 0 && !isForceMode)}
-                                    className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    <IoBuild size={14} />
-                                    {isForceMode ? 'Force Recheck All' : 'Start Repair'}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={onClose}
+                                        className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        onClick={() => handleStartRepair(isForceMode, false, undefined, isDryRun)}
+                                        disabled={favorites.length === 0 || (incompleteCount === 0 && !isForceMode)}
+                                        className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {isDryRun ? <IoEyeOutline size={14} /> : <IoBuild size={14} />}
+                                        {isDryRun ? 'Run Dry-Run' : isForceMode ? 'Force Recheck All' : 'Start Repair'}
+                                    </button>
+                                </div>
                             </>
                         )}
 
                         {status === 'running' && (
                             <button
                                 onClick={handleCancel}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-colors flex items-center gap-2"
+                                className="px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-colors flex items-center gap-2 ml-auto"
                             >
                                 <IoStop size={14} />
                                 Stop Repair
@@ -330,10 +403,10 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                         )}
 
                         {(status === 'completed' || status === 'cancelled') && (
-                            <>
+                            <div className="flex items-center gap-2 ml-auto">
                                 {report && report.failedItems.some((f) => f.isRetryable) && (
                                     <button
-                                        onClick={() => handleStartRepair(isForceMode, true)}
+                                        onClick={() => handleStartRepair(isForceMode, true, undefined, isDryRun)}
                                         className="px-4 py-2 rounded-xl text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center gap-2"
                                     >
                                         <IoRefresh size={14} />
@@ -346,7 +419,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                 >
                                     Done
                                 </button>
-                            </>
+                            </div>
                         )}
                     </div>
                 </motion.div>
