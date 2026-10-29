@@ -143,18 +143,19 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
             ref={navRef}
             animate={{ y: finalVisible ? 0 : -200 }}
             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-            className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-2 sm:p-3 md:p-4 bg-white/80 backdrop-blur-lg border-b border-white/20 dark:border-gray-800/20 shadow-lg gap-1.5 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
+            className={`fixed top-0 left-0 right-0 z-50 flex flex-col items-center p-2 sm:p-3 md:p-4 bg-white/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-800/20 shadow-lg gap-1.5 md:gap-4 md:flex-row md:justify-between transition-all ${theme.isOled ? 'dark:bg-black/80' : 'dark:bg-gray-900/80'}`}
         >
             <div className="relative flex items-center justify-center md:justify-start w-full md:w-auto order-1 md:order-none">
                 <div
                     className="flex flex-col items-center md:items-start cursor-pointer"
                     onClick={() => navigate('/')}
                 >
-                    <div className="text-lg md:text-2xl font-bold text-primary-light dark:text-primary-dark tracking-tight leading-none">
-                        Vibe <span className="font-light italic text-primary">On</span>
+                    <div className="text-lg md:text-2xl font-extrabold tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-2">
+                        <img src="/vibeon-logo.png" alt="Logo" className="w-6 h-6 md:w-8 md:h-8 rounded-xl shadow-md border border-primary/20 object-cover" />
+                        <span>Vibe <span className="font-light italic text-primary">On</span></span>
                     </div>
-                    <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-400 dark:text-gray-500 mt-0.5 uppercase">
-                        by <span className="text-red-400/80">WENODH</span>
+                    <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-500 dark:text-gray-400 mt-0.5 uppercase">
+                        by <span className="text-primary font-bold">WENODH</span>
                     </div>
                 </div>
                 <div className="absolute right-0 flex items-center gap-2 md:hidden">
@@ -185,7 +186,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         placeholder="Search for songs, albums, artists..."
-                        className={`w-full p-2 sm:p-2.5 pl-10 sm:pl-11 rounded-2xl bg-gray-100/50 border-2 border-transparent focus:border-primary/50 focus:bg-white focus:outline-none transition-all shadow-inner text-base ${theme.isOled ? 'dark:bg-black/50 dark:focus:bg-black' : 'dark:bg-gray-800/50 dark:focus:bg-gray-900'}`}
+                        className={`w-full p-2 sm:p-2.5 pl-10 sm:pl-11 rounded-2xl bg-gray-100 dark:bg-gray-800/50 border-2 border-transparent focus:border-primary/50 focus:bg-white dark:focus:bg-gray-900 text-slate-900 dark:text-slate-100 focus:outline-none transition-all shadow-inner text-base`}
                     />
                     <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
 
