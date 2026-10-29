@@ -63,28 +63,59 @@ function hasValidMediaUrl(urlData: any): boolean {
 }
 
 /**
+ * Normalizes string for title/artist matching.
+ */
+function normalizeString(str: string): string {
+    return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Validates candidate search result against expected title and artist before accepting a match.
+ */
+export function matchesCandidate(candidate: any, targetName?: string, targetArtist?: string): boolean {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const candName = normalizeString(candidate.name || candidate.title || '');
+    const targName = normalizeString(targetName || '');
+    if (!candName || !targName) return false;
+
+    const nameMatch = candName.includes(targName) || targName.includes(candName);
+    if (!nameMatch) return false;
+
+    if (targetArtist && targetArtist.trim() !== '') {
+        const candArtist = normalizeString(extractArtists(candidate) || candidate.primaryArtists || '');
+        const targArtist = normalizeString(targetArtist);
+        if (candArtist && targArtist) {
+            const artistMatch = candArtist.includes(targArtist) || targArtist.includes(candArtist);
+            if (!artistMatch) return false;
+        }
+    }
+    return true;
+}
+
+/**
  * Maps raw JioSaavn API response payload item to a standard Vibe On Song model.
  */
 export function mapApiSongToSong(apiData: any, fallbackId: string, existingSong?: Partial<Song>): Song {
-    const primaryArtists = extractArtists(apiData);
+    const primaryArtists = extractArtists(apiData) || (typeof apiData.primaryArtists === 'string' ? apiData.primaryArtists : '');
 
     const album = apiData.album && typeof apiData.album === 'object'
         ? { id: String(apiData.album.id || ''), name: String(apiData.album.name || '') }
-        : existingSong?.album || '';
+        : (existingSong?.album || '');
 
     const image = apiData.image && (Array.isArray(apiData.image) ? apiData.image.length > 0 : Boolean(apiData.image))
         ? apiData.image
-        : existingSong?.image || '';
+        : (existingSong?.image || '');
 
     const downloadUrl = apiData.downloadUrl && (Array.isArray(apiData.downloadUrl) ? apiData.downloadUrl.length > 0 : Boolean(apiData.downloadUrl))
         ? apiData.downloadUrl
-        : existingSong?.downloadUrl || existingSong?.music || '';
+        : (existingSong?.downloadUrl || existingSong?.music || '');
 
     const duration = apiData.duration ?? existingSong?.duration ?? 0;
     const year = apiData.year ?? existingSong?.year;
 
     const newSong: Song = {
-        id: apiData.id || fallbackId,
+        ...existingSong,
+        id: fallbackId, // Retain original favorite song_id
         name: apiData.name || existingSong?.name || existingSong?.title || `Song ${fallbackId}`,
         primaryArtists: primaryArtists || existingSong?.primaryArtists || 'Unknown Artist',
         duration,
@@ -97,7 +128,8 @@ export function mapApiSongToSong(apiData: any, fallbackId: string, existingSong?
     return newSong;
 }
 
-function extractArtists(apiData: any): string {
+export function extractArtists(apiData: any): string {
+    if (!apiData) return '';
     if (typeof apiData.artists === 'object' && apiData.artists !== null) {
         if (Array.isArray(apiData.artists.primary) && apiData.artists.primary.length > 0) {
             return apiData.artists.primary.map((a: any) => a.name).filter(Boolean).join(', ');
@@ -111,6 +143,29 @@ function extractArtists(apiData: any): string {
 }
 
 /**
+ * Detects if an item is non-music or from an unsupported provider/type.
+ */
+export function getUnsupportedReason(song: Song): string | null {
+    if (!song || !song.id) return 'Invalid item';
+    const id = String(song.id);
+    const type = String(song.type || '').toLowerCase();
+
+    if (id.startsWith('radio:') || type === 'radio' || type === 'station') {
+        return 'Unsupported item type: Radio Station';
+    }
+    if (id.startsWith('podcast:') || id.startsWith('podcast_') || type === 'podcast' || type === 'episode') {
+        return 'Unsupported item type: Podcast Episode';
+    }
+    if (id.startsWith('librivox:') || id.startsWith('audiobook:') || type === 'audiobook') {
+        return 'Unsupported item type: Audiobook';
+    }
+    if (type === 'album' || type === 'playlist' || type === 'artist') {
+        return `Unsupported item type: ${song.type}`;
+    }
+    return null;
+}
+
+/**
  * Fetches song details from the JioSaavn API with retry, timeout, and backoff support.
  */
 export async function fetchSongDetailsWithRetry(
@@ -119,7 +174,7 @@ export async function fetchSongDetailsWithRetry(
     signal?: AbortSignal
 ): Promise<{ song?: Song; errorReason?: string; isNotFound?: boolean; isRetryable?: boolean }> {
     let attempt = 0;
-    const endpoint = `${API_BASE_URL}/api/songs/${songId}`;
+    const endpoint = `${API_BASE_URL}/api/songs/${encodeURIComponent(songId)}`;
 
     while (attempt <= maxRetries) {
         if (signal?.aborted) {
@@ -134,11 +189,7 @@ export async function fetchSongDetailsWithRetry(
 
             if (response.data && response.data.success && Array.isArray(response.data.data) && response.data.data.length > 0) {
                 const apiItem = response.data.data[0];
-                if (apiItem && String(apiItem.id) === String(songId)) {
-                    const mappedSong = mapApiSongToSong(apiItem, songId);
-                    return { song: mappedSong };
-                } else if (apiItem) {
-                    // ID mismatch or general song mapping
+                if (apiItem) {
                     const mappedSong = mapApiSongToSong(apiItem, songId);
                     return { song: mappedSong };
                 }
@@ -182,6 +233,74 @@ export async function fetchSongDetailsWithRetry(
     }
 
     return { errorReason: 'Max retries exceeded', isRetryable: true };
+}
+
+/**
+ * Fallback search by title and artist when direct ID lookup returns not found.
+ */
+export async function fetchSongByFallbackSearch(
+    existingSong: Song,
+    maxRetries = 2,
+    signal?: AbortSignal
+): Promise<{ song?: Song; errorReason?: string; isNotFound?: boolean; isRetryable?: boolean }> {
+    const title = existingSong.name || existingSong.title;
+    const artist = existingSong.primaryArtists;
+
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+        return { errorReason: 'Missing title and artist for fallback search', isNotFound: true, isRetryable: false };
+    }
+
+    const query = artist ? `${title} ${artist}` : title;
+    const searchUrl = `${API_BASE_URL}/api/search/songs?query=${encodeURIComponent(query.trim())}&limit=10`;
+
+    let attempt = 0;
+    while (attempt <= maxRetries) {
+        if (signal?.aborted) {
+            return { errorReason: 'Operation cancelled', isRetryable: false };
+        }
+
+        try {
+            const response = await axios.get(searchUrl, {
+                signal,
+                timeout: 10000,
+            });
+
+            const results = response.data?.data?.results || response.data?.results || response.data?.data;
+            if (Array.isArray(results) && results.length > 0) {
+                for (const candidate of results) {
+                    if (matchesCandidate(candidate, title, artist)) {
+                        const mapped = mapApiSongToSong(candidate, existingSong.id, existingSong);
+                        if (!isSongIncomplete(mapped)) {
+                            return { song: mapped };
+                        }
+                    }
+                }
+            }
+
+            return { errorReason: 'Fallback search returned no verified matches', isNotFound: true, isRetryable: false };
+        } catch (err: any) {
+            if (axios.isCancel(err) || signal?.aborted) {
+                return { errorReason: 'Operation cancelled', isRetryable: false };
+            }
+
+            const status = err.response?.status;
+            const isRetryable = status === 429 || (status >= 500 && status < 600) || !status;
+            attempt++;
+
+            if (attempt > maxRetries || !isRetryable) {
+                return {
+                    errorReason: err.message || `Fallback search HTTP ${status || 'Network Error'}`,
+                    isNotFound: false,
+                    isRetryable,
+                };
+            }
+
+            const backoffMs = Math.pow(2, attempt) * 500 + Math.random() * 200;
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+    }
+
+    return { errorReason: 'Fallback search max retries exceeded', isRetryable: true };
 }
 
 /**
@@ -240,7 +359,34 @@ export async function repairFavorites(
         report.currentSongId = song.id;
         report.currentSongName = song.name || song.title || song.id;
 
-        const result = await fetchSongDetailsWithRetry(song.id, maxRetries, signal);
+        // Check for non-music or unsupported item types first
+        const unsupportedReason = getUnsupportedReason(song);
+        if (unsupportedReason) {
+            report.unavailable++;
+            report.failedItems.push({
+                songId: song.id,
+                reason: unsupportedReason,
+                isRetryable: false,
+            });
+            if (onProgress) onProgress({ ...report });
+            return;
+        }
+
+        // Try direct lookup first
+        let result = await fetchSongDetailsWithRetry(song.id, maxRetries, signal);
+
+        // If direct lookup returned not found, attempt fallback search by title/artist
+        if ((!result.song && result.isNotFound) || (result.song && isSongIncomplete(result.song))) {
+            const fallbackResult = await fetchSongByFallbackSearch(song, maxRetries, signal);
+            if (fallbackResult.song) {
+                result = fallbackResult;
+            } else if (!result.song) {
+                // If direct lookup had non-retryable reason and fallback also failed, preserve failure reason
+                if (fallbackResult.errorReason) {
+                    result.errorReason = `${result.errorReason || 'Lookup failed'} | ${fallbackResult.errorReason}`;
+                }
+            }
+        }
 
         if (signal?.aborted) {
             report.isCancelled = true;
@@ -254,13 +400,46 @@ export async function repairFavorites(
             // Update Supabase if user ID is present and Supabase client is available
             if (userId) {
                 try {
-                    await supabase
+                    const { data, error } = await supabase
                         .from('favorites')
                         .update({ song_data: mergedSong })
                         .eq('user_id', userId)
-                        .eq('song_id', song.id);
-                } catch (dbErr) {
-                    console.error(`Failed to persist repaired song ${song.id} to Supabase:`, dbErr);
+                        .eq('song_id', song.id)
+                        .select();
+
+                    if (error) {
+                        console.error(`Failed to persist repaired song ${song.id} to Supabase:`, error);
+                        report.failed++;
+                        report.failedItems.push({
+                            songId: song.id,
+                            reason: `Database error: ${error.message}`,
+                            isRetryable: true,
+                        });
+                        if (onProgress) onProgress({ ...report });
+                        return;
+                    }
+
+                    if (!data || data.length === 0) {
+                        console.warn(`Zero rows updated for song ${song.id} in Supabase favorites`);
+                        report.failed++;
+                        report.failedItems.push({
+                            songId: song.id,
+                            reason: 'Database update matched 0 rows (item missing or permission denied)',
+                            isRetryable: false,
+                        });
+                        if (onProgress) onProgress({ ...report });
+                        return;
+                    }
+                } catch (dbErr: any) {
+                    console.error(`Database operation exception for song ${song.id}:`, dbErr);
+                    report.failed++;
+                    report.failedItems.push({
+                        songId: song.id,
+                        reason: `Database error: ${dbErr.message || 'Unknown error'}`,
+                        isRetryable: true,
+                    });
+                    if (onProgress) onProgress({ ...report });
+                    return;
                 }
             }
 
