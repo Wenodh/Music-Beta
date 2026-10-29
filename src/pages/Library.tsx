@@ -3,7 +3,8 @@ import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { deletePlaylist } from '../features/library/librarySlice';
 import { deletePlaylistCloud, toggleFavoriteCloud, createPlaylistCloud, removeFromPlaylistCloud } from '../features/library/libraryActions';
 import { playMusic, setSongs } from '../features/musicplayer/musicPlayerSlice';
-import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle } from 'react-icons/io5';
+import { IoAdd, IoHeart, IoTrash, IoMusicalNote, IoGridOutline, IoListOutline, IoFilterOutline, IoCloudDownload, IoPlay, IoShuffle, IoBuild } from 'react-icons/io5';
+import { RepairFavoritesModal } from '../components/modals/RepairFavoritesModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -34,6 +35,7 @@ const Library: React.FC = () => {
     const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sortBy, setSortBy] = useState<'name' | 'artist' | 'date'>('date');
+    const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
@@ -229,29 +231,38 @@ const Library: React.FC = () => {
 
             {activeTab === 'favorites' && !selectedPlaylist && (
                 <div className="space-y-6">
-                    {favorites.length > 0 && (
-                        <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                            <button
-                                onClick={() => {
-                                    dispatch(setSongs(favorites));
-                                    dispatch(playMusic(favorites[0]));
-                                }}
-                                className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
-                            >
-                                <IoPlay /> Play All
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const shuffled = [...favorites].sort(() => Math.random() - 0.5);
-                                    dispatch(setSongs(shuffled));
-                                    dispatch(playMusic(shuffled[0]));
-                                }}
-                                className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
-                            >
-                                <IoShuffle /> Shuffle
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex gap-2 sm:gap-4 items-center overflow-x-auto pb-2 scrollbar-hide">
+                        {favorites.length > 0 && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        dispatch(setSongs(favorites));
+                                        dispatch(playMusic(favorites[0]));
+                                    }}
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:bg-red-600 transition-all whitespace-nowrap"
+                                >
+                                    <IoPlay /> Play All
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const shuffled = [...favorites].sort(() => Math.random() - 0.5);
+                                        dispatch(setSongs(shuffled));
+                                        dispatch(playMusic(shuffled[0]));
+                                    }}
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap"
+                                >
+                                    <IoShuffle /> Shuffle
+                                </button>
+                            </>
+                        )}
+                        <button
+                            onClick={() => setIsRepairModalOpen(true)}
+                            className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all whitespace-nowrap ml-auto"
+                            title="Repair missing favorite metadata"
+                        >
+                            <IoBuild className="text-primary" /> Repair Favorites
+                        </button>
+                    </div>
                     <div className={viewMode === 'grid'
                         ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
                         : "space-y-1 sm:space-y-2"
@@ -456,6 +467,11 @@ const Library: React.FC = () => {
                     </div>
                 </motion.div>
             )}
+
+            <RepairFavoritesModal
+                isOpen={isRepairModalOpen}
+                onClose={() => setIsRepairModalOpen(false)}
+            />
 
             <AnimatePresence>
                 {isCreating && (
