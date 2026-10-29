@@ -4,6 +4,7 @@ import { IoClose, IoBuild, IoCheckmarkCircle, IoAlertCircle, IoHelpCircle, IoRef
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setFavorites } from '../../features/library/librarySlice';
+import { showToast } from '../../features/ui/uiSlice';
 import {
     isSongIncomplete,
     repairFavorites,
@@ -22,17 +23,18 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
     const user = useAppSelector((state) => state.auth.user);
 
     const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'cancelled'>('idle');
+    const [isForceMode, setIsForceMode] = useState(false);
     const [progress, setProgress] = useState<RecoveryProgress | null>(null);
     const [report, setReport] = useState<RecoveryReport | null>(null);
 
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const incompleteCount = favorites.filter(isSongIncomplete).length;
-    const completeCount = favorites.length - incompleteCount;
 
     useEffect(() => {
         if (!isOpen) {
             setStatus('idle');
+            setIsForceMode(false);
             setProgress(null);
             setReport(null);
             if (abortControllerRef.current) {
@@ -41,7 +43,9 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
         }
     }, [isOpen]);
 
-    const handleStartRepair = async (retryFailedOnly = false) => {
+    const handleStartRepair = async (forceMode = false, retryFailedOnly = false) => {
+        if (favorites.length === 0) return;
+
         setStatus('running');
         abortControllerRef.current = new AbortController();
 
@@ -56,6 +60,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
             const finalReport = await repairFavorites(songsToProcess, user?.id, {
                 concurrency: 5,
                 maxRetries: 3,
+                forceAll: forceMode,
                 signal: abortControllerRef.current.signal,
                 onProgress: (latestProgress) => {
                     setProgress(latestProgress);
@@ -71,6 +76,13 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                 setStatus('cancelled');
             } else {
                 setStatus('completed');
+                if (finalReport.repaired > 0) {
+                    dispatch(showToast({ message: `Successfully repaired ${finalReport.repaired} song${finalReport.repaired === 1 ? '' : 's'}.` }));
+                } else if (finalReport.failed > 0) {
+                    dispatch(showToast({ message: `${finalReport.failed} song(s) failed to repair. You can retry.` }));
+                } else {
+                    dispatch(showToast({ message: 'All favorites are up to date.' }));
+                }
             }
         } catch (err) {
             console.error('Repair favorites error:', err);
@@ -135,16 +147,57 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                     </div>
                                 </div>
 
-                                {incompleteCount === 0 ? (
-                                    <div className="flex items-center gap-3 p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 text-xs">
-                                        <IoCheckmarkCircle size={20} className="shrink-0" />
-                                        <span>All {favorites.length} favorites already contain complete metadata!</span>
+                                {favorites.length === 0 ? (
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            You don't have any favorites to repair yet.
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            Add songs to your favorites and return here if artwork or details ever appear missing.
+                                        </p>
+                                    </div>
+                                ) : incompleteCount === 0 ? (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 text-xs">
+                                            <IoCheckmarkCircle size={20} className="shrink-0" />
+                                            <span>All {favorites.length} favorites are up to date with complete metadata!</span>
+                                        </div>
+
+                                        <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200/60 dark:border-gray-800 text-xs space-y-2">
+                                            <label className="flex items-center gap-2 font-semibold cursor-pointer text-gray-800 dark:text-gray-200">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isForceMode}
+                                                    onChange={(e) => setIsForceMode(e.target.checked)}
+                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                Force Recheck All Favorites
+                                            </label>
+                                            {isForceMode && (
+                                                <p className="text-[11px] text-amber-600 dark:text-amber-400 pl-6 leading-relaxed">
+                                                    ⚠️ Warning: Force recheck will re-query the provider for all {favorites.length} favorite songs. This will make multiple network requests to verify artwork and playback links.
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                                        {incompleteCount} of your favorite songs are missing metadata (e.g. artwork, artist details, or audio URLs).
-                                        Repairing will fetch details directly from JioSaavn and update your account.
-                                    </p>
+                                    <div className="space-y-3">
+                                        <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                                            {incompleteCount} of your favorite songs are missing metadata (e.g. artwork, artist details, or audio URLs).
+                                            Repairing will fetch details directly from JioSaavn and update your account.
+                                        </p>
+                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200/60 dark:border-gray-800 text-xs">
+                                            <label className="flex items-center gap-2 font-medium cursor-pointer text-gray-700 dark:text-gray-300">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isForceMode}
+                                                    onChange={(e) => setIsForceMode(e.target.checked)}
+                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                Force Recheck All ({favorites.length} songs)
+                                            </label>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -157,7 +210,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                         Recovering metadata...
                                     </span>
                                     <span className="font-mono">
-                                        {progress.repaired + progress.failed + progress.unavailable} / {incompleteCount}
+                                        {progress.repaired + progress.failed + progress.unavailable} / {isForceMode ? favorites.length : incompleteCount}
                                     </span>
                                 </div>
 
@@ -169,7 +222,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                         animate={{
                                             width: `${Math.min(
                                                 100,
-                                                ((progress.repaired + progress.failed + progress.unavailable) / Math.max(1, incompleteCount)) * 100
+                                                ((progress.repaired + progress.failed + progress.unavailable) / Math.max(1, isForceMode ? favorites.length : incompleteCount)) * 100
                                             )}%`,
                                         }}
                                         transition={{ ease: 'easeOut', duration: 0.2 }}
@@ -245,15 +298,15 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                                     onClick={onClose}
                                     className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                 >
-                                    Cancel
+                                    {favorites.length === 0 ? 'Close' : 'Cancel'}
                                 </button>
                                 <button
-                                    onClick={() => handleStartRepair(false)}
-                                    disabled={incompleteCount === 0}
+                                    onClick={() => handleStartRepair(isForceMode, false)}
+                                    disabled={favorites.length === 0 || (incompleteCount === 0 && !isForceMode)}
                                     className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
                                 >
                                     <IoBuild size={14} />
-                                    Start Repair
+                                    {isForceMode ? 'Force Recheck All' : 'Start Repair'}
                                 </button>
                             </>
                         )}
@@ -272,7 +325,7 @@ export const RepairFavoritesModal: React.FC<RepairFavoritesModalProps> = ({ isOp
                             <>
                                 {report && report.failedItems.some((f) => f.isRetryable) && (
                                     <button
-                                        onClick={() => handleStartRepair(true)}
+                                        onClick={() => handleStartRepair(isForceMode, true)}
                                         className="px-4 py-2 rounded-xl text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center gap-2"
                                     >
                                         <IoRefresh size={14} />
