@@ -468,13 +468,10 @@ export const AppContent = () => {
     }, [theme?.darkMode, theme?.isOled]);
 
     const getFontStyle = () => {
-        switch (theme?.fontStyle) {
-            case 'Bitcount Single': return "'Bitcount Single', cursive";
-            case 'Black Ops One': return "'Black Ops One', cursive";
-            case 'Bitcount Grid Double': return "'Bitcount Grid Double', cursive";
-            case 'Croissant One': return "'Croissant One', cursive";
-            default: return 'inherit';
+        if (!theme?.fontStyle || theme.fontStyle === 'Standard') {
+            return 'inherit';
         }
+        return `'${theme.fontStyle}', cursive`;
     };
 
     return (
