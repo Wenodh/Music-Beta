@@ -7,7 +7,6 @@ import {
     IoCloudUploadOutline,
     IoCloudDownloadOutline,
     IoCheckmarkCircle,
-    IoAlertCircle,
     IoSearchOutline,
     IoDocumentTextOutline,
     IoOptionsOutline,
@@ -38,8 +37,8 @@ export const ImportExportModal: React.FC = () => {
 
     // Import State
     const [importStep, setImportStep] = useState<'select' | 'preview' | 'executing' | 'summary'>('select');
-    const [importMode, setImportMode] = useState<ImportMode>('merge');
-    const [importFileContent, setImportFileContent] = useState<string>('');
+    const [, setImportMode] = useState<ImportMode>('merge');
+    const [, setImportFileContent] = useState<string>('');
     const [importFileName, setImportFileName] = useState<string>('');
     const [previewResult, setPreviewResult] = useState<ImportPreviewResult | null>(null);
 
@@ -223,7 +222,7 @@ export const ImportExportModal: React.FC = () => {
             previewResult,
             { mode: 'merge', customMatches },
             dispatch,
-            () => (window as any).store?.getState?.() || ({} as any),
+            () => ({ library: { favorites, playlists } } as any),
             (progress, currentSummary) => {
                 setImportProgress(progress);
                 setImportSummary(currentSummary);

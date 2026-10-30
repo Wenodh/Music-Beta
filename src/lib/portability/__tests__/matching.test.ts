@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchTrackAgainstCatalog, isStrongMatch, normalizeString, createUnresolvedSong } from '../matching';
+import { matchTrackAgainstCatalog, normalizeString, createUnresolvedSong } from '../matching';
 import { PortableTrack } from '../types';
 import { Song } from '../../../types/music';
 

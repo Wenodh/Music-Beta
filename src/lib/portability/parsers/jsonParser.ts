@@ -1,4 +1,4 @@
-import { VibeOnBackupEnvelope, PortableTrack, ImportFileType } from '../types';
+import { VibeOnBackupEnvelope, PortableTrack } from '../types';
 import { validateVibeOnBackupSchema } from '../schema';
 import { Song } from '../../../types/music';
 

@@ -63,8 +63,8 @@ export function parseM3u(m3uContent: string, fileName?: string): M3uParseResult 
         } else {
             // Line is path or URL
             const location = line;
-            let title = currentTitle || extractFilenameTitle(location);
-            let artist = currentArtist;
+            const title = currentTitle || extractFilenameTitle(location);
+            const artist = currentArtist;
 
             // If location is a URL, extract domain/provider if possible
             let provider: string | undefined = undefined;

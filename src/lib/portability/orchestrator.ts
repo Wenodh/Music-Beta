@@ -71,9 +71,13 @@ export function generateImportPreview(
         errors = res.errors;
     }
 
+    if (errors.length > 0) {
+        console.warn('Import preview generated warnings:', errors);
+    }
+
     let matchedCount = 0;
     let unmatchedCount = 0;
-    let ambiguousCount = 0;
+    const ambiguousCount = 0;
 
     parsedTracks.forEach((track) => {
         const matched = matchTrackAgainstCatalog(track, catalog);
@@ -133,8 +137,8 @@ export async function executeImportJob(
         effectiveMode = 'merge';
     }
 
-    let existingFavorites = [...(state?.library?.favorites || [])];
-    let existingPlaylists = [...(state?.library?.playlists || [])];
+    const existingFavorites = [...(state?.library?.favorites || [])];
+    const existingPlaylists = [...(state?.library?.playlists || [])];
 
     const favMap = new Map<string, Song>();
     existingFavorites.forEach((s) => favMap.set(s.id, s));
