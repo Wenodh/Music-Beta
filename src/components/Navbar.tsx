@@ -151,7 +151,6 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                     onClick={() => navigate('/')}
                 >
                     <div className="text-lg md:text-2xl font-extrabold tracking-tight leading-none text-slate-900 dark:text-white flex items-center gap-2">
-                        <img src="/vibeon-logo.png" alt="Logo" className="w-6 h-6 md:w-8 md:h-8 rounded-xl shadow-md border border-primary/20 object-cover" />
                         <span>Vibe <span className="font-light italic text-primary">On</span></span>
                     </div>
                     <div className="text-[7px] md:text-[9px] font-medium tracking-[0.2em] text-gray-500 dark:text-gray-400 mt-0.5 uppercase">
