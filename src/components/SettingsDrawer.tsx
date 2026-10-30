@@ -39,6 +39,10 @@ const SettingsDrawer: React.FC = () => {
         { name: 'Black Ops One', value: 'Black Ops One' },
         { name: 'Bitcount Grid Double', value: 'Bitcount Grid Double' },
         { name: 'Croissant One', value: 'Croissant One' },
+        { name: 'Courgette', value: 'Courgette' },
+        { name: 'Lobster', value: 'Lobster' },
+        { name: 'Playwrite IT Trad', value: 'Playwrite IT Trad' },
+        { name: 'Cursive', value: 'Dancing Script' },
     ];
 
     const languages = [

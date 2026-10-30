@@ -24,5 +24,5 @@ export function exportToM3u(songs: Song[], playlistTitle?: string): string {
         lines.push(url || `# UNRESOLVED STREAM URL FOR ID ${song.id}`);
     });
 
-    return lines.join('\r\n');
+    return `\uFEFF${lines.join('\r\n')}`;
 }

@@ -7,15 +7,10 @@ import {
     IoCloudUploadOutline,
     IoCloudDownloadOutline,
     IoCheckmarkCircle,
-    IoAlertCircle,
     IoSearchOutline,
     IoDocumentTextOutline,
-    IoCopyOutline,
-    IoRefreshOutline,
-    IoListOutline,
     IoOptionsOutline,
-    IoTrashOutline,
-    IoPlayCircleOutline,
+    IoWarningOutline,
 } from 'react-icons/io5';
 import { exportToJson } from '../../lib/portability/exporters/jsonExporter';
 import { exportToCsv } from '../../lib/portability/exporters/csvExporter';
@@ -42,9 +37,8 @@ export const ImportExportModal: React.FC = () => {
 
     // Import State
     const [importStep, setImportStep] = useState<'select' | 'preview' | 'executing' | 'summary'>('select');
-    const [importMode, setImportMode] = useState<ImportMode>('merge');
-    const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
-    const [importFileContent, setImportFileContent] = useState<string>('');
+    const [, setImportMode] = useState<ImportMode>('merge');
+    const [, setImportFileContent] = useState<string>('');
     const [importFileName, setImportFileName] = useState<string>('');
     const [previewResult, setPreviewResult] = useState<ImportPreviewResult | null>(null);
 
@@ -80,6 +74,7 @@ export const ImportExportModal: React.FC = () => {
         setImportSummary(null);
         setIsCancelling(false);
         cancelRef.current = false;
+        setImportMode('merge');
     };
 
     // --- Export Handler ---
@@ -153,10 +148,10 @@ export const ImportExportModal: React.FC = () => {
     const getMimeType = (ext: string) => {
         switch (ext) {
             case 'json': return 'application/json';
-            case 'csv': return 'text/csv';
-            case 'm3u8': return 'application/x-mpegurl';
-            case 'txt': return 'text/plain';
-            default: return 'text/plain';
+            case 'csv': return 'text/csv;charset=utf-8';
+            case 'm3u8': return 'application/x-mpegurl;charset=utf-8';
+            case 'txt': return 'text/plain;charset=utf-8';
+            default: return 'text/plain;charset=utf-8';
         }
     };
 
@@ -218,12 +213,6 @@ export const ImportExportModal: React.FC = () => {
     const handleStartImport = async () => {
         if (!previewResult) return;
 
-        if (importMode === 'replace' && !showReplaceConfirm) {
-            setShowReplaceConfirm(true);
-            return;
-        }
-
-        setShowReplaceConfirm(false);
         setImportStep('executing');
         setImportProgress(0);
         setIsCancelling(false);
@@ -231,9 +220,9 @@ export const ImportExportModal: React.FC = () => {
 
         const summary = await executeImportJob(
             previewResult,
-            { mode: importMode, customMatches },
+            { mode: 'merge', customMatches },
             dispatch,
-            () => (window as any).store?.getState?.() || ({} as any),
+            () => ({ library: { favorites, playlists } } as any),
             (progress, currentSummary) => {
                 setImportProgress(progress);
                 setImportSummary(currentSummary);
@@ -435,25 +424,17 @@ export const ImportExportModal: React.FC = () => {
                                             <div className="grid grid-cols-2 gap-3">
                                                 <button
                                                     onClick={() => setImportMode('merge')}
-                                                    className={`p-3.5 rounded-2xl text-left border-2 transition-all ${
-                                                        importMode === 'merge'
-                                                            ? 'border-primary bg-primary/5 text-primary shadow-sm'
-                                                            : 'border-gray-200 dark:border-gray-800'
-                                                    }`}
+                                                    className={`p-3.5 rounded-2xl text-left border-2 transition-all border-primary bg-primary/5 text-primary shadow-sm`}
                                                 >
                                                     <p className="font-bold text-xs sm:text-sm">Merge (Non-Destructive)</p>
-                                                    <p className="text-[10px] text-gray-500 mt-0.5">Appends missing items; safely ignores existing duplicates.</p>
+                                                    <p className="text-[10px] text-gray-500 mt-0.5">Appends missing items; safely preserves existing library.</p>
                                                 </button>
                                                 <button
-                                                    onClick={() => setImportMode('replace')}
-                                                    className={`p-3.5 rounded-2xl text-left border-2 transition-all ${
-                                                        importMode === 'replace'
-                                                            ? 'border-red-500 bg-red-500/5 text-red-500 shadow-sm'
-                                                            : 'border-gray-200 dark:border-gray-800'
-                                                    }`}
+                                                    disabled
+                                                    className="p-3.5 rounded-2xl text-left border-2 border-gray-200 dark:border-gray-800 opacity-40 cursor-not-allowed relative"
                                                 >
-                                                    <p className="font-bold text-xs sm:text-sm">Replace / Overwrite</p>
-                                                    <p className="text-[10px] text-gray-500 mt-0.5">Clears existing user library before importing.</p>
+                                                    <p className="font-bold text-xs sm:text-sm text-gray-400">Replace / Overwrite</p>
+                                                    <p className="text-[10px] text-amber-500 mt-0.5">Disabled for safety: atomic remote transaction unavailable.</p>
                                                 </button>
                                             </div>
                                         </div>
@@ -587,13 +568,25 @@ export const ImportExportModal: React.FC = () => {
 
                                 {importStep === 'summary' && importSummary && (
                                     <div className="space-y-6 text-center py-4">
-                                        <div className="w-16 h-16 mx-auto bg-green-500/10 text-green-500 rounded-full flex items-center justify-center">
-                                            <IoCheckmarkCircle size={36} />
-                                        </div>
+                                        {importSummary.failedWrites > 0 || importSummary.errors.length > 0 ? (
+                                            <div className="w-16 h-16 mx-auto bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center">
+                                                <IoWarningOutline size={36} />
+                                            </div>
+                                        ) : (
+                                            <div className="w-16 h-16 mx-auto bg-green-500/10 text-green-500 rounded-full flex items-center justify-center">
+                                                <IoCheckmarkCircle size={36} />
+                                            </div>
+                                        )}
                                         <div>
-                                            <h3 className="text-xl font-bold">Import Complete!</h3>
+                                            <h3 className="text-xl font-bold">
+                                                {importSummary.failedWrites > 0 || importSummary.errors.length > 0
+                                                    ? 'Import Completed with Warnings'
+                                                    : 'Import Complete!'}
+                                            </h3>
                                             <p className="text-xs text-gray-500 mt-1">
-                                                Library update process finished successfully.
+                                                {importSummary.failedWrites > 0
+                                                    ? 'Library updated with partial cloud synchronization warnings.'
+                                                    : 'Library update process finished successfully.'}
                                             </p>
                                         </div>
 
@@ -624,6 +617,12 @@ export const ImportExportModal: React.FC = () => {
                                             </div>
                                         </div>
 
+                                        {importSummary.failedWrites > 0 && (
+                                            <div className="p-2 bg-red-500/10 rounded-xl text-xs text-red-500 font-semibold">
+                                                Failed cloud writes: {importSummary.failedWrites} track(s)
+                                            </div>
+                                        )}
+
                                         {importSummary.errors.length > 0 && (
                                             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-left text-xs text-red-500 max-h-24 overflow-y-auto">
                                                 <p className="font-bold mb-1">Warnings / Errors:</p>
@@ -645,37 +644,6 @@ export const ImportExportModal: React.FC = () => {
                         )}
                     </div>
                 </motion.div>
-
-                {/* Overwrite Confirmation Dialog */}
-                {showReplaceConfirm && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[600] flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-gray-900 border border-red-500/30 p-6 sm:p-8 rounded-3xl max-w-md w-full shadow-2xl text-center space-y-4">
-                            <div className="w-12 h-12 mx-auto bg-red-500/10 text-red-500 rounded-full flex items-center justify-center">
-                                <IoAlertCircle size={28} />
-                            </div>
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
-                                Confirm Replace / Overwrite?
-                            </h3>
-                            <p className="text-xs text-gray-500 leading-relaxed">
-                                Warning: Replacing your library will clear your current favorites and playlists before importing this file. This action cannot be undone.
-                            </p>
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={() => setShowReplaceConfirm(false)}
-                                    className="flex-1 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleStartImport}
-                                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-500/30 transition-all"
-                                >
-                                    Overwrite Library
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Track Resolution Modal */}
                 {resolvingTrackIndex !== null && (

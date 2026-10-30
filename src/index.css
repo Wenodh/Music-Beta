@@ -9,7 +9,7 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply transition-colors duration-300 bg-slate-900 text-slate-100 font-sans;
+    @apply transition-colors duration-300 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 font-sans;
     -webkit-overflow-scrolling: touch;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;

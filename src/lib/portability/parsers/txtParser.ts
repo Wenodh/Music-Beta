@@ -23,7 +23,7 @@ export function parseTxt(txtContent: string): TxtParseResult {
         }
 
         // Clean up prefix track numbering e.g. "1. ", "01. ", "1 - ", "01 - "
-        const cleanedLine = line.replace(/^(?:\d+[\.\)]\s*|\d+\s*[-–—]\s*)/, '').trim();
+        const cleanedLine = line.replace(/^(?:\d+[.)]\s*|\d+\s*[-–—]\s*)/, '').trim();
 
         const track = parseTxtLine(cleanedLine, line);
         if (track) {

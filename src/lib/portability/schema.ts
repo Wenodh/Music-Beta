@@ -1,5 +1,3 @@
-import { VibeOnBackupEnvelope } from './types';
-
 export interface ValidationResult {
     valid: boolean;
     errors: string[];

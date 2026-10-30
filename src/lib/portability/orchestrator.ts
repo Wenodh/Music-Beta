@@ -71,9 +71,13 @@ export function generateImportPreview(
         errors = res.errors;
     }
 
+    if (errors.length > 0) {
+        console.warn('Import preview generated warnings:', errors);
+    }
+
     let matchedCount = 0;
     let unmatchedCount = 0;
-    let ambiguousCount = 0;
+    const ambiguousCount = 0;
 
     parsedTracks.forEach((track) => {
         const matched = matchTrackAgainstCatalog(track, catalog);
@@ -112,7 +116,6 @@ export async function executeImportJob(
 ): Promise<ImportSummary> {
     const state = getState();
     const user = state?.auth?.user || null;
-    const mode = options.mode;
 
     const summary: ImportSummary = {
         totalFound: preview.parsedTracks.length,
@@ -126,8 +129,16 @@ export async function executeImportJob(
         errors: [],
     };
 
-    let existingFavorites = mode === 'replace' ? [] : [...(state?.library?.favorites || [])];
-    let existingPlaylists = mode === 'replace' ? [] : [...(state?.library?.playlists || [])];
+    let effectiveMode = options.mode;
+    if (effectiveMode === 'replace') {
+        summary.errors.push(
+            'Replace mode is disabled for data safety because atomic cloud transactions are unavailable. Fallback to Merge mode executed.'
+        );
+        effectiveMode = 'merge';
+    }
+
+    const existingFavorites = [...(state?.library?.favorites || [])];
+    const existingPlaylists = [...(state?.library?.playlists || [])];
 
     const favMap = new Map<string, Song>();
     existingFavorites.forEach((s) => favMap.set(s.id, s));
@@ -204,19 +215,21 @@ export async function executeImportJob(
     // Update Supabase if authenticated
     if (user) {
         try {
-            if (mode === 'replace') {
-                await supabase.from('favorites').delete().eq('user_id', user.id);
-                await supabase.from('playlists').delete().eq('user_id', user.id);
-            }
-
             if (finalFavorites.length > 0) {
-                const favUpserts = finalFavorites.map((s) => ({
-                    user_id: user.id,
-                    song_id: s.id,
-                    song_data: s,
-                }));
-                const { error: favErr } = await supabase.from('favorites').upsert(favUpserts);
-                if (favErr) throw favErr;
+                const chunkSize = 50;
+                for (let k = 0; k < finalFavorites.length; k += chunkSize) {
+                    const chunk = finalFavorites.slice(k, k + chunkSize);
+                    const favUpserts = chunk.map((s) => ({
+                        user_id: user.id,
+                        song_id: s.id,
+                        song_data: s,
+                    }));
+                    const { error: favErr } = await supabase.from('favorites').upsert(favUpserts);
+                    if (favErr) {
+                        summary.failedWrites += chunk.length;
+                        summary.errors.push(`Supabase favorites write error: ${favErr.message}`);
+                    }
+                }
             }
 
             if (finalPlaylists.length > 0) {
@@ -227,7 +240,10 @@ export async function executeImportJob(
                     songs_data: p.songs,
                 }));
                 const { error: plErr } = await supabase.from('playlists').upsert(playlistUpserts);
-                if (plErr) throw plErr;
+                if (plErr) {
+                    summary.failedWrites += finalPlaylists.length;
+                    summary.errors.push(`Supabase playlists write error: ${plErr.message}`);
+                }
             }
         } catch (err: any) {
             summary.failedWrites++;

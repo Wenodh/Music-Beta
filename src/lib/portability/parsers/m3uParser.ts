@@ -27,13 +27,16 @@ export function parseM3u(m3uContent: string, fileName?: string): M3uParseResult 
     let currentArtist: string = 'Unknown Artist';
     let currentTitle: string = '';
 
-    const playlistName = fileName ? fileName.replace(/\.(m3u8?|txt)$/i, '') : undefined;
+    let detectedPlaylistName = fileName ? fileName.replace(/\.(m3u8?|txt)$/i, '') : undefined;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
-        if (line.startsWith('#EXTINF:')) {
+        if (line.startsWith('#PLAYLIST:')) {
+            const pName = line.substring(10).trim();
+            if (pName) detectedPlaylistName = pName;
+        } else if (line.startsWith('#EXTINF:')) {
             // Format: #EXTINF:seconds,Artist - Title  OR  #EXTINF:seconds,Title
             const commaIndex = line.indexOf(',');
             if (commaIndex !== -1) {
@@ -60,8 +63,8 @@ export function parseM3u(m3uContent: string, fileName?: string): M3uParseResult 
         } else {
             // Line is path or URL
             const location = line;
-            let title = currentTitle || extractFilenameTitle(location);
-            let artist = currentArtist;
+            const title = currentTitle || extractFilenameTitle(location);
+            const artist = currentArtist;
 
             // If location is a URL, extract domain/provider if possible
             let provider: string | undefined = undefined;
@@ -80,7 +83,7 @@ export function parseM3u(m3uContent: string, fileName?: string): M3uParseResult 
                 duration: currentDuration,
                 sourceUrl,
                 provider,
-                playlistName,
+                playlistName: detectedPlaylistName,
                 playlistPosition: tracks.length + 1,
             });
 
@@ -92,7 +95,7 @@ export function parseM3u(m3uContent: string, fileName?: string): M3uParseResult 
     }
 
     return {
-        playlistName,
+        playlistName: detectedPlaylistName,
         tracks,
         errors,
     };

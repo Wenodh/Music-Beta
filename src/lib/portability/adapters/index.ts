@@ -36,12 +36,11 @@ export class JioSaavnProviderAdapter implements ProviderAdapter {
 export class SpotifyProviderAdapter implements ProviderAdapter {
     providerName = 'spotify';
 
-    async searchTracks(_query: string, _limit?: number): Promise<Song[]> {
-        // Prepared for future official Spotify API integration
+    async searchTracks(): Promise<Song[]> {
         return [];
     }
 
-    async getTrackById(_id: string): Promise<Song | null> {
+    async getTrackById(): Promise<Song | null> {
         return null;
     }
 }
@@ -49,12 +48,11 @@ export class SpotifyProviderAdapter implements ProviderAdapter {
 export class YouTubeMusicProviderAdapter implements ProviderAdapter {
     providerName = 'ytmusic';
 
-    async searchTracks(_query: string, _limit?: number): Promise<Song[]> {
-        // Prepared for future official YouTube Music API integration
+    async searchTracks(): Promise<Song[]> {
         return [];
     }
 
-    async getTrackById(_id: string): Promise<Song | null> {
+    async getTrackById(): Promise<Song | null> {
         return null;
     }
 }
@@ -62,12 +60,11 @@ export class YouTubeMusicProviderAdapter implements ProviderAdapter {
 export class AppleMusicProviderAdapter implements ProviderAdapter {
     providerName = 'applemusic';
 
-    async searchTracks(_query: string, _limit?: number): Promise<Song[]> {
-        // Prepared for future official Apple Music API integration
+    async searchTracks(): Promise<Song[]> {
         return [];
     }
 
-    async getTrackById(_id: string): Promise<Song | null> {
+    async getTrackById(): Promise<Song | null> {
         return null;
     }
 }
@@ -75,12 +72,11 @@ export class AppleMusicProviderAdapter implements ProviderAdapter {
 export class LocalMusicProviderAdapter implements ProviderAdapter {
     providerName = 'local';
 
-    async searchTracks(_query: string, _limit?: number): Promise<Song[]> {
-        // Prepared for future local device filesystem music scanning
+    async searchTracks(): Promise<Song[]> {
         return [];
     }
 
-    async getTrackById(_id: string): Promise<Song | null> {
+    async getTrackById(): Promise<Song | null> {
         return null;
     }
 }
