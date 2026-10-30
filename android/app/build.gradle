@@ -13,8 +13,8 @@ android {
         applicationId "com.wenodh.vibeon"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.0.1"
+        versionCode 6
+        versionName "1.0.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -23,19 +23,26 @@ android {
         }
     }
 
+    def hasSigningProps = signingPropertiesFile.exists()
+    def storeFilePath = hasSigningProps ? signingProperties['RELEASE_STORE_FILE'] : (System.getenv("RELEASE_STORE_FILE") ?: 'release-key.keystore')
+    def storePasswordVal = hasSigningProps ? signingProperties['RELEASE_STORE_PASSWORD'] : System.getenv("RELEASE_STORE_PASSWORD")
+    def keyAliasVal = hasSigningProps ? signingProperties['RELEASE_KEY_ALIAS'] : System.getenv("RELEASE_KEY_ALIAS")
+    def keyPasswordVal = hasSigningProps ? signingProperties['RELEASE_KEY_PASSWORD'] : System.getenv("RELEASE_KEY_PASSWORD")
+
+    def resolvedKeystoreFile = storeFilePath ? file(storeFilePath) : null
+    if (resolvedKeystoreFile != null && !resolvedKeystoreFile.exists()) {
+        resolvedKeystoreFile = rootProject.file(storeFilePath)
+    }
+    def keystoreFile = resolvedKeystoreFile
+    def isSigningConfigured = (keystoreFile != null && keystoreFile.exists() && storePasswordVal && keyAliasVal && keyPasswordVal)
+
     signingConfigs {
         release {
-            if (signingPropertiesFile.exists()) {
-                storeFile file(signingProperties['RELEASE_STORE_FILE'])
-                storePassword signingProperties['RELEASE_STORE_PASSWORD']
-                keyAlias signingProperties['RELEASE_KEY_ALIAS']
-                keyPassword signingProperties['RELEASE_KEY_PASSWORD']
-            } else {
-                // Fallback to environment variables for CI/Local
-                storeFile file(System.getenv("RELEASE_STORE_FILE") ?: 'release-key.keystore')
-                storePassword System.getenv("RELEASE_STORE_PASSWORD")
-                keyAlias System.getenv("RELEASE_KEY_ALIAS")
-                keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+            if (isSigningConfigured) {
+                storeFile keystoreFile
+                storePassword storePasswordVal
+                keyAlias keyAliasVal
+                keyPassword keyPasswordVal
             }
         }
     }
@@ -45,12 +52,28 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
-            // Apply signing config only if the keystore file exists
-            if (signingPropertiesFile.exists() ||
-                (System.getenv("RELEASE_STORE_PASSWORD") != null &&
-                 file(System.getenv("RELEASE_STORE_FILE") ?: 'release-key.keystore').exists())) {
+            if (isSigningConfigured) {
                 signingConfig signingConfigs.release
             }
+        }
+    }
+
+    // Fail release tasks early with a helpful error if signing configuration is missing
+    gradle.taskGraph.whenReady { taskGraph ->
+        def releaseRequested = taskGraph.allTasks.any { task ->
+            task.name.contains("Release") || task.name.contains("release")
+        }
+        if (releaseRequested && !isSigningConfigured) {
+            throw new GradleException(
+                "\n================================================================================\n" +
+                "RELEASE BUILD FAILED: Missing Production Signing Configuration!\n" +
+                "--------------------------------------------------------------------------------\n" +
+                "To build a signed release AAB or APK, please set up release credentials:\n" +
+                "1. Copy 'android/signing.properties.example' to 'android/signing.properties'\n" +
+                "2. Provide your keystore path, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD.\n" +
+                "Alternatively, set the corresponding environment variables in your CI pipeline.\n" +
+                "================================================================================\n"
+            )
         }
     }
 
