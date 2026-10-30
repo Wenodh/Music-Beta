@@ -157,6 +157,26 @@ Deep linking rules are configured inside `android/app/src/main/AndroidManifest.x
 
 The codebase directory layout is structured as follows:
 
+### 6. Portable Music Library Import & Export Architecture
+
+Vibe On implements a modular file-based portability architecture located under `src/lib/portability/`:
+
+```
+src/lib/portability/
+├── parsers/        # JSON (v1 schema), CSV (RFC 4180), TXT, M3U/M3U8 parsers
+├── exporters/      # JSON, CSV (with UTF-8 BOM), TXT, M3U/M3U8 exporters
+├── matching.ts     # 4-tier track matching engine (Provider ID -> ISRC -> Title+Artist -> Duration tiebreaker)
+├── orchestrator.ts # Bounded-batch import execution, progress tracking, Supabase/Dexie/Redux sync
+├── schema.ts       # Versioned schema definitions and validation helpers
+└── types.ts        # PortableTrack, ImportPreviewResult, ImportOptions, ImportSummary
+```
+
+* **Supported Formats**: Full round-trip support for JSON (`vibeon-library` v1 format), CSV (RFC 4180 escaped with UTF-8 BOM), TXT, and M3U/M3U8 (with `#EXTM3U` and `#EXTINF` header tags).
+* **Non-Destructive Merge Pipeline**: Destructive Replace mode is explicitly disabled across both UI and orchestrator layers due to un-transacted remote delete risks. Imports perform non-destructive merges into Redux and Supabase in bounded chunks (batch size: 25-50 tracks) with `{ onConflict: 'user_id,song_id' }` upsert clauses.
+* **Metadata Preservation**: When importing, existing richer remote/local song metadata is preserved over incomplete imported track objects (such as stub records containing only an ID).
+* **Retry Safety & Idempotency**: Re-running imports or retrying after network interruptions is fully idempotent and will not create duplicate favorites or playlist entries.
+* **UI Integration**: `ImportExportModal.tsx` provides live preview, catalog match statistics, manual track search resolution, progress bars, and execution error summaries accessible from both `SettingsDrawer.tsx` and `Library.tsx`.
+
 ```text
 ├── android/                    # Capacitor Native Android Android Studio Project
 ├── assets/                     # Native Splash Screens & Launcher Icons

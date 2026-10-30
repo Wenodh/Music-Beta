@@ -215,16 +215,40 @@ export async function executeImportJob(
     // Update Supabase if authenticated
     if (user) {
         try {
+            // First fetch existing remote favorites to preserve richer metadata if remote has details
+            const { data: remoteFavs } = await supabase
+                .from('favorites')
+                .select('song_id, song_data')
+                .eq('user_id', user.id);
+
+            const remoteFavMap = new Map<string, any>();
+            if (remoteFavs) {
+                remoteFavs.forEach((rf) => {
+                    if (rf.song_id && rf.song_data) {
+                        remoteFavMap.set(rf.song_id, rf.song_data);
+                    }
+                });
+            }
+
             if (finalFavorites.length > 0) {
                 const chunkSize = 50;
                 for (let k = 0; k < finalFavorites.length; k += chunkSize) {
                     const chunk = finalFavorites.slice(k, k + chunkSize);
-                    const favUpserts = chunk.map((s) => ({
-                        user_id: user.id,
-                        song_id: s.id,
-                        song_data: s,
-                    }));
-                    const { error: favErr } = await supabase.from('favorites').upsert(favUpserts);
+                    const favUpserts = chunk.map((s) => {
+                        const existingRemoteData = remoteFavMap.get(s.id);
+                        // Preserve richer existing remote metadata over incomplete imported objects
+                        const isImportedIncomplete = !s.name || s.name === 'Unknown Track' || Object.keys(s).length <= 2;
+                        const isRemoteRicher = existingRemoteData && (existingRemoteData.name || existingRemoteData.primaryArtists);
+                        const songDataToSave = (isImportedIncomplete && isRemoteRicher) ? existingRemoteData : s;
+
+                        return {
+                            user_id: user.id,
+                            song_id: s.id,
+                            song_data: songDataToSave,
+                        };
+                    });
+
+                    const { error: favErr } = await supabase.from('favorites').upsert(favUpserts, { onConflict: 'user_id,song_id' });
                     if (favErr) {
                         summary.failedWrites += chunk.length;
                         summary.errors.push(`Supabase favorites write error: ${favErr.message}`);
@@ -239,7 +263,7 @@ export async function executeImportJob(
                     name: p.name,
                     songs_data: p.songs,
                 }));
-                const { error: plErr } = await supabase.from('playlists').upsert(playlistUpserts);
+                const { error: plErr } = await supabase.from('playlists').upsert(playlistUpserts, { onConflict: 'id' });
                 if (plErr) {
                     summary.failedWrites += finalPlaylists.length;
                     summary.errors.push(`Supabase playlists write error: ${plErr.message}`);
