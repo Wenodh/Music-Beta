@@ -928,7 +928,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 <SleepTimer />
                             </div>
 
-                            <div className="relative" ref={moreMenuRef}>
+                            <div className="relative" ref={moreMenuRef} onClick={(e) => e.stopPropagation()}>
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={(e) => {
@@ -946,6 +946,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                            onClick={(e) => e.stopPropagation()}
                                             className="absolute bottom-full right-0 mb-4 w-60 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-700 overflow-y-auto max-h-[70vh] custom-scrollbar py-2 z-[60]"
                                         >
                                             <div className="lg:hidden px-2 pb-2 mb-2 border-b border-gray-100 dark:border-gray-700">
