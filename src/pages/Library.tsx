@@ -24,7 +24,7 @@ import { Song } from '../types/music';
 
 const Library: React.FC = () => {
     const { favorites, playlists, downloadedIds } = useAppSelector((state) => state.library);
-    const { preferredQuality } = useAppSelector((state) => state.musicPlayer);
+    const { preferredQuality, currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
     const dispatch = useAppDispatch();
     const location = useLocation();
 
@@ -312,40 +312,64 @@ const Library: React.FC = () => {
                                 if (sortBy === 'name') return a.name.localeCompare(b.name);
                                 if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
                                 return 0;
-                            }).map((song) => (
-                                <motion.div
-                                    key={song.id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
-                                    onClick={() => playOfflineCollection(song.id)}
-                                >
-                                    <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
-                                        <img
-                                            src={song.imageUrl}
-                                            alt={song.name}
-                                            loading="lazy"
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <IoMusicalNote className="text-white text-xl" />
+                            }).map((song) => {
+                                const isCurrent = currentSong?.id === song.id;
+                                return (
+                                    <motion.div
+                                        key={song.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className={`group cursor-pointer transition-all ${
+                                            viewMode === 'list'
+                                                ? `flex items-center gap-4 p-2 rounded-xl border ${isCurrent ? 'bg-primary/10 border-primary/30' : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'}`
+                                                : `p-2 rounded-2xl border ${isCurrent ? 'bg-primary/10 border-primary/30 shadow-lg shadow-primary/5' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-800'}`
+                                        }`}
+                                        onClick={() => playOfflineCollection(song.id)}
+                                    >
+                                        <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
+                                            <img
+                                                src={song.imageUrl}
+                                                alt={song.name}
+                                                loading="lazy"
+                                                className={`w-full h-full object-cover ${isCurrent ? 'brightness-75' : ''}`}
+                                            />
+                                            {isCurrent ? (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+                                                    <div className="flex gap-1 items-end h-5 sm:h-6">
+                                                        {[1, 2, 3, 4].map((i) => (
+                                                            <div
+                                                                key={i}
+                                                                className={`w-1 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--accent-rgb),0.8)] ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-1.5'}`}
+                                                                style={{
+                                                                    animationDelay: `${i * 0.1}s`,
+                                                                    height: isPlaying ? undefined : `${(i % 3 + 1) * 4}px`
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <IoMusicalNote className="text-white text-xl" />
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                    <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
-                                        <div className="min-w-0">
-                                            <p className="font-semibold truncate text-sm">{song.name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                        <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+                                            <div className="min-w-0 flex-1">
+                                                <p className={`font-semibold truncate text-sm ${isCurrent ? 'text-primary font-bold' : ''}`}>{song.name}</p>
+                                                <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                            </div>
+                                            <button
+                                                onClick={(e) => handleDeleteOffline(e, song.id)}
+                                                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                            >
+                                                <IoTrash size={14} />
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={(e) => handleDeleteOffline(e, song.id)}
-                                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
-                                        >
-                                            <IoTrash size={14} />
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            ))
+                                    </motion.div>
+                                );
+                            })
                         ) : (
                             <div className="col-span-full py-20 text-center text-gray-500">
                                 <IoCloudDownload size={48} className="mx-auto mb-4 opacity-20" />
@@ -452,50 +476,74 @@ const Library: React.FC = () => {
                                 if (sortBy === 'name') return a.name.localeCompare(b.name);
                                 if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
                                 return 0;
-                            }).map((song) => (
-                                <motion.div
-                                    key={song.id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className={`group cursor-pointer ${viewMode === 'list' ? 'flex items-center gap-4 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
-                                    onClick={() => {
-                                        dispatch(setSongs(favorites));
-                                        dispatch(playMusic(song));
-                                    }}
-                                >
-                                    <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
-                                        <img
-                                            src={extractImageUrl(song as any)}
-                                            alt={song.name}
-                                            loading="lazy"
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <IoHeart className="text-primary text-xl" />
+                            }).map((song) => {
+                                const isCurrent = currentSong?.id === song.id;
+                                return (
+                                    <motion.div
+                                        key={song.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className={`group cursor-pointer transition-all ${
+                                            viewMode === 'list'
+                                                ? `flex items-center gap-4 p-2 rounded-xl border ${isCurrent ? 'bg-primary/10 border-primary/30' : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'}`
+                                                : `p-2 rounded-2xl border ${isCurrent ? 'bg-primary/10 border-primary/30 shadow-lg shadow-primary/5' : 'border-transparent hover:border-gray-200 dark:hover:border-gray-800'}`
+                                        }`}
+                                        onClick={() => {
+                                            dispatch(setSongs(favorites));
+                                            dispatch(playMusic(song));
+                                        }}
+                                    >
+                                        <div className={`relative overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 ${viewMode === 'list' ? 'w-12 h-12 rounded-lg' : 'aspect-square mb-3 rounded-xl'}`}>
+                                            <img
+                                                src={extractImageUrl(song as any)}
+                                                alt={song.name}
+                                                loading="lazy"
+                                                className={`w-full h-full object-cover ${isCurrent ? 'brightness-75' : ''}`}
+                                            />
+                                            {isCurrent ? (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+                                                    <div className="flex gap-1 items-end h-5 sm:h-6">
+                                                        {[1, 2, 3, 4].map((i) => (
+                                                            <div
+                                                                key={i}
+                                                                className={`w-1 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--accent-rgb),0.8)] ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-1.5'}`}
+                                                                style={{
+                                                                    animationDelay: `${i * 0.1}s`,
+                                                                    height: isPlaying ? undefined : `${(i % 3 + 1) * 4}px`
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <IoHeart className="text-primary text-xl" />
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                    <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-semibold truncate text-sm">{song.name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                        <div className={`flex items-center justify-between gap-2 ${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+                                            <div className="min-w-0 flex-1">
+                                                <p className={`font-semibold truncate text-sm ${isCurrent ? 'text-primary font-bold' : ''}`}>{song.name}</p>
+                                                <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {renderDownloadButton(song)}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        dispatch(toggleFavoriteCloud(song) as any);
+                                                    }}
+                                                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
+                                                    title="Remove from favorites"
+                                                >
+                                                    <IoTrash size={14} />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            {renderDownloadButton(song)}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    dispatch(toggleFavoriteCloud(song) as any);
-                                                }}
-                                                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-primary/10 dark:hover:bg-red-900/20 text-primary rounded-full transition-all"
-                                                title="Remove from favorites"
-                                            >
-                                                <IoTrash size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))
+                                    </motion.div>
+                                );
+                            })
                         ) : (
                             <div className="col-span-full py-20 text-center text-gray-500">
                                 <IoHeart size={48} className="mx-auto mb-4 opacity-20" />
@@ -602,49 +650,74 @@ const Library: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                        {currentPlaylist.songs.map((song) => (
-                            <div
-                                key={song.id}
-                                className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 group cursor-pointer"
-                                onClick={() => {
-                                    dispatch(setSongs(currentPlaylist.songs));
-                                    dispatch(playMusic(song));
-                                }}
-                            >
-                                <img
-                                    src={extractImageUrl(song as any)}
-                                    alt=""
-                                    loading="lazy"
-                                    className="w-12 h-12 rounded-lg object-cover"
-                                />
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold truncate">{song.name}</p>
-                                    <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                        {currentPlaylist.songs.map((song) => {
+                            const isCurrent = currentSong?.id === song.id;
+                            return (
+                                <div
+                                    key={song.id}
+                                    className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer group transition-all border ${
+                                        isCurrent
+                                            ? 'bg-primary/10 border-primary/30 text-primary'
+                                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                    }`}
+                                    onClick={() => {
+                                        dispatch(setSongs(currentPlaylist.songs));
+                                        dispatch(playMusic(song));
+                                    }}
+                                >
+                                    <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 shadow-sm">
+                                        <img
+                                            src={extractImageUrl(song as any)}
+                                            alt=""
+                                            loading="lazy"
+                                            className={`w-full h-full object-cover ${isCurrent ? 'brightness-75' : ''}`}
+                                        />
+                                        {isCurrent && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+                                                <div className="flex gap-0.5 items-end h-4">
+                                                    {[1, 2, 3, 4].map((i) => (
+                                                        <div
+                                                            key={i}
+                                                            className={`w-1 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--accent-rgb),0.8)] ${isPlaying ? 'animate-equalizer transform-gpu' : 'h-1.5'}`}
+                                                            style={{
+                                                                animationDelay: `${i * 0.1}s`,
+                                                                height: isPlaying ? undefined : `${(i % 3 + 1) * 3}px`
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`font-semibold truncate ${isCurrent ? 'text-primary font-bold' : ''}`}>{song.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">{song.primaryArtists}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                dispatch(toggleFavoriteCloud(song) as any);
+                                            }}
+                                            className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
+                                        >
+                                            {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeart size={18} className="opacity-40" />}
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (selectedPlaylist) {
+                                                    dispatch(removeFromPlaylistCloud({ playlistId: selectedPlaylist, songId: song.id }) as any);
+                                                }
+                                            }}
+                                            className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-all"
+                                        >
+                                            <IoTrash size={18} />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            dispatch(toggleFavoriteCloud(song) as any);
-                                        }}
-                                        className={`p-2 rounded-full transition-colors ${favorites.some(s => s.id === song.id) ? 'text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20'}`}
-                                    >
-                                        {favorites.some(s => s.id === song.id) ? <IoHeart /> : <IoHeart size={18} className="opacity-40" />}
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (selectedPlaylist) {
-                                                dispatch(removeFromPlaylistCloud({ playlistId: selectedPlaylist, songId: song.id }) as any);
-                                            }
-                                        }}
-                                        className="p-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-red-900/20 rounded-full transition-all"
-                                    >
-                                        <IoTrash size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                         {currentPlaylist.songs.length === 0 && (
                             <p className="text-center py-20 text-gray-500">This playlist is empty.</p>
                         )}
