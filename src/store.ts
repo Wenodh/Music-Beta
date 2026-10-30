@@ -8,6 +8,7 @@ import libraryReducer from './features/library/librarySlice';
 import uiReducer from './features/ui/uiSlice';
 import authReducer from './features/auth/authSlice';
 import sessionReducer from './features/session/sessionSlice';
+import friendsReducer from './features/friends/friendsSlice';
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { uploadSettings } from './features/settings/settingsActions';
 import { setLanguage } from './features/language/languageSlice';
@@ -94,6 +95,7 @@ const rootReducer = combineReducers({
     library: libraryReducer,
     ui: uiReducer,
     auth: authReducer,
+    friends: friendsReducer,
     session: persistReducer(sessionPersistConfig, sessionReducer),
 });
 
