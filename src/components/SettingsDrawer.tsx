@@ -211,66 +211,76 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-2 flex items-center gap-2">
                                         <IoGlobeOutline /> Language
                                     </h3>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {languages.map((lang) => (
-                                            <button
-                                                key={lang.value}
-                                                onClick={() => dispatch(setLanguage(lang.value))}
-                                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                                    language === lang.value
-                                                        ? 'bg-primary text-white shadow-md'
-                                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                                }`}
-                                            >
-                                                {lang.name}
-                                            </button>
-                                        ))}
+                                    <div className="relative">
+                                        <select
+                                            value={language}
+                                            onChange={(e) => dispatch(setLanguage(e.target.value))}
+                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-900 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer shadow-sm pr-10"
+                                        >
+                                            {languages.map((lang) => (
+                                                <option key={lang.value} value={lang.value} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-medium">
+                                                    {lang.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                            ▼
+                                        </div>
                                     </div>
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Font Style</h3>
-                                    <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-                                        {fontStyles.map((font) => (
-                                            <button
-                                                key={font.value}
-                                                onClick={() => dispatch(setFontStyle(font.value))}
-                                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
-                                                    theme.fontStyle === font.value
-                                                        ? 'bg-primary text-white border-primary shadow-lg scale-[1.02]'
-                                                        : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-transparent hover:border-primary/30'
-                                                }`}
-                                                style={{
-                                                    fontFamily: font.value === 'Standard' ? 'inherit' : `'${font.value}', cursive`
-                                                }}
-                                            >
-                                                {font.name}
-                                            </button>
-                                        ))}
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-2">Font Style</h3>
+                                    <div className="relative">
+                                        <select
+                                            value={theme.fontStyle || 'Standard'}
+                                            onChange={(e) => dispatch(setFontStyle(e.target.value))}
+                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-900 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer shadow-sm pr-10"
+                                            style={{
+                                                fontFamily: (theme.fontStyle && theme.fontStyle !== 'Standard') ? `'${theme.fontStyle}', cursive` : 'inherit'
+                                            }}
+                                        >
+                                            {fontStyles.map((font) => (
+                                                <option
+                                                    key={font.value}
+                                                    value={font.value}
+                                                    className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-medium"
+                                                    style={{
+                                                        fontFamily: font.value === 'Standard' ? 'inherit' : `'${font.value}', cursive`
+                                                    }}
+                                                >
+                                                    {font.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                            ▼
+                                        </div>
                                     </div>
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-2 flex items-center gap-2">
                                         <IoMusicalNotesOutline /> Audio Quality
                                     </h3>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {qualities.map((q) => (
-                                            <button
-                                                key={q}
-                                                onClick={() => dispatch(setPreferredQuality(q as any))}
-                                                className={`px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${
-                                                    preferredQuality === q
-                                                        ? 'bg-primary text-white shadow-md'
-                                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                                }`}
-                                            >
-                                                {q}
-                                            </button>
-                                        ))}
+                                    <div className="relative">
+                                        <select
+                                            value={preferredQuality}
+                                            onChange={(e) => dispatch(setPreferredQuality(e.target.value as any))}
+                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-900 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer shadow-sm pr-10"
+                                        >
+                                            {qualities.map((q) => (
+                                                <option key={q} value={q} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-medium">
+                                                    {q} {q === '320kbps' ? '(Very High)' : q === '160kbps' ? '(High)' : q === '96kbps' ? '(Medium)' : '(Low)'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                            ▼
+                                        </div>
                                     </div>
                                 </section>
 

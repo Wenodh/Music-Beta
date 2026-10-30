@@ -37,11 +37,13 @@ Bring your music to life visually with five custom canvas-based visualizers:
 * Access and switch modes instantly from the player menu to match your current music vibe.
 
 ### 6. Portable Music Library Import & Export
-Take full ownership of your music collection:
-* **Backup & Restore**: Export your complete Vibe On library (favorites and playlists) as a versioned JSON backup (`vibeon-library` v1) and safely restore or merge it anytime.
-* **Format Conversions**: Export playlists or favorites as CSV spreadsheet files, M3U/M3U8 player playlists, or plain text track lists.
-* **Import External Playlists**: Import files from CSV, TXT, M3U/M3U8, or Vibe On backups.
-* **Track Matching & Resolution**: Preview parsed tracks before importing with automated catalog matching, inline manual search resolution, and non-destructive merge options.
+Take full ownership of your music collection with complete cross-platform portability:
+* **Backup & Restore**: Export your complete Vibe On library (favorites and playlists) as a versioned JSON backup (`vibeon-library` v1) and safely restore or merge it anytime without losing track metadata.
+* **Format Conversions**: Export playlists or favorites as RFC 4180 CSV spreadsheet files (with full Unicode/Telugu support and UTF-8 BOM), M3U/M3U8 player playlists (with `#EXTM3U` and `#EXTINF` metadata tags), or plain text track lists.
+* **Import External Playlists**: Import files from JSON, CSV, TXT, or M3U/M3U8 formats.
+* **Non-Destructive Merge Mode**: All imports default to non-destructive Merge mode, appending new items and preserving your existing library and richer cloud metadata. (Destructive Replace mode is explicitly disabled for user data safety).
+* **Track Matching & Resolution**: Preview parsed tracks before importing with automated catalog matching, inline manual search resolution for ambiguous items, unresolved track tracking, and progress indicators.
+* **Safe Retry & Idempotency**: Interrupted or repeated imports can be safely retried without creating duplicate favorites or corrupting existing playlists.
 * **Access Points**: Open the Import & Export tool directly from the Settings Drawer or via the action toolbar on your Library page.
 
 ---

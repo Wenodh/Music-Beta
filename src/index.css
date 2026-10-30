@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@config "../tailwind.config.js";
 
 @layer base {
   :root {
@@ -18,7 +18,7 @@
   }
 
   body.oled-mode {
-    @apply dark:bg-black !important;
+    @apply dark:bg-black;
   }
 }
 
