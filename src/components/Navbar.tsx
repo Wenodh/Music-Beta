@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSearchedSongs, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
-import { IoSearchOutline, IoCompassOutline, IoGlobeOutline } from 'react-icons/io5';
+import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoPeopleOutline } from 'react-icons/io5';
+import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -232,6 +233,16 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                         <IoGlobeOutline size={18} />
                     </div>
                     <span className="text-sm font-bold uppercase tracking-tight">Globe</span>
+                </button>
+                <button
+                    onClick={() => dispatch(setIsFriendsModalOpen(true))}
+                    aria-label="Friends"
+                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                >
+                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                        <IoPeopleOutline size={18} />
+                    </div>
+                    <span className="text-sm font-bold uppercase tracking-tight">Friends</span>
                 </button>
                 <button
                     onClick={() => dispatch(setSettingsOpen(true))}

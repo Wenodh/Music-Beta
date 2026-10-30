@@ -6,7 +6,10 @@ import {
     setParticipants,
     addReaction,
     removeReaction,
+    addMessage,
     leaveSession,
+    setIsCallActive,
+    setIsMuted,
     setSessionError
 } from '../features/session/sessionSlice';
 import {
@@ -17,13 +20,15 @@ import {
 
 export const useSession = () => {
     const dispatch = useAppDispatch();
-    const { roomCode, isHost, isJoined } = useAppSelector(state => state.session);
+    const { roomCode, isHost, isJoined, isCallActive, isMuted } = useAppSelector(state => state.session);
     const { currentSong, isPlaying, currentTime, songs } = useAppSelector(state => state.musicPlayer);
     const { user } = useAppSelector(state => state.auth);
     const anonymousId = useRef(`anon-${Math.random().toString(36).substring(2, 9)}`).current;
     const userId = user?.id || anonymousId;
 
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
 
     const isInternalAction = useRef(false);
 
@@ -53,6 +58,27 @@ export const useSession = () => {
         });
     }, [isJoined, isHost, userId]);
 
+    const sendMessage = useCallback((text: string) => {
+        if (!channelRef.current || !isJoined || !text.trim()) return;
+
+        const msg = {
+            id: Date.now().toString() + Math.random().toString(36).substring(7),
+            userId,
+            userName: user?.user_metadata?.full_name || 'Guest',
+            avatar: user?.user_metadata?.avatar_url,
+            text: text.trim(),
+            timestamp: Date.now()
+        };
+
+        dispatch(addMessage(msg));
+
+        channelRef.current.send({
+            type: 'broadcast',
+            event: 'chat',
+            payload: msg
+        });
+    }, [isJoined, userId, user, dispatch]);
+
     const sendReaction = useCallback((emoji: string) => {
         if (!channelRef.current || !isJoined) return;
 
@@ -75,6 +101,96 @@ export const useSession = () => {
             payload: reaction
         });
     }, [isJoined, userId, user, dispatch]);
+
+    const createPeerConnection = useCallback((peerId: string) => {
+        if (peerConnectionsRef.current.has(peerId)) {
+            return peerConnectionsRef.current.get(peerId)!;
+        }
+
+        const pc = new RTCPeerConnection({
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        });
+
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(track => {
+                pc.addTrack(track, localStreamRef.current!);
+            });
+        }
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate && channelRef.current) {
+                channelRef.current.send({
+                    type: 'broadcast',
+                    event: 'signal',
+                    payload: {
+                        targetId: peerId,
+                        senderId: userId,
+                        signalType: 'ice-candidate',
+                        candidate: event.candidate
+                    }
+                });
+            }
+        };
+
+        pc.ontrack = (event) => {
+            const remoteAudio = new Audio();
+            remoteAudio.srcObject = event.streams[0];
+            remoteAudio.play().catch(e => console.warn('Remote audio autoplay prevented:', e));
+        };
+
+        peerConnectionsRef.current.set(peerId, pc);
+        return pc;
+    }, [userId]);
+
+    const toggleCall = useCallback(async () => {
+        if (isCallActive) {
+            // Stop Call
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach(t => t.stop());
+                localStreamRef.current = null;
+            }
+            peerConnectionsRef.current.forEach(pc => pc.close());
+            peerConnectionsRef.current.clear();
+            dispatch(setIsCallActive(false));
+            dispatch(setIsMuted(false));
+        } else {
+            // Start Call
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                localStreamRef.current = stream;
+                dispatch(setIsCallActive(true));
+                dispatch(setIsMuted(false));
+
+                // Send offer to other joined participants
+                if (channelRef.current) {
+                    channelRef.current.send({
+                        type: 'broadcast',
+                        event: 'signal',
+                        payload: {
+                            senderId: userId,
+                            signalType: 'call-joined'
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to get user microphone stream:', err);
+                dispatch(setSessionError('Microphone permission rejected or unavailable.'));
+            }
+        }
+    }, [isCallActive, userId, dispatch]);
+
+    const toggleMute = useCallback(() => {
+        if (localStreamRef.current) {
+            const audioTrack = localStreamRef.current.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                dispatch(setIsMuted(!audioTrack.enabled));
+            }
+        }
+    }, [dispatch]);
 
     useEffect(() => {
         if (!isJoined || !roomCode) {
@@ -168,6 +284,10 @@ export const useSession = () => {
                     isInternalAction.current = false;
                 }, 100);
             })
+            .on('broadcast', { event: 'chat' }, ({ payload }) => {
+                if (payload.userId === userId) return;
+                dispatch(addMessage(payload));
+            })
             .on('broadcast', { event: 'reaction' }, ({ payload }) => {
                 // If we are the sender, we already dispatched locally
                 if (payload.userId === userId) return;
@@ -176,6 +296,56 @@ export const useSession = () => {
                 setTimeout(() => {
                     dispatch(removeReaction(payload.id));
                 }, 5000);
+            })
+            .on('broadcast', { event: 'signal' }, async ({ payload }) => {
+                if (payload.senderId === userId) return;
+
+                const { senderId, targetId, signalType, sdp, candidate } = payload;
+
+                if (signalType === 'call-joined' && localStreamRef.current) {
+                    const pc = createPeerConnection(senderId);
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'signal',
+                        payload: {
+                            targetId: senderId,
+                            senderId: userId,
+                            signalType: 'offer',
+                            sdp: offer
+                        }
+                    });
+                } else if (targetId === userId) {
+                    if (signalType === 'offer') {
+                        const pc = createPeerConnection(senderId);
+                        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'signal',
+                            payload: {
+                                targetId: senderId,
+                                senderId: userId,
+                                signalType: 'answer',
+                                sdp: answer
+                            }
+                        });
+                    } else if (signalType === 'answer') {
+                        const pc = peerConnectionsRef.current.get(senderId);
+                        if (pc) {
+                            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                        }
+                    } else if (signalType === 'ice-candidate') {
+                        const pc = peerConnectionsRef.current.get(senderId);
+                        if (pc && candidate) {
+                            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
+                    }
+                }
             })
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
@@ -218,5 +388,5 @@ export const useSession = () => {
         return () => clearInterval(interval);
     }, [isHost, isJoined, broadcast]);
 
-    return { broadcast, sendReaction, isInternalAction };
+    return { broadcast, sendMessage, sendReaction, toggleCall, toggleMute, isInternalAction };
 };
