@@ -258,14 +258,14 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
             {/* Tap Container */}
             <div
                 onClick={flap}
-                className="relative rounded-2xl overflow-hidden border-2 shadow-2xl cursor-pointer"
+                className="relative rounded-2xl overflow-hidden border-2 shadow-2xl cursor-pointer w-full max-w-[min(92vw,360px)] aspect-[3/4] flex items-center justify-center bg-black touch-none"
                 style={{ borderColor: roundTheme.colors.accent }}
             >
                 <canvas
                     ref={canvasRef}
                     width={CANVAS_WIDTH}
                     height={CANVAS_HEIGHT}
-                    className="bg-black block"
+                    className="w-full h-full object-contain block"
                 />
 
                 {/* Speech Bubble */}

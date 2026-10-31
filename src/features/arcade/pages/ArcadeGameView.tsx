@@ -35,8 +35,8 @@ export const ArcadeGameView: React.FC = () => {
     const songLanguage = (currentSong as any)?.language;
 
     return (
-        <div className="min-h-[85vh] flex flex-col items-center justify-start pt-4 pb-36 px-2">
-            <div className="mb-4">
+        <div className="min-h-[85vh] flex flex-col items-center justify-start pt-3 sm:pt-4 pb-32 sm:pb-36 px-2 w-full max-w-full overflow-x-hidden">
+            <div className="mb-3 sm:mb-4 w-full flex justify-center">
                 <NowPlayingMini />
             </div>
 

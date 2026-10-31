@@ -113,8 +113,40 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [gameState]);
 
+    // Swipe Touch controls
+    const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        const touch = e.touches[0];
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (!touchStartRef.current) return;
+        const touch = e.changedTouches[0];
+        const diffX = touch.clientX - touchStartRef.current.x;
+        const diffY = touch.clientY - touchStartRef.current.y;
+
+        if (Math.abs(diffX) > 20 || Math.abs(diffY) > 20) {
+            if (gameState === 'idle' || gameState === 'gameover') {
+                startGame();
+                return;
+            }
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                handleTouchDirection(diffX > 0 ? 1 : -1, 0);
+            } else {
+                handleTouchDirection(0, diffY > 0 ? 1 : -1);
+            }
+        }
+        touchStartRef.current = null;
+    };
+
     // Touch controls: D-Pad touch handlers
     const handleTouchDirection = (x: number, y: number) => {
+        if (gameState !== 'playing') {
+            startGame();
+            return;
+        }
         const cur = dirRef.current;
         if (x !== 0 && cur.x === 0) nextDirRef.current = { x, y: 0 };
         if (y !== 0 && cur.y === 0) nextDirRef.current = { x: 0, y };
@@ -275,12 +307,17 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
             </div>
 
             {/* Canvas Container with Speech Bubble */}
-            <div className="relative rounded-2xl overflow-hidden border-2 shadow-2xl" style={{ borderColor: roundTheme.colors.accent }}>
+            <div
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                className="relative rounded-2xl overflow-hidden border-2 shadow-2xl touch-none w-full max-w-[min(90vw,360px)] aspect-square flex items-center justify-center bg-black"
+                style={{ borderColor: roundTheme.colors.accent }}
+            >
                 <canvas
                     ref={canvasRef}
                     width={GRID_SIZE * CELL_SIZE}
                     height={GRID_SIZE * CELL_SIZE}
-                    className="bg-black block"
+                    className="w-full h-full object-contain block"
                 />
 
                 {/* Speech Bubble Reaction */}
@@ -319,32 +356,36 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
             </div>
 
             {/* Mobile Touch D-Pad */}
-            <div className="grid grid-cols-3 gap-2 w-48 mt-6 sm:hidden">
+            <div className="grid grid-cols-3 gap-2 w-56 mt-4 sm:hidden">
                 <div />
                 <button
                     onClick={() => handleTouchDirection(0, -1)}
-                    className="p-3.5 bg-white/10 active:bg-primary/30 rounded-2xl font-bold text-white text-center"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    aria-label="Up"
                 >
                     ▲
                 </button>
                 <div />
                 <button
                     onClick={() => handleTouchDirection(-1, 0)}
-                    className="p-3.5 bg-white/10 active:bg-primary/30 rounded-2xl font-bold text-white text-center"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    aria-label="Left"
                 >
                     ◀
                 </button>
                 <div />
                 <button
                     onClick={() => handleTouchDirection(1, 0)}
-                    className="p-3.5 bg-white/10 active:bg-primary/30 rounded-2xl font-bold text-white text-center"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    aria-label="Right"
                 >
                     ▶
                 </button>
                 <div />
                 <button
                     onClick={() => handleTouchDirection(0, 1)}
-                    className="p-3.5 bg-white/10 active:bg-primary/30 rounded-2xl font-bold text-white text-center"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    aria-label="Down"
                 >
                     ▼
                 </button>
