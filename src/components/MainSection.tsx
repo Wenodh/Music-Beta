@@ -4,7 +4,7 @@ import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
 import { motion } from 'framer-motion';
-import { IoCloudOffline, IoArrowForward } from 'react-icons/io5';
+import { IoCloudOffline, IoArrowForward, IoGameControllerOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
 
@@ -219,6 +219,27 @@ const MainSection: React.FC = () => {
             className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout gpu-accelerated"
         >
             <DailyMix />
+
+            {/* Arcade Promotional Entry Banner */}
+            <motion.div
+                variants={itemVariants}
+                onClick={() => navigate('/arcade')}
+                className="mb-8 cursor-pointer group bg-gradient-to-r from-purple-900/30 via-pink-900/20 to-primary/20 border border-primary/30 hover:border-primary/60 p-4 sm:p-6 rounded-3xl transition-all shadow-lg flex items-center justify-between"
+            >
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className="p-3 bg-primary/20 text-primary rounded-2xl group-hover:scale-110 transition-transform">
+                        <IoGameControllerOutline size={28} />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">New Mini Games</span>
+                        <h3 className="text-lg sm:text-xl font-black text-white">Vibe Arcade</h3>
+                        <p className="text-xs text-gray-400">Play music-synced retro games while listening to your favorite songs</p>
+                    </div>
+                </div>
+                <button className="px-4 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shrink-0">
+                    Play
+                </button>
+            </motion.div>
 
             {recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">

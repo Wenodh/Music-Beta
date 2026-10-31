@@ -51,6 +51,8 @@ const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const ArcadeHome = lazyRetry(() => import('./features/arcade/pages/ArcadeHome').then(m => ({ default: m.ArcadeHome })));
+const ArcadeGameView = lazyRetry(() => import('./features/arcade/pages/ArcadeGameView').then(m => ({ default: m.ArcadeGameView })));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -149,6 +151,22 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-4"><PageHeaderSkeleton /></div>}>
                             <PageWrapper><Profile /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/arcade"
+                    element={
+                        <Suspense fallback={<div className="p-6 text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>}>
+                            <PageWrapper><ArcadeHome /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/arcade/:gameId"
+                    element={
+                        <Suspense fallback={<div className="p-6 text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>}>
+                            <PageWrapper><ArcadeGameView /></PageWrapper>
                         </Suspense>
                     }
                 />
