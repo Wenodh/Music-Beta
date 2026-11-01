@@ -70,15 +70,17 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
     const [isMuted, setIsMuted] = useState(true);
     const [canRestart, setCanRestart] = useState(false);
 
-    // Virtual canvas resolution
+    // Virtual canvas resolution - Beginner-friendly & extra spacious
     const CANVAS_WIDTH = 360;
     const CANVAS_HEIGHT = 640;
-    const PIPE_WIDTH = 58;
-    const PIPE_GAP = 145;
-    const GRAVITY = 0.34;
-    const FLAP_STRENGTH = -6.8;
+    const PIPE_WIDTH = 64;
+    // Extra generous pipe gap (205px vs 145px) so passing through is effortless
+    const PIPE_GAP = 205;
+    // Floaty, gentle gravity & lift
+    const GRAVITY = 0.22;
+    const FLAP_STRENGTH = -5.0;
 
-    // Flight physics & state refs
+    // Flight physics & state refs (Bigger character radius 28px vs 20px)
     const birdYRef = useRef(260);
     const birdVelocityRef = useRef(0);
     const birdRotationRef = useRef(0);
@@ -259,33 +261,33 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
             const dt = Math.min((time - lastTime) / 1000, 0.05); // Cap delta time
             lastTime = time;
 
-            // 1. Physics update
+            // 1. Physics update - gentle floaty descent
             birdVelocityRef.current += GRAVITY;
             birdYRef.current += birdVelocityRef.current;
 
-            // Target smooth rotation (-25 deg on upflap to +40 deg on nose fall)
-            const targetRotation = Math.max(-0.45, Math.min(0.7, birdVelocityRef.current * 0.09));
-            birdRotationRef.current += (targetRotation - birdRotationRef.current) * 0.22;
+            // Target smooth rotation (-20 deg on upflap to +30 deg on nose fall)
+            const targetRotation = Math.max(-0.35, Math.min(0.55, birdVelocityRef.current * 0.07));
+            birdRotationRef.current += (targetRotation - birdRotationRef.current) * 0.18;
 
-            // Boundary collision
-            if (birdYRef.current >= CANVAS_HEIGHT - 26) {
+            // Floor boundary with bounce allowance
+            if (birdYRef.current >= CANVAS_HEIGHT - 32) {
                 endGame();
                 return;
             }
-            if (birdYRef.current < 20) {
-                birdYRef.current = 20;
+            if (birdYRef.current < 24) {
+                birdYRef.current = 24;
                 birdVelocityRef.current = 0;
             }
 
-            // 2. Obstacles update
-            const currentSpeed = 2.4 + Math.min(scoreRef.current * 0.04, 1.2); // Graceful capped difficulty
+            // 2. Obstacles update - Beginner friendly relaxed speed (1.6 to max 2.2)
+            const currentSpeed = 1.6 + Math.min(scoreRef.current * 0.025, 0.6);
             const obstacles = obstaclesRef.current;
 
             for (let i = 0; i < obstacles.length; i++) {
                 obstacles[i].x -= currentSpeed;
 
                 // Score check
-                if (!obstacles[i].passed && obstacles[i].x + PIPE_WIDTH < 85) {
+                if (!obstacles[i].passed && obstacles[i].x + PIPE_WIDTH < 90) {
                     obstacles[i].passed = true;
                     scoreRef.current += 1;
                     setScore(scoreRef.current);
@@ -300,12 +302,12 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
                     }
                 }
 
-                // Fair collision box: slightly smaller than visible character radius (18px vs 22px frame)
+                // Highly forgiving collision box (inset of 8px inside 28px visible circle)
                 const charBox = {
-                    left: 85 - 15,
-                    right: 85 + 15,
-                    top: birdYRef.current - 15,
-                    bottom: birdYRef.current + 15,
+                    left: 90 - 18,
+                    right: 90 + 18,
+                    top: birdYRef.current - 18,
+                    bottom: birdYRef.current + 18,
                 };
 
                 const obs = obstacles[i];
@@ -322,9 +324,9 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
                 obstacles.shift();
             }
 
-            // Spawn next obstacle with music equipment variation
+            // Spawn next obstacle with generous 230px+ spacing
             const lastObs = obstacles[obstacles.length - 1];
-            if (lastObs && lastObs.x < CANVAS_WIDTH - 180) {
+            if (lastObs && lastObs.x < CANVAS_WIDTH - 230) {
                 const styles: ('speaker' | 'mic-stand' | 'amplifier' | 'stage-light')[] = [
                     'speaker',
                     'amplifier',
@@ -332,7 +334,7 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
                     'mic-stand',
                 ];
                 const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
-                const topHeight = Math.floor(Math.random() * (CANVAS_HEIGHT - PIPE_GAP - 180)) + 80;
+                const topHeight = Math.floor(Math.random() * (CANVAS_HEIGHT - PIPE_GAP - 200)) + 70;
 
                 obstacles.push({
                     x: CANVAS_WIDTH,
@@ -455,10 +457,10 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
                 ctx.restore();
             });
 
-            // 7. Render Player Character (Artist Photo or Pixel Music Note)
-            const charX = 85;
+            // 7. Render Player Character (Bigger: radius 28px vs 20px)
+            const charX = 90;
             const charY = birdYRef.current;
-            const radius = 20;
+            const radius = 28;
 
             ctx.save();
             ctx.translate(charX, charY);
@@ -466,7 +468,7 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
 
             // Glow around character
             ctx.shadowColor = roundSnapshot.theme.colors.accent;
-            ctx.shadowBlur = 14;
+            ctx.shadowBlur = 18;
 
             if (artistImgElementRef.current && imageLoaded) {
                 // Circular artist photo with neon pixel border
@@ -492,38 +494,38 @@ export const FlappyStar: React.FC<FlappyStarProps> = ({
 
                 // Pixel-art frame ring
                 ctx.strokeStyle = roundSnapshot.theme.colors.accent;
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 3.5;
                 ctx.beginPath();
-                ctx.arc(0, 0, radius + 1, 0, Math.PI * 2);
+                ctx.arc(0, 0, radius + 1.5, 0, Math.PI * 2);
                 ctx.stroke();
 
                 // Small shiny highlight in top-left
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                ctx.fillRect(-radius + 6, -radius + 6, 4, 4);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                ctx.fillRect(-radius + 8, -radius + 8, 5, 5);
             } else {
-                // Fallback: Glowing Pixel-Art Music Note (♪)
+                // Fallback: Bigger Glowing Pixel-Art Music Note (♪)
                 ctx.fillStyle = roundSnapshot.theme.colors.character;
 
                 // Head
                 ctx.beginPath();
-                ctx.ellipse(-4, 6, 9, 7, -0.3, 0, Math.PI * 2);
+                ctx.ellipse(-6, 8, 13, 10, -0.3, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Stem
-                ctx.fillRect(3, -12, 4, 18);
+                ctx.fillRect(4, -18, 6, 26);
 
                 // Flag
                 ctx.beginPath();
-                ctx.moveTo(7, -12);
-                ctx.bezierCurveTo(16, -10, 15, -2, 8, 2);
-                ctx.lineTo(7, 0);
-                ctx.bezierCurveTo(12, -4, 12, -8, 7, -10);
+                ctx.moveTo(10, -18);
+                ctx.bezierCurveTo(24, -15, 22, -3, 12, 3);
+                ctx.lineTo(10, 0);
+                ctx.bezierCurveTo(18, -6, 18, -12, 10, -15);
                 ctx.closePath();
                 ctx.fill();
 
                 // Pixel-art highlight
                 ctx.fillStyle = '#ffffff';
-                ctx.fillRect(-6, 3, 3, 3);
+                ctx.fillRect(-9, 4, 4, 4);
             }
 
             ctx.restore();
