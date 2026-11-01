@@ -12,7 +12,7 @@ import friendsReducer from './features/friends/friendsSlice';
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { uploadSettings } from './features/settings/settingsActions';
 import { setLanguage } from './features/language/languageSlice';
-import { setAccentColor, setDarkMode, setOledMode, setFontStyle, updateSettingsTimestamp } from './features/ui/uiSlice';
+import { setAccentColor, setDarkMode, setOledMode, setFontStyle, setMobileNavItems, resetMobileNavItems, updateSettingsTimestamp } from './features/ui/uiSlice';
 import {
     setPreferredQuality,
     setEqualizerEnabled,
@@ -39,6 +39,8 @@ settingsListener.startListening({
         setDarkMode,
         setOledMode,
         setFontStyle,
+        setMobileNavItems,
+        resetMobileNavItems,
         setPreferredQuality,
         setEqualizerEnabled,
         setEqualizerBand,
