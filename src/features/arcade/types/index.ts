@@ -19,6 +19,8 @@ export interface GameTheme {
     characterName: string;
     characterSprite: 'neon-snake' | 'rockstar' | 'retro-dancer' | 'cyber-runner' | 'pixel-star';
     obstacleType: 'speakers' | 'equalizer-pipes' | 'cables-amps' | 'notes';
+    artistImageUrl?: string;
+    albumArtworkUrl?: string;
     collectibleName: string;
     specialItemName?: string;
 }
