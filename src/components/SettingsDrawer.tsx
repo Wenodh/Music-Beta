@@ -6,7 +6,7 @@ import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionMod
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline, IoChevronDownOutline, IoChevronForwardOutline } from 'react-icons/io5';
 import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
@@ -25,6 +25,7 @@ const SettingsDrawer: React.FC = () => {
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
+    const [isNavSettingsExpanded, setIsNavSettingsExpanded] = useState(false);
 
     const accentColors = [
         { name: 'Red', value: '#ef4444' },
@@ -420,96 +421,130 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    {/* Mobile Navigation Customizer */}
+                                    {/* Mobile Navigation Customizer (Expandable / Collapsible, Default Collapsed) */}
                                     <section className="mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div>
-                                                <h3 className="text-xs font-bold uppercase text-gray-400">Navigation Settings</h3>
-                                                <p className="text-[11px] text-gray-500">Choose which features appear in your mobile navigation bar.</p>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    dispatch(resetMobileNavItems());
-                                                    dispatch(showToast({ message: 'Navigation reset to default' }));
-                                                }}
-                                                className="text-[10px] text-primary hover:underline font-bold"
-                                            >
-                                                Reset to Default
-                                            </button>
-                                        </div>
-
-                                        {/* Compact Navigation Bar Live Preview */}
-                                        <div className="my-3 p-2.5 rounded-2xl bg-black/60 border border-white/10 flex items-center justify-around">
-                                            {ALL_MOBILE_NAV_ITEMS.filter((item) => mobileNavItems.includes(item.id)).map((item) => {
-                                                const Icon = item.icon;
-                                                return (
-                                                    <div key={item.id} className="flex flex-col items-center justify-center py-0.5 px-1">
-                                                        <Icon size={16} className="text-primary" />
-                                                        <span className="text-[8px] font-bold text-gray-300 uppercase mt-0.5 truncate max-w-[45px]">
-                                                            {item.label}
+                                        <button
+                                            onClick={() => setIsNavSettingsExpanded(!isNavSettingsExpanded)}
+                                            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all cursor-pointer text-left"
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                                    <IoOptionsOutline size={18} />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="text-xs font-bold uppercase text-gray-700 dark:text-gray-200">
+                                                            Navigation Settings
+                                                        </h3>
+                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                            {mobileNavItems.length} active
                                                         </span>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    <p className="text-[10px] text-gray-500">Customize mobile navigation bar items</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-gray-400">
+                                                {isNavSettingsExpanded ? <IoChevronDownOutline size={18} /> : <IoChevronForwardOutline size={18} />}
+                                            </div>
+                                        </button>
 
-                                        {/* Item toggles */}
-                                        <div className="space-y-2 mt-3">
-                                            {ALL_MOBILE_NAV_ITEMS.map((item) => {
-                                                const Icon = item.icon;
-                                                const isEnabled = mobileNavItems.includes(item.id);
-
-                                                const handleToggle = () => {
-                                                    if (!item.isRemovable) {
-                                                        dispatch(showToast({ message: 'Home is required for navigation', type: 'info' }));
-                                                        return;
-                                                    }
-                                                    if (isEnabled) {
-                                                        if (mobileNavItems.length <= 2) {
-                                                            dispatch(showToast({ message: 'Minimum 2 navigation destinations required', type: 'error' }));
-                                                            return;
-                                                        }
-                                                        dispatch(setMobileNavItems(mobileNavItems.filter((id) => id !== item.id)));
-                                                    } else {
-                                                        dispatch(setMobileNavItems([...mobileNavItems, item.id]));
-                                                    }
-                                                };
-
-                                                return (
-                                                    <div
-                                                        key={item.id}
-                                                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl"
-                                                    >
-                                                        <div className="flex items-center gap-2.5 min-w-0">
-                                                            <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                                                                <Icon size={16} />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
-                                                                    {item.label}
-                                                                </p>
-                                                                <p className="text-[10px] text-gray-400 truncate">
-                                                                    {item.description}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
+                                        <AnimatePresence>
+                                            {isNavSettingsExpanded && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    transition={{ duration: 0.25 }}
+                                                    className="overflow-hidden mt-3"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2 px-1">
+                                                        <p className="text-[10px] text-gray-400">Preview & configure:</p>
                                                         <button
-                                                            onClick={handleToggle}
-                                                            disabled={!item.isRemovable}
-                                                            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ml-2 ${
-                                                                !item.isRemovable ? 'opacity-50 cursor-not-allowed bg-primary' : isEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'
-                                                            }`}
+                                                            onClick={() => {
+                                                                dispatch(resetMobileNavItems());
+                                                                dispatch(showToast({ message: 'Navigation reset to default' }));
+                                                            }}
+                                                            className="text-[10px] text-primary hover:underline font-bold"
                                                         >
-                                                            <motion.div
-                                                                animate={{ x: isEnabled ? 18 : 2 }}
-                                                                className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5"
-                                                            />
+                                                            Reset to Default
                                                         </button>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+
+                                                    {/* Compact Navigation Bar Live Preview */}
+                                                    <div className="my-2 p-2 rounded-2xl bg-black/60 border border-white/10 flex items-center justify-around">
+                                                        {ALL_MOBILE_NAV_ITEMS.filter((item) => mobileNavItems.includes(item.id)).map((item) => {
+                                                            const Icon = item.icon;
+                                                            return (
+                                                                <div key={item.id} className="flex flex-col items-center justify-center py-0.5 px-1">
+                                                                    <Icon size={16} className="text-primary" />
+                                                                    <span className="text-[8px] font-bold text-gray-300 uppercase mt-0.5 truncate max-w-[45px]">
+                                                                        {item.label}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Item toggles */}
+                                                    <div className="space-y-2 mt-3">
+                                                        {ALL_MOBILE_NAV_ITEMS.map((item) => {
+                                                            const Icon = item.icon;
+                                                            const isEnabled = mobileNavItems.includes(item.id);
+
+                                                            const handleToggle = () => {
+                                                                if (!item.isRemovable) {
+                                                                    dispatch(showToast({ message: 'Home is required for navigation', type: 'info' }));
+                                                                    return;
+                                                                }
+                                                                if (isEnabled) {
+                                                                    if (mobileNavItems.length <= 2) {
+                                                                        dispatch(showToast({ message: 'Minimum 2 navigation destinations required', type: 'error' }));
+                                                                        return;
+                                                                    }
+                                                                    dispatch(setMobileNavItems(mobileNavItems.filter((id) => id !== item.id)));
+                                                                } else {
+                                                                    dispatch(setMobileNavItems([...mobileNavItems, item.id]));
+                                                                }
+                                                            };
+
+                                                            return (
+                                                                <div
+                                                                    key={item.id}
+                                                                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl"
+                                                                >
+                                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                                                            <Icon size={16} />
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                                                                                {item.label}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-gray-400 truncate">
+                                                                                {item.description}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <button
+                                                                        onClick={handleToggle}
+                                                                        disabled={!item.isRemovable}
+                                                                        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ml-2 ${
+                                                                            !item.isRemovable ? 'opacity-50 cursor-not-allowed bg-primary' : isEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'
+                                                                        }`}
+                                                                    >
+                                                                        <motion.div
+                                                                            animate={{ x: isEnabled ? 18 : 2 }}
+                                                                            className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5"
+                                                                        />
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </section>
 
                                     <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 mt-6">Accent Color</h3>
