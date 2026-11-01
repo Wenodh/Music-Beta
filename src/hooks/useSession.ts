@@ -195,16 +195,33 @@ export const useSession = () => {
     useEffect(() => {
         if (!isJoined || !roomCode) {
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                try {
+                    channelRef.current.unsubscribe();
+                } catch (e) {
+                    console.warn('Error unsubscribing channel:', e);
+                }
                 channelRef.current = null;
             }
             return;
+        }
+
+        // Clean up previous channel if any
+        if (channelRef.current) {
+            try {
+                channelRef.current.unsubscribe();
+            } catch (e) {
+                console.warn('Error cleaning prior channel:', e);
+            }
+            channelRef.current = null;
         }
 
         const channel = supabase.channel(`room:${roomCode}`, {
             config: {
                 presence: {
                     key: userId,
+                },
+                broadcast: {
+                    self: false,
                 },
             },
         });
@@ -213,18 +230,26 @@ export const useSession = () => {
             .on('presence', { event: 'sync' }, () => {
                 const state = channel.presenceState();
                 const participants = Object.values(state).flat().map((p: any) => ({
-                    id: p.id,
-                    name: p.name,
+                    id: p.id || userId,
+                    name: p.name || 'User',
                     avatar: p.avatar,
-                    isHost: p.isHost
+                    isHost: Boolean(p.isHost)
                 }));
-                dispatch(setParticipants(participants));
 
-                // If host is gone, end session
-                const hostExists = participants.some(p => p.isHost);
-                if (!hostExists && !isHost) {
-                   dispatch(leaveSession());
-                   dispatch(setSessionError('Host has left the session.'));
+                // Deduplicate participants by id
+                const uniqueParticipants = Array.from(
+                    new Map(participants.map(p => [p.id, p])).values()
+                );
+
+                dispatch(setParticipants(uniqueParticipants));
+
+                // If host is gone, end session (only after initial presence establishes)
+                if (uniqueParticipants.length > 0) {
+                    const hostExists = uniqueParticipants.some(p => p.isHost);
+                    if (!hostExists && !isHostRef.current) {
+                        dispatch(leaveSession());
+                        dispatch(setSessionError('Host has left the session.'));
+                    }
                 }
             })
             .on('broadcast', { event: 'sync' }, ({ payload }) => {
@@ -347,15 +372,19 @@ export const useSession = () => {
                     }
                 }
             })
-            .subscribe(async (status) => {
+            .subscribe(async (status, err) => {
                 if (status === 'SUBSCRIBED') {
-                    await channel.track({
-                        id: userId,
-                        name: user?.user_metadata?.full_name || 'Guest',
-                        avatar: user?.user_metadata?.avatar_url,
-                        isHost: isHost,
-                        joinedAt: new Date().toISOString()
-                    });
+                    try {
+                        await channel.track({
+                            id: userId,
+                            name: user?.user_metadata?.full_name || (isHost ? 'Host' : 'Guest'),
+                            avatar: user?.user_metadata?.avatar_url,
+                            isHost: isHost,
+                            joinedAt: new Date().toISOString()
+                        });
+                    } catch (trackError) {
+                        console.warn('Presence track error:', trackError);
+                    }
 
                     if (!isHost) {
                         // Request initial state from host
@@ -365,13 +394,29 @@ export const useSession = () => {
                             payload: { type: 'requestSync', senderId: userId }
                         });
                     }
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('Supabase channel error:', err);
+                    // Don't terminate instantly if fallback/mock env or temporary hiccup
+                    // Register local host in participant list if host so UI never breaks
+                    if (isHost) {
+                        dispatch(setParticipants([{
+                            id: userId,
+                            name: user?.user_metadata?.full_name || 'Host',
+                            avatar: user?.user_metadata?.avatar_url,
+                            isHost: true,
+                        }]));
+                    }
                 }
             });
 
         channelRef.current = channel;
 
         return () => {
-            channel.unsubscribe();
+            try {
+                channel.unsubscribe();
+            } catch (e) {
+                console.warn('Error unsubscribing channel on unmount:', e);
+            }
         };
     }, [roomCode, isJoined, isHost, user, dispatch]);
 

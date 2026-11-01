@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppSelector } from '../../hooks/redux';
-import { useSession } from '../../hooks/useSession';
 import { IoSend, IoChatbubbleEllipsesOutline } from 'react-icons/io5';
 
-export const SessionChat: React.FC = () => {
+interface SessionChatProps {
+    sendMessage?: (text: string) => void;
+}
+
+export const SessionChat: React.FC<SessionChatProps> = ({ sendMessage }) => {
     const { messages } = useAppSelector((state) => state.session);
     const { user } = useAppSelector((state) => state.auth);
-    const { sendMessage } = useSession();
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -21,7 +23,9 @@ export const SessionChat: React.FC = () => {
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
         if (inputText.trim()) {
-            sendMessage(inputText.trim());
+            if (sendMessage) {
+                sendMessage(inputText.trim());
+            }
             setInputText('');
         }
     };

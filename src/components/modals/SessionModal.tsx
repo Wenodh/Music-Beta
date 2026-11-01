@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { IoClose, IoCopyOutline, IoShareOutline, IoPeopleOutline, IoLogInOutline, IoAddCircleOutline, IoCallOutline, IoMicOutline, IoMicOffOutline } from 'react-icons/io5';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { startSession, joinSession, leaveSession } from '../../features/session/sessionSlice';
+import { startSession, joinSession, leaveSession, setParticipants } from '../../features/session/sessionSlice';
 import { showToast } from '../../features/ui/uiSlice';
 import { SessionChat } from '../session/SessionChat';
 import { useSession } from '../../hooks/useSession';
@@ -17,7 +17,7 @@ interface SessionModalProps {
 const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReaction }) => {
     const dispatch = useAppDispatch();
     const { roomCode, isHost, isJoined, participants, isCallActive, isMuted, error } = useAppSelector(state => state.session);
-    const { toggleCall, toggleMute } = useSession();
+    const { toggleCall, toggleMute, sendMessage } = useSession();
     const { theme } = useAppSelector(state => state.ui);
     const userId = useAppSelector(state => state.auth.user?.id);
     const [joinCode, setJoinCode] = useState('');
@@ -31,6 +31,12 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
         const code = generateRoomCode();
         dispatch(startSession(code));
         setActiveTab('manage');
+        // Pre-populate self as participant immediately so hosting state displays instantly
+        dispatch(setParticipants([{
+            id: userId || 'host',
+            name: 'You (Host)',
+            isHost: true,
+        }]));
         dispatch(showToast({ message: 'Session started!' }));
     };
 
@@ -227,7 +233,7 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                                     </div>
                                 </div>
 
-                                <SessionChat />
+                                <SessionChat sendMessage={sendMessage} />
                             </div>
 
                             {/* Participants */}

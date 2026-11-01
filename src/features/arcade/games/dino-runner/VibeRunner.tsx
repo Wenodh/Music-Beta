@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameTheme } from '../../types';
 import { arcadeAudio } from '../../services/arcadeAudio';
 import { DialogueEngine } from '../../engine/dialogueEngine';
-import { saveGameScore } from '../../services/arcadeStorage';
-import { IoPlay, IoRefresh, IoArrowBack, IoVolumeHigh, IoVolumeMute } from 'react-icons/io5';
+import { saveGameScore, getHighScore } from '../../services/arcadeStorage';
+import { IoPlay, IoRefresh, IoArrowBack, IoVolumeHigh, IoVolumeMute, IoPause, IoPlayOutline } from 'react-icons/io5';
 
 interface VibeRunnerProps {
     theme: GameTheme;
@@ -35,13 +35,15 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     const [score, setScore] = useState(0);
-    const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
+    const [highScore, setHighScore] = useState(0);
+    const [gameState, setGameState] = useState<'idle' | 'playing' | 'paused' | 'gameover'>('idle');
     const [speech, setSpeech] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(true);
+    const [canRestart, setCanRestart] = useState(false);
 
     const CANVAS_WIDTH = 420;
-    const CANVAS_HEIGHT = 260;
-    const GROUND_Y = 210;
+    const CANVAS_HEIGHT = 280;
+    const GROUND_Y = 225;
 
     const playerYRef = useRef(GROUND_Y - 32);
     const playerVelYRef = useRef(0);
@@ -49,9 +51,14 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
 
     const obstaclesRef = useRef<Obstacle[]>([]);
     const collectiblesRef = useRef<Collectible[]>([]);
-    const speedRef = useRef(4.0);
+    // Beginner friendly starting speed: 3.2 (previously 4.0)
+    const speedRef = useRef(3.2);
     const scoreRef = useRef(0);
     const frameIdRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        getHighScore('vibe-runner').then(setHighScore);
+    }, []);
 
     const showDialogue = useCallback((trigger: 'start' | 'game-over' | 'milestone' | 'special-item' | 'new-high-score') => {
         if (!dialogueEnabled) return;
@@ -66,25 +73,38 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
             return;
         }
         if (gameState === 'gameover') {
-            startGame();
+            if (canRestart) startGame();
+            return;
+        }
+        if (gameState === 'paused') {
             return;
         }
         if (isGroundedRef.current) {
-            playerVelYRef.current = -9.5;
+            playerVelYRef.current = -9.8;
             isGroundedRef.current = false;
             arcadeAudio.playJump();
         }
-    }, [gameState]);
+    }, [gameState, canRestart]);
+
+    const togglePause = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (gameState === 'playing') {
+            setGameState('paused');
+        } else if (gameState === 'paused') {
+            setGameState('playing');
+        }
+    };
 
     const startGame = () => {
         playerYRef.current = GROUND_Y - 32;
         playerVelYRef.current = 0;
         isGroundedRef.current = true;
-        obstaclesRef.current = [{ x: CANVAS_WIDTH + 80, width: 22, height: 35 }];
-        collectiblesRef.current = [{ x: CANVAS_WIDTH + 140, y: GROUND_Y - 55, collected: false }];
-        speedRef.current = 4.0;
+        obstaclesRef.current = [{ x: CANVAS_WIDTH + 100, width: 22, height: 32 }];
+        collectiblesRef.current = [{ x: CANVAS_WIDTH + 160, y: GROUND_Y - 55, collected: false }];
+        speedRef.current = 3.2;
         scoreRef.current = 0;
         setScore(0);
+        setCanRestart(false);
         setGameState('playing');
         showDialogue('start');
     };
@@ -94,7 +114,11 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
         if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
         arcadeAudio.playCollision();
 
-        const { isNewHighScore } = await saveGameScore('vibe-runner', scoreRef.current);
+        // Tap restart guard
+        setTimeout(() => setCanRestart(true), 400);
+
+        const { isNewHighScore, highScore: newHigh } = await saveGameScore('vibe-runner', scoreRef.current);
+        setHighScore(newHigh);
         if (isNewHighScore && scoreRef.current > 0) {
             showDialogue('new-high-score');
             arcadeAudio.playMilestone();
@@ -109,6 +133,9 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
             if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
                 e.preventDefault();
                 jump();
+            } else if (e.code === 'KeyP' || e.code === 'Escape') {
+                e.preventDefault();
+                togglePause();
             }
         };
 
@@ -118,7 +145,10 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
 
     // Game loop
     useEffect(() => {
-        if (gameState !== 'playing') return;
+        if (gameState !== 'playing') {
+            if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
+            return;
+        }
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -127,7 +157,7 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
 
         const loop = () => {
             // Player jump physics
-            playerVelYRef.current += 0.55;
+            playerVelYRef.current += 0.52;
             playerYRef.current += playerVelYRef.current;
 
             if (playerYRef.current >= GROUND_Y - 32) {
@@ -136,8 +166,10 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
                 isGroundedRef.current = true;
             }
 
-            // Gradually speed up
-            speedRef.current += 0.0006;
+            // Gentle speed up capped at 5.5
+            if (speedRef.current < 5.5) {
+                speedRef.current += 0.0004;
+            }
             const currentSpeed = speedRef.current;
 
             // Score increases with distance
@@ -154,11 +186,11 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
             for (let i = 0; i < obstacles.length; i++) {
                 obstacles[i].x -= currentSpeed;
 
-                // Collision detection
+                // Forgiving collision detection (slightly smaller player hitbox: inset 4px)
                 const playerBox = {
-                    left: 50,
-                    right: 76,
-                    top: playerYRef.current,
+                    left: 54,
+                    right: 72,
+                    top: playerYRef.current + 4,
                     bottom: playerYRef.current + 32,
                 };
 
@@ -178,11 +210,12 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
             }
 
             const lastObs = obstacles[obstacles.length - 1];
-            if (!lastObs || lastObs.x < CANVAS_WIDTH - Math.random() * 120 - 150) {
+            // Generous beginner spacing (minimum 180px gap)
+            if (!lastObs || lastObs.x < CANVAS_WIDTH - Math.random() * 120 - 180) {
                 obstacles.push({
                     x: CANVAS_WIDTH + Math.random() * 40,
                     width: 22,
-                    height: Math.random() < 0.5 ? 30 : 42,
+                    height: Math.random() < 0.6 ? 28 : 38,
                 });
             }
 
@@ -193,7 +226,7 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
 
                 if (!collectibles[i].collected) {
                     const dist = Math.hypot(collectibles[i].x - 63, collectibles[i].y - (playerYRef.current + 16));
-                    if (dist < 24) {
+                    if (dist < 26) {
                         collectibles[i].collected = true;
                         scoreRef.current += 50;
                         setScore(Math.floor(scoreRef.current / 10));
@@ -217,6 +250,12 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
             // Draw Background
             ctx.fillStyle = roundTheme.colors.background;
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Subtle scanlines
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            for (let y = 0; y < CANVAS_HEIGHT; y += 4) {
+                ctx.fillRect(0, y, CANVAS_WIDTH, 1);
+            }
 
             // Draw Ground
             ctx.fillStyle = roundTheme.colors.ground;
@@ -270,35 +309,61 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
     }, [gameState, roundTheme]);
 
     return (
-        <div className="flex flex-col items-center justify-center w-full max-w-lg mx-auto p-4 select-none">
-            {/* Header Toolbar */}
-            <div className="w-full flex items-center justify-between mb-4 bg-white/5 p-3 rounded-2xl border border-white/10">
+        <div
+            onClick={jump}
+            className="fixed inset-0 z-[400] md:relative md:inset-auto flex flex-col items-center justify-center select-none bg-black md:bg-transparent touch-none h-[100dvh] w-full max-w-full overflow-hidden p-3 sm:p-4"
+        >
+            {/* Top Toolbar */}
+            <div className="absolute top-3 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
                 <button
-                    onClick={onBack}
-                    className="p-2 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl transition-all"
+                    onClick={(e) => { e.stopPropagation(); onBack(); }}
+                    className="pointer-events-auto p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full border border-white/15 shadow-xl active:scale-95 transition-all"
+                    aria-label="Back to Arcade"
                 >
                     <IoArrowBack size={20} />
                 </button>
-                <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-primary">Vibe Runner</span>
-                    <span className="text-xl font-black font-mono tracking-wider">{score} pts</span>
+
+                <div className="flex flex-col items-center pointer-events-none">
+                    <span className="text-3xl sm:text-4xl font-black text-white font-mono drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                        {score}
+                    </span>
+                    {highScore > 0 && (
+                        <span className="text-[10px] font-bold text-amber-400 drop-shadow">
+                            Best: {highScore}
+                        </span>
+                    )}
                 </div>
-                <button
-                    onClick={() => {
-                        const next = !isMuted;
-                        setIsMuted(next);
-                        arcadeAudio.setEnabled(!next);
-                    }}
-                    className={`p-2 rounded-xl border transition-all ${!isMuted ? 'text-primary border-primary/30 bg-primary/10' : 'text-gray-400 border-white/10'}`}
-                >
-                    {isMuted ? <IoVolumeMute size={20} /> : <IoVolumeHigh size={20} />}
-                </button>
+
+                <div className="flex items-center gap-2 pointer-events-auto">
+                    {gameState === 'playing' && (
+                        <button
+                            onClick={togglePause}
+                            className="p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full border border-white/15 shadow-xl active:scale-95 transition-all"
+                            aria-label="Pause Game"
+                        >
+                            <IoPause size={18} />
+                        </button>
+                    )}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const next = !isMuted;
+                            setIsMuted(next);
+                            arcadeAudio.setEnabled(!next);
+                        }}
+                        className={`p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md rounded-full border border-white/15 shadow-xl active:scale-95 transition-all ${
+                            !isMuted ? 'text-primary' : 'text-gray-400'
+                        }`}
+                        aria-label="Toggle Sound Effects"
+                    >
+                        {isMuted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
+                    </button>
+                </div>
             </div>
 
-            {/* Tap Container */}
+            {/* Canvas Container */}
             <div
-                onClick={jump}
-                className="relative rounded-2xl overflow-hidden border-2 shadow-2xl cursor-pointer w-full max-w-[min(94vw,480px)] aspect-[21/13] flex items-center justify-center bg-black touch-none"
+                className="relative rounded-3xl overflow-hidden border-2 shadow-2xl w-full max-w-[min(94vw,520px)] aspect-[21/14] flex items-center justify-center bg-black my-auto"
                 style={{ borderColor: roundTheme.colors.accent }}
             >
                 <canvas
@@ -310,32 +375,63 @@ export const VibeRunner: React.FC<VibeRunnerProps> = ({
 
                 {/* Speech Bubble */}
                 {speech && (
-                    <div className="absolute top-4 left-4 right-4 bg-white text-gray-900 font-bold text-xs p-2 rounded-2xl shadow-xl border-2 border-primary animate-bounce text-center">
+                    <div className="absolute top-4 left-4 right-4 bg-white text-gray-900 font-bold text-xs p-2.5 rounded-2xl shadow-xl border-2 border-primary animate-bounce text-center z-20 pointer-events-none">
                         "{speech}"
                     </div>
                 )}
 
                 {/* Overlays */}
                 {gameState === 'idle' && (
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center">
-                        <h3 className="text-2xl font-black mb-2 text-white font-mono uppercase tracking-widest">Vibe Runner</h3>
-                        <p className="text-xs text-gray-400 mb-6">Tap or press Space to jump over stage obstacles!</p>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30">
+                        <span className="text-4xl mb-2">🏃</span>
+                        <h3 className="text-2xl font-black mb-1 text-white font-mono uppercase tracking-widest">Vibe Runner</h3>
+                        <p className="text-xs text-gray-300 mb-6">Tap anywhere or press Space to jump over stage gear!</p>
                         <button
                             onClick={(e) => { e.stopPropagation(); startGame(); }}
-                            className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-red-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-primary/30 transition-all uppercase tracking-wider"
+                            className="min-h-[48px] px-8 py-3.5 bg-primary hover:bg-red-600 active:scale-95 text-white font-black text-sm rounded-2xl shadow-xl shadow-primary/30 transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer"
                         >
                             <IoPlay size={20} /> Start Run
                         </button>
                     </div>
                 )}
 
+                {gameState === 'paused' && (
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30">
+                        <h3 className="text-2xl font-black mb-2 text-white font-mono uppercase tracking-wider">
+                            Game Paused
+                        </h3>
+                        <p className="text-xs text-gray-400 mb-6">Distance Score: {score}</p>
+                        <div className="flex flex-col gap-2.5 w-48">
+                            <button
+                                onClick={togglePause}
+                                className="min-h-[46px] px-6 py-2.5 bg-primary hover:bg-red-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-lg transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                            >
+                                <IoPlayOutline size={18} /> Resume
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); startGame(); }}
+                                className="min-h-[46px] px-6 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs rounded-xl border border-white/10 transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                            >
+                                <IoRefresh size={18} /> Restart
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {gameState === 'gameover' && (
-                    <div className="absolute inset-0 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center">
-                        <h3 className="text-xl font-black text-red-500 mb-1 uppercase tracking-widest">Trip on the Mic Cable!</h3>
-                        <p className="text-sm font-bold text-gray-300 mb-4">Distance Score: <span className="text-primary font-mono">{score}</span></p>
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30">
+                        <span className="text-4xl mb-1">💥</span>
+                        <h3 className="text-xl sm:text-2xl font-black text-red-500 mb-1 uppercase tracking-widest font-mono">
+                            Stage Over!
+                        </h3>
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 my-3 w-48 space-y-1">
+                            <p className="text-xs text-gray-400">Score: <span className="text-white font-black font-mono text-base">{score}</span></p>
+                            <p className="text-xs text-gray-400">Best: <span className="text-amber-400 font-black font-mono text-base">{highScore}</span></p>
+                        </div>
                         <button
+                            disabled={!canRestart}
                             onClick={(e) => { e.stopPropagation(); startGame(); }}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+                            className="min-h-[48px] px-8 py-3 bg-primary hover:bg-red-600 disabled:opacity-40 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
                         >
                             <IoRefresh size={18} /> Run Again
                         </button>

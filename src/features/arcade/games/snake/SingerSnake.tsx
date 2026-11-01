@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameTheme } from '../../types';
 import { arcadeAudio } from '../../services/arcadeAudio';
 import { DialogueEngine } from '../../engine/dialogueEngine';
-import { saveGameScore } from '../../services/arcadeStorage';
-import { IoPlay, IoRefresh, IoArrowBack, IoVolumeHigh, IoVolumeMute } from 'react-icons/io5';
+import { saveGameScore, getHighScore } from '../../services/arcadeStorage';
+import { IoPlay, IoRefresh, IoArrowBack, IoVolumeHigh, IoVolumeMute, IoPause, IoPlayOutline } from 'react-icons/io5';
 
 interface SingerSnakeProps {
     theme: GameTheme;
@@ -29,22 +29,28 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
 
     const [score, setScore] = useState(0);
     const [highScore, setHighScore] = useState(0);
-    const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
+    const [gameState, setGameState] = useState<'idle' | 'playing' | 'paused' | 'gameover'>('idle');
     const [speech, setSpeech] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(true);
+    const [canRestart, setCanRestart] = useState(false);
 
-    const GRID_SIZE = 20;
-    const CELL_SIZE = 18;
+    // Beginner friendly grid: 18x18 cells, generous size
+    const GRID_SIZE = 18;
+    const CELL_SIZE = 20;
 
-    const snakeRef = useRef<Point[]>([{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }]);
+    const snakeRef = useRef<Point[]>([{ x: 9, y: 9 }, { x: 8, y: 9 }, { x: 7, y: 9 }]);
     const dirRef = useRef<Point>({ x: 1, y: 0 });
     const nextDirRef = useRef<Point>({ x: 1, y: 0 });
-    const foodRef = useRef<Point>({ x: 15, y: 10 });
+    const foodRef = useRef<Point>({ x: 13, y: 9 });
     const specialItemRef = useRef<Point | null>(null);
 
     const scoreRef = useRef(0);
     const roundThemeRef = useRef(roundTheme);
     roundThemeRef.current = roundTheme;
+
+    useEffect(() => {
+        getHighScore('singer-snake').then(setHighScore);
+    }, []);
 
     const showDialogue = useCallback((trigger: 'start' | 'game-over' | 'milestone' | 'special-item' | 'new-high-score') => {
         if (!dialogueEnabled) return;
@@ -63,14 +69,24 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
         }
     };
 
+    const togglePause = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (gameState === 'playing') {
+            setGameState('paused');
+        } else if (gameState === 'paused') {
+            setGameState('playing');
+        }
+    };
+
     const startGame = () => {
-        snakeRef.current = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+        snakeRef.current = [{ x: 9, y: 9 }, { x: 8, y: 9 }, { x: 7, y: 9 }];
         dirRef.current = { x: 1, y: 0 };
         nextDirRef.current = { x: 1, y: 0 };
         foodRef.current = spawnFood(snakeRef.current);
         specialItemRef.current = null;
         scoreRef.current = 0;
         setScore(0);
+        setCanRestart(false);
         setGameState('playing');
         showDialogue('start');
     };
@@ -78,6 +94,10 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
     const endGame = async () => {
         setGameState('gameover');
         arcadeAudio.playCollision();
+
+        // Guard against accidental restart tap
+        setTimeout(() => setCanRestart(true), 400);
+
         const { isNewHighScore, highScore: newHigh } = await saveGameScore('singer-snake', scoreRef.current);
         setHighScore(newHigh);
         if (isNewHighScore && scoreRef.current > 0) {
@@ -91,11 +111,16 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
     // Keyboard controls
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space'].includes(e.code)) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space', 'KeyP'].includes(e.code)) {
                 e.preventDefault();
             }
 
-            if (gameState === 'idle' || gameState === 'gameover') {
+            if (e.code === 'KeyP' || e.code === 'Escape') {
+                togglePause();
+                return;
+            }
+
+            if (gameState === 'idle' || (gameState === 'gameover' && canRestart)) {
                 if (e.code === 'Space' || e.code === 'Enter') {
                     startGame();
                     return;
@@ -111,7 +136,7 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [gameState]);
+    }, [gameState, canRestart]);
 
     // Swipe Touch controls
     const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -128,7 +153,11 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
         const diffY = touch.clientY - touchStartRef.current.y;
 
         if (Math.abs(diffX) > 20 || Math.abs(diffY) > 20) {
-            if (gameState === 'idle' || gameState === 'gameover') {
+            if (gameState === 'idle') {
+                startGame();
+                return;
+            }
+            if (gameState === 'gameover' && canRestart) {
                 startGame();
                 return;
             }
@@ -141,18 +170,24 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
         touchStartRef.current = null;
     };
 
-    // Touch controls: D-Pad touch handlers
+    // D-Pad touch handlers
     const handleTouchDirection = (x: number, y: number) => {
-        if (gameState !== 'playing') {
+        if (gameState === 'idle') {
             startGame();
             return;
         }
+        if (gameState === 'gameover' && canRestart) {
+            startGame();
+            return;
+        }
+        if (gameState !== 'playing') return;
+
         const cur = dirRef.current;
         if (x !== 0 && cur.x === 0) nextDirRef.current = { x, y: 0 };
         if (y !== 0 && cur.y === 0) nextDirRef.current = { x: 0, y };
     };
 
-    // Game loop
+    // Beginner friendly game tick: 155ms (comfortable turn reaction time vs 110ms)
     useEffect(() => {
         if (gameState !== 'playing') return;
 
@@ -163,14 +198,14 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
 
             const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
 
-            // Wall collision
+            // Wall wrap-around or collision: wall collision with clear boundary
             if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
                 endGame();
                 return;
             }
 
-            // Self collision
-            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+            // Self collision (ignore tail during move)
+            if (snake.slice(0, -1).some(segment => segment.x === head.x && segment.y === head.y)) {
                 endGame();
                 return;
             }
@@ -219,7 +254,7 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Draw Grid Lines (Subtle retro arcade feel)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.lineWidth = 1;
             for (let i = 0; i <= GRID_SIZE; i++) {
                 ctx.beginPath();
@@ -237,12 +272,12 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
             const food = foodRef.current;
             ctx.fillStyle = colors.collectible;
             ctx.beginPath();
-            ctx.arc(food.x * CELL_SIZE + CELL_SIZE / 2, food.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2.5, 0, Math.PI * 2);
+            ctx.arc(food.x * CELL_SIZE + CELL_SIZE / 2, food.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2.3, 0, Math.PI * 2);
             ctx.fill();
 
-            // Note stem
+            // Note stem & flag
             ctx.strokeStyle = colors.collectible;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.moveTo(food.x * CELL_SIZE + CELL_SIZE / 1.5, food.y * CELL_SIZE + CELL_SIZE / 2);
             ctx.lineTo(food.x * CELL_SIZE + CELL_SIZE / 1.5, food.y * CELL_SIZE + CELL_SIZE / 5);
@@ -264,16 +299,16 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
             // Draw Snake
             snake.forEach((segment, idx) => {
                 ctx.fillStyle = idx === 0 ? colors.character : colors.accent;
-                ctx.fillRect(segment.x * CELL_SIZE + 1, segment.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                ctx.fillRect(segment.x * CELL_SIZE + 1.5, segment.y * CELL_SIZE + 1.5, CELL_SIZE - 3, CELL_SIZE - 3);
 
                 // Head eyes
                 if (idx === 0) {
                     ctx.fillStyle = '#000000';
-                    ctx.fillRect(segment.x * CELL_SIZE + 4, segment.y * CELL_SIZE + 4, 3, 3);
-                    ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - 7, segment.y * CELL_SIZE + 4, 3, 3);
+                    ctx.fillRect(segment.x * CELL_SIZE + 4, segment.y * CELL_SIZE + 4, 3.5, 3.5);
+                    ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - 7.5, segment.y * CELL_SIZE + 4, 3.5, 3.5);
                 }
             });
-        }, 110);
+        }, 155);
 
         return () => clearInterval(interval);
     }, [gameState]);
@@ -285,32 +320,55 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
     };
 
     return (
-        <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto p-4 select-none">
-            {/* Header Toolbar */}
-            <div className="w-full flex items-center justify-between mb-4 bg-white/5 p-3 rounded-2xl border border-white/10">
+        <div className="fixed inset-0 z-[400] md:relative md:inset-auto flex flex-col items-center justify-between select-none bg-black md:bg-transparent touch-none h-[100dvh] w-full max-w-full overflow-hidden p-3 sm:p-4">
+            {/* Top HUD */}
+            <div className="w-full flex items-center justify-between z-20">
                 <button
                     onClick={onBack}
-                    className="p-2 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl transition-all"
+                    className="p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full border border-white/15 shadow-xl active:scale-95 transition-all"
+                    aria-label="Back to Arcade"
                 >
                     <IoArrowBack size={20} />
                 </button>
+
                 <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-primary">Singer Snake</span>
-                    <span className="text-xl font-black font-mono tracking-wider">{score} pts</span>
+                    <span className="text-3xl sm:text-4xl font-black text-white font-mono drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                        {score}
+                    </span>
+                    {highScore > 0 && (
+                        <span className="text-[10px] font-bold text-amber-400 drop-shadow">
+                            Best: {highScore}
+                        </span>
+                    )}
                 </div>
-                <button
-                    onClick={toggleAudio}
-                    className={`p-2 rounded-xl border transition-all ${!isMuted ? 'text-primary border-primary/30 bg-primary/10' : 'text-gray-400 border-white/10'}`}
-                >
-                    {isMuted ? <IoVolumeMute size={20} /> : <IoVolumeHigh size={20} />}
-                </button>
+
+                <div className="flex items-center gap-2">
+                    {gameState === 'playing' && (
+                        <button
+                            onClick={togglePause}
+                            className="p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full border border-white/15 shadow-xl active:scale-95 transition-all"
+                            aria-label="Pause Game"
+                        >
+                            <IoPause size={18} />
+                        </button>
+                    )}
+                    <button
+                        onClick={toggleAudio}
+                        className={`p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md rounded-full border border-white/15 shadow-xl active:scale-95 transition-all ${
+                            !isMuted ? 'text-primary' : 'text-gray-400'
+                        }`}
+                        aria-label="Toggle Sound Effects"
+                    >
+                        {isMuted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
+                    </button>
+                </div>
             </div>
 
-            {/* Canvas Container with Speech Bubble */}
+            {/* Canvas Container */}
             <div
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
-                className="relative rounded-2xl overflow-hidden border-2 shadow-2xl touch-none w-full max-w-[min(90vw,360px)] aspect-square flex items-center justify-center bg-black"
+                className="relative rounded-3xl overflow-hidden border-2 shadow-2xl touch-none w-full max-w-[min(90vw,360px)] aspect-square flex items-center justify-center bg-black my-auto"
                 style={{ borderColor: roundTheme.colors.accent }}
             >
                 <canvas
@@ -322,32 +380,63 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
 
                 {/* Speech Bubble Reaction */}
                 {speech && (
-                    <div className="absolute top-4 left-4 right-4 bg-white text-gray-900 font-bold text-xs p-2.5 rounded-2xl shadow-xl border-2 border-primary animate-bounce text-center">
+                    <div className="absolute top-4 left-4 right-4 bg-white text-gray-900 font-bold text-xs p-2.5 rounded-2xl shadow-xl border-2 border-primary animate-bounce text-center z-20 pointer-events-none">
                         "{speech}"
                     </div>
                 )}
 
                 {/* Overlays */}
                 {gameState === 'idle' && (
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center">
-                        <h3 className="text-2xl font-black mb-2 text-white font-mono uppercase tracking-widest">Singer Snake</h3>
-                        <p className="text-xs text-gray-400 mb-6">Collect music notes and grow your melody trail!</p>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30">
+                        <span className="text-4xl mb-2">🐍</span>
+                        <h3 className="text-2xl font-black mb-1 text-white font-mono uppercase tracking-widest">Singer Snake</h3>
+                        <p className="text-xs text-gray-300 mb-6">Swipe or use arrows to collect notes and grow!</p>
                         <button
                             onClick={startGame}
-                            className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-red-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-primary/30 transition-all uppercase tracking-wider"
+                            className="min-h-[48px] px-8 py-3.5 bg-primary hover:bg-red-600 active:scale-95 text-white font-black text-sm rounded-2xl shadow-xl shadow-primary/30 transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer"
                         >
                             <IoPlay size={20} /> Play Game
                         </button>
                     </div>
                 )}
 
+                {gameState === 'paused' && (
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30">
+                        <h3 className="text-2xl font-black mb-2 text-white font-mono uppercase tracking-wider">
+                            Game Paused
+                        </h3>
+                        <p className="text-xs text-gray-400 mb-6">Current Score: {score}</p>
+                        <div className="flex flex-col gap-2.5 w-48">
+                            <button
+                                onClick={togglePause}
+                                className="min-h-[46px] px-6 py-2.5 bg-primary hover:bg-red-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-lg transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                            >
+                                <IoPlayOutline size={18} /> Resume
+                            </button>
+                            <button
+                                onClick={startGame}
+                                className="min-h-[46px] px-6 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs rounded-xl border border-white/10 transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                            >
+                                <IoRefresh size={18} /> Restart
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {gameState === 'gameover' && (
-                    <div className="absolute inset-0 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center">
-                        <h3 className="text-xl font-black text-red-500 mb-1 uppercase tracking-widest">Out of Rhythm!</h3>
-                        <p className="text-sm font-bold text-gray-300 mb-4">Final Score: <span className="text-primary font-mono">{score}</span></p>
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30">
+                        <span className="text-4xl mb-1">💥</span>
+                        <h3 className="text-xl sm:text-2xl font-black text-red-500 mb-1 uppercase tracking-widest font-mono">
+                            Out of Rhythm!
+                        </h3>
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 my-3 w-48 space-y-1">
+                            <p className="text-xs text-gray-400">Score: <span className="text-white font-black font-mono text-base">{score}</span></p>
+                            <p className="text-xs text-gray-400">Best: <span className="text-amber-400 font-black font-mono text-base">{highScore}</span></p>
+                        </div>
                         <button
+                            disabled={!canRestart}
                             onClick={startGame}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+                            className="min-h-[48px] px-8 py-3 bg-primary hover:bg-red-600 disabled:opacity-40 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
                         >
                             <IoRefresh size={18} /> Play Again
                         </button>
@@ -356,11 +445,11 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
             </div>
 
             {/* Mobile Touch D-Pad */}
-            <div className="grid grid-cols-3 gap-2 w-56 mt-4 sm:hidden">
+            <div className="grid grid-cols-3 gap-2 w-56 mb-4 sm:hidden z-20">
                 <div />
                 <button
                     onClick={() => handleTouchDirection(0, -1)}
-                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-95 transition-all"
                     aria-label="Up"
                 >
                     ▲
@@ -368,7 +457,7 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
                 <div />
                 <button
                     onClick={() => handleTouchDirection(-1, 0)}
-                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-95 transition-all"
                     aria-label="Left"
                 >
                     ◀
@@ -376,7 +465,7 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
                 <div />
                 <button
                     onClick={() => handleTouchDirection(1, 0)}
-                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-95 transition-all"
                     aria-label="Right"
                 >
                     ▶
@@ -384,7 +473,7 @@ export const SingerSnake: React.FC<SingerSnakeProps> = ({
                 <div />
                 <button
                     onClick={() => handleTouchDirection(0, 1)}
-                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-sm"
+                    className="h-12 flex items-center justify-center bg-white/15 active:bg-primary/40 rounded-2xl font-bold text-lg text-white shadow-lg active:scale-95 transition-all"
                     aria-label="Down"
                 >
                     ▼
