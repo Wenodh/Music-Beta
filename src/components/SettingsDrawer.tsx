@@ -420,9 +420,8 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Accent Color</h3>
                                     {/* Mobile Navigation Customizer */}
-                                    <section className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
+                                    <section className="mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
                                         <div className="flex items-center justify-between mb-2">
                                             <div>
                                                 <h3 className="text-xs font-bold uppercase text-gray-400">Navigation Settings</h3>

@@ -6,7 +6,10 @@ import {
     IoLibraryOutline, IoLibrary,
     IoPersonOutline, IoPerson,
     IoGameControllerOutline, IoGameController,
-    IoPeopleOutline, IoPeople
+    IoPeopleOutline, IoPeople,
+    IoHeartOutline, IoHeart,
+    IoCloudDownloadOutline, IoCloudDownload,
+    IoListOutline, IoList
 } from 'react-icons/io5';
 import { IconType } from 'react-icons';
 
@@ -85,10 +88,37 @@ export const ALL_MOBILE_NAV_ITEMS: NavItemConfig[] = [
         isRemovable: true,
     },
     {
+        id: 'favorites',
+        label: 'Favorites',
+        description: 'Instant access to your favorite loved songs',
+        path: '/library?tab=favorites',
+        icon: IoHeartOutline,
+        activeIcon: IoHeart,
+        isRemovable: true,
+    },
+    {
+        id: 'offline',
+        label: 'Offline',
+        description: 'Downloaded songs available without internet',
+        path: '/library?tab=offline',
+        icon: IoCloudDownloadOutline,
+        activeIcon: IoCloudDownload,
+        isRemovable: true,
+    },
+    {
+        id: 'playlists',
+        label: 'Playlists',
+        description: 'Your custom organized music playlists',
+        path: '/library?tab=playlists',
+        icon: IoListOutline,
+        activeIcon: IoList,
+        isRemovable: true,
+    },
+    {
         id: 'friends',
         label: 'Friends',
         description: 'Direct messaging and voice calling with your friends',
-        path: '/friends', // Handled via modal or route
+        path: '/friends', // Handled via modal
         icon: IoPeopleOutline,
         activeIcon: IoPeople,
         isRemovable: true,

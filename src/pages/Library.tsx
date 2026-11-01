@@ -66,8 +66,15 @@ const Library: React.FC = () => {
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
-        if (queryParams.get('tab') === 'offline') {
+        const tab = queryParams.get('tab');
+        if (tab === 'offline') {
             setActiveTab('offline');
+            setSelectedPlaylist(null);
+        } else if (tab === 'favorites') {
+            setActiveTab('favorites');
+            setSelectedPlaylist(null);
+        } else if (tab === 'playlists') {
+            setActiveTab('playlists');
         }
     }, [location]);
 

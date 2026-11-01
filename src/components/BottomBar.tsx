@@ -30,8 +30,12 @@ const BottomBar: React.FC = () => {
     };
 
     const isActive = (path: string) => {
-        if (path === '/') return location.pathname === '/';
-        return location.pathname.startsWith(path);
+        if (path === '/') return location.pathname === '/' && !location.search;
+        if (path.includes('?')) {
+            const [basePath, search] = path.split('?');
+            return location.pathname === basePath && location.search === `?${search}`;
+        }
+        return location.pathname.startsWith(path) && !location.search;
     };
 
     return (
