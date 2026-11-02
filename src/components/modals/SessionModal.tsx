@@ -90,33 +90,37 @@ const SessionModal: React.FC<SessionModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center p-0 sm:p-4 pb-[env(safe-area-inset-bottom)]">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={onClose}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             />
 
             <motion.div
                 initial={{ opacity: 0, y: '100%' }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className={`relative w-full max-w-md overflow-hidden rounded-t-[32px] sm:rounded-[32px] shadow-2xl border-t sm:border border-white/10 ${theme.isOled ? 'bg-black' : 'bg-gray-900'} max-h-[90vh] flex flex-col`}
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                className={`relative w-full max-w-md overflow-hidden rounded-t-[28px] sm:rounded-[32px] shadow-2xl border-t sm:border border-white/10 ${theme.isOled ? 'bg-black' : 'bg-gray-950 sm:bg-gray-900'} h-[92dvh] sm:h-auto sm:max-h-[88vh] flex flex-col`}
             >
                 {/* Pull bar for mobile */}
-                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
+
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-white/5">
+                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/5 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-primary/20 text-primary">
-                            <IoPeopleOutline size={24} />
+                        <div className="p-2 rounded-xl bg-primary/20 text-primary shrink-0">
+                            <IoPeopleOutline size={22} />
                         </div>
-                        <h2 className="text-xl font-bold text-white">Group Session</h2>
+                        <div>
+                            <h2 className="text-lg sm:text-xl font-bold text-white leading-tight">Group Session</h2>
+                            <p className="text-[10px] text-gray-400">Real-time synced playback & chat</p>
+                        </div>
                     </div>
-                    <button aria-label="Close" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-gray-400">
+                    <button aria-label="Close" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors">
                         <IoClose size={24} />
                     </button>
                 </div>
