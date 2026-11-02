@@ -31,16 +31,16 @@ export const SessionChat: React.FC<SessionChatProps> = ({ sendMessage }) => {
     };
 
     return (
-        <div className="flex flex-col h-64 sm:h-72 bg-black/40 sm:bg-gray-900/60 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden shadow-inner">
-            <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-white/10 bg-white/5 shrink-0">
+        <div className="flex flex-col h-full sm:h-72 bg-gray-50/80 dark:bg-black/40 sm:dark:bg-gray-900/60 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden shadow-inner">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-gray-200 dark:border-white/10 bg-gray-100/60 dark:bg-white/5 shrink-0">
                 <IoChatbubbleEllipsesOutline className="text-primary" size={17} />
-                <span className="text-xs font-bold text-gray-200">Room Chat</span>
-                <span className="ml-auto text-[9px] xs:text-[10px] text-gray-400 bg-white/5 px-2 py-0.5 rounded-full font-mono">
+                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">Room Chat</span>
+                <span className="ml-auto text-[9px] xs:text-[10px] text-gray-500 dark:text-gray-400 bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-full font-mono">
                     Ephemeral
                 </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar min-h-0">
                 {messages.length > 0 ? (
                     messages.map((msg) => {
                         const isSelf = msg.userId === user?.id;
@@ -50,10 +50,10 @@ export const SessionChat: React.FC<SessionChatProps> = ({ sendMessage }) => {
                                 className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}
                             >
                                 <div className="flex items-center gap-1.5 mb-0.5 px-1">
-                                    <span className="text-[10px] font-semibold text-gray-400">
+                                    <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
                                         {isSelf ? 'You' : msg.userName}
                                     </span>
-                                    <span className="text-[9px] text-gray-500">
+                                    <span className="text-[9px] text-gray-400 dark:text-gray-500">
                                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
@@ -61,7 +61,7 @@ export const SessionChat: React.FC<SessionChatProps> = ({ sendMessage }) => {
                                     className={`px-3.5 py-2 rounded-2xl text-xs sm:text-[13px] max-w-[85%] break-words leading-relaxed shadow-sm ${
                                         isSelf
                                             ? 'bg-primary text-white rounded-br-none shadow-primary/20'
-                                            : 'bg-white/10 text-gray-100 rounded-bl-none border border-white/5'
+                                            : 'bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-100 rounded-bl-none border border-gray-300 dark:border-white/5'
                                     }`}
                                 >
                                     {msg.text}
@@ -70,21 +70,21 @@ export const SessionChat: React.FC<SessionChatProps> = ({ sendMessage }) => {
                         );
                     })
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs italic text-center p-4">
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-xs italic text-center p-4">
                         <p>No messages yet.</p>
-                        <p className="text-[10px] text-gray-600 mt-0.5">Say hello to everyone in the room!</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-600 mt-0.5">Say hello to everyone in the room!</p>
                     </div>
                 )}
                 <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSend} className="p-2 sm:p-2.5 border-t border-white/10 bg-white/5 flex items-center gap-2 shrink-0">
+            <form onSubmit={handleSend} className="p-2 sm:p-2.5 border-t border-gray-200 dark:border-white/10 bg-gray-100/60 dark:bg-white/5 flex items-center gap-2 shrink-0">
                 <input
                     type="text"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Type a message..."
-                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-primary transition-colors"
+                    className="flex-1 bg-white dark:bg-black/40 border border-gray-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary transition-colors"
                 />
                 <button
                     type="submit"
