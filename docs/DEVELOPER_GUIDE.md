@@ -54,8 +54,11 @@ To assist developers, we separate features currently implemented in the codebase
 * **Implemented (Current)**: Capacitor v8 wraps web builds into native Android components. It handles native physical back button routines, custom OAuth redirects, and application exit tasks inside `App.tsx`. Standard web browser `navigator.mediaSession` handles background OS notification controls and media states inside `Player.tsx`.
 * **Planned (Future)**: Centralized `PlatformIntegrationManager` adapter orchestrating MediaSession, native notification interfaces, wearable endpoints, and deep-linking under single contracts.
 
-#### 5. Sync & Collaboration (Actual: Realtime Session Channel)
-* **Implemented (Current)**: State synchronization for Group Sessions leverages Supabase Broadcast and Presence channels (`useSession.ts`). The host broadcasts play, pause, seek, and emoji reactions. Shared favorites are synchronized on-demand via direct queries inside `libraryActions.ts`.
+#### 5. Sync & Collaboration (Actual: Realtime Session Channel & Direct P2P)
+* **Implemented (Current)**:
+  * **Group Listening Sessions (`useSession.ts`, `SessionModal.tsx`)**: State synchronization for Group Sessions leverages Supabase Broadcast and Presence channels (`room:ROOM_CODE`) with public discovery via `partyService.ts` and `room:lobby` broadcast fallback. Features mobile full-screen layout (`h-[100dvh]`), adaptive light/dark theme tokens, Now Playing banner, and switchable chat & voice participants.
+  * **Direct Friends Communication (`useDirectCommunication.ts`, `FriendsModal.tsx`, `friendsDb.ts`)**: 1-on-1 direct messaging and ringing WebRTC voice calls using user personal channels (`user:USER_ID`). Features message acknowledgment (`message_ack`) and read receipts (`message_seen`) with status checkmarks ('sent', 'delivered', 'seen'), automatic contact addition of senders, persistent anonymous IDs in `localStorage` (`vibeon_user_code`), and local IndexedDB isolation (`vibeon_friends`).
+  * **Cloud Library & Settings Sync**: Shared favorites, playlists, and settings synchronize via Supabase database tables with Row-Level Security (`user_settings`, `favorites`, `playlists`, `listening_history`).
 * **Planned (Future)**: A local `SyncManager` queue persisting actions as immutable `SyncOperation` instances, replaying logs against Supabase databases with version-based conflict resolution.
 
 ---

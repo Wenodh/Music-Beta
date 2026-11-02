@@ -24,12 +24,26 @@ Customize your sound to match your acoustic gear:
 * Activate/Deactivate the equalizer or choose from custom, pro-grade presets (e.g., Bass Boost, Acoustic, Rock, Classical).
 * Fine-tune specific frequency sliders from 32 Hz up to 16 kHz to craft your own custom sound signature.
 
-### 4. Real-Time Group Sessions
+### 4. Real-Time Group Sessions & Listening Parties
 Listen to music in sync with friends, no matter where they are:
-* **Create a Room**: Open the Group Session menu to start a session. You will be assigned a unique, shareable room code.
-* **Join a Room**: Enter a shared code to connect to a friend's active session.
+* **Create a Room**: Open the Group Session menu to start a session. Customize your Party Name and choose between Public or Private visibility.
+* **Discover Parties**: Browse and join live public listening sessions directly from the "Discover Parties" tab with one tap.
+* **Join via Code**: Enter a 6-character room code to connect to a friend's private session.
 * **Synchronized Playback**: The Host manages track selection, playback state (Play/Pause), and seeking; all changes are updated instantly on guests' devices.
+* **Now Playing Banner**: See live album artwork and animated equalizers showing exactly what is playing.
+* **Switchable Chat & Voice**: Switch between live ephemeral room chat and participant list with WebRTC voice call status.
 * **Floating Reactions**: Send real-time emojis (thumbs up, heart, fire, etc.) that float up on everyone's screen simultaneously with sender names.
+* **Mobile Fullscreen**: On mobile devices, listening parties render as an immersive, edge-to-edge full-screen interface with adaptive light and dark theme contrast.
+
+### 4.1 Direct Friends Chat & Voice Calling
+Communicate directly with your friends with zero server message storage:
+* **Add via User Code**: Share your persistent 6-character user code to connect with friends.
+* **Edge-to-Edge Mobile Chat**: Full-screen mobile chat view (`100dvh`) with safe-area spacing.
+* **Message Delivery & Seen Status**: WhatsApp-style status checkmarks:
+  * Single check (✓): Message sent.
+  * Double grey check (✓✓): Message delivered to friend's device.
+  * Double cyan check (✓✓): Message opened and seen by friend.
+* **Direct P2P WebRTC Voice Calling**: Ringing full-screen incoming and active call screens with live duration timer, mute controls, and instant hang up.
 
 ### 5. High-Fidelity Audio Visualizers
 Bring your music to life visually with five custom canvas-based visualizers:
