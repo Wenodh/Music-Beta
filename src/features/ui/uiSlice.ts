@@ -117,8 +117,9 @@ const uiSlice = createSlice({
             state.theme = { ...state.theme, ...action.payload };
         },
         setMobileNavItems: (state, action: PayloadAction<string[]>) => {
-            // Guarantee 'home' is always included
-            const items = Array.from(new Set(['home', ...action.payload]));
+            // Guarantee 'home' is always present in list, while preserving user custom order
+            const hasHome = action.payload.includes('home');
+            const items = Array.from(new Set(hasHome ? action.payload : ['home', ...action.payload]));
             state.mobileNavItems = items;
         },
         resetMobileNavItems: (state) => {

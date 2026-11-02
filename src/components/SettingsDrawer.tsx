@@ -492,13 +492,14 @@ const SettingsDrawer: React.FC = () => {
                                                     <div className="flex items-center justify-between mb-2 px-1">
                                                         <p className="text-[10px] text-gray-400">Preview & configure:</p>
                                                         <button
+                                                            type="button"
                                                             onClick={() => {
                                                                 dispatch(resetMobileNavItems());
                                                                 dispatch(showToast({ message: 'Navigation reset to default' }));
                                                             }}
-                                                            className="text-[10px] text-primary hover:underline font-bold"
+                                                            className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-[10px] font-bold transition-all active:scale-95"
                                                         >
-                                                            Reset to Default
+                                                            Restore Default Order
                                                         </button>
                                                     </div>
 

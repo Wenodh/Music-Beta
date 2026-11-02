@@ -534,6 +534,8 @@ export const AppContent = () => {
                     <Equalizer />
                     <FriendsModal />
                     <IncomingCallModal />
+                    <ActiveCallModal />
+                    <ActiveCallBar />
                     <AddToPlaylistModal
                         song={playlistModal.song}
                         bulkSongs={playlistModal.bulkSongs}
