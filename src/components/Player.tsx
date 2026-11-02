@@ -93,7 +93,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const currentSongRef = useRef(currentSong);
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
 
-    const { broadcast, sendReaction, isInternalAction } = useSession();
+    const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
@@ -1174,6 +1174,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             isOpen={isSessionModalOpen}
             onClose={() => dispatch(setSessionModalOpen(false))}
             onSendReaction={sendReaction}
+            toggleCall={toggleCall}
+            toggleMute={toggleMute}
+            sendMessage={sendMessage}
         />
 
         {/* Reaction Overlay (Floating Bubbles) */}

@@ -6,18 +6,25 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { startSession, joinSession, leaveSession, setParticipants } from '../../features/session/sessionSlice';
 import { showToast } from '../../features/ui/uiSlice';
 import { SessionChat } from '../session/SessionChat';
-import { useSession } from '../../hooks/useSession';
-
 interface SessionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSendReaction: (emoji: string) => void;
+    toggleCall?: () => Promise<void>;
+    toggleMute?: () => void;
+    sendMessage?: (text: string) => void;
 }
 
-const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReaction }) => {
+const SessionModal: React.FC<SessionModalProps> = ({
+    isOpen,
+    onClose,
+    onSendReaction,
+    toggleCall,
+    toggleMute,
+    sendMessage
+}) => {
     const dispatch = useAppDispatch();
     const { roomCode, isHost, isJoined, participants, isCallActive, isMuted, error } = useAppSelector(state => state.session);
-    const { toggleCall, toggleMute, sendMessage } = useSession();
     const { theme } = useAppSelector(state => state.ui);
     const userId = useAppSelector(state => state.auth.user?.id);
     const [joinCode, setJoinCode] = useState('');

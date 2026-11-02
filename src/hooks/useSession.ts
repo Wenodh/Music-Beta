@@ -193,28 +193,50 @@ export const useSession = () => {
     }, [dispatch]);
 
     useEffect(() => {
-        if (!isJoined || !roomCode) {
+        const cleanupExistingChannel = async () => {
             if (channelRef.current) {
-                try {
-                    channelRef.current.unsubscribe();
-                } catch (e) {
-                    console.warn('Error unsubscribing channel:', e);
-                }
+                const prev = channelRef.current;
                 channelRef.current = null;
+                try {
+                    await supabase.removeChannel(prev);
+                } catch (e) {
+                    console.warn('Error removing channel:', e);
+                }
             }
+            // Remove any existing registered channel with the same topic
+            if (roomCode) {
+                const topic = `realtime:room:${roomCode}`;
+                const existing = supabase.getChannels().find(c => c.topic === topic);
+                if (existing) {
+                    try {
+                        await supabase.removeChannel(existing);
+                    } catch (e) {
+                        console.warn('Error removing existing topic channel:', e);
+                    }
+                }
+            }
+        };
+
+        if (!isJoined || !roomCode) {
+            cleanupExistingChannel();
             return;
         }
 
-        // Clean up previous channel if any
-        if (channelRef.current) {
-            try {
-                channelRef.current.unsubscribe();
-            } catch (e) {
-                console.warn('Error cleaning prior channel:', e);
-            }
-            channelRef.current = null;
-        }
+        let isCancelled = false;
 
+        // Clean up any previously registered channel with this topic and ensure it is unmounted from Supabase client list
+        const topicPrefix = `realtime:room:${roomCode}`;
+        const staleChannels = supabase.getChannels().filter(c => c.topic.startsWith(topicPrefix));
+        staleChannels.forEach(c => {
+            try {
+                c.unsubscribe();
+                supabase.removeChannel(c);
+            } catch (e) {
+                console.warn('Error removing stale channel:', e);
+            }
+        });
+
+        // Supabase Realtime rooms MUST share the exact channel name `room:${roomCode}` so all participants connect to the same broadcast and presence room!
         const channel = supabase.channel(`room:${roomCode}`, {
             config: {
                 presence: {
@@ -374,6 +396,7 @@ export const useSession = () => {
             })
             .subscribe(async (status, err) => {
                 if (status === 'SUBSCRIBED') {
+                    if (isCancelled) return;
                     try {
                         await channel.track({
                             id: userId,
@@ -412,10 +435,11 @@ export const useSession = () => {
         channelRef.current = channel;
 
         return () => {
+            isCancelled = true;
             try {
-                channel.unsubscribe();
+                supabase.removeChannel(channel);
             } catch (e) {
-                console.warn('Error unsubscribing channel on unmount:', e);
+                console.warn('Error removing channel on unmount:', e);
             }
         };
     }, [roomCode, isJoined, isHost, user, dispatch]);
