@@ -81,7 +81,7 @@ Save battery and reduce eye strain on OLED screens by enabling **OLED Mode** in 
 Enjoy your music without worrying about cell coverage or data caps:
 * Tap **Download Song** in the options menu to save a track offline.
 * Saved tracks (both audio and artwork images) are cached locally using IndexedDB and remain accessible in your Library when offline.
-* **Parallel Downloads**: Choose how many songs can download simultaneously (1, 2, 3, 4, or 5 parallel downloads) in the Settings Drawer or Download Manager modal.
+* **Parallel Downloads**: Choose how many songs can download simultaneously (1, 2, 3, 5, 10, 30, 60, or 100 parallel downloads) in the Settings Drawer or Download Manager modal.
 
 ### Cloud Library Sync
 By signing in with your **Google Account**, your settings, favorite songs, and custom playlists are backed up securely using Supabase and synced automatically across all your devices.

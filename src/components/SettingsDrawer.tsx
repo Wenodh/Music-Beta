@@ -400,26 +400,31 @@ const SettingsDrawer: React.FC = () => {
                                             </div>
 
                                             {/* Parallel Downloads Concurrency Option */}
-                                            <div className="flex items-center justify-between py-3 border-t border-gray-100 dark:border-gray-800">
-                                                <div>
-                                                    <p className="text-sm font-medium">Parallel Downloads</p>
-                                                    <p className="text-[10px] text-gray-500">Simultaneous active downloads</p>
+                                            <div className="py-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-medium">Parallel Downloads</p>
+                                                        <p className="text-[10px] text-gray-500">Simultaneous active downloads</p>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-md">
+                                                        {downloadSettings?.maxConcurrency ?? 3} active
+                                                    </span>
                                                 </div>
-                                                <div className="flex items-center gap-1 bg-white/60 dark:bg-gray-900/60 p-1 rounded-xl border border-gray-200 dark:border-white/10">
-                                                    {[1, 2, 3, 4, 5].map((count) => {
+                                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                                                    {[1, 2, 3, 5, 10, 30, 60, 100].map((count) => {
                                                         const active = (downloadSettings?.maxConcurrency ?? 3) === count;
                                                         return (
                                                             <button
                                                                 key={count}
                                                                 type="button"
                                                                 onClick={() => dispatch(setMaxConcurrency(count))}
-                                                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                                                                className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all ${
                                                                     active
                                                                         ? 'bg-primary text-white shadow-sm'
-                                                                        : 'text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
+                                                                        : 'bg-white/60 dark:bg-gray-900/60 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:border-primary/50'
                                                                 }`}
                                                             >
-                                                                {count}
+                                                                {count}x
                                                             </button>
                                                         );
                                                     })}

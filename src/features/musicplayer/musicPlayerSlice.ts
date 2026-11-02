@@ -183,7 +183,7 @@ const musicPlayerSlice = createSlice({
             state.downloadSettings.wifiOnly = action.payload;
         },
         setMaxConcurrency: (state, action: PayloadAction<number>) => {
-            const clamped = Math.min(5, Math.max(1, Math.round(action.payload)));
+            const clamped = Math.min(100, Math.max(1, Math.round(action.payload)));
             state.downloadSettings.maxConcurrency = clamped;
         },
         setDailyMix: (state, action: PayloadAction<{ songs: Song[]; timestamp: number }>) => {
