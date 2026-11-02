@@ -1,32 +1,41 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { IoHomeOutline, IoHome, IoCompassOutline, IoCompass, IoSearchOutline, IoSearch, IoLibraryOutline, IoLibrary, IoGlobeOutline, IoGlobe, IoPersonOutline, IoPerson } from 'react-icons/io5';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setSettingsOpen, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
-
-const navItems = [
-    { label: 'Home', path: '/', icon: IoHomeOutline, activeIcon: IoHome },
-    { label: 'Explore', path: '/explore', icon: IoCompassOutline, activeIcon: IoCompass },
-    { label: 'Search', path: '/search', icon: IoSearchOutline, activeIcon: IoSearch },
-    { label: 'Globe', path: '/globe', icon: IoGlobeOutline, activeIcon: IoGlobe },
-    { label: 'Library', path: '/library', icon: IoLibraryOutline, activeIcon: IoLibrary },
-    { label: 'Profile', path: '/profile', icon: IoPersonOutline, activeIcon: IoPerson },
-];
+import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
+import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 
 const BottomBar: React.FC = () => {
     const location = useLocation();
     const dispatch = useAppDispatch();
-    const { theme } = useAppSelector((state) => state.ui);
+    const { theme, mobileNavItems } = useAppSelector((state) => state.ui);
 
-    const handleNavClick = () => {
+    // Filter all navigation items down to user-selected visible items, preserving canonical order
+    const visibleItems = React.useMemo(() => {
+        const itemMap = new Map(ALL_MOBILE_NAV_ITEMS.map((item) => [item.id, item]));
+        return mobileNavItems
+            .map((id) => itemMap.get(id))
+            .filter((item): item is typeof ALL_MOBILE_NAV_ITEMS[0] => item !== undefined);
+    }, [mobileNavItems]);
+
+    const handleNavClick = (item: typeof ALL_MOBILE_NAV_ITEMS[0], e: React.MouseEvent) => {
         dispatch(setSettingsOpen(false));
         dispatch(setQueueOpen(false));
+
+        if (item.id === 'friends') {
+            e.preventDefault();
+            dispatch(setIsFriendsModalOpen(true));
+        }
     };
 
     const isActive = (path: string) => {
-        if (path === '/') return location.pathname === '/';
-        return location.pathname.startsWith(path);
+        if (path === '/') return location.pathname === '/' && !location.search;
+        if (path.includes('?')) {
+            const [basePath, search] = path.split('?');
+            return location.pathname === basePath && location.search === `?${search}`;
+        }
+        return location.pathname.startsWith(path) && !location.search;
     };
 
     return (
@@ -35,16 +44,16 @@ const BottomBar: React.FC = () => {
                 {/* Premium subtle inner ambient glow */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-30 pointer-events-none" />
 
-                {navItems.map((item) => {
+                {visibleItems.map((item) => {
                     const ActiveIcon = item.activeIcon;
                     const Icon = item.icon;
                     const active = isActive(item.path);
 
                     return (
                         <Link
-                            key={item.label}
+                            key={item.id}
                             to={item.path}
-                            onClick={handleNavClick}
+                            onClick={(e) => handleNavClick(item, e)}
                             className="flex flex-col items-center justify-center py-1 relative group flex-1 rounded-xl cursor-pointer select-none min-w-0"
                             aria-label={item.label}
                         >

@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { supabase } from '../../lib/supabase';
 import { RootState } from '../../store';
-import { applyThemeSettings, setSettingsUpdatedAt } from '../ui/uiSlice';
+import { applyThemeSettings, setSettingsUpdatedAt, setMobileNavItems } from '../ui/uiSlice';
 import { applyMusicPlayerSettings } from '../musicplayer/musicPlayerSlice';
 import { setLanguage } from '../language/languageSlice';
 
@@ -15,6 +15,7 @@ export const uploadSettings = createAsyncThunk(
         const settings = {
             language: state.language.language,
             theme: state.ui.theme,
+            mobileNavItems: state.ui.mobileNavItems,
             musicPlayer: {
                 preferredQuality: state.musicPlayer.preferredQuality,
                 equalizerSettings: state.musicPlayer.equalizerSettings,
@@ -87,6 +88,9 @@ export const fetchSettings = createAsyncThunk(
                     }
                     if (settings.theme) {
                         dispatch(applyThemeSettings(settings.theme));
+                    }
+                    if (Array.isArray(settings.mobileNavItems)) {
+                        dispatch(setMobileNavItems(settings.mobileNavItems));
                     }
                     if (settings.musicPlayer) {
                         dispatch(applyMusicPlayerSettings(settings.musicPlayer));

@@ -51,6 +51,8 @@ const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const ArcadeHome = lazyRetry(() => import('./features/arcade/pages/ArcadeHome').then(m => ({ default: m.ArcadeHome })));
+const ArcadeGameView = lazyRetry(() => import('./features/arcade/pages/ArcadeGameView').then(m => ({ default: m.ArcadeGameView })));
 
 // Lazy load UI components
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
@@ -58,6 +60,8 @@ const Queue = lazyRetry(() => import('./components/Queue'));
 const Equalizer = lazyRetry(() => import('./components/Equalizer'));
 const Lyrics = lazyRetry(() => import('./components/Lyrics'));
 const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlaylistModal'));
+const FriendsModal = lazyRetry(() => import('./components/modals/FriendsModal').then(m => ({ default: m.FriendsModal })));
+const IncomingCallModal = lazyRetry(() => import('./components/modals/IncomingCallModal').then(m => ({ default: m.IncomingCallModal })));
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -147,6 +151,22 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-4"><PageHeaderSkeleton /></div>}>
                             <PageWrapper><Profile /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/arcade"
+                    element={
+                        <Suspense fallback={<div className="p-6 text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>}>
+                            <PageWrapper><ArcadeHome /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/arcade/:gameId"
+                    element={
+                        <Suspense fallback={<div className="p-6 text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>}>
+                            <PageWrapper><ArcadeGameView /></PageWrapper>
                         </Suspense>
                     }
                 />
@@ -503,6 +523,8 @@ export const AppContent = () => {
                     <SettingsDrawer />
                     <Queue />
                     <Equalizer />
+                    <FriendsModal />
+                    <IncomingCallModal />
                     <AddToPlaylistModal
                         song={playlistModal.song}
                         bulkSongs={playlistModal.bulkSongs}

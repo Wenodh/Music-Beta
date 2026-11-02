@@ -2,10 +2,12 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems } from '../features/ui/uiSlice';
+import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline, IoChevronDownOutline, IoChevronForwardOutline } from 'react-icons/io5';
+import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
@@ -17,12 +19,13 @@ const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { theme } = useAppSelector((state) => state.ui);
+    const { theme, mobileNavItems } = useAppSelector((state) => state.ui);
     const { user, isAuthenticated, loading: authLoading } = useAppSelector((state) => state.auth);
     const { isSyncing, lastSynced } = useAppSelector((state) => state.library);
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
+    const [isNavSettingsExpanded, setIsNavSettingsExpanded] = useState(false);
 
     const accentColors = [
         { name: 'Red', value: '#ef4444' },
@@ -188,24 +191,59 @@ const SettingsDrawer: React.FC = () => {
                                             {isSyncing && <span className="text-primary animate-pulse font-bold">Syncing...</span>}
                                         </div>
                                     )}
+                                    {/* Quick Actions (Direct Chat, Call & Group Session) */}
+                                    <div className="grid grid-cols-2 gap-2 mt-4">
+                                        <button
+                                            onClick={() => {
+                                                dispatch(setSettingsOpen(false));
+                                                dispatch(setIsFriendsModalOpen(true));
+                                            }}
+                                            className="flex items-center gap-2.5 p-3.5 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all border border-primary/20 group text-left cursor-pointer"
+                                        >
+                                            <div className="p-2 bg-primary/20 rounded-xl group-hover:scale-105 transition-transform text-primary">
+                                                <IoChatbubbleEllipsesOutline size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-primary">Direct Chat</p>
+                                                <p className="text-[9px] text-primary/70">Message friends</p>
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                dispatch(setSettingsOpen(false));
+                                                dispatch(setIsFriendsModalOpen(true));
+                                            }}
+                                            className="flex items-center gap-2.5 p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-2xl transition-all border border-emerald-500/20 group text-left cursor-pointer"
+                                        >
+                                            <div className="p-2 bg-emerald-500/20 rounded-xl group-hover:scale-105 transition-transform text-emerald-500">
+                                                <IoCallOutline size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-emerald-500">Voice Call</p>
+                                                <p className="text-[9px] text-emerald-500/70">P2P audio call</p>
+                                            </div>
+                                        </button>
+                                    </div>
+
                                     <button
                                         onClick={() => {
                                             dispatch(setSettingsOpen(false));
                                             dispatch(setSessionModalOpen(true));
                                         }}
-                                        className="w-full flex items-center justify-between p-4 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all mt-4 group border border-primary/20"
+                                        className="w-full flex items-center justify-between p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl transition-all mt-2 group border border-white/10 cursor-pointer"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-primary/20 rounded-xl group-hover:scale-110 transition-transform">
-                                                <IoPeopleOutline className="text-primary" size={20} />
+                                            <div className="p-2 bg-primary/20 rounded-xl group-hover:scale-105 transition-transform">
+                                                <IoPeopleOutline className="text-primary" size={18} />
                                             </div>
                                             <div className="text-left">
-                                                <p className="text-sm font-bold text-primary">Group Session</p>
-                                                <p className="text-[10px] text-primary/60">Listen with friends</p>
+                                                <p className="text-xs font-bold text-white">Listening Party</p>
+                                                <p className="text-[10px] text-gray-400">Collaborative group session</p>
                                             </div>
                                         </div>
-                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/20 group-hover:bg-primary text-primary group-hover:text-white transition-all">
-                                            <IoPeopleOutline size={16} />
+                                        <div className="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 group-hover:bg-primary text-gray-300 group-hover:text-white transition-all">
+                                            <IoPeopleOutline size={14} />
                                         </div>
                                     </button>
                                 </section>
@@ -383,7 +421,133 @@ const SettingsDrawer: React.FC = () => {
                                 </section>
 
                                 <section>
-                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Accent Color</h3>
+                                    {/* Mobile Navigation Customizer (Expandable / Collapsible, Default Collapsed) */}
+                                    <section className="mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
+                                        <button
+                                            onClick={() => setIsNavSettingsExpanded(!isNavSettingsExpanded)}
+                                            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all cursor-pointer text-left"
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                                    <IoOptionsOutline size={18} />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="text-xs font-bold uppercase text-gray-700 dark:text-gray-200">
+                                                            Navigation Settings
+                                                        </h3>
+                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                            {mobileNavItems.length} active
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500">Customize mobile navigation bar items</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-gray-400">
+                                                {isNavSettingsExpanded ? <IoChevronDownOutline size={18} /> : <IoChevronForwardOutline size={18} />}
+                                            </div>
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {isNavSettingsExpanded && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    transition={{ duration: 0.25 }}
+                                                    className="overflow-hidden mt-3"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2 px-1">
+                                                        <p className="text-[10px] text-gray-400">Preview & configure:</p>
+                                                        <button
+                                                            onClick={() => {
+                                                                dispatch(resetMobileNavItems());
+                                                                dispatch(showToast({ message: 'Navigation reset to default' }));
+                                                            }}
+                                                            className="text-[10px] text-primary hover:underline font-bold"
+                                                        >
+                                                            Reset to Default
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Compact Navigation Bar Live Preview */}
+                                                    <div className="my-2 p-2 rounded-2xl bg-black/60 border border-white/10 flex items-center justify-around">
+                                                        {ALL_MOBILE_NAV_ITEMS.filter((item) => mobileNavItems.includes(item.id)).map((item) => {
+                                                            const Icon = item.icon;
+                                                            return (
+                                                                <div key={item.id} className="flex flex-col items-center justify-center py-0.5 px-1">
+                                                                    <Icon size={16} className="text-primary" />
+                                                                    <span className="text-[8px] font-bold text-gray-300 uppercase mt-0.5 truncate max-w-[45px]">
+                                                                        {item.label}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Item toggles */}
+                                                    <div className="space-y-2 mt-3">
+                                                        {ALL_MOBILE_NAV_ITEMS.map((item) => {
+                                                            const Icon = item.icon;
+                                                            const isEnabled = mobileNavItems.includes(item.id);
+
+                                                            const handleToggle = () => {
+                                                                if (!item.isRemovable) {
+                                                                    dispatch(showToast({ message: 'Home is required for navigation', type: 'info' }));
+                                                                    return;
+                                                                }
+                                                                if (isEnabled) {
+                                                                    if (mobileNavItems.length <= 2) {
+                                                                        dispatch(showToast({ message: 'Minimum 2 navigation destinations required', type: 'error' }));
+                                                                        return;
+                                                                    }
+                                                                    dispatch(setMobileNavItems(mobileNavItems.filter((id) => id !== item.id)));
+                                                                } else {
+                                                                    dispatch(setMobileNavItems([...mobileNavItems, item.id]));
+                                                                }
+                                                            };
+
+                                                            return (
+                                                                <div
+                                                                    key={item.id}
+                                                                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl"
+                                                                >
+                                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                                                            <Icon size={16} />
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                                                                                {item.label}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-gray-400 truncate">
+                                                                                {item.description}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <button
+                                                                        onClick={handleToggle}
+                                                                        disabled={!item.isRemovable}
+                                                                        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ml-2 ${
+                                                                            !item.isRemovable ? 'opacity-50 cursor-not-allowed bg-primary' : isEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'
+                                                                        }`}
+                                                                    >
+                                                                        <motion.div
+                                                                            animate={{ x: isEnabled ? 18 : 2 }}
+                                                                            className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5"
+                                                                        />
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </section>
+
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 mt-6">Accent Color</h3>
                                     <div className="flex flex-wrap gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
                                         {accentColors.map((color) => (
                                             <button

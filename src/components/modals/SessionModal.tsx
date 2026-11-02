@@ -1,20 +1,30 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { IoClose, IoCopyOutline, IoShareOutline, IoPeopleOutline, IoLogInOutline, IoAddCircleOutline } from 'react-icons/io5';
+import { IoClose, IoCopyOutline, IoShareOutline, IoPeopleOutline, IoLogInOutline, IoAddCircleOutline, IoCallOutline, IoMicOutline, IoMicOffOutline } from 'react-icons/io5';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { startSession, joinSession, leaveSession } from '../../features/session/sessionSlice';
+import { startSession, joinSession, leaveSession, setParticipants } from '../../features/session/sessionSlice';
 import { showToast } from '../../features/ui/uiSlice';
-
+import { SessionChat } from '../session/SessionChat';
 interface SessionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSendReaction: (emoji: string) => void;
+    toggleCall?: () => Promise<void>;
+    toggleMute?: () => void;
+    sendMessage?: (text: string) => void;
 }
 
-const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReaction }) => {
+const SessionModal: React.FC<SessionModalProps> = ({
+    isOpen,
+    onClose,
+    onSendReaction,
+    toggleCall,
+    toggleMute,
+    sendMessage
+}) => {
     const dispatch = useAppDispatch();
-    const { roomCode, isHost, isJoined, participants, error } = useAppSelector(state => state.session);
+    const { roomCode, isHost, isJoined, participants, isCallActive, isMuted, error } = useAppSelector(state => state.session);
     const { theme } = useAppSelector(state => state.ui);
     const userId = useAppSelector(state => state.auth.user?.id);
     const [joinCode, setJoinCode] = useState('');
@@ -28,6 +38,12 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
         const code = generateRoomCode();
         dispatch(startSession(code));
         setActiveTab('manage');
+        // Pre-populate self as participant immediately so hosting state displays instantly
+        dispatch(setParticipants([{
+            id: userId || 'host',
+            name: 'You (Host)',
+            isHost: true,
+        }]));
         dispatch(showToast({ message: 'Session started!' }));
     };
 
@@ -74,33 +90,37 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center p-0 sm:p-4 pb-[env(safe-area-inset-bottom)]">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={onClose}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             />
 
             <motion.div
                 initial={{ opacity: 0, y: '100%' }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className={`relative w-full max-w-md overflow-hidden rounded-t-[32px] sm:rounded-[32px] shadow-2xl border-t sm:border border-white/10 ${theme.isOled ? 'bg-black' : 'bg-gray-900'} max-h-[90vh] flex flex-col`}
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                className={`relative w-full max-w-md overflow-hidden rounded-t-[28px] sm:rounded-[32px] shadow-2xl border-t sm:border border-white/10 ${theme.isOled ? 'bg-black' : 'bg-gray-950 sm:bg-gray-900'} h-[92dvh] sm:h-auto sm:max-h-[88vh] flex flex-col`}
             >
                 {/* Pull bar for mobile */}
-                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
+
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-white/5">
+                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/5 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-primary/20 text-primary">
-                            <IoPeopleOutline size={24} />
+                        <div className="p-2 rounded-xl bg-primary/20 text-primary shrink-0">
+                            <IoPeopleOutline size={22} />
                         </div>
-                        <h2 className="text-xl font-bold text-white">Group Session</h2>
+                        <div>
+                            <h2 className="text-lg sm:text-xl font-bold text-white leading-tight">Group Session</h2>
+                            <p className="text-[10px] text-gray-400">Real-time synced playback & chat</p>
+                        </div>
                     </div>
-                    <button aria-label="Close" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-gray-400">
+                    <button aria-label="Close" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors">
                         <IoClose size={24} />
                     </button>
                 </div>
@@ -179,6 +199,52 @@ const SessionModal: React.FC<SessionModalProps> = ({ isOpen, onClose, onSendReac
                                         <IoShareOutline /> Share
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Voice Call & Chat Section */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`p-2 rounded-xl ${isCallActive ? 'bg-green-500/20 text-green-400 animate-pulse' : 'bg-white/10 text-gray-400'}`}>
+                                            <IoCallOutline size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-white">
+                                                {isCallActive ? 'Voice Call Active' : 'Start Voice Chat'}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400">
+                                                Peer-to-Peer Encrypted Voice
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        {isCallActive && (
+                                            <button
+                                                onClick={toggleMute}
+                                                className={`p-2 rounded-xl border transition-all ${
+                                                    isMuted
+                                                        ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                                                        : 'bg-white/10 border-white/10 text-white hover:bg-white/20'
+                                                }`}
+                                                title={isMuted ? "Unmute Mic" : "Mute Mic"}
+                                            >
+                                                {isMuted ? <IoMicOffOutline size={16} /> : <IoMicOutline size={16} />}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={toggleCall}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                                isCallActive
+                                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20'
+                                                    : 'bg-primary hover:bg-red-600 text-white shadow-lg shadow-primary/20'
+                                            }`}
+                                        >
+                                            {isCallActive ? 'Leave Call' : 'Join Call'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <SessionChat sendMessage={sendMessage} />
                             </div>
 
                             {/* Participants */}

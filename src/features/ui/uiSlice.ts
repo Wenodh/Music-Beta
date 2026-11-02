@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song } from '../../types/music';
+import { DEFAULT_VISIBLE_NAV_IDS } from '../../constants/navigation';
 
 export interface Toast {
     id: string;
@@ -25,6 +26,7 @@ interface UIState {
         darkMode: boolean;
         fontStyle: string;
     };
+    mobileNavItems: string[];
     settingsUpdatedAt: number;
 }
 
@@ -45,6 +47,7 @@ const initialState: UIState = {
         darkMode: true,
         fontStyle: 'Standard',
     },
+    mobileNavItems: DEFAULT_VISIBLE_NAV_IDS,
     settingsUpdatedAt: 0,
 };
 
@@ -113,6 +116,14 @@ const uiSlice = createSlice({
         applyThemeSettings: (state, action: PayloadAction<UIState['theme']>) => {
             state.theme = { ...state.theme, ...action.payload };
         },
+        setMobileNavItems: (state, action: PayloadAction<string[]>) => {
+            // Guarantee 'home' is always included
+            const items = Array.from(new Set(['home', ...action.payload]));
+            state.mobileNavItems = items;
+        },
+        resetMobileNavItems: (state) => {
+            state.mobileNavItems = DEFAULT_VISIBLE_NAV_IDS;
+        },
         updateSettingsTimestamp: (state) => {
             state.settingsUpdatedAt = Date.now();
         },
@@ -140,6 +151,8 @@ export const {
     setDarkMode,
     setFontStyle,
     applyThemeSettings,
+    setMobileNavItems,
+    resetMobileNavItems,
     updateSettingsTimestamp,
     setSettingsUpdatedAt,
     resetSettingsTimestamp
