@@ -302,7 +302,7 @@ sequenceDiagram
 * **Status**: Fully Implemented.
 * **Access**: Song 3-dots menu -> "Download Song", Profile -> "Downloads", Bulk download modal on playlists/albums.
 * **Services**: `src/services/downloadManager.ts`, `src/utils/db.ts`.
-* **Architecture**: Bounded concurrency queue (2 simultaneous downloads), Wi-Fi only restriction option, quality preference resolution, IndexedDB binary storage (`audioBlob`, `imageBlob`).
+* **Architecture**: Configurable bounded concurrency queue (default 3, user-selectable from 1 to 5 simultaneous downloads), Wi-Fi only restriction option, quality preference resolution, IndexedDB binary storage (`audioBlob`, `imageBlob`).
 * **Data Isolation**: Deleting local offline downloads only removes IndexedDB blobs and never removes cloud favorites.
 
 ### 5.5 Time-Synced Synced Lyrics

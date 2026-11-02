@@ -195,6 +195,7 @@ export const AppContent = () => {
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
+    const maxConcurrency = downloadSettings?.maxConcurrency ?? 3;
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
     // Mount direct communication listener at root level to receive incoming calls & messages in background
@@ -470,6 +471,10 @@ export const AppContent = () => {
     useEffect(() => {
         downloadManager.setWifiOnly(wifiOnly);
     }, [wifiOnly]);
+
+    useEffect(() => {
+        downloadManager.setMaxConcurrency(maxConcurrency);
+    }, [maxConcurrency]);
 
     useEffect(() => {
         downloadManager.setPreferredQuality(preferredQuality);

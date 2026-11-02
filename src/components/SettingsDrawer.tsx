@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly, setMaxConcurrency } from '../features/musicplayer/musicPlayerSlice';
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems } from '../features/ui/uiSlice';
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
@@ -397,6 +397,33 @@ const SettingsDrawer: React.FC = () => {
                                                         className="w-4 h-4 bg-white rounded-full absolute top-0.5"
                                                     />
                                                 </button>
+                                            </div>
+
+                                            {/* Parallel Downloads Concurrency Option */}
+                                            <div className="flex items-center justify-between py-3 border-t border-gray-100 dark:border-gray-800">
+                                                <div>
+                                                    <p className="text-sm font-medium">Parallel Downloads</p>
+                                                    <p className="text-[10px] text-gray-500">Simultaneous active downloads</p>
+                                                </div>
+                                                <div className="flex items-center gap-1 bg-white/60 dark:bg-gray-900/60 p-1 rounded-xl border border-gray-200 dark:border-white/10">
+                                                    {[1, 2, 3, 4, 5].map((count) => {
+                                                        const active = (downloadSettings?.maxConcurrency ?? 3) === count;
+                                                        return (
+                                                            <button
+                                                                key={count}
+                                                                type="button"
+                                                                onClick={() => dispatch(setMaxConcurrency(count))}
+                                                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                                                                    active
+                                                                        ? 'bg-primary text-white shadow-sm'
+                                                                        : 'text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
+                                                                }`}
+                                                            >
+                                                                {count}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
