@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     IoClose, IoPeopleOutline, IoCall, IoSend, IoPersonAddOutline,
     IoTrashOutline, IoCopyOutline, IoChatbubblesOutline, IoCallOutline,
-    IoArrowBack, IoCheckmarkOutline, IoMicOutline, IoMicOffOutline
+    IoArrowBack, IoCheckmarkOutline, IoCheckmarkDoneOutline, IoTimeOutline,
+    IoMicOutline, IoMicOffOutline, IoChevronDown
 } from 'react-icons/io5';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setIsFriendsModalOpen, setActiveFriendId } from '../../features/friends/friendsSlice';
@@ -25,6 +26,31 @@ export const FriendsModal: React.FC = () => {
     const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
+    const [isCallScreenExpanded, setIsCallScreenExpanded] = useState(true);
+    const [callDuration, setCallDuration] = useState(0);
+
+    // Call timer when direct call is active
+    React.useEffect(() => {
+        let timer: any = null;
+        if (isCallActive) {
+            setIsCallScreenExpanded(true);
+            setCallDuration(0);
+            timer = setInterval(() => {
+                setCallDuration((prev) => prev + 1);
+            }, 1000);
+        } else {
+            setCallDuration(0);
+        }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [isCallActive]);
+
+    const formatCallDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
 
     if (!isFriendsModalOpen) return null;
 
@@ -65,16 +91,14 @@ export const FriendsModal: React.FC = () => {
     };
 
     return (
-        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
             <motion.div
-                initial={{ opacity: 0, y: 50, scale: 0.98 }}
+                initial={{ opacity: 0, y: 30, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 50, scale: 0.98 }}
+                exit={{ opacity: 0, y: 30, scale: 0.98 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className="relative w-full sm:max-w-3xl bg-gray-950 sm:bg-gray-900 border-t sm:border border-white/10 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[92dvh] sm:h-[85vh] sm:max-h-[720px]"
+                className="relative w-full h-[100dvh] sm:h-[85vh] sm:max-w-3xl sm:max-h-[720px] bg-gray-950 sm:bg-gray-900 border-0 sm:border border-white/10 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
             >
-                {/* Mobile pull indicator */}
-                <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
 
                 {/* Top Header */}
                 <div className="flex items-center justify-between px-4 py-3 sm:p-4 border-b border-white/10 bg-white/5 shrink-0">
@@ -311,18 +335,39 @@ export const FriendsModal: React.FC = () => {
                                                 <div key={msg.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
                                                     <div className="flex items-center gap-1.5 mb-1 px-1">
                                                         <span className="text-[9px] font-semibold text-gray-400">
-                                                            {isSelf ? 'You' : msg.senderName}
+                                                            {isSelf ? 'You' : (msg.senderName || activeFriend.name)}
                                                         </span>
                                                         <span className="text-[8px] text-gray-500">
                                                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </span>
                                                     </div>
-                                                    <div className={`px-3.5 py-2 rounded-2xl text-xs sm:text-[13px] max-w-[85%] xs:max-w-[75%] break-words leading-relaxed shadow-sm ${
+                                                    <div className={`relative px-3.5 py-2 rounded-2xl text-xs sm:text-[13px] max-w-[85%] xs:max-w-[75%] break-words leading-relaxed shadow-sm flex flex-col ${
                                                         isSelf
                                                             ? 'bg-primary text-white rounded-br-none shadow-primary/20'
                                                             : 'bg-white/10 text-gray-100 rounded-bl-none border border-white/5'
                                                     }`}>
-                                                        {msg.text}
+                                                        <span>{msg.text}</span>
+                                                        {isSelf && (
+                                                            <div className="self-end flex items-center gap-1 mt-0.5 -mb-0.5 text-[10px] text-white/80">
+                                                                {msg.status === 'seen' ? (
+                                                                    <span className="flex items-center text-cyan-300 font-bold" title="Seen">
+                                                                        <IoCheckmarkDoneOutline size={14} className="stroke-[2.5]" />
+                                                                    </span>
+                                                                ) : msg.status === 'delivered' ? (
+                                                                    <span className="flex items-center text-white/70" title="Delivered">
+                                                                        <IoCheckmarkDoneOutline size={14} />
+                                                                    </span>
+                                                                ) : msg.status === 'sent' ? (
+                                                                    <span className="flex items-center text-white/60" title="Sent">
+                                                                        <IoCheckmarkOutline size={14} />
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center text-white/50" title="Sending">
+                                                                        <IoTimeOutline size={12} className="animate-spin" />
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -369,43 +414,121 @@ export const FriendsModal: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Persistent Call Banner if Active */}
+                {/* Persistent Call Banner / Mobile Full-screen Overlay when Active */}
                 {isCallActive && activeCallFriend && (
-                    <div className="p-3 bg-green-950/80 border-t border-green-500/30 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="p-2 bg-green-500 text-white rounded-xl animate-pulse shrink-0">
-                                <IoCall size={16} />
-                            </div>
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-green-400 animate-ping shrink-0" />
-                                    <span className="text-xs font-bold text-white truncate">Call: {activeCallFriend.name}</span>
-                                </div>
-                                <p className="text-[10px] text-green-300/80">P2P Audio Stream Active</p>
-                            </div>
-                        </div>
+                    <>
+                        {/* Mobile Full-Screen Call Overlay */}
+                        <AnimatePresence>
+                            {isCallScreenExpanded ? (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="absolute inset-0 z-50 bg-gradient-to-b from-gray-950 via-gray-900 to-black flex flex-col justify-between p-6 sm:hidden"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <button
+                                            onClick={() => setIsCallScreenExpanded(false)}
+                                            className="p-2 text-gray-400 hover:text-white rounded-xl bg-white/5 active:bg-white/10"
+                                            title="Minimize call screen"
+                                            aria-label="Minimize call screen"
+                                        >
+                                            <IoChevronDown size={24} />
+                                        </button>
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-green-400 text-xs font-bold">
+                                            <span className="w-2 h-2 rounded-full bg-green-400 animate-ping" />
+                                            <span>Active Call</span>
+                                        </div>
+                                        <div className="w-10" />
+                                    </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                            <button
-                                onClick={() => setIsMuted(!isMuted)}
-                                className={`p-2 rounded-xl border transition-all ${
-                                    isMuted
-                                        ? 'bg-red-500/20 border-red-500/30 text-red-400'
-                                        : 'bg-white/10 border-white/10 text-white hover:bg-white/20'
-                                }`}
-                                title={isMuted ? "Unmute" : "Mute"}
-                                aria-label={isMuted ? "Unmute" : "Mute"}
-                            >
-                                {isMuted ? <IoMicOffOutline size={16} /> : <IoMicOutline size={16} />}
-                            </button>
-                            <button
-                                onClick={endCall}
-                                className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-red-500/20 active:scale-95"
-                            >
-                                End Call
-                            </button>
+                                    {/* Middle avatar & status */}
+                                    <div className="flex flex-col items-center justify-center my-auto">
+                                        <div className="relative mb-6">
+                                            <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-green-600 to-emerald-400 flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-green-500/30 border-4 border-white/10">
+                                                {activeCallFriend.name[0]?.toUpperCase()}
+                                            </div>
+                                            <div className="absolute inset-0 rounded-full border-2 border-green-400/50 animate-ping pointer-events-none" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-white mb-1">{activeCallFriend.name}</h3>
+                                        <p className="text-xs text-gray-400 font-mono mb-3">{activeCallFriend.id}</p>
+                                        <p className="text-sm font-semibold text-green-400 tracking-wider">
+                                            {formatCallDuration(callDuration)}
+                                        </p>
+                                    </div>
+
+                                    {/* Call Control Buttons */}
+                                    <div className="flex items-center justify-around max-w-xs mx-auto w-full pb-8">
+                                        <button
+                                            onClick={() => setIsMuted(!isMuted)}
+                                            className={`p-4 rounded-full flex flex-col items-center gap-1.5 transition-all shadow-lg active:scale-90 ${
+                                                isMuted
+                                                    ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                                    : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+                                            }`}
+                                        >
+                                            {isMuted ? <IoMicOffOutline size={26} /> : <IoMicOutline size={26} />}
+                                            <span className="text-[10px] font-bold">{isMuted ? 'Unmute' : 'Mute'}</span>
+                                        </button>
+
+                                        <button
+                                            onClick={endCall}
+                                            className="p-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex flex-col items-center gap-1.5 transition-all shadow-xl shadow-red-600/40 active:scale-90"
+                                            title="End Call"
+                                            aria-label="End Call"
+                                        >
+                                            <IoCall size={28} className="rotate-[135deg]" />
+                                            <span className="text-[10px] font-bold">End</span>
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
+
+                        {/* Minimized Banner for Desktop or Minimized Mobile */}
+                        <div
+                            onClick={() => setIsCallScreenExpanded(true)}
+                            className="p-3 bg-green-950/90 border-t border-green-500/30 backdrop-blur-md flex items-center justify-between gap-3 shrink-0 cursor-pointer hover:bg-green-950 transition-colors"
+                        >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="p-2 bg-green-500 text-white rounded-xl animate-pulse shrink-0">
+                                    <IoCall size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-ping shrink-0" />
+                                        <span className="text-xs font-bold text-white truncate">Call: {activeCallFriend.name}</span>
+                                        <span className="text-[10px] text-green-400 font-mono font-bold ml-1">
+                                            ({formatCallDuration(callDuration)})
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-green-300/80">P2P Audio Stream Active</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                    onClick={() => setIsMuted(!isMuted)}
+                                    className={`p-2 rounded-xl border transition-all ${
+                                        isMuted
+                                            ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                                            : 'bg-white/10 border-white/10 text-white hover:bg-white/20'
+                                    }`}
+                                    title={isMuted ? "Unmute" : "Mute"}
+                                    aria-label={isMuted ? "Unmute" : "Mute"}
+                                >
+                                    {isMuted ? <IoMicOffOutline size={16} /> : <IoMicOutline size={16} />}
+                                </button>
+                                <button
+                                    onClick={endCall}
+                                    className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-red-500/20 active:scale-95"
+                                >
+                                    End Call
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </>
                 )}
             </motion.div>
         </div>

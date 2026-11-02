@@ -17,6 +17,7 @@ import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen } from './features/ui/uiSlice';
 import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
+import { useDirectCommunication } from './hooks/useDirectCommunication';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds, addDownloadedId } from './features/library/librarySlice';
 import { downloadManager } from './services/downloadManager';
@@ -195,6 +196,9 @@ export const AppContent = () => {
     const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
+
+    // Mount direct communication listener at root level to receive incoming calls & messages in background
+    useDirectCommunication();
 
     const navigate = useNavigate();
     const location = useLocation();

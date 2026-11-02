@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Friend, DirectMessage } from '../../utils/friendsDb';
+import { Friend, DirectMessage, MessageStatus } from '../../utils/friendsDb';
 
 export interface IncomingCallInfo {
     callerId: string;
@@ -59,7 +59,33 @@ const friendsSlice = createSlice({
             if (!state.directMessages[fid]) {
                 state.directMessages[fid] = [];
             }
-            state.directMessages[fid].push(action.payload);
+            const existingIdx = state.directMessages[fid].findIndex(m => m.id === action.payload.id);
+            if (existingIdx !== -1) {
+                state.directMessages[fid][existingIdx] = action.payload;
+            } else {
+                state.directMessages[fid].push(action.payload);
+            }
+        },
+        updateMessageStatus: (state, action: PayloadAction<{ friendId: string; messageId: string; status: MessageStatus }>) => {
+            const { friendId, messageId, status } = action.payload;
+            const msgs = state.directMessages[friendId];
+            if (msgs) {
+                const msg = msgs.find(m => m.id === messageId);
+                if (msg) {
+                    msg.status = status;
+                }
+            }
+        },
+        markFriendMessagesSeen: (state, action: PayloadAction<{ friendId: string; senderId?: string }>) => {
+            const { friendId, senderId } = action.payload;
+            const msgs = state.directMessages[friendId];
+            if (msgs) {
+                for (const m of msgs) {
+                    if (!senderId || m.senderId === senderId) {
+                        m.status = 'seen';
+                    }
+                }
+            }
         },
         setIncomingCall: (state, action: PayloadAction<IncomingCallInfo | null>) => {
             state.incomingCall = action.payload;
@@ -92,6 +118,8 @@ export const {
     setActiveFriendId,
     setDirectMessages,
     addDirectMessage,
+    updateMessageStatus,
+    markFriendMessagesSeen,
     setIncomingCall,
     startDirectCall,
     endDirectCall,
