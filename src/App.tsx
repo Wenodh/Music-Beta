@@ -17,6 +17,7 @@ import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen } from './features/ui/uiSlice';
 import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
+import { useDirectCommunication } from './hooks/useDirectCommunication';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds, addDownloadedId } from './features/library/librarySlice';
 import { downloadManager } from './services/downloadManager';
@@ -194,7 +195,11 @@ export const AppContent = () => {
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
+    const maxConcurrency = downloadSettings?.maxConcurrency ?? 3;
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
+
+    // Mount direct communication listener at root level to receive incoming calls & messages in background
+    useDirectCommunication();
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -466,6 +471,10 @@ export const AppContent = () => {
     useEffect(() => {
         downloadManager.setWifiOnly(wifiOnly);
     }, [wifiOnly]);
+
+    useEffect(() => {
+        downloadManager.setMaxConcurrency(maxConcurrency);
+    }, [maxConcurrency]);
 
     useEffect(() => {
         downloadManager.setPreferredQuality(preferredQuality);

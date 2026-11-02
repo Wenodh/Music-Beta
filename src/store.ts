@@ -22,6 +22,7 @@ import {
     setCrossfadeDuration,
     setSongRadioEnabled,
     setWifiOnly,
+    setMaxConcurrency,
     setVisualizerStyle,
     toggleRepeatMode,
     toggleShuffle,
@@ -49,6 +50,7 @@ settingsListener.startListening({
         setCrossfadeDuration,
         setSongRadioEnabled,
         setWifiOnly,
+        setMaxConcurrency,
         setVisualizerStyle,
         toggleRepeatMode,
         toggleShuffle

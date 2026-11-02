@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
-import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly } from '../features/musicplayer/musicPlayerSlice';
+import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly, setMaxConcurrency } from '../features/musicplayer/musicPlayerSlice';
 import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems } from '../features/ui/uiSlice';
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
@@ -397,6 +397,38 @@ const SettingsDrawer: React.FC = () => {
                                                         className="w-4 h-4 bg-white rounded-full absolute top-0.5"
                                                     />
                                                 </button>
+                                            </div>
+
+                                            {/* Parallel Downloads Concurrency Option */}
+                                            <div className="py-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-medium">Parallel Downloads</p>
+                                                        <p className="text-[10px] text-gray-500">Simultaneous active downloads</p>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-md">
+                                                        {downloadSettings?.maxConcurrency ?? 3} active
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                                                    {[1, 2, 3, 5, 10, 30, 60, 100].map((count) => {
+                                                        const active = (downloadSettings?.maxConcurrency ?? 3) === count;
+                                                        return (
+                                                            <button
+                                                                key={count}
+                                                                type="button"
+                                                                onClick={() => dispatch(setMaxConcurrency(count))}
+                                                                className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all ${
+                                                                    active
+                                                                        ? 'bg-primary text-white shadow-sm'
+                                                                        : 'bg-white/60 dark:bg-gray-900/60 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 hover:border-primary/50'
+                                                                }`}
+                                                            >
+                                                                {count}x
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">

@@ -9,7 +9,7 @@ import { downloadManager, DownloadJob, DownloadSummary } from '../../services/do
 import { extractImageUrl } from '../../utils/imageUtils';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { removeDownloadedId, setDownloadedIds } from '../../features/library/librarySlice';
-import { setWifiOnly } from '../../features/musicplayer/musicPlayerSlice';
+import { setWifiOnly, setMaxConcurrency } from '../../features/musicplayer/musicPlayerSlice';
 import { deleteAllDownloads } from '../../utils/db';
 import { showToast } from '../../features/ui/uiSlice';
 
@@ -22,6 +22,7 @@ export const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({ isOp
     const dispatch = useAppDispatch();
     const { downloadSettings } = useAppSelector(state => state.musicPlayer);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
+    const maxConcurrency = downloadSettings?.maxConcurrency ?? 3;
 
     const [jobs, setJobs] = useState<DownloadJob[]>([]);
     const [summary, setSummary] = useState<DownloadSummary>({
@@ -132,6 +133,33 @@ export const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({ isOp
                             </button>
                         </div>
                     )}
+
+                    {/* Parallel Download Concurrency Bar */}
+                    <div className="bg-gray-50 dark:bg-gray-800/40 px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                            <span className="font-medium">Parallel Downloads:</span>
+                            <span className="text-[11px] text-gray-500 hidden sm:inline">Active at the same time</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-white/80 dark:bg-gray-900/80 p-0.5 rounded-xl border border-gray-200 dark:border-white/10 overflow-x-auto max-w-full">
+                            {[1, 2, 3, 5, 10, 30, 60, 100].map((count) => {
+                                const active = maxConcurrency === count;
+                                return (
+                                    <button
+                                        key={count}
+                                        type="button"
+                                        onClick={() => dispatch(setMaxConcurrency(count))}
+                                        className={`px-2 py-0.5 rounded-lg text-[11px] font-bold shrink-0 transition-all ${
+                                            active
+                                                ? 'bg-primary text-white shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {count}x
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {/* Navigation Tabs */}
                     <div className="flex border-b border-gray-100 dark:border-gray-800 px-4 pt-2 gap-2 text-xs font-bold">

@@ -7,6 +7,8 @@ export interface Friend {
     addedAt: number;
 }
 
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'seen';
+
 export interface DirectMessage {
     id: string;
     friendId: string;
@@ -14,6 +16,7 @@ export interface DirectMessage {
     senderName: string;
     text: string;
     timestamp: number;
+    status?: MessageStatus;
 }
 
 interface FriendsDBSchema extends DBSchema {
@@ -68,6 +71,30 @@ export const removeFriendLocal = async (id: string) => {
 export const saveDirectMessageLocal = async (msg: DirectMessage) => {
     const db = await getDB();
     await db.put('direct_messages', msg);
+};
+
+export const updateDirectMessageStatusLocal = async (msgId: string, status: MessageStatus) => {
+    const db = await getDB();
+    const msg = await db.get('direct_messages', msgId);
+    if (msg) {
+        msg.status = status;
+        await db.put('direct_messages', msg);
+    }
+};
+
+export const updateDirectMessagesStatusByFriendLocal = async (friendId: string, status: MessageStatus, forSenderId?: string) => {
+    const db = await getDB();
+    const messages = await db.getAllFromIndex('direct_messages', 'by-friend', friendId);
+    const tx = db.transaction('direct_messages', 'readwrite');
+    for (const msg of messages) {
+        if (!forSenderId || msg.senderId === forSenderId) {
+            if (msg.status !== 'seen') {
+                msg.status = status;
+                await tx.store.put(msg);
+            }
+        }
+    }
+    await tx.done;
 };
 
 export const getDirectMessagesLocal = async (friendId: string): Promise<DirectMessage[]> => {

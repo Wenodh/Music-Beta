@@ -10,8 +10,14 @@ import {
     leaveSession,
     setIsCallActive,
     setIsMuted,
-    setSessionError
+    setConnectionStatus,
+    setIsSyncing,
+    setSessionError,
+    addOrUpdatePublicParty,
+    removePublicParty,
+    setPublicParties
 } from '../features/session/sessionSlice';
+import { partyService } from '../services/partyService';
 import {
     playMusic,
     pauseMusic,
@@ -20,7 +26,7 @@ import {
 
 export const useSession = () => {
     const dispatch = useAppDispatch();
-    const { roomCode, isHost, isJoined, isCallActive, isMuted } = useAppSelector(state => state.session);
+    const { roomCode, partyName, isPublic, isHost, isJoined, isCallActive, isMuted, participants } = useAppSelector(state => state.session);
     const { currentSong, isPlaying, currentTime, songs } = useAppSelector(state => state.musicPlayer);
     const { user } = useAppSelector(state => state.auth);
     const anonymousId = useRef(`anon-${Math.random().toString(36).substring(2, 9)}`).current;
@@ -44,6 +50,55 @@ export const useSession = () => {
     useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
     useEffect(() => { songsRef.current = songs; }, [songs]);
     useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+
+    // Host broadcast of party updates to discovery lobby
+    useEffect(() => {
+        if (!isHost || !isJoined || !roomCode || !isPublic) return;
+
+        const broadcastParty = () => {
+            partyService.broadcastPartyUpdate({
+                roomCode,
+                partyName: partyName || 'Listening Party',
+                hostName: user?.user_metadata?.full_name || 'Host',
+                hostAvatar: user?.user_metadata?.avatar_url,
+                songTitle: currentSong?.name,
+                songArtist: currentSong?.artist,
+                songArtwork: currentSong?.image?.[currentSong.image.length - 1]?.link || currentSong?.image?.[0]?.link,
+                participantCount: Math.max(1, participants.length),
+                isPublic: true,
+                updatedAt: Date.now()
+            });
+        };
+
+        broadcastParty();
+        const interval = setInterval(broadcastParty, 15000);
+        return () => clearInterval(interval);
+    }, [isHost, isJoined, roomCode, isPublic, partyName, user, currentSong, participants.length]);
+
+    // Listen on lobby channel for public parties when browsing
+    useEffect(() => {
+        const lobbyChannel = supabase.channel('room:lobby');
+
+        // Fetch initial list
+        partyService.fetchPublicParties().then(parties => {
+            if (parties.length > 0) {
+                dispatch(setPublicParties(parties));
+            }
+        });
+
+        lobbyChannel
+            .on('broadcast', { event: 'party_update' }, ({ payload }) => {
+                dispatch(addOrUpdatePublicParty(payload));
+            })
+            .on('broadcast', { event: 'party_ended' }, ({ payload }) => {
+                dispatch(removePublicParty(payload.roomCode));
+            })
+            .subscribe();
+
+        return () => {
+            lobbyChannel.unsubscribe();
+        };
+    }, [dispatch]);
 
     const broadcast = useCallback((type: string, payload: any) => {
         if (!channelRef.current || !isJoined) return;
@@ -251,7 +306,7 @@ export const useSession = () => {
         channel
             .on('presence', { event: 'sync' }, () => {
                 const state = channel.presenceState();
-                const participants = Object.values(state).flat().map((p: any) => ({
+                const parsedParticipants = Object.values(state).flat().map((p: any) => ({
                     id: p.id || userId,
                     name: p.name || 'User',
                     avatar: p.avatar,
@@ -260,17 +315,18 @@ export const useSession = () => {
 
                 // Deduplicate participants by id
                 const uniqueParticipants = Array.from(
-                    new Map(participants.map(p => [p.id, p])).values()
+                    new Map(parsedParticipants.map(p => [p.id, p])).values()
                 );
 
                 dispatch(setParticipants(uniqueParticipants));
+                dispatch(setConnectionStatus('connected'));
 
                 // If host is gone, end session (only after initial presence establishes)
                 if (uniqueParticipants.length > 0) {
                     const hostExists = uniqueParticipants.some(p => p.isHost);
                     if (!hostExists && !isHostRef.current) {
                         dispatch(leaveSession());
-                        dispatch(setSessionError('Host has left the session.'));
+                        dispatch(setSessionError('Host has ended the session.'));
                     }
                 }
             })
@@ -397,6 +453,7 @@ export const useSession = () => {
             .subscribe(async (status, err) => {
                 if (status === 'SUBSCRIBED') {
                     if (isCancelled) return;
+                    dispatch(setConnectionStatus('connected'));
                     try {
                         await channel.track({
                             id: userId,
@@ -411,15 +468,17 @@ export const useSession = () => {
 
                     if (!isHost) {
                         // Request initial state from host
+                        dispatch(setIsSyncing(true));
                         channel.send({
                             type: 'broadcast',
                             event: 'sync',
                             payload: { type: 'requestSync', senderId: userId }
                         });
+                        setTimeout(() => dispatch(setIsSyncing(false)), 2000);
                     }
                 } else if (status === 'CHANNEL_ERROR') {
                     console.error('Supabase channel error:', err);
-                    // Don't terminate instantly if fallback/mock env or temporary hiccup
+                    dispatch(setConnectionStatus('disconnected'));
                     // Register local host in participant list if host so UI never breaks
                     if (isHost) {
                         dispatch(setParticipants([{
@@ -429,6 +488,8 @@ export const useSession = () => {
                             isHost: true,
                         }]));
                     }
+                } else if (status === 'TIMED_OUT' || status === 'CLOSED') {
+                    dispatch(setConnectionStatus('connecting'));
                 }
             });
 
@@ -437,12 +498,15 @@ export const useSession = () => {
         return () => {
             isCancelled = true;
             try {
+                if (isHost && isPublic) {
+                    partyService.broadcastPartyEnded(roomCode);
+                }
                 supabase.removeChannel(channel);
             } catch (e) {
                 console.warn('Error removing channel on unmount:', e);
             }
         };
-    }, [roomCode, isJoined, isHost, user, dispatch]);
+    }, [roomCode, isJoined, isHost, user, dispatch, isPublic]);
 
     // Periodically sync host time for drift correction
     useEffect(() => {

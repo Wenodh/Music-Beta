@@ -25,6 +25,7 @@ const initialState: MusicPlayerState = {
     isSongRadioEnabled: true,
     downloadSettings: {
         wifiOnly: false,
+        maxConcurrency: 3,
     },
     dailyMix: [],
     lastDailyMixUpdate: 0,
@@ -181,6 +182,10 @@ const musicPlayerSlice = createSlice({
         setWifiOnly: (state, action: PayloadAction<boolean>) => {
             state.downloadSettings.wifiOnly = action.payload;
         },
+        setMaxConcurrency: (state, action: PayloadAction<number>) => {
+            const clamped = Math.min(100, Math.max(1, Math.round(action.payload)));
+            state.downloadSettings.maxConcurrency = clamped;
+        },
         setDailyMix: (state, action: PayloadAction<{ songs: Song[]; timestamp: number }>) => {
             state.dailyMix = action.payload.songs;
             state.lastDailyMixUpdate = action.payload.timestamp;
@@ -278,6 +283,7 @@ export const {
     setCurrentTime,
     setSongRadioEnabled,
     setWifiOnly,
+    setMaxConcurrency,
     setDailyMix,
     setVisualizerStyle,
     toggleRepeatMode,

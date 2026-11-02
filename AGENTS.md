@@ -26,7 +26,8 @@ Vibe On operates as a state-driven Single Page Application (SPA).
   * **`pages/`**: Primary page routes (Home, Explore, Library, Search, etc.).
   * **`utils/`**: Shared helper functions (caching, color extraction, lyrics parsing, IndexedDB database helpers).
   * **`types/`**: Application type safety and interfaces.
-* **`/docs`**: Official documentation folder.
+* **`/docs`**: Official documentation folder (`DEVELOPER_GUIDE.md`, `USER_GUIDE.md`, `supabase_schema.sql`).
+* **`PROJECT_GUIDE.md`**: Master beginner-friendly architecture and codebase reference guide.
 * **`/android`**: Native Capacitor Android project files (manifests, gradle build scripts, splash screens).
 * **`/public`**: Static assets, PWA icons, and third-party resources.
 

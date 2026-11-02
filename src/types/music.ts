@@ -49,6 +49,7 @@ export interface MusicPlayerState {
 
 export interface DownloadSettings {
     wifiOnly: boolean;
+    maxConcurrency?: number;
 }
 
 export interface EqualizerSettings {
