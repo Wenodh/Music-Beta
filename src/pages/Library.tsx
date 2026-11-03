@@ -15,7 +15,7 @@ import { DownloadManagerModal } from '../components/modals/DownloadManagerModal'
 import { ImportExportModal } from '../components/modals/ImportExportModal';
 import { setImportExportModalOpen } from '../features/ui/uiSlice';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
 import { extractImageUrl } from '../utils/imageUtils';
 import { showToast } from '../features/ui/uiSlice';
@@ -27,6 +27,7 @@ const Library: React.FC = () => {
     const { preferredQuality, currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
     const dispatch = useAppDispatch();
     const location = useLocation();
+    const navigate = useNavigate();
 
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -67,16 +68,24 @@ const Library: React.FC = () => {
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         const tab = queryParams.get('tab');
-        if (tab === 'offline') {
+        if (tab === 'offline' && activeTab !== 'offline') {
             setActiveTab('offline');
             setSelectedPlaylist(null);
-        } else if (tab === 'favorites') {
+        } else if (tab === 'favorites' && activeTab !== 'favorites') {
             setActiveTab('favorites');
             setSelectedPlaylist(null);
-        } else if (tab === 'playlists') {
+        } else if (tab === 'playlists' && activeTab !== 'playlists') {
             setActiveTab('playlists');
         }
-    }, [location]);
+    }, [location.search]);
+
+    const handleSwitchTab = (tab: 'favorites' | 'playlists' | 'offline') => {
+        setActiveTab(tab);
+        if (tab !== 'playlists') {
+            setSelectedPlaylist(null);
+        }
+        navigate(`/library?tab=${tab}`, { replace: true });
+    };
 
     useEffect(() => {
         if (activeTab === 'offline') {
@@ -239,21 +248,21 @@ const Library: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8 border-b border-gray-100 dark:border-gray-800">
                 <div className="flex gap-4">
                     <button
-                        onClick={() => { setActiveTab('favorites'); setSelectedPlaylist(null); }}
+                        onClick={() => handleSwitchTab('favorites')}
                         className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'favorites' && !selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Favorites
                         {activeTab === 'favorites' && !selectedPlaylist && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
-                        onClick={() => setActiveTab('playlists')}
+                        onClick={() => handleSwitchTab('playlists')}
                         className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'playlists' || selectedPlaylist ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Playlists
                         {(activeTab === 'playlists' || selectedPlaylist) && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                     </button>
                     <button
-                        onClick={() => { setActiveTab('offline'); setSelectedPlaylist(null); }}
+                        onClick={() => handleSwitchTab('offline')}
                         className={`pb-4 px-2 font-semibold transition-colors relative ${activeTab === 'offline' ? 'text-primary' : 'text-gray-500'}`}
                     >
                         Offline

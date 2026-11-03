@@ -63,6 +63,8 @@ const Lyrics = lazyRetry(() => import('./components/Lyrics'));
 const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlaylistModal'));
 const FriendsModal = lazyRetry(() => import('./components/modals/FriendsModal').then(m => ({ default: m.FriendsModal })));
 const IncomingCallModal = lazyRetry(() => import('./components/modals/IncomingCallModal').then(m => ({ default: m.IncomingCallModal })));
+const ActiveCallModal = lazyRetry(() => import('./components/modals/ActiveCallModal').then(m => ({ default: m.ActiveCallModal })));
+import { ActiveCallBar } from './components/ActiveCallBar';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -534,6 +536,8 @@ export const AppContent = () => {
                     <Equalizer />
                     <FriendsModal />
                     <IncomingCallModal />
+                    <ActiveCallModal />
+                    <ActiveCallBar />
                     <AddToPlaylistModal
                         song={playlistModal.song}
                         bulkSongs={playlistModal.bulkSongs}

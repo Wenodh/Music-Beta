@@ -6,6 +6,7 @@ import DailyMix from './DailyMix';
 import { motion } from 'framer-motion';
 import { IoCloudOffline, IoArrowForward, IoGameControllerOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
+import { musicApiService } from '../services/musicApiService';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
 
 const MainSection: React.FC = () => {
@@ -81,18 +82,32 @@ const MainSection: React.FC = () => {
                 const sanitizedPlaylistSearch = getSanitizedUrl(playlistSearch);
                 const sanitizedSearchArtist = getSanitizedUrl(searchArtist);
 
+                const extractPath = (fullUrl: string) => {
+                    try {
+                        const parsed = new URL(fullUrl);
+                        return parsed.pathname + parsed.search;
+                    } catch {
+                        return fullUrl.replace(/https?:\/\/[^/]+/, '');
+                    }
+                };
+
+                const fetchFeed = (url: string) => {
+                    const path = extractPath(url);
+                    return musicApiService.fetchWithFallback(path, { signal: controller.signal });
+                };
+
                 const results = await Promise.allSettled([
-                    axios.get(`${modules}${language}&page=0&limit=25`, { signal: controller.signal }),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`, { signal: controller.signal }),
-                    axios.get(`${playlistSearch}${language}`, { signal: controller.signal }),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`, { signal: controller.signal }),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`, { signal: controller.signal }),
-                    axios.get(`${playlistById}158224644`, { signal: controller.signal }),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`, { signal: controller.signal }),
-                    axios.get(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`, { signal: controller.signal }),
-                    axios.get(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`, { signal: controller.signal }),
+                    fetchFeed(`${modules}${language}&page=0&limit=25`),
+                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`),
+                    fetchFeed(`${playlistSearch}${language}`),
+                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
+                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
+                    fetchFeed(`${playlistById}158224644`),
+                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
+                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
+                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`),
                     ...artistsToFetch.map(name => {
-                        return axios.get(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`, { signal: controller.signal });
+                        return fetchFeed(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
                 ]);
 
