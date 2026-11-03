@@ -5,9 +5,8 @@ import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoPeopleOutline, IoG
 import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
-import { search as searchUrl } from '../constants';
 import debounce from 'lodash/debounce';
+import { musicApiService } from '../services/musicApiService';
 
 const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { focusSearch?: boolean; isVisible?: boolean }) => {
     const dispatch = useAppDispatch();
@@ -77,12 +76,11 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
             return;
         }
         try {
-            const res = await axios.get(`${searchUrl}${query}`, { signal });
-            // Global search returns topQuery, songs, albums, artists, playlists
-            dispatch(setSearchedSongs(res.data.data));
-        } catch (error) {
-            if (axios.isCancel(error)) {
-                // Silently handle abort
+            const path = `/api/search?query=${encodeURIComponent(query.trim())}`;
+            const res = await musicApiService.fetchWithFallback(path, { signal, timeout: 6000 });
+            dispatch(setSearchedSongs(res.data?.data || res.data));
+        } catch (error: any) {
+            if (error?.name === 'CanceledError' || signal?.aborted) {
                 return;
             }
             console.error('Error fetching search results:', error);

@@ -96,14 +96,16 @@ export const ActiveCallModal: React.FC = () => {
                             className="w-full h-full object-cover"
                         />
 
-                        {/* Fallback if remote video is not yet rendered */}
-                        {(!remoteStream || remoteStream.getVideoTracks().length === 0) && (
+                        {/* Fallback if remote video is not yet rendered or disabled */}
+                        {(!remoteStream || remoteStream.getVideoTracks().length === 0 || !activeCall.isRemoteVideoEnabled) && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-950/80 backdrop-blur-md">
                                 <div className="w-28 h-28 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-4xl font-black mb-4">
                                     {activeCall.friendName[0]?.toUpperCase() || 'U'}
                                 </div>
                                 <p className="text-lg font-bold">{activeCall.friendName}</p>
-                                <p className="text-xs text-gray-400 mt-1 capitalize">{activeCall.status}...</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    {!activeCall.isRemoteVideoEnabled && isConnected ? 'Remote camera is paused' : `${activeCall.status}...`}
+                                </p>
                             </div>
                         )}
 

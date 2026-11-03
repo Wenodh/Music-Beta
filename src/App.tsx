@@ -16,8 +16,9 @@ import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen } from './features/ui/uiSlice';
 import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
+import { setIsCallScreenExpanded, setIsFriendsModalOpen, setIncomingCall } from './features/friends/friendsSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
-import { useDirectCommunication } from './hooks/useDirectCommunication';
+import { DirectCommunicationProvider } from './hooks/useDirectCommunication';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds, addDownloadedId } from './features/library/librarySlice';
 import { downloadManager } from './services/downloadManager';
@@ -196,12 +197,10 @@ export const AppContent = () => {
     const dispatch = useAppDispatch();
     const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
+    const { isCallActive, isCallScreenExpanded, isFriendsModalOpen, incomingCall } = useAppSelector(state => state.friends);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
     const maxConcurrency = downloadSettings?.maxConcurrency ?? 3;
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
-
-    // Mount direct communication listener at root level to receive incoming calls & messages in background
-    useDirectCommunication();
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -221,6 +220,10 @@ export const AppContent = () => {
         isLyricsOpen,
         playlistModalOpen: playlistModal.isOpen,
         isSessionModalOpen,
+        isCallActive,
+        isCallScreenExpanded,
+        isFriendsModalOpen,
+        hasIncomingCall: Boolean(incomingCall),
     });
 
     useEffect(() => {
@@ -233,6 +236,10 @@ export const AppContent = () => {
             isLyricsOpen,
             playlistModalOpen: playlistModal.isOpen,
             isSessionModalOpen,
+            isCallActive,
+            isCallScreenExpanded,
+            isFriendsModalOpen,
+            hasIncomingCall: Boolean(incomingCall),
         };
     }, [
         location.pathname,
@@ -243,6 +250,10 @@ export const AppContent = () => {
         isLyricsOpen,
         playlistModal.isOpen,
         isSessionModalOpen,
+        isCallActive,
+        isCallScreenExpanded,
+        isFriendsModalOpen,
+        incomingCall,
     ]);
 
     // Keep track of our route history
@@ -291,7 +302,32 @@ export const AppContent = () => {
                     isSessionModalOpen: sessionOpen,
                 } = stateRef.current;
 
-                // 1. Close active overlays first (topmost to bottommost priority)
+                // 1. Close/minimize active overlays first (topmost to bottommost priority)
+                const {
+                    isCallActive: callActive,
+                    isCallScreenExpanded: callExpanded,
+                    isFriendsModalOpen: friendsOpen,
+                    hasIncomingCall: incomingActive,
+                } = stateRef.current;
+
+                // Priority 1: If in full-screen call, minimize to ActiveCallBar without disconnecting
+                if (callActive && callExpanded) {
+                    dispatch(setIsCallScreenExpanded(false));
+                    return;
+                }
+
+                // Priority 2: If incoming call is ringing, do not silently accept/terminate (consume back event)
+                if (incomingActive) {
+                    // Back button dismisses the incoming modal without breaking state
+                    return;
+                }
+
+                // Priority 3: If friends modal is open, dismiss it
+                if (friendsOpen) {
+                    dispatch(setIsFriendsModalOpen(false));
+                    return;
+                }
+
                 if (playlistOpen) {
                     dispatch(closePlaylistModal());
                     return;
@@ -560,10 +596,12 @@ export default function App() {
         <ErrorBoundary>
             <Provider store={store}>
                 <PersistGate loading={null} persistor={persistor}>
-                    <BrowserRouter>
-                        <AppContent />
-                    </BrowserRouter>
-                    <SpeedInsights />
+                    <DirectCommunicationProvider>
+                        <BrowserRouter>
+                            <AppContent />
+                        </BrowserRouter>
+                        <SpeedInsights />
+                    </DirectCommunicationProvider>
                 </PersistGate>
             </Provider>
         </ErrorBoundary>

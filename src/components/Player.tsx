@@ -28,6 +28,7 @@ import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { nativeMediaSession } from '../services/nativeMediaSessionService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
@@ -55,7 +56,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const {
         currentSong, isPlaying, songs, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
-        visualizerStyle, repeatMode, shuffle, recommendationsCache
+        visualizerStyle, repeatMode, shuffle, recommendationsCache, currentTime: savedCurrentTime
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
@@ -234,49 +235,30 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
 
         if (currentSong) {
-            if ('mediaSession' in navigator) {
-                const artwork = imageUrl
-                    ? [{ src: imageUrl, sizes: '512x512', type: 'image/png' }]
-                    : [];
-
-                navigator.mediaSession.metadata = new window.MediaMetadata({
-                    title: decodeHtmlEntities(currentSong?.name),
-                    artist: decodeHtmlEntities(currentSong?.primaryArtists),
-                    album: decodeHtmlEntities(typeof currentSong?.album === 'string' ? currentSong?.album : currentSong?.album?.name),
-                    artwork: artwork
-                });
-
-                navigator.mediaSession.setActionHandler('previoustrack', prevSong);
-                navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
-                navigator.mediaSession.setActionHandler('play', () => dispatch(playMusic({ ...currentSong, forcePlay: true })));
-                navigator.mediaSession.setActionHandler('pause', () => dispatch(pauseMusic()));
-                navigator.mediaSession.setActionHandler('seekto', (details) => {
-                    if (details.seekTime !== undefined) {
-                        handleSeek(details.seekTime);
-                    }
-                });
-            }
+            nativeMediaSession.updateMetadata(currentSong, imageUrl);
+            nativeMediaSession.registerCallbacks({
+                onPlay: () => dispatch(playMusic({ ...currentSong, forcePlay: true })),
+                onPause: () => dispatch(pauseMusic()),
+                onNext: () => playNextInQueue(true),
+                onPrevious: prevSong,
+                onSeek: (seconds) => handleSeek(seconds),
+                onHeadphonesDisconnected: () => dispatch(pauseMusic()),
+                onAudioFocusLost: () => dispatch(pauseMusic()),
+            });
         }
     }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
 
-    // Sync Playback State with MediaSession
+    // Sync Playback State with MediaSession & Native Service
     useEffect(() => {
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        nativeMediaSession.updatePlaybackState(isPlaying);
 
-            // Update position state for accurate notification seeker
-            const activeAudio = getActiveAudio();
-            if (activeAudio && !isNaN(activeAudio.duration) && 'setPositionState' in navigator.mediaSession) {
-                try {
-                    navigator.mediaSession.setPositionState({
-                        duration: activeAudio.duration || 0,
-                        playbackRate: activeAudio.playbackRate || 1,
-                        position: activeAudio.currentTime || 0,
-                    });
-                } catch {
-                    // Suppress or log MediaSession position errors
-                }
-            }
+        const activeAudio = getActiveAudio();
+        if (activeAudio && !isNaN(activeAudio.duration)) {
+            nativeMediaSession.updatePositionState(
+                activeAudio.duration || 0,
+                activeAudio.currentTime || 0,
+                activeAudio.playbackRate || 1
+            );
         }
     }, [isPlaying, activeBuffer]);
 
@@ -304,14 +286,40 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [isPlaying, currentSong?.id, isHost, isJoined, broadcast]);
 
+    // Restore Saved Playback Position on initial mount
+    const isInitialPositionRestoredRef = useRef(false);
+    const restoredSongIdRef = useRef<string | null>(null);
+
     // Handle Playback State
     useEffect(() => {
         const activeAudio = getActiveAudio();
+        const targetSong = currentSong;
+        const targetSongId = targetSong?.id;
 
-        getSongUrl(currentSong).then(songUrl => {
+        getSongUrl(targetSong).then(songUrl => {
+            // Guard: If currentSong changed while resolving URL, ignore stale resolution
+            if (currentSongRef.current?.id !== targetSongId) return;
+
             if (songUrl && activeAudio.src !== songUrl) {
                 activeAudio.src = songUrl;
                 setIsCrossfading(false);
+
+                // Restore position only once for the re-hydrated initial song
+                if (!isInitialPositionRestoredRef.current && savedCurrentTime > 0 && targetSongId) {
+                    restoredSongIdRef.current = targetSongId;
+                    const onLoadedMetadata = () => {
+                        // Ensure we are still targeting the exact same song ID when metadata loaded
+                        if (currentSongRef.current?.id === targetSongId && restoredSongIdRef.current === targetSongId) {
+                            if (savedCurrentTime < (activeAudio.duration || Infinity)) {
+                                activeAudio.currentTime = savedCurrentTime;
+                                const progressVal = (savedCurrentTime / (activeAudio.duration || 1)) * 100;
+                                setProgress(progressVal);
+                            }
+                        }
+                    };
+                    activeAudio.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+                    isInitialPositionRestoredRef.current = true;
+                }
             }
 
             if (isPlaying) {
@@ -332,6 +340,30 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             getInactiveAudio().pause();
         }
     }, [isPlaying]);
+
+    // Throttled Redux update and persistence for current playback position
+    const lastDispatchedTimeRef = useRef<number>(0);
+
+    // Save playback position on pause, unload, and backgrounding
+    useEffect(() => {
+        const savePosition = () => {
+            const activeAudio = getActiveAudio();
+            if (activeAudio && activeAudio.currentTime > 0) {
+                dispatch(setCurrentTime(activeAudio.currentTime));
+            }
+        };
+
+        window.addEventListener('beforeunload', savePosition);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                savePosition();
+            }
+        });
+
+        return () => {
+            window.removeEventListener('beforeunload', savePosition);
+        };
+    }, [dispatch]);
 
     // Preload next song
     useEffect(() => {
@@ -360,20 +392,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const duration = activeAudio.duration;
             const currentTime = activeAudio.currentTime;
 
-            dispatch(setCurrentTime(currentTime));
-
-            // Update MediaSession position
-            if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
-                try {
-                    navigator.mediaSession.setPositionState({
-                        duration: duration || 0,
-                        playbackRate: activeAudio.playbackRate || 1,
-                        position: currentTime || 0,
-                    });
-                } catch {
-                    // Suppress or log MediaSession position errors
-                }
+            // Throttle Redux dispatch to once every 2 seconds during playback to avoid excessive storage writes
+            const now = Date.now();
+            if (now - lastDispatchedTimeRef.current > 2000) {
+                dispatch(setCurrentTime(currentTime));
+                lastDispatchedTimeRef.current = now;
             }
+
+            // Update MediaSession and native position state
+            nativeMediaSession.updatePositionState(
+                duration || 0,
+                currentTime || 0,
+                activeAudio.playbackRate || 1
+            );
 
             // Update Progress Bar
             const progressVal = (currentTime / (duration || 1)) * 100;

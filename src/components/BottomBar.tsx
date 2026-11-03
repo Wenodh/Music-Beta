@@ -23,6 +23,9 @@ const BottomBar: React.FC = () => {
         dispatch(setSettingsOpen(false));
         dispatch(setQueueOpen(false));
 
+        // When navigating anywhere via bottom bar, dismiss expanded now playing if open
+        dispatch({ type: 'ui/setPlayerExpanded', payload: false });
+
         if (item.id === 'friends') {
             e.preventDefault();
             dispatch(setIsFriendsModalOpen(true));

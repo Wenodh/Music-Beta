@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import useFetchDetails from '../hooks/useFetchDetails';
+import { musicApiService } from '../services/musicApiService';
 import ImageComponent from './ImageComponent';
 import FlexLayout from './FlexLayout';
 import SongsList from './SongsList';
@@ -85,26 +85,29 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl = extra
                     if (!artistName) artistName = (details as any).primaryArtists || (details as any).artist;
 
                     if (artistName) {
-                        const moreByRes = await axios.get(`${albumSearchUrl}?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`, { signal: controller.signal });
-                        if (moreByRes.data?.data?.results && Array.isArray(moreByRes.data.data.results) && !isAborted) {
-                            const results = moreByRes.data.data.results.filter((a: any) => a.id !== id);
+                        const path = `/api/search/albums?query=${encodeURIComponent(decodeHtmlEntities(artistName))}&limit=10`;
+                        const moreByRes = await musicApiService.fetchWithFallback(path, { signal: controller.signal, timeout: 6000 });
+                        const resData = moreByRes.data?.data?.results || moreByRes.data?.results;
+                        if (resData && Array.isArray(resData) && !isAborted) {
+                            const results = resData.filter((a: any) => a.id !== id);
                             setRecommendations(prev => ({ ...prev, moreByArtist: results }));
                         }
                     }
                 } else if (type === 'playlist') {
                     const playlistName = (details as any).name;
                     if (playlistName) {
-                        // Clean playlist name for better search (remove common bracketed info)
                         const query = decodeHtmlEntities(playlistName).split('(')[0].split('-')[0].trim();
-                        const similarRes = await axios.get(`${playlistSearchUrl}${encodeURIComponent(query)}&limit=10`, { signal: controller.signal });
-                        if (similarRes.data?.data?.results && Array.isArray(similarRes.data.data.results) && !isAborted) {
-                            const results = similarRes.data.data.results.filter((p: any) => p.id !== id);
+                        const path = `/api/search/playlists?page=0&limit=10&query=${encodeURIComponent(query)}`;
+                        const similarRes = await musicApiService.fetchWithFallback(path, { signal: controller.signal, timeout: 6000 });
+                        const resData = similarRes.data?.data?.results || similarRes.data?.results;
+                        if (resData && Array.isArray(resData) && !isAborted) {
+                            const results = resData.filter((p: any) => p.id !== id);
                             setRecommendations(prev => ({ ...prev, similarCollections: results }));
                         }
                     }
                 }
-            } catch (error) {
-                if (axios.isCancel(error)) {
+            } catch (error: any) {
+                if (error?.name === 'CanceledError' || controller.signal.aborted) {
                     return;
                 }
                 console.error('Error fetching recommendations:', error);

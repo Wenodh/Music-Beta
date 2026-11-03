@@ -5,6 +5,8 @@ export interface Toast {
     id: string;
     message: string;
     type: 'success' | 'error' | 'info';
+    duration?: number;
+    createdAt?: number;
 }
 
 interface ToastContainerProps {
@@ -14,16 +16,17 @@ interface ToastContainerProps {
 
 const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({ toast, onRemove }) => {
     const [isHovered, setIsHovered] = React.useState(false);
+    const duration = toast.duration ?? 3000;
 
     React.useEffect(() => {
         if (isHovered) return;
 
         const timer = setTimeout(() => {
             onRemove(toast.id);
-        }, 3000);
+        }, duration);
 
         return () => clearTimeout(timer);
-    }, [isHovered, toast.id, onRemove]);
+    }, [isHovered, toast.id, duration, onRemove]);
 
     return (
         <motion.div

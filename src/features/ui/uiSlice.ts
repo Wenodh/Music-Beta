@@ -6,10 +6,15 @@ export interface Toast {
     id: string;
     message: string;
     type: 'success' | 'error' | 'info';
+    duration?: number;
+    createdAt?: number;
 }
+
+const DEDUPLICATION_WINDOW_MS = 2500;
 
 interface UIState {
     toasts: Toast[];
+    lastToastHistory: Record<string, number>;
     playlistModal: {
         isOpen: boolean;
         song: Song | null;
@@ -32,6 +37,7 @@ interface UIState {
 
 const initialState: UIState = {
     toasts: [],
+    lastToastHistory: {},
     playlistModal: {
         isOpen: false,
         song: null,
@@ -55,15 +61,35 @@ const uiSlice = createSlice({
     name: 'ui',
     initialState,
     reducers: {
-        showToast: (state, action: PayloadAction<{ message: string; type?: Toast['type'] }>) => {
+        showToast: (state, action: PayloadAction<{ message: string; type?: Toast['type']; duration?: number }>) => {
+            const now = Date.now();
+            const message = action.payload.message;
+            const type = action.payload.type || 'success';
+            const duration = action.payload.duration ?? 3000;
+            const key = `${type}:${message.trim()}`;
+
+            // Check if identical toast was dispatched within the deduplication window
+            const lastDispatched = state.lastToastHistory[key];
+            if (lastDispatched && (now - lastDispatched < DEDUPLICATION_WINDOW_MS)) {
+                return; // Suppress duplicate toast
+            }
+
+            // Record timestamp for deduplication
+            state.lastToastHistory[key] = now;
+
             state.toasts.push({
-                id: Date.now().toString(),
-                message: action.payload.message,
-                type: action.payload.type || 'success',
+                id: `${now}-${Math.random().toString(36).substring(2, 6)}`,
+                message,
+                type,
+                duration,
+                createdAt: now,
             });
         },
         removeToast: (state, action: PayloadAction<string>) => {
             state.toasts = state.toasts.filter((t) => t.id !== action.payload);
+        },
+        clearAllToasts: (state) => {
+            state.toasts = [];
         },
         openPlaylistModal: (state, action: PayloadAction<Song | Song[]>) => {
             state.playlistModal.isOpen = true;
@@ -140,6 +166,7 @@ const uiSlice = createSlice({
 export const {
     showToast,
     removeToast,
+    clearAllToasts,
     openPlaylistModal,
     closePlaylistModal,
     setEqualizerOpen,
