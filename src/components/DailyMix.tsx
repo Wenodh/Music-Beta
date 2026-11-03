@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import Slider from './Slider';
 import { suggestions } from '../constants';
 import { motion } from 'framer-motion';
 import { setDailyMix } from '../features/musicplayer/musicPlayerSlice';
+import { musicApiService } from '../services/musicApiService';
 
 const DailyMix: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -26,13 +26,18 @@ const DailyMix: React.FC = () => {
             try {
                 // Get a few recent songs to base suggestions on
                 const baseSongs = recentlyPlayed.slice(0, 3);
-                const suggestPromises = baseSongs.map(song => axios.get(suggestions(song.id)));
+                const suggestPromises = baseSongs.map(song => {
+                    const fullUrl = suggestions(song.id);
+                    const path = fullUrl.replace(/https?:\/\/[^/]+/, '');
+                    return musicApiService.fetchWithFallback(path, { timeout: 6000 });
+                });
                 const results = await Promise.allSettled(suggestPromises);
 
                 let allSuggestions: any[] = [];
                 results.forEach(res => {
                     if (res.status === 'fulfilled') {
-                        allSuggestions = [...allSuggestions, ...(res.value.data.data || [])];
+                        const payload = res.value.data;
+                        allSuggestions = [...allSuggestions, ...(payload.data || [])];
                     }
                 });
 

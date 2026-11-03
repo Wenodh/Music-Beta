@@ -261,12 +261,20 @@ export const FriendsModal: React.FC = () => {
 
                                             <div className="flex items-center gap-1 pl-2">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); callFriend(friend); }}
+                                                    onClick={(e) => { e.stopPropagation(); callFriend(friend, 'audio'); }}
                                                     className="p-2 hover:bg-green-500/20 text-green-400 rounded-xl transition-colors active:scale-95"
-                                                    title={`Call ${friend.name}`}
-                                                    aria-label={`Call ${friend.name}`}
+                                                    title={`Voice Call ${friend.name}`}
+                                                    aria-label={`Voice Call ${friend.name}`}
                                                 >
                                                     <IoCallOutline size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); callFriend(friend, 'video'); }}
+                                                    className="p-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-colors active:scale-95"
+                                                    title={`Video Call ${friend.name}`}
+                                                    aria-label={`Video Call ${friend.name}`}
+                                                >
+                                                    <IoVideocamOutline size={16} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => handleRemoveFriend(e, friend.id)}
@@ -317,13 +325,24 @@ export const FriendsModal: React.FC = () => {
                                             <p className="text-[9px] text-gray-400 font-mono truncate">{activeFriend.id}</p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => callFriend(activeFriend)}
-                                        className="flex items-center gap-1.5 px-3 py-2 bg-green-500 hover:bg-green-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-green-500/20 active:scale-95 shrink-0"
-                                    >
-                                        <IoCall size={14} />
-                                        <span className="hidden xs:inline">Voice Call</span>
-                                    </button>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <button
+                                            onClick={() => callFriend(activeFriend, 'audio')}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-green-500/20 active:scale-95"
+                                            title="Start Voice Call"
+                                        >
+                                            <IoCall size={13} />
+                                            <span className="hidden xs:inline">Voice</span>
+                                        </button>
+                                        <button
+                                            onClick={() => callFriend(activeFriend, 'video')}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+                                            title="Start Video Call"
+                                        >
+                                            <IoVideocamOutline size={14} />
+                                            <span className="hidden xs:inline">Video</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Messages Feed */}

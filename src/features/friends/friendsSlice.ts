@@ -3,14 +3,17 @@ import { Friend, DirectMessage, MessageStatus } from '../../utils/friendsDb';
 import { CallType, CallStatus, ActiveCallState } from '../../types/call';
 
 export interface IncomingCallInfo {
+    callId: string;
     callerId: string;
     callerName: string;
     callerAvatar?: string;
     channelName: string;
     callType: CallType;
+    receivedAt?: number;
 }
 
 export interface StartCallPayload {
+    callId?: string;
     friendId: string;
     friendName: string;
     friendAvatar?: string;
@@ -111,11 +114,13 @@ const friendsSlice = createSlice({
             const friendAvatar = isPayloadObj ? action.payload.friendAvatar : undefined;
             const callType = isPayloadObj ? action.payload.callType : 'audio';
             const isIncoming = isPayloadObj ? action.payload.isIncoming : false;
+            const callId = (isPayloadObj && action.payload.callId) ? action.payload.callId : `call-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
             state.isCallActive = true;
             state.isCallScreenExpanded = true;
             state.activeCallFriend = { id: friendId, name: friendName, addedAt: Date.now() };
             state.activeCall = {
+                callId,
                 friendId,
                 friendName,
                 friendAvatar,
@@ -126,16 +131,24 @@ const friendsSlice = createSlice({
                 connectedAt: null,
                 isMuted: false,
                 isVideoEnabled: callType === 'video',
+                isRemoteVideoEnabled: callType === 'video',
                 isSpeakerOn: false,
                 facingMode: 'user',
             };
             state.incomingCall = null;
             state.isMuted = false;
         },
-        updateCallStatus: (state, action: PayloadAction<CallStatus>) => {
+        updateCallStatus: (state, action: PayloadAction<CallStatus | { status: CallStatus; callId?: string }>) => {
+            const status = typeof action.payload === 'string' ? action.payload : action.payload.status;
+            const callId = typeof action.payload === 'string' ? undefined : action.payload.callId;
+
             if (state.activeCall) {
-                state.activeCall.status = action.payload;
-                if (action.payload === 'connected' && !state.activeCall.connectedAt) {
+                // If callId is provided, enforce call correlation
+                if (callId && state.activeCall.callId !== callId) {
+                    return;
+                }
+                state.activeCall.status = status;
+                if (status === 'connected' && !state.activeCall.connectedAt) {
                     state.activeCall.connectedAt = Date.now();
                 }
             }
@@ -157,6 +170,11 @@ const friendsSlice = createSlice({
                 state.activeCall.isVideoEnabled = action.payload;
             }
         },
+        setRemoteVideoEnabled: (state, action: PayloadAction<boolean>) => {
+            if (state.activeCall) {
+                state.activeCall.isRemoteVideoEnabled = action.payload;
+            }
+        },
         setCallSpeakerOn: (state, action: PayloadAction<boolean>) => {
             if (state.activeCall) {
                 state.activeCall.isSpeakerOn = action.payload;
@@ -170,7 +188,12 @@ const friendsSlice = createSlice({
         setIsCallScreenExpanded: (state, action: PayloadAction<boolean>) => {
             state.isCallScreenExpanded = action.payload;
         },
-        endDirectCall: (state) => {
+        endDirectCall: (state, action?: PayloadAction<{ callId?: string } | undefined>) => {
+            const callId = action?.payload?.callId;
+            // If a specific callId is targeted and it doesn't match current activeCall or incomingCall, ignore
+            if (callId && state.activeCall && state.activeCall.callId !== callId && (!state.incomingCall || state.incomingCall.callId !== callId)) {
+                return;
+            }
             state.isCallActive = false;
             state.activeCallFriend = null;
             state.activeCall = null;
@@ -199,6 +222,7 @@ export const {
     setCallMuted,
     toggleDirectMute,
     setCallVideoEnabled,
+    setRemoteVideoEnabled,
     setCallSpeakerOn,
     setCallFacingMode,
     setIsCallScreenExpanded,

@@ -19,6 +19,7 @@
     "@capacitor/browser": "^8.0.5",
     "@capacitor/cli": "^8.6.0",
     "@capacitor/core": "^8.6.0",
+    "@capgo/capacitor-media-session": "^8.1.7",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@reduxjs/toolkit": "^2.13.0",

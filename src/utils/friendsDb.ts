@@ -19,6 +19,21 @@ export interface DirectMessage {
     status?: MessageStatus;
 }
 
+export type CallDirection = 'incoming' | 'outgoing';
+export type CallOutcome = 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled';
+
+export interface CallLogEntry {
+    id: string;
+    callId: string;
+    peerId: string;
+    peerName: string;
+    direction: CallDirection;
+    outcome: CallOutcome;
+    callType: 'audio' | 'video';
+    startedAt: number;
+    durationSeconds: number;
+}
+
 interface FriendsDBSchema extends DBSchema {
     friends: {
         key: string;
@@ -29,10 +44,15 @@ interface FriendsDBSchema extends DBSchema {
         value: DirectMessage;
         indexes: { 'by-friend': string };
     };
+    call_history: {
+        key: string;
+        value: CallLogEntry;
+        indexes: { 'by-peer': string; 'by-timestamp': number };
+    };
 }
 
 const DB_NAME = 'vibeon_friends';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<FriendsDBSchema>> | null = null;
 
@@ -46,6 +66,11 @@ const getDB = () => {
                 if (!db.objectStoreNames.contains('direct_messages')) {
                     const store = db.createObjectStore('direct_messages', { keyPath: 'id' });
                     store.createIndex('by-friend', 'friendId');
+                }
+                if (!db.objectStoreNames.contains('call_history')) {
+                    const callStore = db.createObjectStore('call_history', { keyPath: 'id' });
+                    callStore.createIndex('by-peer', 'peerId');
+                    callStore.createIndex('by-timestamp', 'startedAt');
                 }
             },
         });
@@ -101,4 +126,15 @@ export const getDirectMessagesLocal = async (friendId: string): Promise<DirectMe
     const db = await getDB();
     const messages = await db.getAllFromIndex('direct_messages', 'by-friend', friendId);
     return messages.sort((a, b) => a.timestamp - b.timestamp);
+};
+
+export const saveCallLogLocal = async (log: CallLogEntry): Promise<void> => {
+    const db = await getDB();
+    await db.put('call_history', log);
+};
+
+export const getCallHistoryLocal = async (): Promise<CallLogEntry[]> => {
+    const db = await getDB();
+    const logs = await db.getAll('call_history');
+    return logs.sort((a, b) => b.startedAt - a.startedAt);
 };

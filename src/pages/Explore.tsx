@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import { AnimatePresence } from 'framer-motion';
-import { IoCompassOutline, IoSearchOutline } from 'react-icons/io5';
-import { songs as songsUrl } from '../constants';
+import { IoCompassOutline, IoSearchOutline, IoRefreshOutline } from 'react-icons/io5';
 import ExploreSongCard from '../components/ExploreSongCard';
 import ExploreSkeleton from '../components/ExploreSkeleton';
 import { Song } from '../types/music';
 import { useMasonryColumns } from '../hooks/useMasonryColumns';
+import { musicApiService } from '../services/musicApiService';
 
 const Explore: React.FC = () => {
     const { language } = useAppSelector((state) => state.language);
     const [songs, setSongs] = useState<Song[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isCached, setIsCached] = useState(false);
     const hasMoreRef = useRef(true);
     const observer = useRef<IntersectionObserver | null>(null);
     const isFetching = useRef(false);
@@ -32,23 +33,27 @@ const Explore: React.FC = () => {
         try {
             isFetching.current = true;
             setLoading(true);
+            setError(null);
             if (isReset) {
                 setSongs([]); // Clear stale results immediately to show skeleton
             }
             const query = language;
-            const res = await axios.get(`${songsUrl}?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`, { signal });
-            const newSongs = res.data.data.results || [];
+            const path = `/api/search/songs?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`;
+            const res = await musicApiService.fetchWithFallback(path, { signal, timeout: 7000 });
+            setIsCached(res.isCached);
+            const newSongs = res.data?.data?.results || res.data?.results || [];
 
             if (newSongs.length === 0) {
                 updateHasMore(false);
             } else {
                 setSongs(prev => isReset ? newSongs : [...prev, ...newSongs]);
             }
-        } catch (error) {
-            if (axios.isCancel(error)) {
+        } catch (err: any) {
+            if (err?.name === 'CanceledError' || signal?.aborted) {
                 return;
             }
-            console.error('Error fetching explore songs:', error);
+            console.error('Error fetching explore songs:', err);
+            setError('Could not load songs for this category.');
         } finally {
             if (!signal?.aborted) {
                 setLoading(false);
@@ -109,10 +114,48 @@ const Explore: React.FC = () => {
                 </p>
             </header>
 
+            {/* Stale Cache Notice Banner */}
+            {isCached && songs.length > 0 && (
+                <div className="mb-3 flex items-center justify-between bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-2xl text-xs text-amber-300">
+                    <span>Showing saved content while live music servers are updating.</span>
+                    <button
+                        onClick={() => {
+                            const controller = new AbortController();
+                            abortControllerRef.current = controller;
+                            fetchSongs(0, true, controller.signal);
+                        }}
+                        className="flex items-center gap-1 font-bold text-amber-400 hover:text-white transition-colors"
+                    >
+                        <IoRefreshOutline size={14} /> Refresh
+                    </button>
+                </div>
+            )}
+
+            {/* Error with Retry State */}
+            {error && songs.length === 0 && !loading && (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="w-16 h-16 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mb-4">
+                        <IoRefreshOutline size={32} />
+                    </div>
+                    <h2 className="text-xl font-bold mb-1">Could Not Load Songs</h2>
+                    <p className="text-xs text-gray-400 max-w-sm mb-6">{error}</p>
+                    <button
+                        onClick={() => {
+                            const controller = new AbortController();
+                            abortControllerRef.current = controller;
+                            fetchSongs(0, true, controller.signal);
+                        }}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
+                    >
+                        <IoRefreshOutline size={16} /> Retry
+                    </button>
+                </div>
+            )}
+
             {/* Masonry Grid */}
             {songs.length === 0 && loading ? (
                 <ExploreSkeleton />
-            ) : (
+            ) : songs.length > 0 && (
                 <div className="flex gap-2 sm:gap-3 lg:gap-4 items-start">
                     {distributedSongs.map((columnSongs, colIndex) => (
                         <div key={colIndex} className="flex-1 flex flex-col gap-2 sm:gap-3 lg:gap-4">

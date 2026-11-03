@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { extractImageUrl } from '../utils/imageUtils';
+import { musicApiService } from '../services/musicApiService';
 
 interface FetchDetailsResult<T> {
     details: T | null;
@@ -27,8 +27,9 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
             try {
                 setLoading(true);
                 setError(null);
-                const response = await axios.get(apiUrl, { signal: controller.signal });
-                const data = response.data?.data;
+                const path = apiUrl.replace(/https?:\/\/[^/]+/, '');
+                const response = await musicApiService.fetchWithFallback(path, { signal: controller.signal, timeout: 8000 });
+                const data = response.data?.data || response.data;
                 if (!data) {
                     throw new Error('No data received from server');
                 }
@@ -36,8 +37,8 @@ const useFetchDetails = <T extends { name?: string; title?: string }>(
                     setDetails(data);
                     setImage(getImageUrl(data));
                 }
-            } catch (err: unknown) {
-                if (axios.isCancel(err)) {
+            } catch (err: any) {
+                if (err?.name === 'CanceledError' || controller.signal.aborted) {
                     return;
                 }
                 if (!isAborted) {

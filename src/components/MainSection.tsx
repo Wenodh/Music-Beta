@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import Slider from './Slider';
 import DailyMix from './DailyMix';
 import { motion } from 'framer-motion';
-import { IoCloudOffline, IoArrowForward, IoGameControllerOutline } from 'react-icons/io5';
+import { IoCloudOffline, IoArrowForward, IoGameControllerOutline, IoRefreshOutline } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import { musicApiService } from '../services/musicApiService';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
@@ -38,6 +37,9 @@ const MainSection: React.FC = () => {
     });
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [isStaleData, setIsStaleData] = useState(false);
+    const [retryTrigger, setRetryTrigger] = useState(0);
 
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
@@ -52,16 +54,12 @@ const MainSection: React.FC = () => {
         };
     }, []);
 
-    useEffect(() => {
-        if (isOffline) return;
-        const controller = new AbortController();
-        let isAborted = false;
+    const fetchData = useCallback(async (signal: AbortSignal) => {
+        try {
+            setLoading(true);
+            setFetchError(null);
 
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-
-                // Curated artists per language
+            // Curated artists per language
                 const curatedArtists: Record<string, string[]> = {
                     telugu: ['Sid Sriram', 'Thaman S', 'Devi Sri Prasad', 'Mani Sharma', 'S. P. Balasubrahmanyam', 'Karthik', 'Anurag Kulkarni', 'Ram Miriyala', 'Mangli', 'Armaan Malik', 'Geetha Madhuri', 'S. Janaki'],
                     hindi: ['Arijit Singh', 'Shreya Ghoshal', 'Badshah', 'Pritam', 'Anirudh Ravichander', 'Jubin Nautiyal', 'Neha Kakkar', 'Atif Aslam', 'Sunidhi Chauhan', 'Vishal Dadlani', 'Amit Trivedi', 'Mohit Chauhan'],
@@ -93,7 +91,7 @@ const MainSection: React.FC = () => {
 
                 const fetchFeed = (url: string) => {
                     const path = extractPath(url);
-                    return musicApiService.fetchWithFallback(path, { signal: controller.signal });
+                    return musicApiService.fetchWithFallback(path, { signal });
                 };
 
                 const results = await Promise.allSettled([
@@ -158,24 +156,38 @@ const MainSection: React.FC = () => {
                     workout: workoutRes.status === 'fulfilled' ? (workoutRes.value.data.data.results || []) : [],
                     latestSongs: latestSongs
                 });
-            } catch (error) {
-                if (axios.isCancel(error)) {
+
+                // Detect if content was served from stale cache
+                const hasCachedProvider = results.some(r => r.status === 'fulfilled' && (r.value as any).provider === 'cache');
+                setIsStaleData(hasCachedProvider);
+
+                // If all major feed requests failed and data is empty, set error
+                const allFailed = results.every(r => r.status === 'rejected');
+                if (allFailed && trendingSongs.length === 0) {
+                    setFetchError('Unable to load trending music. Providers may be experiencing high load.');
+                }
+            } catch (error: any) {
+                if (error?.name === 'CanceledError' || signal.aborted) {
                     return;
                 }
                 console.error('Error in fetchData:', error);
+                setFetchError('Failed to refresh music feed.');
             } finally {
-                if (!isAborted) {
+                if (!signal.aborted) {
                     setLoading(false);
                 }
             }
-        };
-        fetchData();
+    }, [language]);
+
+    useEffect(() => {
+        if (isOffline) return;
+        const controller = new AbortController();
+        fetchData(controller.signal);
 
         return () => {
-            isAborted = true;
             controller.abort();
         };
-    }, [language, isOffline]);
+    }, [language, isOffline, retryTrigger, fetchData]);
 
     if (isOffline) {
         return (
@@ -199,6 +211,24 @@ const MainSection: React.FC = () => {
                 >
                     Go to Downloads <IoArrowForward />
                 </motion.button>
+            </div>
+        );
+    }
+
+    if (fetchError && (!data.songs || data.songs.length === 0)) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] px-6 text-center">
+                <div className="w-16 h-16 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mb-4">
+                    <IoRefreshOutline size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Music Feed Unavailable</h3>
+                <p className="text-xs text-gray-400 max-w-sm mb-6">{fetchError}</p>
+                <button
+                    onClick={() => setRetryTrigger(prev => prev + 1)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
+                >
+                    <IoRefreshOutline size={16} /> Retry Feed
+                </button>
             </div>
         );
     }
@@ -233,6 +263,19 @@ const MainSection: React.FC = () => {
             animate="visible"
             className="pb-32 pt-4 sm:pt-8 px-2 sm:px-4 will-change-transform contain-layout gpu-accelerated"
         >
+            {/* Stale Cache Notice Banner */}
+            {isStaleData && (
+                <div className="mb-4 flex items-center justify-between bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-2xl text-xs text-amber-300">
+                    <span>Showing saved content while live music servers are updating.</span>
+                    <button
+                        onClick={() => setRetryTrigger(prev => prev + 1)}
+                        className="flex items-center gap-1 font-bold text-amber-400 hover:text-white transition-colors"
+                    >
+                        <IoRefreshOutline size={14} /> Refresh
+                    </button>
+                </div>
+            )}
+
             <DailyMix />
 
             {/* Arcade Promotional Entry Banner */}
