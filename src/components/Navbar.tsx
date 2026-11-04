@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setSearchedSongs, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
+import { setSearchedSongs, setIsSearching, setSearchError, setSearchQueryState, setSettingsOpen } from '../features/musicplayer/musicPlayerSlice';
 import { IoSearchOutline, IoCompassOutline, IoGlobeOutline, IoPeopleOutline, IoGameControllerOutline } from 'react-icons/io5';
 import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const navigate = useNavigate();
     const inputRef = React.useRef<HTMLInputElement>(null);
     const navRef = React.useRef<HTMLElement>(null);
+    const { isSearching } = useAppSelector((state) => state.musicPlayer);
     const [searchQuery, setSearchQuery] = useState('');
     const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -73,17 +74,26 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const fetchSearchResults = useCallback(async (query: string, signal?: AbortSignal) => {
         if (!query.trim()) {
             dispatch(setSearchedSongs([]));
+            dispatch(setIsSearching(false));
+            dispatch(setSearchError(null));
             return;
         }
+        dispatch(setIsSearching(true));
+        dispatch(setSearchError(null));
         try {
             const path = `/api/search?query=${encodeURIComponent(query.trim())}`;
             const res = await musicApiService.fetchWithFallback(path, { signal, timeout: 6000 });
-            dispatch(setSearchedSongs(res.data?.data || res.data));
+            if (!signal?.aborted) {
+                dispatch(setSearchedSongs(res.data?.data || res.data));
+                dispatch(setIsSearching(false));
+            }
         } catch (error: any) {
             if (error?.name === 'CanceledError' || signal?.aborted) {
                 return;
             }
             console.error('Error fetching search results:', error);
+            dispatch(setSearchError('Failed to fetch search results.'));
+            dispatch(setIsSearching(false));
         }
     }, [dispatch]);
 
@@ -112,11 +122,20 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const query = e.target.value;
         setSearchQuery(query);
+        dispatch(setSearchQueryState(query));
 
         // Cancel previous request
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
+        if (!query.trim()) {
+            debouncedSearch.cancel();
+            dispatch(setSearchedSongs([]));
+            dispatch(setIsSearching(false));
+            dispatch(setSearchError(null));
+            return;
+        }
+        dispatch(setIsSearching(true));
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
@@ -126,6 +145,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         // Cancel previous request
+        debouncedSearch.cancel();
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -189,7 +209,11 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                     <IoSearchOutline className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchFocused ? 'text-primary' : 'text-gray-500'}`} size={20} />
 
                     <AnimatePresence>
-                        {searchQuery && (
+                        {isSearching ? (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        ) : searchQuery ? (
                             <motion.button
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
@@ -197,16 +221,20 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                                 type="button"
                                 onClick={() => {
                                     setSearchQuery('');
+                                    dispatch(setSearchQueryState(''));
+                                    debouncedSearch.cancel();
                                     if (abortControllerRef.current) {
                                         abortControllerRef.current.abort();
                                     }
                                     dispatch(setSearchedSongs([]));
+                                    dispatch(setIsSearching(false));
+                                    dispatch(setSearchError(null));
                                 }}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
                             >
                                 <IoSearchOutline className="rotate-45" size={18} />
                             </motion.button>
-                        )}
+                        ) : null}
                     </AnimatePresence>
                 </div>
             </form>

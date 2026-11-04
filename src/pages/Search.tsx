@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { IoSearchOutline } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
-import { playMusic } from '../features/musicplayer/musicPlayerSlice';
 import { useNavigate } from 'react-router-dom';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { useSearchSongPlayer } from '../hooks/useSearchSongPlayer';
 
 const SearchPage: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { theme } = useAppSelector((state) => state.ui);
-    const { searchedSongs } = useAppSelector((state) => state.musicPlayer);
+    const { searchedSongs, isSearching, searchError, searchQuery } = useAppSelector((state) => state.musicPlayer);
     const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
+    const { playSearchSong, loadingSongId } = useSearchSongPlayer();
 
     const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
     const songs = data?.songs?.results || [];
@@ -29,7 +30,45 @@ const SearchPage: React.FC = () => {
 
     return (
         <div className="pb-32 pt-4 px-2 sm:px-4">
-            {!hasResults ? (
+            {isSearching && !hasResults ? (
+                <div>
+                    <div className="flex items-center gap-2 mb-6 text-sm text-primary font-semibold">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span>Searching Vibe On...</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {Array.from({ length: 10 }).map((_, i) => (
+                            <div key={i} className="flex flex-col gap-3 p-3 rounded-2xl bg-white/5 border border-white/5 animate-pulse">
+                                <div className="w-full aspect-square rounded-xl bg-gray-200/20 dark:bg-neutral-800/60" />
+                                <div className="h-4 w-3/4 bg-gray-200/20 dark:bg-neutral-800/60 rounded" />
+                                <div className="h-3 w-1/2 bg-gray-200/20 dark:bg-neutral-800/60 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : searchError ? (
+                <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 text-center">
+                    <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center mb-4">
+                        <IoSearchOutline size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">Search Error</h3>
+                    <p className="text-sm text-gray-400 max-w-sm mb-6">{searchError}</p>
+                    {searchQuery && (
+                        <button
+                            onClick={() => {
+                                const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+                                if (input) {
+                                    input.focus();
+                                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                                }
+                            }}
+                            className="px-6 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+                        >
+                            Retry Search
+                        </button>
+                    )}
+                </div>
+            ) : !hasResults ? (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
                     <motion.div
                         initial={{ scale: 0.8, opacity: 0 }}
@@ -38,10 +77,21 @@ const SearchPage: React.FC = () => {
                     >
                         <IoSearchOutline size={40} />
                     </motion.div>
-                    <h2 className="text-2xl font-bold mb-2">Search Vibe On</h2>
-                    <p className="text-gray-500 dark:text-gray-400 max-w-md">
-                        Use the search bar at the top to find your favorite songs, albums, and artists.
-                    </p>
+                    {searchQuery ? (
+                        <>
+                            <h2 className="text-2xl font-bold mb-2">No results found</h2>
+                            <p className="text-gray-500 dark:text-gray-400 max-w-md">
+                                We couldn't find any songs, albums, or artists matching "{searchQuery}". Try another keyword or check spelling.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-2xl font-bold mb-2">Search Vibe On</h2>
+                            <p className="text-gray-500 dark:text-gray-400 max-w-md">
+                                Use the search bar at the top to find your favorite songs, albums, and artists.
+                            </p>
+                        </>
+                    )}
                 </div>
             ) : (
                 <div>
@@ -69,28 +119,41 @@ const SearchPage: React.FC = () => {
                             exit={{ opacity: 0, y: -10 }}
                             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
                         >
-                            {activeTab === 'songs' && songs.map((song: any) => (
-                                <div
-                                    key={song.id}
-                                    onClick={() => dispatch(playMusic(song))}
-                                    className="cursor-pointer group bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/5 hover:border-primary/40 transition-all"
-                                >
-                                    <div className="relative aspect-square mb-2.5 overflow-hidden rounded-xl">
-                                        <img
-                                            src={song.image?.[2]?.url || song.image}
-                                            alt={song.name}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                        />
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
-                                                <span>▶</span>
+                            {activeTab === 'songs' && songs.map((song: any) => {
+                                const isLoadingThisSong = loadingSongId === song.id;
+                                return (
+                                    <div
+                                        key={song.id}
+                                        onClick={() => playSearchSong(song)}
+                                        className={`cursor-pointer group bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/5 hover:border-primary/40 transition-all relative ${
+                                            isLoadingThisSong ? 'ring-2 ring-primary/80 opacity-90' : ''
+                                        }`}
+                                    >
+                                        <div className="relative aspect-square mb-2.5 overflow-hidden rounded-xl">
+                                            <img
+                                                src={song.image?.[2]?.url || (Array.isArray(song.image) ? song.image[0]?.url : song.image)}
+                                                alt={song.name || song.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                            <div className={`absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity ${
+                                                isLoadingThisSong ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                            }`}>
+                                                {isLoadingThisSong ? (
+                                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
+                                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg">
+                                                        <span>▶</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
+                                        <p className="text-xs font-bold text-white truncate">{decodeHtmlEntities(song.name || song.title)}</p>
+                                        <p className="text-[10px] text-gray-400 truncate mt-0.5">{decodeHtmlEntities(song.primaryArtists || song.singers || song.artist || '')}</p>
                                     </div>
-                                    <p className="text-xs font-bold text-white truncate">{decodeHtmlEntities(song.name)}</p>
-                                    <p className="text-[10px] text-gray-400 truncate mt-0.5">{decodeHtmlEntities(song.primaryArtists || song.artist)}</p>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             {activeTab === 'albums' && albums.map((album: any) => (
                                 <div

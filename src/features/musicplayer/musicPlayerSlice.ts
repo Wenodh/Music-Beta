@@ -8,6 +8,9 @@ const initialState: MusicPlayerState = {
     isPlaying: false,
     currentSong: null,
     searchedSongs: [],
+    isSearching: false,
+    searchError: null,
+    searchQuery: '',
     recentlyPlayed: [],
     recentlyPlayedAlbums: [],
     sleepTimer: null,
@@ -62,6 +65,15 @@ const musicPlayerSlice = createSlice({
         },
         setSearchedSongs: (state, action: PayloadAction<any>) => {
             state.searchedSongs = action.payload;
+        },
+        setIsSearching: (state, action: PayloadAction<boolean>) => {
+            state.isSearching = action.payload;
+        },
+        setSearchError: (state, action: PayloadAction<string | null>) => {
+            state.searchError = action.payload;
+        },
+        setSearchQueryState: (state, action: PayloadAction<string>) => {
+            state.searchQuery = action.payload;
         },
         playMusic: (state, action: PayloadAction<Song & { forcePlay?: boolean } | any>) => {
             const { forcePlay, ...songData } = action.payload;
@@ -261,6 +273,9 @@ const musicPlayerSlice = createSlice({
 export const {
     setSongs,
     setSearchedSongs,
+    setIsSearching,
+    setSearchError,
+    setSearchQueryState,
     playMusic,
     pauseMusic,
     setCurrentSong,
