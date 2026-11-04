@@ -138,3 +138,13 @@ export const getCallHistoryLocal = async (): Promise<CallLogEntry[]> => {
     const logs = await db.getAll('call_history');
     return logs.sort((a, b) => b.startedAt - a.startedAt);
 };
+
+export const deleteCallLogLocal = async (id: string): Promise<void> => {
+    const db = await getDB();
+    await db.delete('call_history', id);
+};
+
+export const clearCallHistoryLocal = async (): Promise<void> => {
+    const db = await getDB();
+    await db.clear('call_history');
+};

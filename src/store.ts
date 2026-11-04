@@ -9,10 +9,11 @@ import uiReducer from './features/ui/uiSlice';
 import authReducer from './features/auth/authSlice';
 import sessionReducer from './features/session/sessionSlice';
 import friendsReducer from './features/friends/friendsSlice';
+import socialReducer from './features/social/socialSlice';
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { uploadSettings } from './features/settings/settingsActions';
 import { setLanguage } from './features/language/languageSlice';
-import { setAccentColor, setDarkMode, setOledMode, setFontStyle, setMobileNavItems, resetMobileNavItems, updateSettingsTimestamp } from './features/ui/uiSlice';
+import { setAccentColor, setDarkMode, setOledMode, setFontStyle, setMobileNavItems, resetMobileNavItems, setMobileNavPosition, updateSettingsTimestamp } from './features/ui/uiSlice';
 import {
     setPreferredQuality,
     setEqualizerEnabled,
@@ -42,6 +43,7 @@ settingsListener.startListening({
         setFontStyle,
         setMobileNavItems,
         resetMobileNavItems,
+        setMobileNavPosition,
         setPreferredQuality,
         setEqualizerEnabled,
         setEqualizerBand,
@@ -100,6 +102,7 @@ const rootReducer = combineReducers({
     ui: uiReducer,
     auth: authReducer,
     friends: friendsReducer,
+    social: socialReducer,
     session: persistReducer(sessionPersistConfig, sessionReducer),
 });
 

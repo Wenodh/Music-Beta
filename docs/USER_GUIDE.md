@@ -35,15 +35,15 @@ Listen to music in sync with friends, no matter where they are:
 * **Floating Reactions**: Send real-time emojis (thumbs up, heart, fire, etc.) that float up on everyone's screen simultaneously with sender names.
 * **Mobile Fullscreen**: On mobile devices, listening parties render as an immersive, edge-to-edge full-screen interface with adaptive light and dark theme contrast.
 
-### 4.1 Direct Friends Chat & Voice Calling
-Communicate directly with your friends with zero server message storage:
-* **Add via User Code**: Share your persistent 6-character user code to connect with friends.
-* **Edge-to-Edge Mobile Chat**: Full-screen mobile chat view (`100dvh`) with safe-area spacing.
-* **Message Delivery & Seen Status**: WhatsApp-style status checkmarks:
-  * Single check (✓): Message sent.
-  * Double grey check (✓✓): Message delivered to friend's device.
-  * Double cyan check (✓✓): Message opened and seen by friend.
-* **Direct P2P WebRTC Voice Calling**: Ringing full-screen incoming and active call screens with live duration timer, mute controls, and instant hang up.
+### 4.1 Social Hub & Direct Friends Communication
+Experience a complete social layer inside Vibe On via the Friends Hub:
+* **Top Tab Navigation**: Easily switch between **Chats**, **Calls**, **Discover**, and **Activity**.
+* **Call History**: Track all incoming, outgoing, and missed voice/video calls with duration, outcomes, and one-tap callback.
+* **Discover Friends**: Search for friends by username or display name, manage incoming and outgoing friend requests, and preview profiles.
+* **Live Listening Activity**: See what your friends are currently listening to with live equalizer animations, and jump straight into their tracks with one tap while preserving your queue.
+* **Friend Profiles**: View friends' custom bios, avatars, and favorite tracks while respecting private profile settings.
+* **Social Notifications**: Bell icon with live unread badge count for friend requests and missed calls.
+* **Direct P2P Voice & Video Calling**: WebRTC-powered voice and video calls with camera flip, mute, speaker toggles, and Android back button minimization.
 
 ### 5. High-Fidelity Audio Visualizers
 Bring your music to life visually with five custom canvas-based visualizers:

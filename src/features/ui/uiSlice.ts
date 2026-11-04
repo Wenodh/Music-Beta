@@ -2,6 +2,8 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Song } from '../../types/music';
 import { DEFAULT_VISIBLE_NAV_IDS } from '../../constants/navigation';
 
+export type MobileNavPosition = 'bottom' | 'top' | 'left' | 'right' | 'bottom-left' | 'bottom-right';
+
 export interface Toast {
     id: string;
     message: string;
@@ -32,6 +34,7 @@ interface UIState {
         fontStyle: string;
     };
     mobileNavItems: string[];
+    mobileNavPosition: MobileNavPosition;
     settingsUpdatedAt: number;
 }
 
@@ -54,6 +57,7 @@ const initialState: UIState = {
         fontStyle: 'Standard',
     },
     mobileNavItems: DEFAULT_VISIBLE_NAV_IDS,
+    mobileNavPosition: 'bottom',
     settingsUpdatedAt: 0,
 };
 
@@ -151,6 +155,9 @@ const uiSlice = createSlice({
         resetMobileNavItems: (state) => {
             state.mobileNavItems = DEFAULT_VISIBLE_NAV_IDS;
         },
+        setMobileNavPosition: (state, action: PayloadAction<MobileNavPosition>) => {
+            state.mobileNavPosition = action.payload;
+        },
         updateSettingsTimestamp: (state) => {
             state.settingsUpdatedAt = Date.now();
         },
@@ -181,6 +188,7 @@ export const {
     applyThemeSettings,
     setMobileNavItems,
     resetMobileNavItems,
+    setMobileNavPosition,
     updateSettingsTimestamp,
     setSettingsUpdatedAt,
     resetSettingsTimestamp

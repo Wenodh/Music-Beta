@@ -47,6 +47,7 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
     }, [focusSearch]);
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { theme } = useAppSelector((state) => state.ui);
+    const { unreadNotificationsCount } = useAppSelector((state) => state.social);
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -273,10 +274,13 @@ const Navbar: React.FC = ({ focusSearch = false, isVisible: propVisible }: { foc
                 <button
                     onClick={() => dispatch(setIsFriendsModalOpen(true))}
                     aria-label="Friends"
-                    className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
+                    className="relative p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all active:scale-95 flex items-center gap-2 pr-4 border-2 border-primary/10 overflow-hidden"
                 >
-                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <div className="relative w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-primary">
                         <IoPeopleOutline size={18} />
+                        {unreadNotificationsCount > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white dark:border-gray-900 animate-pulse" />
+                        )}
                     </div>
                     <span className="text-sm font-bold uppercase tracking-tight">Friends</span>
                 </button>
