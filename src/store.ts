@@ -6,6 +6,7 @@ import musicPlayerReducer from './features/musicplayer/musicPlayerSlice';
 import languageReducer from './features/language/languageSlice';
 import libraryReducer from './features/library/librarySlice';
 import uiReducer from './features/ui/uiSlice';
+import communityReducer from './features/social/communitySlice';
 import authReducer from './features/auth/authSlice';
 import sessionReducer from './features/session/sessionSlice';
 import friendsReducer from './features/friends/friendsSlice';
@@ -103,6 +104,7 @@ const rootReducer = combineReducers({
     auth: authReducer,
     friends: friendsReducer,
     social: socialReducer,
+    community: communityReducer,
     session: persistReducer(sessionPersistConfig, sessionReducer),
 });
 

@@ -254,10 +254,12 @@ graph TD
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ PHASE 4: VIBE ON CONNECT (SYNCHRONIZED LISTENING & COLLABORATION)           │
-│ Task 4.1: Clock Drift Correction & Sub-Second Playback Sync                 │
-│ Task 4.2: Seamless Coexistence of Voice Calling & Synchronized Music        │
-│ Task 4.3: Collaborative Multi-User Playlists with Supabase RLS              │
+│ PHASE 4: SOCIAL MUSIC EXPERIENCES & DIFFERENTIATION (COMPLETE - S4.0 - S4.4)│
+│ Sprint 4.0: Architecture Audit, RLS Schema & Master Specifications (DONE)   │
+│ Sprint 4.1: Synchronized Group Listening (Host Auth & Drift Engine) (DONE)  │
+│ Sprint 4.2: Public Listening Parties & Discovery (Real-time & Mods) (DONE)  │
+│ Sprint 4.3: Community Music Discovery (/community Route & Feed) (DONE)      │
+│ Sprint 4.4: Collaborative Playlists (Normalized playlist_items & RBAC)(DONE)│
 └─────────────────────────────────────┬───────────────────────────────────────┘
                                       │
                                       ▼

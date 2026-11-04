@@ -54,6 +54,7 @@ const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const Community = lazy(() => import('./pages/Community'));
 const ListeningStats = lazyRetry(() => import('./pages/ListeningStats'));
 const ArcadeHome = lazyRetry(() => import('./features/arcade/pages/ArcadeHome').then(m => ({ default: m.ArcadeHome })));
 const ArcadeGameView = lazyRetry(() => import('./features/arcade/pages/ArcadeGameView').then(m => ({ default: m.ArcadeGameView })));
@@ -189,6 +190,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-6 space-y-4 max-w-3xl mx-auto"><div className="h-8 w-1/3 bg-white/5 animate-pulse rounded" /><div className="h-4 w-full bg-white/5 animate-pulse rounded" /><div className="h-4 w-5/6 bg-white/5 animate-pulse rounded" /></div>}>
                             <PageWrapper><PrivacyPolicy /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/community"
+                    element={
+                        <Suspense fallback={<div className="p-6 text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>}>
+                            <PageWrapper><Community /></PageWrapper>
                         </Suspense>
                     }
                 />

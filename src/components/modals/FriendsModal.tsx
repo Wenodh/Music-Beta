@@ -22,6 +22,7 @@ import {
     IoCompassOutline,
     IoRadioOutline,
 } from 'react-icons/io5';
+import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setIsFriendsModalOpen, setActiveFriendId } from '../../features/friends/friendsSlice';
 import { setActiveProfileView, setIsNotificationPanelOpen, setCloudFriends, setNotifications } from '../../features/social/socialSlice';
@@ -256,6 +257,14 @@ export const FriendsModal: React.FC = () => {
                                 <span>{t.label}</span>
                             </button>
                         ))}
+                        <Link
+                            to="/community"
+                            onClick={() => onClose()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-primary hover:bg-primary/10 transition-all shrink-0 ml-auto border border-primary/20"
+                        >
+                            <IoPeopleOutline size={15} />
+                            <span>Community</span>
+                        </Link>
                     </div>
                 )}
 
