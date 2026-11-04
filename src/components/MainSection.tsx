@@ -109,7 +109,7 @@ const MainSection: React.FC = () => {
                     })
                 ]);
 
-                if (isAborted) return;
+                if (signal.aborted) return;
 
                 const albumsRes = results[0];
                 const songsRes = results[1];

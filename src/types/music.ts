@@ -22,6 +22,9 @@ export interface MusicPlayerState {
     isPlaying: boolean;
     currentSong: Song | null;
     searchedSongs: any;
+    isSearching?: boolean;
+    searchError?: string | null;
+    searchQuery?: string;
     recentlyPlayed: Song[];
     recentlyPlayedAlbums: any[];
     sleepTimer: number | null;
