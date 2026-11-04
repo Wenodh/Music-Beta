@@ -139,7 +139,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         });
     }, []);
 
-    // Synchronize playback speed across both audio buffers
+    // Synchronize playback speed across both audio buffers (accounting for temporary session drift correction)
     useEffect(() => {
         [audioRefA.current, audioRefB.current].forEach(audio => {
             if (audio) {
@@ -148,6 +148,24 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         });
     }, [playbackSpeed]);
+
+    // Listen to session micro-rate adjustments for seamless drift alignment
+    useEffect(() => {
+        const handleRateAdjustment = (e: any) => {
+            const effectiveSpeed = e.detail?.effectiveSpeed;
+            if (effectiveSpeed && !isNaN(effectiveSpeed)) {
+                [audioRefA.current, audioRefB.current].forEach(audio => {
+                    if (audio) {
+                        audio.playbackRate = effectiveSpeed;
+                        audio.preservesPitch = true;
+                    }
+                });
+            }
+        };
+
+        window.addEventListener('session-rate-adjustment', handleRateAdjustment);
+        return () => window.removeEventListener('session-rate-adjustment', handleRateAdjustment);
+    }, []);
 
     const getSongUrl = useCallback(async (song: Song | null, isPreload = false) => {
         if (!song) return '';

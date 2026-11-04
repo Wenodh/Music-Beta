@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { AnimatePresence } from 'framer-motion';
-import { IoCompassOutline, IoSearchOutline, IoRefreshOutline } from 'react-icons/io5';
+import { Link } from 'react-router-dom';
+import { IoCompassOutline, IoSearchOutline, IoRefreshOutline, IoPeopleOutline } from 'react-icons/io5';
 import ExploreSongCard from '../components/ExploreSongCard';
 import ExploreSkeleton from '../components/ExploreSkeleton';
 import { Song } from '../types/music';
@@ -102,16 +103,25 @@ const Explore: React.FC = () => {
 
     return (
         <div className="pb-32 pt-1 px-2 sm:px-4 sm:pt-4 gpu-accelerated contain-layout overflow-y-auto custom-scrollbar h-full">
-            <header className="mb-4">
-                <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
-                        <IoCompassOutline className="text-lg sm:text-xl" />
+            <header className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
+                            <IoCompassOutline className="text-lg sm:text-xl" />
+                        </div>
+                        <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Explore</h1>
                     </div>
-                    <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Explore</h1>
+                    <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight max-w-2xl">
+                        Discover new music in <span className="text-primary font-medium capitalize">{language}</span> curated just for you.
+                    </p>
                 </div>
-                <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight max-w-2xl">
-                    Discover new music in <span className="text-primary font-medium capitalize">{language}</span> curated just for you.
-                </p>
+
+                <Link
+                    to="/community"
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-2xl text-xs font-bold transition-all shadow-sm self-start sm:self-auto"
+                >
+                    <IoPeopleOutline size={16} /> Community Pulse
+                </Link>
             </header>
 
             {/* Stale Cache Notice Banner */}

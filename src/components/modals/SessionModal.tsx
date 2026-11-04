@@ -39,10 +39,16 @@ const SessionModal: React.FC<SessionModalProps> = ({
 
     const [joinCode, setJoinCode] = useState('');
     const [hostPartyName, setHostPartyName] = useState(`${userName || 'My'} Listening Party`);
+    const [hostPartyDescription, setHostPartyDescription] = useState('');
+    const [hostPartyCategory, setHostPartyCategory] = useState('Trending');
     const [hostIsPublic, setHostIsPublic] = useState(true);
     const [activeTab, setActiveTab] = useState<'discover' | 'join' | 'host'>(isJoined ? 'host' : 'discover');
     const [mobileSection, setMobileSection] = useState<'chat' | 'participants'>('chat');
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [reportReason, setReportReason] = useState('Spam');
+    const [reportDetails, setReportDetails] = useState('');
 
     const generateRoomCode = () => {
         return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -54,6 +60,8 @@ const SessionModal: React.FC<SessionModalProps> = ({
         dispatch(startSession({
             roomCode: code,
             partyName: hostPartyName.trim() || 'Listening Party',
+            description: hostPartyDescription.trim(),
+            category: hostPartyCategory,
             isPublic: hostIsPublic,
         }));
         setActiveTab('host');
@@ -230,6 +238,28 @@ const SessionModal: React.FC<SessionModalProps> = ({
                     {/* DISCOVER TAB */}
                     {!isJoined && activeTab === 'discover' && (
                         <div className="space-y-4">
+                            {/* Category Filter Pills */}
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs">
+                                {['All', 'Trending', 'Active Now', 'Lo-Fi', 'Rock', 'Pop', 'Hip-Hop'].map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => {
+                                            setSelectedCategory(cat);
+                                            partyService.fetchPublicParties(cat).then(res => {
+                                                if (res) dispatch(setPublicParties(res));
+                                            });
+                                        }}
+                                        className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
+                                            selectedCategory === cat
+                                                ? 'bg-primary text-white shadow-sm'
+                                                : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+
                             <div className="flex items-center justify-between">
                                 <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Live Public Parties ({publicParties.length})
@@ -264,7 +294,17 @@ const SessionModal: React.FC<SessionModalProps> = ({
                                                         <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
                                                             {party.partyName}
                                                         </h4>
+                                                        {party.category && (
+                                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                                                                {party.category}
+                                                            </span>
+                                                        )}
                                                     </div>
+                                                    {party.description && (
+                                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mb-1">
+                                                            {party.description}
+                                                        </p>
+                                                    )}
                                                     <p className="text-[11px] text-gray-600 dark:text-gray-400 truncate">
                                                         Host: <span className="font-semibold text-gray-900 dark:text-gray-200">{party.hostName}</span>
                                                     </p>
@@ -359,6 +399,32 @@ const SessionModal: React.FC<SessionModalProps> = ({
                                         placeholder="e.g. Chill Lo-Fi Evening"
                                         className="w-full bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-primary outline-none transition-colors"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="text-[11px] font-bold text-gray-600 dark:text-gray-300 block mb-1">Description (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={hostPartyDescription}
+                                        onChange={(e) => setHostPartyDescription(e.target.value)}
+                                        placeholder="e.g. Join in for relaxing chillhop tunes"
+                                        className="w-full bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-primary outline-none transition-colors"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-[11px] font-bold text-gray-600 dark:text-gray-300 block mb-1">Music Category</label>
+                                    <select
+                                        value={hostPartyCategory}
+                                        onChange={(e) => setHostPartyCategory(e.target.value)}
+                                        className="w-full bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 dark:text-white focus:border-primary outline-none transition-colors"
+                                    >
+                                        {['Trending', 'Lo-Fi', 'Rock', 'Pop', 'Hip-Hop', 'Classical', 'Electronic'].map(cat => (
+                                            <option key={cat} value={cat} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                                                {cat}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div>
@@ -597,13 +663,21 @@ const SessionModal: React.FC<SessionModalProps> = ({
                                 </div>
                             </div>
 
-                            {/* Exit / Leave Button */}
-                            <button
-                                onClick={() => setShowLeaveConfirm(true)}
-                                className="w-full py-3 rounded-2xl text-xs font-bold text-red-500 hover:bg-red-500/10 border border-red-500/20 transition-all flex items-center justify-center gap-1.5"
-                            >
-                                <IoAlertCircleOutline size={16} /> {isHost ? 'End Party for Everyone' : 'Leave Party'}
-                            </button>
+                            {/* Moderation & Leave Controls */}
+                            <div className="flex items-center gap-2 pt-1">
+                                <button
+                                    onClick={() => setReportModalOpen(true)}
+                                    className="py-2.5 px-3 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 transition-colors"
+                                >
+                                    Report Party
+                                </button>
+                                <button
+                                    onClick={() => setShowLeaveConfirm(true)}
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-bold text-red-500 hover:bg-red-500/10 border border-red-500/20 transition-all flex items-center justify-center gap-1.5"
+                                >
+                                    <IoAlertCircleOutline size={16} /> {isHost ? 'End Party for Everyone' : 'Leave Party'}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -614,6 +688,57 @@ const SessionModal: React.FC<SessionModalProps> = ({
                         {error}
                     </div>
                 )}
+
+                {/* Report Abuse Modal */}
+                <AnimatePresence>
+                    {reportModalOpen && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 p-6 rounded-3xl max-w-xs w-full shadow-2xl text-left space-y-4"
+                            >
+                                <h4 className="font-bold text-sm text-gray-900 dark:text-white">Report Party Content</h4>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold text-gray-500">Reason</label>
+                                    <select
+                                        value={reportReason}
+                                        onChange={(e) => setReportReason(e.target.value)}
+                                        className="w-full bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl p-2 text-xs"
+                                    >
+                                        <option value="Spam">Spam or unwanted advertising</option>
+                                        <option value="Harassment">Harassment or abusive behavior</option>
+                                        <option value="Inappropriate">Inappropriate content or title</option>
+                                        <option value="Copyright">Copyright or intellectual property</option>
+                                    </select>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setReportModalOpen(false)}
+                                        className="flex-1 py-2 text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/10 rounded-xl"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            const res = await partyService.reportPartyOrUser({
+                                                roomCode: roomCode || '',
+                                                reason: reportReason,
+                                                details: reportDetails
+                                            });
+                                            dispatch(showToast({ message: res.message, type: res.success ? 'success' : 'error' }));
+                                            setReportModalOpen(false);
+                                        }}
+                                        className="flex-1 py-2 text-xs font-bold text-white bg-primary hover:bg-red-600 rounded-xl"
+                                    >
+                                        Submit
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
                 {/* Leave Confirmation Modal */}
                 <AnimatePresence>
