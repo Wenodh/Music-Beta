@@ -359,3 +359,25 @@ CREATE POLICY "Users can update their own history" ON public.listening_history
 CREATE POLICY "Users can delete their own history" ON public.listening_history
     FOR DELETE USING (auth.uid() = user_id);
 ```
+
+---
+
+## 👥 Phase 2: Complete Social Layer Architecture
+
+Vibe On Phase 2 establishes a complete social music experience across profiles, friends discovery, listening activity, WebRTC calling, and social notifications.
+
+### 1. Database Schema & RLS Security (`docs/supabase_social_schema.sql`)
+* **`profiles`**: Stores user profiles with strict uniqueness on `username` (case-insensitive via lower-case unique index), display name, avatar, bio, and privacy settings (`is_private`, `share_activity`, `show_online`, `allow_discovery`). RLS enforces that profiles are discoverable only when `allow_discovery = true`, or when users are mutual friends.
+* **`friendships`**: Implements a canonical unordered pair constraint (`canonical_pair_order CHECK (user_id_1 < user_id_2)`) to strictly prevent reverse-direction duplicate rows, while tracking `requester_id` and `recipient_id`. Supports `pending`, `accepted`, and `blocked` states.
+* **`social_notifications`**: Stores cloud notifications for incoming friend requests, accepted requests, and missed calls with read/unread tracking.
+* **Transition RPC Functions**: Secure transitions (`send_friend_request`, `respond_friend_request`, `cancel_friend_request`, `remove_friend`, `block_user`, `unblock_user`) use explicit `SECURITY DEFINER` and fixed safe search paths (`SET search_path = public, auth`).
+
+### 2. Presence & Ephemeral Activity
+* Online status and currently playing songs are broadcasted purely through Supabase Realtime Presence (`social:presence`).
+* **Zero Seek Writes**: The app never writes playback seek positions or rapid playback events to PostgreSQL, preserving database performance and user battery life.
+* **Privacy Controls**: Users can toggle `show_online` and `share_activity` in their profile. Private profiles hide activity from non-friends and blocked users.
+
+### 3. Guest & Authenticated Coexistence
+* Guests use local user codes (`anon-xxxxxxx`) and IndexedDB (`vibeon_friends`).
+* Guests retain full access to local contacts, local call history, and P2P communication.
+* When guests authenticate, `migrateGuestData` provides a safe migration path that imports valid contacts without corrupting or duplicating records.

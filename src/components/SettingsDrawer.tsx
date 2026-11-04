@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly, setMaxConcurrency } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems, setMobileNavPosition, MobileNavPosition } from '../features/ui/uiSlice';
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,7 +19,7 @@ const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { theme, mobileNavItems } = useAppSelector((state) => state.ui);
+    const { theme, mobileNavItems, mobileNavPosition = 'bottom' } = useAppSelector((state) => state.ui);
     const { user, isAuthenticated, loading: authLoading } = useAppSelector((state) => state.auth);
     const { isSyncing, lastSynced } = useAppSelector((state) => state.library);
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
@@ -501,6 +501,40 @@ const SettingsDrawer: React.FC = () => {
                                                         >
                                                             Restore Default Order
                                                         </button>
+                                                    </div>
+
+                                                    {/* Dock Position Selector (Windows / Mac style) */}
+                                                    <div className="my-3 p-3 bg-white/5 rounded-2xl border border-white/5 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="text-xs font-bold text-gray-300">Dock Placement</p>
+                                                            <span className="text-[10px] text-primary uppercase font-bold">{mobileNavPosition}</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-3 gap-1.5">
+                                                            {[
+                                                                { id: 'bottom', label: 'Bottom' },
+                                                                { id: 'top', label: 'Top' },
+                                                                { id: 'left', label: 'Left Dock' },
+                                                                { id: 'right', label: 'Right Dock' },
+                                                                { id: 'bottom-left', label: 'Bottom Left' },
+                                                                { id: 'bottom-right', label: 'Bottom Right' },
+                                                            ].map((pos) => {
+                                                                const isSelected = mobileNavPosition === pos.id;
+                                                                return (
+                                                                    <button
+                                                                        key={pos.id}
+                                                                        type="button"
+                                                                        onClick={() => dispatch(setMobileNavPosition(pos.id as MobileNavPosition))}
+                                                                        className={`p-2 rounded-xl text-[11px] font-bold transition-all border ${
+                                                                            isSelected
+                                                                                ? 'bg-primary text-white border-primary shadow-sm'
+                                                                                : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border-transparent'
+                                                                        }`}
+                                                                    >
+                                                                        {pos.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
 
                                                     {/* Compact Navigation Bar Live Preview */}

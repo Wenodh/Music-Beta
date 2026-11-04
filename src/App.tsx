@@ -19,6 +19,7 @@ import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlaye
 import { setIsCallScreenExpanded, setIsFriendsModalOpen, setIncomingCall } from './features/friends/friendsSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
 import { DirectCommunicationProvider } from './hooks/useDirectCommunication';
+import { useFriendPresence } from './hooks/useFriendPresence';
 import { getOfflineSongs } from './utils/db';
 import { setDownloadedIds, addDownloadedId } from './features/library/librarySlice';
 import { downloadManager } from './services/downloadManager';
@@ -195,7 +196,10 @@ const LocationAwareNavbar = () => {
 
 export const AppContent = () => {
     const dispatch = useAppDispatch();
-    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme } = useAppSelector(state => state.ui);
+    // Mount real-time presence & playback status broadcasting for social layer
+    useFriendPresence();
+
+    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme, mobileNavPosition = 'bottom' } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
     const { isCallActive, isCallScreenExpanded, isFriendsModalOpen, incomingCall } = useAppSelector(state => state.friends);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
@@ -541,15 +545,24 @@ export const AppContent = () => {
         return `'${theme.fontStyle}', cursive`;
     };
 
+    // Calculate dynamic bottom-bar-height and player-pill-bottom based on mobile dock placement
+    const isDockAtBottom = mobileNavPosition === 'bottom' || mobileNavPosition === 'bottom-left' || mobileNavPosition === 'bottom-right';
+    const dynamicBottomHeight = isDockAtBottom
+        ? (currentSong ? 'calc(148px + env(safe-area-inset-bottom))' : 'calc(70px + env(safe-area-inset-bottom))')
+        : (currentSong ? 'calc(90px + env(safe-area-inset-bottom))' : 'calc(20px + env(safe-area-inset-bottom))');
+    const dynamicPlayerPillBottom = isDockAtBottom
+        ? 'calc(70px + env(safe-area-inset-bottom))'
+        : 'calc(16px + env(safe-area-inset-bottom))';
+
     return (
         <div
             className={`dark:text-white min-h-screen font-sans selection:bg-primary selection:text-white pb-[var(--bottom-bar-height)] md:pb-24 transition-colors duration-500 ${theme?.isOled ? 'dark:!bg-black' : 'dark:bg-gray-950'}`}
             style={{
                 '--accent-color': theme?.accentColor || '#ef4444',
                 '--accent-rgb': hexToRgb(theme?.accentColor || '#ef4444'),
-                '--bottom-bar-height': currentSong ? 'calc(148px + env(safe-area-inset-bottom))' : 'calc(70px + env(safe-area-inset-bottom))',
-                '--player-pill-bottom': 'calc(70px + env(safe-area-inset-bottom))',
-                paddingTop: 'var(--navbar-height, 80px)',
+                '--bottom-bar-height': dynamicBottomHeight,
+                '--player-pill-bottom': dynamicPlayerPillBottom,
+                paddingTop: mobileNavPosition === 'top' ? 'calc(var(--navbar-height, 80px) + 56px)' : 'var(--navbar-height, 80px)',
                 fontFamily: getFontStyle()
             } as React.CSSProperties}
         >

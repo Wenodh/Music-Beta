@@ -16,6 +16,7 @@ export const uploadSettings = createAsyncThunk(
             language: state.language.language,
             theme: state.ui.theme,
             mobileNavItems: state.ui.mobileNavItems,
+            mobileNavPosition: state.ui.mobileNavPosition,
             musicPlayer: {
                 preferredQuality: state.musicPlayer.preferredQuality,
                 equalizerSettings: state.musicPlayer.equalizerSettings,
@@ -91,6 +92,9 @@ export const fetchSettings = createAsyncThunk(
                     }
                     if (Array.isArray(settings.mobileNavItems)) {
                         dispatch(setMobileNavItems(settings.mobileNavItems));
+                    }
+                    if (settings.mobileNavPosition) {
+                        dispatch({ type: 'ui/setMobileNavPosition', payload: settings.mobileNavPosition });
                     }
                     if (settings.musicPlayer) {
                         dispatch(applyMusicPlayerSettings(settings.musicPlayer));
