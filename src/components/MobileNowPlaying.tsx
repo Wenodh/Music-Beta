@@ -10,7 +10,7 @@ import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleC
 import { HiQueueList } from 'react-icons/hi2';
 import { IoPeopleOutline } from 'react-icons/io5';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setCurrentTime, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setCurrentTime, setPlaybackSpeed, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -39,7 +39,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     onOpenSession
 }) => {
     const dispatch = useAppDispatch();
-    const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle, repeatMode, shuffle } = useAppSelector(state => state.musicPlayer);
+    const { currentSong, isPlaying, currentTime, recommendations, songs, visualizerStyle, repeatMode, shuffle, playbackSpeed } = useAppSelector(state => state.musicPlayer);
     const { favorites } = useAppSelector(state => state.library);
     const { theme } = useAppSelector(state => state.ui);
     const { isJoined } = useAppSelector(state => state.session);
@@ -352,6 +352,23 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     </div>
 
                                     <div className="space-y-2">
+                                        <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Playback Speed</p>
+                                            <div className="flex gap-2 justify-between">
+                                                {([0.75, 1.0, 1.25, 1.5, 2.0] as const).map(speed => (
+                                                    <button
+                                                        key={speed}
+                                                        onClick={() => dispatch(setPlaybackSpeed(speed))}
+                                                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                                                            playbackSpeed === speed ? 'bg-primary text-white shadow-lg' : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                                        }`}
+                                                    >
+                                                        {speed}x
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <button
                                             onClick={() => {
                                                 setIsQueueOverlayOpen(true);

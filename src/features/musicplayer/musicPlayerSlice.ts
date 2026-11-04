@@ -36,6 +36,8 @@ const initialState: MusicPlayerState = {
     visualizerStyle: 'bars',
     repeatMode: 'none',
     shuffle: false,
+    playbackSpeed: 1.0,
+    sleepTimerMode: null,
 };
 
 // Helper to format song for currentSong state
@@ -104,22 +106,51 @@ const musicPlayerSlice = createSlice({
         setCurrentSong: (state, action: PayloadAction<any>) => {
             state.currentSong = action.payload;
         },
-        setSleepTimer: (state, action: PayloadAction<number | null>) => {
-            state.sleepTimer = action.payload;
+        setSleepTimer: (state, action: PayloadAction<{ time: number | null; mode?: 'duration' | 'endOfTrack' } | number | null>) => {
+            if (action.payload === null) {
+                state.sleepTimer = null;
+                state.sleepTimerMode = null;
+            } else if (typeof action.payload === 'number') {
+                state.sleepTimer = action.payload;
+                state.sleepTimerMode = 'duration';
+            } else {
+                state.sleepTimer = action.payload.time;
+                state.sleepTimerMode = action.payload.mode || (action.payload.time !== null ? 'duration' : null);
+            }
         },
         decrementSleepTimer: (state) => {
-            if (state.sleepTimer !== null) {
+            if (state.sleepTimer !== null && state.sleepTimerMode === 'duration') {
                 if (state.sleepTimer > 1) {
                     state.sleepTimer -= 1;
                 } else {
                     state.sleepTimer = null;
+                    state.sleepTimerMode = null;
                     state.isPlaying = false;
                 }
             }
         },
+        setPlaybackSpeed: (state, action: PayloadAction<MusicPlayerState['playbackSpeed']>) => {
+            state.playbackSpeed = action.payload;
+        },
         addToQueue: (state, action: PayloadAction<Song>) => {
             if (!state.songs.find(s => s.id === action.payload.id)) {
                 state.songs.push(action.payload);
+            }
+        },
+        playNextInQueue: (state, action: PayloadAction<Song>) => {
+            const song = action.payload;
+            // Remove existing instance if present
+            const filtered = state.songs.filter(s => s.id !== song.id);
+            if (!state.currentSong) {
+                state.songs = [song];
+            } else {
+                const currentIndex = filtered.findIndex(s => s.id === state.currentSong?.id);
+                if (currentIndex !== -1) {
+                    filtered.splice(currentIndex + 1, 0, song);
+                    state.songs = filtered;
+                } else {
+                    state.songs = [state.currentSong, song, ...filtered];
+                }
             }
         },
         removeFromQueue: (state, action: PayloadAction<string>) => {
@@ -251,7 +282,8 @@ const musicPlayerSlice = createSlice({
                 downloadSettings,
                 visualizerStyle,
                 repeatMode,
-                shuffle
+                shuffle,
+                playbackSpeed
             } = action.payload;
 
             if (preferredQuality) state.preferredQuality = preferredQuality;
@@ -263,6 +295,7 @@ const musicPlayerSlice = createSlice({
             if (visualizerStyle) state.visualizerStyle = visualizerStyle;
             if (repeatMode) state.repeatMode = repeatMode;
             if (shuffle !== undefined) state.shuffle = shuffle;
+            if (playbackSpeed !== undefined) state.playbackSpeed = playbackSpeed;
         },
         setRecentlyPlayed: (state, action: PayloadAction<Song[]>) => {
             state.recentlyPlayed = action.payload.slice(0, 20);
@@ -281,8 +314,10 @@ export const {
     setCurrentSong,
     setSleepTimer,
     decrementSleepTimer,
+    setPlaybackSpeed,
     setPreferredQuality,
     addToQueue,
+    playNextInQueue,
     removeFromQueue,
     reorderQueue,
     setRecommendations,

@@ -15,6 +15,7 @@ import {
     IoLogOutOutline,
     IoSettingsOutline,
     IoCheckmarkCircle,
+    IoStatsChartOutline,
 } from 'react-icons/io5';
 import PageTemplate from '../components/PageTemplate';
 import { setSessionModalOpen, showToast } from '../features/ui/uiSlice';
@@ -210,6 +211,25 @@ const Profile: React.FC = () => {
                         </button>
                     </div>
                 )}
+
+                {/* Listening Insights Banner */}
+                <div
+                    onClick={() => navigate('/stats')}
+                    className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/15 transition-all group shadow-sm"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-primary/20 text-primary rounded-xl group-hover:scale-105 transition-transform">
+                            <IoStatsChartOutline size={24} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">Listening Insights & Stats</h3>
+                            <p className="text-xs text-gray-500">View total listening time, top artists, and listening trends</p>
+                        </div>
+                    </div>
+                    <span className="text-xs font-bold text-primary px-3 py-1.5 bg-primary/10 rounded-xl group-hover:bg-primary group-hover:text-white transition-colors">
+                        View Insights →
+                    </span>
+                </div>
 
                 {/* Music Statistics */}
                 <div>

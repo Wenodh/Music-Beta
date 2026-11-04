@@ -12,13 +12,16 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
     const { sleepTimer } = useAppSelector((state) => state.musicPlayer);
     const [isOpen, setIsOpen] = useState(false);
 
+    const { sleepTimerMode } = useAppSelector((state) => state.musicPlayer);
+
     const options = [
-        { label: 'Off', value: null },
-        { label: '1 min', value: 1 },
-        { label: '5 min', value: 5 },
-        { label: '15 min', value: 15 },
-        { label: '30 min', value: 30 },
-        { label: '1 hour', value: 60 },
+        { label: 'Off', value: null, mode: null },
+        { label: 'End of current track', value: -1, mode: 'endOfTrack' as const },
+        { label: '5 min', value: 5, mode: 'duration' as const },
+        { label: '15 min', value: 15, mode: 'duration' as const },
+        { label: '30 min', value: 30, mode: 'duration' as const },
+        { label: '45 min', value: 45, mode: 'duration' as const },
+        { label: '1 hour', value: 60, mode: 'duration' as const },
     ];
 
     return (
@@ -42,7 +45,7 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
                 </div>
                 {showLabel && (
                     <span className="flex-1 text-left">
-                        Sleep Timer {sleepTimer ? `(${sleepTimer}m)` : ''}
+                        Sleep Timer {sleepTimerMode === 'endOfTrack' ? '(End of Song)' : sleepTimer ? `(${sleepTimer}m)` : ''}
                     </span>
                 )}
             </button>
@@ -57,11 +60,21 @@ const SleepTimer: React.FC<SleepTimerProps> = ({ showLabel }) => {
                             <button
                                 key={option.label}
                                 onClick={() => {
-                                    dispatch(setSleepTimer(option.value));
+                                    if (option.value === null) {
+                                        dispatch(setSleepTimer(null));
+                                    } else if (option.mode === 'endOfTrack') {
+                                        dispatch(setSleepTimer({ time: -1, mode: 'endOfTrack' }));
+                                    } else {
+                                        dispatch(setSleepTimer({ time: option.value, mode: 'duration' }));
+                                    }
                                     setIsOpen(false);
                                 }}
                                 className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                                    sleepTimer === option.value ? 'text-primary font-medium' : ''
+                                    (option.mode === 'endOfTrack' && sleepTimerMode === 'endOfTrack') ||
+                                    (option.mode === 'duration' && sleepTimerMode === 'duration' && sleepTimer === option.value) ||
+                                    (option.value === null && sleepTimer === null)
+                                        ? 'text-primary font-medium bg-primary/5 dark:bg-primary/10'
+                                        : ''
                                 }`}
                             >
                                 {option.label}

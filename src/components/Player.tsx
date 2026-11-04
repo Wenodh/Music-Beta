@@ -13,12 +13,14 @@ import {
     playMusic,
     pauseMusic,
     setCurrentTime,
+    setPlaybackSpeed,
     setSongRadioEnabled,
     setVisualizerStyle,
     toggleRepeatMode,
     toggleShuffle,
     nextSong,
     prevSong as prevSongAction,
+    setSleepTimer,
 } from '../features/musicplayer/musicPlayerSlice';
 import SleepTimer from './SleepTimer';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,7 +58,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const {
         currentSong, isPlaying, songs, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
-        visualizerStyle, repeatMode, shuffle, recommendationsCache, currentTime: savedCurrentTime
+        visualizerStyle, repeatMode, shuffle, playbackSpeed, sleepTimerMode, recommendationsCache, currentTime: savedCurrentTime
     } = useAppSelector((state) => state.musicPlayer);
 
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
@@ -133,8 +135,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         [audioRefA.current, audioRefB.current].forEach(audio => {
             audio.crossOrigin = 'anonymous';
             audio.preload = 'auto';
+            audio.preservesPitch = true;
         });
     }, []);
+
+    // Synchronize playback speed across both audio buffers
+    useEffect(() => {
+        [audioRefA.current, audioRefB.current].forEach(audio => {
+            if (audio) {
+                audio.playbackRate = playbackSpeed;
+                audio.preservesPitch = true;
+            }
+        });
+    }, [playbackSpeed]);
 
     const getSongUrl = useCallback(async (song: Song | null, isPreload = false) => {
         if (!song) return '';
@@ -482,6 +495,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         const handleSongEnd = () => {
             if (!isCrossfading) {
+                if (sleepTimerMode === 'endOfTrack') {
+                    dispatch(pauseMusic());
+                    dispatch(setSleepTimer(null));
+                    return;
+                }
+
                 if (repeatMode === 'one') {
                     const activeAudio = getActiveAudio();
                     activeAudio.currentTime = 0;
@@ -495,9 +514,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
                             dispatch(playMusic(randomSong));
                         } else {
-                            // If it's the end and no radio/repeat, just pause or handle as end of queue
-                            dispatch(playMusic(currentSong!)); // Re-set to same song but...
-                            // In a real app we might want to just stop.
+                            // End of queue: stop playback gracefully
+                            dispatch(pauseMusic());
                         }
                     } else {
                         playNextInQueue(false);
@@ -513,7 +531,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
             activeAudio.removeEventListener('ended', handleSongEnd);
         };
-    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations]);
+    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations, sleepTimerMode]);
 
     // Update individual audio volumes based on user global volume
     useEffect(() => {
@@ -1153,6 +1171,25 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                                     <LuHardDriveDownload size={20} /> Download Song
                                                 </button>
                                             )}
+
+                                            <div className="border-t border-gray-100 dark:border-gray-700 my-1 pt-1">
+                                                <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase">Playback Speed</p>
+                                                <div className="flex px-4 py-2 gap-1.5 justify-between">
+                                                    {([0.75, 1.0, 1.25, 1.5, 2.0] as const).map((speed) => (
+                                                        <button
+                                                            key={speed}
+                                                            onClick={() => dispatch(setPlaybackSpeed(speed))}
+                                                            className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                                                                playbackSpeed === speed
+                                                                    ? 'bg-primary text-white shadow-sm'
+                                                                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                                            }`}
+                                                        >
+                                                            {speed}x
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
