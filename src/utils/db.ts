@@ -157,11 +157,44 @@ export const getDownloadedSongIds = async (): Promise<string[]> => {
  * Calculates storage statistics for downloaded content.
  * @returns {Promise<{ count: number; totalSize: number }>}
  */
-export const getDownloadStorageInfo = async (): Promise<{ count: number; totalSize: number }> => {
+export const getDownloadStorageInfo = async (): Promise<{ count: number; totalSize: number; quota?: number; usage?: number }> => {
     const songs = await getOfflineSongs();
     const totalSize = songs.reduce((acc, song) => acc + (song.size || 0), 0);
+
+    let quota: number | undefined;
+    let usage: number | undefined;
+
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+        try {
+            const estimate = await navigator.storage.estimate();
+            quota = estimate.quota;
+            usage = estimate.usage;
+        } catch (e) {
+            console.warn('Storage estimate unavailable', e);
+        }
+    }
+
     return {
         count: songs.length,
         totalSize,
+        quota,
+        usage,
     };
+};
+
+/**
+ * Validates offline songs and removes corrupted/empty entries.
+ */
+export const cleanCorruptedOfflineSongs = async (): Promise<number> => {
+    const songs = await getOfflineSongs();
+    let cleanedCount = 0;
+
+    for (const song of songs) {
+        if (!song.audioBlob || song.audioBlob.size === 0 || !song.id) {
+            await deleteOfflineSong(song.id);
+            cleanedCount++;
+        }
+    }
+
+    return cleanedCount;
 };

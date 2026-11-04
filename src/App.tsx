@@ -54,6 +54,7 @@ const Profile = lazyRetry(() => import('./pages/Profile'));
 const Search = lazyRetry(() => import('./pages/Search'));
 const SongGlobe = lazyRetry(() => import('./pages/SongGlobe'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const ListeningStats = lazyRetry(() => import('./pages/ListeningStats'));
 const ArcadeHome = lazyRetry(() => import('./features/arcade/pages/ArcadeHome').then(m => ({ default: m.ArcadeHome })));
 const ArcadeGameView = lazyRetry(() => import('./features/arcade/pages/ArcadeGameView').then(m => ({ default: m.ArcadeGameView })));
 
@@ -92,6 +93,14 @@ const AnimatedRoutes = () => {
                     element={
                         <Suspense fallback={<div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">{Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)}</div>}>
                             <PageWrapper><Home /></PageWrapper>
+                        </Suspense>
+                    }
+                />
+                <Route
+                    path="/stats"
+                    element={
+                        <Suspense fallback={<div className="p-6 text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>}>
+                            <PageWrapper><ListeningStats /></PageWrapper>
                         </Suspense>
                     }
                 />

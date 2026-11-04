@@ -30,53 +30,78 @@ const Lyrics: React.FC<LyricsProps> = ({ songId, songName, artistName, isOpen, o
     const imageUrl = typeof currentSong?.image === 'string' ? currentSong?.image : currentSong?.image?.[currentSong?.image?.length - 1]?.url;
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+    // In-memory & LocalStorage lyrics cache
     useEffect(() => {
         if (isOpen && songId) {
+            const cacheKey = `vibeon_lyrics_${songId}`;
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                try {
+                    const parsedData = JSON.parse(cached);
+                    setRawLyrics(parsedData.raw);
+                    setParsedLyrics(parsedData.parsed);
+                    setLoading(false);
+                    return;
+                } catch (e) {
+                    console.warn('Failed parsing cached lyrics', e);
+                }
+            }
+
             const fetchLyrics = async () => {
                 setLoading(true);
                 setActiveLineIndex(-1);
                 setParsedLyrics([]);
                 lineRefs.current.clear();
 
+                // 1. First priority: LRCLIB for rich synced lyrics
                 try {
-                    // Try primary source (JioSaavn API)
-                    const res = await axios.get(`${lyricsUrl}${songId}/lyrics`);
+                    const query = encodeURIComponent(`${songName} ${artistName}`);
+                    const lrcRes = await axios.get(`https://lrclib.net/api/search?q=${query}`, { timeout: 4000 });
+
+                    if (lrcRes.data && lrcRes.data.length > 0) {
+                        const bestMatch = lrcRes.data.find((l: any) => l.syncedLyrics) || lrcRes.data[0];
+                        const lyricsText = bestMatch.syncedLyrics || bestMatch.plainLyrics;
+                        if (lyricsText) {
+                            const parsed = parseLRC(lyricsText);
+                            setRawLyrics(lyricsText);
+                            setParsedLyrics(parsed);
+                            try {
+                                localStorage.setItem(cacheKey, JSON.stringify({ raw: lyricsText, parsed }));
+                            } catch (e) {
+                                console.warn('Could not cache lyrics', e);
+                            }
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('LRCLIB query failed or timed out, trying fallback provider...', err);
+                }
+
+                // 2. Secondary fallback: JioSaavn lyrics API
+                try {
+                    const res = await axios.get(`${lyricsUrl}${songId}/lyrics`, { timeout: 4000 });
                     if (res.data?.data?.lyrics) {
                         const lyricsText = res.data.data.lyrics;
-                        setRawLyrics(lyricsText);
-                        // Saavn usually provides plain text, but let's try parsing just in case
                         const parsed = parseLRC(lyricsText);
+                        setRawLyrics(lyricsText);
                         setParsedLyrics(parsed);
+                        try {
+                            localStorage.setItem(cacheKey, JSON.stringify({ raw: lyricsText, parsed }));
+                        } catch (e) {
+                            console.warn('Could not cache lyrics', e);
+                        }
                         setLoading(false);
                         return;
                     }
                 } catch (error) {
-                    console.warn('Saavn lyrics not found, trying LRCLib...');
+                    console.warn('Secondary lyrics source unavailable:', error);
                 }
 
-                try {
-                    // Try fallback source (LRCLib)
-                    const query = encodeURIComponent(`${songName} ${artistName}`);
-                    const lrcRes = await axios.get(`https://lrclib.net/api/search?q=${query}`);
-
-                    if (lrcRes.data && lrcRes.data.length > 0) {
-                        // Find best match (synced prefered)
-                        const bestMatch = lrcRes.data.find((l: any) => l.syncedLyrics) || lrcRes.data[0];
-                        const lyricsText = bestMatch.syncedLyrics || bestMatch.plainLyrics || 'Lyrics not available.';
-                        setRawLyrics(lyricsText);
-                        const parsed = parseLRC(lyricsText);
-                        setParsedLyrics(parsed);
-                    } else {
-                        setRawLyrics('Lyrics not available for this song.');
-                        setParsedLyrics([]);
-                    }
-                } catch (error) {
-                    console.error('Lyrics fetch error:', error);
-                    setRawLyrics('Lyrics not available for this song.');
-                    setParsedLyrics([]);
-                } finally {
-                    setLoading(false);
-                }
+                // Both failed
+                setRawLyrics('Lyrics not available for this song.');
+                setParsedLyrics([]);
+                setLoading(false);
             };
             fetchLyrics();
         }

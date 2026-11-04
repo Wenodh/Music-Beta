@@ -1,8 +1,8 @@
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { reorderQueue, removeFromQueue, playMusic, clearQueue } from '../features/musicplayer/musicPlayerSlice';
+import { reorderQueue, removeFromQueue, playMusic, clearQueue, playNextInQueue } from '../features/musicplayer/musicPlayerSlice';
 import { motion, Reorder, AnimatePresence, useDragControls } from 'framer-motion';
-import { IoClose, IoReorderThreeOutline, IoTrashOutline } from 'react-icons/io5';
+import { IoClose, IoReorderThreeOutline, IoTrashOutline, IoPlayForwardOutline } from 'react-icons/io5';
 import { Song } from '../types/music';
 
 import { setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
@@ -68,15 +68,30 @@ const QueueItem: React.FC<QueueItemProps> = ({ song, isActive, onPlay, onRemove 
                     <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
                 </div>
             </div>
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove(song.id);
-                }}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-opacity"
-            >
-                <IoClose size={16} />
-            </button>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!isActive && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPlay(song);
+                        }}
+                        title="Play Now"
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors text-gray-500 hover:text-primary"
+                    >
+                        <IoPlayForwardOutline size={16} />
+                    </button>
+                )}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove(song.id);
+                    }}
+                    title="Remove from Queue"
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-red-500"
+                >
+                    <IoClose size={16} />
+                </button>
+            </div>
         </Reorder.Item>
     );
 };
@@ -121,15 +136,28 @@ export const QueueContent: React.FC = () => {
                                 <p className="text-sm font-semibold truncate">{song.name}</p>
                                 <p className="text-[10px] text-gray-500 truncate">{song.primaryArtists}</p>
                             </div>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    dispatch(reorderQueue([...songs, song]));
-                                }}
-                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 bg-primary/10 dark:bg-red-900/20 md:bg-transparent text-primary rounded transition-opacity text-xs font-bold"
-                            >
-                                ADD
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(playNextInQueue(song));
+                                    }}
+                                    title="Play Next"
+                                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded text-[10px] font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                                >
+                                    PLAY NEXT
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(reorderQueue([...songs, song]));
+                                    }}
+                                    title="Add to End of Queue"
+                                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 px-2 py-1 bg-primary/10 dark:bg-red-900/20 text-primary rounded text-[10px] font-bold hover:bg-primary/20 transition-all"
+                                >
+                                    ADD
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

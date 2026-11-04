@@ -48,6 +48,8 @@ export interface MusicPlayerState {
     visualizerStyle: 'bars' | 'waveform' | 'particles' | 'circular' | 'pixel';
     repeatMode: 'none' | 'all' | 'one';
     shuffle: boolean;
+    playbackSpeed: 0.75 | 1.0 | 1.25 | 1.5 | 2.0;
+    sleepTimerMode: 'duration' | 'endOfTrack' | null;
 }
 
 export interface DownloadSettings {
