@@ -16,6 +16,7 @@ export type ArcadeGameId =
     | 'tic-tac-toe'
     | 'connect-four'
     | 'vibe-checkers'
+    | 'vibe-chess'
     | 'carrom-disc'
     // Category 4: Retro Arcade Classics
     | 'singer-snake'

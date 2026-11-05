@@ -75,7 +75,7 @@ BEGIN
     v_valid_game := p_game_id IN (
         'vibe-queens', 'beat-tango', 'music-pinpoint', 'crossclimb', 'vibe-word',
         '2048-beat', 'vibe-sudoku', 'sound-sweeper', 'picross-music', 'slide-puzzle',
-        'ludo-mini', 'tic-tac-toe', 'connect-four', 'vibe-checkers', 'carrom-disc',
+        'ludo-mini', 'tic-tac-toe', 'connect-four', 'vibe-checkers', 'vibe-chess', 'carrom-disc',
         'singer-snake', 'flappy-star', 'vibe-runner', 'beat-breaker', 'cosmic-beats',
         'beat-drop', 'rhythm-tap', 'simon-beats', 'memory-flip', 'vibe-solitaire'
     );
