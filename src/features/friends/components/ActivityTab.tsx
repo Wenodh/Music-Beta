@@ -81,11 +81,20 @@ export const ActivityTab: React.FC = () => {
         );
     }
 
-    // Pair friends with their presence data
+    const now = Date.now();
+    const PRESENCE_STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes cutoff
+
+    // Pair friends with their presence data and enforce freshness
     const friendsWithActivity = cloudFriends.map((f: Friendship) => {
         const friendId = f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1;
         const profile = f.friend_profile;
-        const presence = onlinePresenceMap[friendId] || { online: false, lastSeen: 0, currentSong: null };
+        const rawPresence = onlinePresenceMap[friendId] || { online: false, lastSeen: 0, currentSong: null };
+        const isFresh = now - (rawPresence.lastSeen || 0) < PRESENCE_STALE_THRESHOLD_MS;
+        const presence = {
+            online: rawPresence.online && isFresh,
+            lastSeen: rawPresence.lastSeen,
+            currentSong: isFresh ? rawPresence.currentSong : null,
+        };
         return {
             friendId,
             profile,

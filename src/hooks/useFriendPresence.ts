@@ -33,15 +33,21 @@ export const useFriendPresence = () => {
                 const presenceState = channel.presenceState();
                 const newPresenceMap: Record<string, { online: boolean; lastSeen: number; currentSong?: any }> = {};
 
+                const now = Date.now();
+                const PRESENCE_STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes cutoff
+
                 for (const userId in presenceState) {
                     const presences = presenceState[userId] as any[];
                     if (presences && presences.length > 0) {
                         // Select the latest presence entry among active tabs/devices
                         const latest = presences[presences.length - 1];
+                        const lastSeen = latest.lastSeen || now;
+                        const isFresh = now - lastSeen < PRESENCE_STALE_THRESHOLD_MS;
+
                         newPresenceMap[userId] = {
-                            online: Boolean(latest.online),
-                            lastSeen: latest.lastSeen || Date.now(),
-                            currentSong: latest.currentSong || null,
+                            online: Boolean(latest.online) && isFresh,
+                            lastSeen,
+                            currentSong: isFresh ? (latest.currentSong || null) : null,
                         };
                     }
                 }

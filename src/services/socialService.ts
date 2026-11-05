@@ -276,16 +276,31 @@ export const socialService = {
         const localFriends = await getFriendsLocal();
         const localCallLogs = await getCallHistoryLocal();
 
+        // Query existing accepted friendships and pending requests to avoid duplicate requests
+        const existingFriends = await this.getFriends(authenticatedUserId);
+        const { incoming, outgoing } = await this.getFriendRequests(authenticatedUserId);
+
+        const existingCloudUserIds = new Set<string>([
+            ...existingFriends.map((f) => (f.user_id_1 === authenticatedUserId ? f.user_id_2 : f.user_id_1)),
+            ...incoming.map((f) => f.requester_id),
+            ...outgoing.map((f) => f.recipient_id),
+        ]);
+
         let migratedContacts = 0;
         let skippedContacts = 0;
 
         for (const friend of localFriends) {
-            // If contact is an authenticated UUID, attempt friendship link
-            if (this.isValidUUID(friend.id) && friend.id !== authenticatedUserId) {
+            // If contact is an authenticated UUID, not ourselves, and not already linked or pending
+            if (
+                this.isValidUUID(friend.id) &&
+                friend.id !== authenticatedUserId &&
+                !existingCloudUserIds.has(friend.id)
+            ) {
                 try {
                     const res = await this.sendFriendRequest(friend.id);
                     if (res.success) {
                         migratedContacts++;
+                        existingCloudUserIds.add(friend.id);
                     } else {
                         skippedContacts++;
                     }
@@ -293,7 +308,7 @@ export const socialService = {
                     skippedContacts++;
                 }
             } else {
-                // Anonymous 'anon-...' contact remains in local IndexedDB
+                // Anonymous 'anon-...' contact or already linked friend remains in local IndexedDB
                 skippedContacts++;
             }
         }

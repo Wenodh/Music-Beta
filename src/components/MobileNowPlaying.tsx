@@ -15,7 +15,7 @@ import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
 import Lyrics from './Lyrics';
-import { QueueContent } from './Queue';
+import { QueueContent } from './QueueContent';
 
 interface MobileNowPlayingProps {
     isOpen: boolean;

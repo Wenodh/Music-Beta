@@ -63,7 +63,6 @@ const ArcadeGameView = lazyRetry(() => import('./features/arcade/pages/ArcadeGam
 const SettingsDrawer = lazyRetry(() => import('./components/SettingsDrawer'));
 const Queue = lazyRetry(() => import('./components/Queue'));
 const Equalizer = lazyRetry(() => import('./components/Equalizer'));
-const Lyrics = lazyRetry(() => import('./components/Lyrics'));
 const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlaylistModal'));
 const FriendsModal = lazyRetry(() => import('./components/modals/FriendsModal').then(m => ({ default: m.FriendsModal })));
 const IncomingCallModal = lazyRetry(() => import('./components/modals/IncomingCallModal').then(m => ({ default: m.IncomingCallModal })));
