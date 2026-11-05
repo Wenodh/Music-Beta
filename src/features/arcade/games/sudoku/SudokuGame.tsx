@@ -3,11 +3,12 @@ import { GameTheme } from '../../types';
 import { arcadeAudio } from '../../services/arcadeAudio';
 import { DailySeedEngine } from '../../engine/dailySeedEngine';
 import { SudokuEngine, SudokuDifficulty, SudokuPuzzle } from './sudokuEngine';
+import { SudokuEngineAdapter, SudokuHintResult } from './sudokuEngineAdapter';
 import { ArcadeLeaderboardService } from '../../services/arcadeLeaderboardService';
 import { getHighScore } from '../../services/arcadeStorage';
 import { ArcadeGameShell } from '../../components/ArcadeGameShell';
 import { useArcadeGameLifecycle } from '../../hooks/useArcadeGameLifecycle';
-import { IoRefresh, IoCheckmarkCircle, IoBackspaceOutline } from 'react-icons/io5';
+import { IoRefresh, IoCheckmarkCircle, IoBackspaceOutline, IoBulbOutline } from 'react-icons/io5';
 
 interface SudokuGameProps {
     theme: GameTheme;
@@ -15,11 +16,15 @@ interface SudokuGameProps {
 }
 
 export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
+    const adapter = SudokuEngineAdapter.getInstance();
     const [difficulty, setDifficulty] = useState<SudokuDifficulty>('medium');
     const [dailySeed, setDailySeed] = useState(() => DailySeedEngine.getDailySeed('vibe-sudoku'));
-    const [puzzle, setPuzzle] = useState<SudokuPuzzle>(() => SudokuEngine.generatePuzzle('medium', dailySeed));
+    const [puzzle, setPuzzle] = useState<SudokuPuzzle>(() => adapter.generatePuzzle('medium', dailySeed));
     const [grid, setGrid] = useState<number[][]>(() => puzzle.initialGrid.map((r) => [...r]));
     const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
+    const [highlightedHintCell, setHighlightedHintCell] = useState<{ r: number; c: number } | null>(null);
+    const [activeHint, setActiveHint] = useState<SudokuHintResult | null>(null);
+    const [hintsUsed, setHintsUsed] = useState(0);
     const [timerSeconds, setTimerSeconds] = useState(0);
     const [bestTime, setBestTime] = useState<number>(0);
     const [isMuted, setIsMuted] = useState(true);
@@ -48,17 +53,20 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
     const resetGame = useCallback((diff: SudokuDifficulty = difficulty) => {
         const seed = `sudoku_${Date.now()}`;
         setDailySeed(seed);
-        const pz = SudokuEngine.generatePuzzle(diff, seed);
+        const pz = adapter.generatePuzzle(diff, seed);
         setPuzzle(pz);
         setGrid(pz.initialGrid.map((r) => [...r]));
         setSelectedCell(null);
+        setHighlightedHintCell(null);
+        setActiveHint(null);
+        setHintsUsed(0);
         setTimerSeconds(0);
         setGameState('playing');
-    }, [difficulty, setGameState]);
+    }, [adapter, difficulty, setGameState]);
 
     useEffect(() => {
         resetGame(difficulty);
-    }, []);
+    }, [difficulty, resetGame]);
 
     const handleCellClick = (r: number, c: number) => {
         setSelectedCell({ r, c });
@@ -74,6 +82,12 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
         const next = grid.map((row) => [...row]);
         next[r][c] = num;
         setGrid(next);
+
+        // Clear active hint highlight once filled
+        if (highlightedHintCell?.r === r && highlightedHintCell?.c === c) {
+            setHighlightedHintCell(null);
+            setActiveHint(null);
+        }
 
         if (num > 0) {
             arcadeAudio.playJump();
@@ -100,7 +114,7 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
         }
     };
 
-    // Keyboard support
+    // Keyboard support for desktop/physical input
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (/^[1-9]$/.test(e.key)) {
@@ -111,7 +125,19 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedCell, grid, gameState]);
+    }, [selectedCell, grid, gameState, puzzle]);
+
+    const handleRequestHint = () => {
+        if (gameState !== 'playing') return;
+        const hint = adapter.getHint(grid, puzzle.solution);
+        if (!hint) return;
+
+        setActiveHint(hint);
+        setSelectedCell({ r: hint.row, c: hint.col });
+        setHighlightedHintCell({ r: hint.row, c: hint.col });
+        setHintsUsed((prev) => prev + 1);
+        arcadeAudio.playBonus();
+    };
 
     const formatTime = (totalSec: number) => {
         const m = Math.floor(totalSec / 60);
@@ -139,7 +165,7 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
             theme={theme}
         >
             <div className="w-full max-w-sm flex flex-col items-center justify-between space-y-3 p-1">
-                {/* Difficulty Selector */}
+                {/* Difficulty Selector & Hint Trigger */}
                 <div className="w-full flex items-center justify-between text-xs px-2">
                     <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl p-1">
                         {(['easy', 'medium', 'hard'] as SudokuDifficulty[]).map((d) => (
@@ -157,7 +183,31 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
                             </button>
                         ))}
                     </div>
+
+                    <button
+                        onClick={handleRequestHint}
+                        className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                        title="Get human logic hint"
+                    >
+                        <IoBulbOutline size={14} className="text-amber-400" />
+                        <span>Hint {hintsUsed > 0 ? `(${hintsUsed})` : ''}</span>
+                    </button>
                 </div>
+
+                {/* Hint Explanation Popover (if active) */}
+                {activeHint && (
+                    <div className="w-full max-w-[340px] px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-left animate-fadeIn">
+                        <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-400">
+                            <span>💡 {activeHint.label}</span>
+                            <span className="text-[10px] text-gray-400 font-mono">
+                                R{activeHint.row + 1} C{activeHint.col + 1} → {activeHint.value}
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-gray-200 mt-0.5 leading-snug">
+                            {activeHint.explanation}
+                        </p>
+                    </div>
+                )}
 
                 {/* 9x9 Sudoku Grid */}
                 <div className="relative border-2 border-white/30 rounded-2xl overflow-hidden shadow-2xl bg-black/60 w-full max-w-[min(90vw,340px)] aspect-square grid grid-cols-9 grid-rows-9">
@@ -165,6 +215,7 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
                         row.map((val, c) => {
                             const isInitial = puzzle.initialGrid[r][c] !== 0;
                             const isSelected = selectedCell?.r === r && selectedCell?.c === c;
+                            const isHintTarget = highlightedHintCell?.r === r && highlightedHintCell?.c === c;
                             const isConflict = val !== 0 && val !== puzzle.solution[r][c];
 
                             const borderB = r % 3 === 2 && r < 8 ? 'border-b-2 border-b-white/40' : 'border-b border-b-white/5';
@@ -175,7 +226,9 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
                                     key={`${r}-${c}`}
                                     onClick={() => handleCellClick(r, c)}
                                     className={`flex items-center justify-center text-sm sm:text-base font-bold font-mono transition-all ${borderB} ${borderR} ${
-                                        isSelected
+                                        isHintTarget
+                                            ? 'bg-amber-400/30 text-amber-200 ring-2 ring-amber-400/70 animate-pulse'
+                                            : isSelected
                                             ? 'bg-primary/40 text-white'
                                             : isInitial
                                             ? 'bg-white/10 text-white font-black'
@@ -218,7 +271,10 @@ export const SudokuGame: React.FC<SudokuGameProps> = ({ theme, onBack }) => {
                         <h3 className="text-2xl font-black text-white uppercase tracking-wider mb-1">
                             Sudoku Mastered!
                         </h3>
-                        <p className="text-xs text-gray-300 mb-4">Completed in {formatTime(timerSeconds)}</p>
+                        <p className="text-xs text-gray-300 mb-4">
+                            Completed in {formatTime(timerSeconds)}
+                            {hintsUsed > 0 ? ` (${hintsUsed} hint${hintsUsed > 1 ? 's' : ''} used)` : ''}
+                        </p>
                         <button
                             onClick={() => resetGame()}
                             className="px-6 py-2.5 bg-primary hover:bg-red-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"

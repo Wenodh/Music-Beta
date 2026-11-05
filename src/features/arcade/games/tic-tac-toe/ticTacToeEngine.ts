@@ -1,4 +1,5 @@
 export type TicTacToeCell = 'X' | 'O' | null;
+export type TicTacToeDifficulty = 'easy' | 'medium' | 'hard';
 
 export interface TicTacToeState {
     board: TicTacToeCell[]; // 9 cells for 3x3 (indices 0..8)
@@ -47,6 +48,20 @@ export class TicTacToeEngine {
             if (board[i] === null) moves.push(i);
         }
         return moves;
+    }
+
+    /**
+     * Checks if placing a symbol results in an immediate win.
+     */
+    public static findWinningMove(board: TicTacToeCell[], player: 'X' | 'O'): number | null {
+        const available = this.getAvailableMoves(board);
+        for (const move of available) {
+            board[move] = player;
+            const { winner } = this.checkWinner(board);
+            board[move] = null;
+            if (winner === player) return move;
+        }
+        return null;
     }
 
     /**
@@ -101,14 +116,64 @@ export class TicTacToeEngine {
     }
 
     /**
-     * Finds the optimal move for the AI.
+     * Selects an AI move based on the requested difficulty level.
+     * Uses injectable prng: () => number for deterministic testing and reproducible behavior.
      */
-    public static getBestMove(board: TicTacToeCell[], aiPlayer: 'X' | 'O' = 'O'): number {
-        // Fast opening shortcut: If empty, pick center or corner
+    public static selectBotMove(
+        board: TicTacToeCell[],
+        aiPlayer: 'X' | 'O' = 'O',
+        difficulty: TicTacToeDifficulty = 'hard',
+        prng: () => number = Math.random
+    ): number {
         const available = this.getAvailableMoves(board);
-        if (available.length === 9) return 4; // center
+        if (available.length === 0) return -1;
+        if (available.length === 1) return available[0];
+
+        const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
+
+        // 1. Easy Mode: Primarily random legal moves, with small 20% center/corner preference
+        if (difficulty === 'easy') {
+            if (prng() < 0.8) {
+                const randIndex = Math.floor(prng() * available.length);
+                return available[randIndex];
+            }
+            // Occasional center move if open
+            if (board[4] === null) return 4;
+            const randIndex = Math.floor(prng() * available.length);
+            return available[randIndex];
+        }
+
+        // 2. Medium Mode:
+        // - Always take immediate winning move
+        // - Block immediate opponent win 80% of the time
+        // - Otherwise pick center, or random available move so it's beatable
+        if (difficulty === 'medium') {
+            const winMove = this.findWinningMove(board, aiPlayer);
+            if (winMove !== null) return winMove;
+
+            const blockMove = this.findWinningMove(board, humanPlayer);
+            if (blockMove !== null && prng() < 0.8) {
+                return blockMove;
+            }
+
+            if (board[4] === null && prng() < 0.6) return 4;
+
+            const randIndex = Math.floor(prng() * available.length);
+            return available[randIndex];
+        }
+
+        // 3. Hard Mode: Unbeatable optimal Minimax
+        // Fast opening shortcut: If center is available on move 1, seize it
+        if (available.length === 9) return 4;
         if (available.length === 8 && board[4] === null) return 4;
 
         return this.minimax(board, 0, true, aiPlayer).bestMove ?? available[0];
+    }
+
+    /**
+     * Backward-compatible alias for Hard AI mode.
+     */
+    public static getBestMove(board: TicTacToeCell[], aiPlayer: 'X' | 'O' = 'O'): number {
+        return this.selectBotMove(board, aiPlayer, 'hard');
     }
 }
