@@ -2,11 +2,12 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { setLanguage } from '../features/language/languageSlice';
 import { setPreferredQuality, setSettingsOpen, setGaplessEnabled, setCrossfadeDuration, setWifiOnly, setMaxConcurrency } from '../features/musicplayer/musicPlayerSlice';
-import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems, setMobileNavPosition, MobileNavPosition } from '../features/ui/uiSlice';
+import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionModalOpen, setFontStyle, setImportExportModalOpen, setMobileNavItems, resetMobileNavItems, setMobileNavPosition, setProtectIpInCalls, MobileNavPosition } from '../features/ui/uiSlice';
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline, IoChevronDownOutline, IoChevronForwardOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline, IoChevronDownOutline, IoChevronForwardOutline, IoShieldCheckmarkOutline } from 'react-icons/io5';
+import { iceServerService } from '../services/webrtc/iceServerService';
 import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
@@ -19,7 +20,7 @@ const SettingsDrawer: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { language } = useAppSelector((state) => state.language);
-    const { theme, mobileNavItems, mobileNavPosition = 'bottom' } = useAppSelector((state) => state.ui);
+    const { theme, mobileNavItems, mobileNavPosition = 'bottom', protectIpInCalls } = useAppSelector((state) => state.ui);
     const { user, isAuthenticated, loading: authLoading } = useAppSelector((state) => state.auth);
     const { isSyncing, lastSynced } = useAppSelector((state) => state.library);
     const { preferredQuality, isSettingsOpen, equalizerSettings, isGaplessEnabled, crossfadeDuration, downloadSettings } = useAppSelector((state) => state.musicPlayer);
@@ -687,6 +688,42 @@ const SettingsDrawer: React.FC = () => {
                                             </div>
                                             <span className="text-gray-400 text-xs">Configure</span>
                                         </button>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h3 className="text-xs font-bold uppercase text-gray-400 mb-4">Privacy & Calling</h3>
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                                    <IoShieldCheckmarkOutline size={18} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium">Protect IP Address in Calls</p>
+                                                    <p className="text-[10px] text-gray-500">Relay all calls through TURN servers to conceal your real IP address from peers</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const nextState = !protectIpInCalls;
+                                                    dispatch(setProtectIpInCalls(nextState));
+                                                    iceServerService.setForceRelay(nextState);
+                                                    dispatch(showToast({
+                                                        message: nextState ? 'IP Protection enabled (Relay Only)' : 'Standard P2P calls enabled',
+                                                        type: 'info'
+                                                    }));
+                                                }}
+                                                className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ml-2 ${
+                                                    protectIpInCalls ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'
+                                                }`}
+                                            >
+                                                <motion.div
+                                                    animate={{ x: protectIpInCalls ? 20 : 2 }}
+                                                    className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                />
+                                            </button>
+                                        </div>
                                     </div>
                                 </section>
                             </div>

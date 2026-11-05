@@ -16,6 +16,7 @@ export interface DirectMessage {
     senderName: string;
     text: string;
     timestamp: number;
+    seq?: number;
     status?: MessageStatus;
 }
 
@@ -34,6 +35,21 @@ export interface CallLogEntry {
     durationSeconds: number;
 }
 
+export interface StoredCryptoKey {
+    id: string; // 'local_identity' or 'peer:<peerId>'
+    keyType: 'identity_keypair' | 'peer_public_key';
+    publicKeyJwk: JsonWebKey;
+    privateKeyJwk?: JsonWebKey; // Only stored for local identity
+    createdAt: number;
+    updatedAt: number;
+}
+
+export interface BlockedUserRecord {
+    userId: string;
+    blockedAt: number;
+    reason?: string;
+}
+
 interface FriendsDBSchema extends DBSchema {
     friends: {
         key: string;
@@ -49,17 +65,25 @@ interface FriendsDBSchema extends DBSchema {
         value: CallLogEntry;
         indexes: { 'by-peer': string; 'by-timestamp': number };
     };
+    crypto_keys: {
+        key: string;
+        value: StoredCryptoKey;
+    };
+    blocked_users: {
+        key: string;
+        value: BlockedUserRecord;
+    };
 }
 
 const DB_NAME = 'vibeon_friends';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<FriendsDBSchema>> | null = null;
 
 const getDB = () => {
     if (!dbPromise) {
         dbPromise = openDB<FriendsDBSchema>(DB_NAME, DB_VERSION, {
-            upgrade(db) {
+            upgrade(db, _oldVersion) {
                 if (!db.objectStoreNames.contains('friends')) {
                     db.createObjectStore('friends', { keyPath: 'id' });
                 }
@@ -71,6 +95,12 @@ const getDB = () => {
                     const callStore = db.createObjectStore('call_history', { keyPath: 'id' });
                     callStore.createIndex('by-peer', 'peerId');
                     callStore.createIndex('by-timestamp', 'startedAt');
+                }
+                if (!db.objectStoreNames.contains('crypto_keys')) {
+                    db.createObjectStore('crypto_keys', { keyPath: 'id' });
+                }
+                if (!db.objectStoreNames.contains('blocked_users')) {
+                    db.createObjectStore('blocked_users', { keyPath: 'userId' });
                 }
             },
         });
@@ -128,6 +158,25 @@ export const getDirectMessagesLocal = async (friendId: string): Promise<DirectMe
     return messages.sort((a, b) => a.timestamp - b.timestamp);
 };
 
+export const getNextMessageSequenceLocal = async (friendId: string): Promise<number> => {
+    const messages = await getDirectMessagesLocal(friendId);
+    if (messages.length === 0) return 1;
+    const maxSeq = messages.reduce((max, m) => Math.max(max, m.seq || 0), 0);
+    return maxSeq + 1;
+};
+
+export const getUnreadDirectMessageCountsLocal = async (currentUserId: string): Promise<Record<string, number>> => {
+    const db = await getDB();
+    const messages = await db.getAll('direct_messages');
+    const counts: Record<string, number> = {};
+    for (const msg of messages) {
+        if (msg.senderId !== currentUserId && msg.status !== 'seen') {
+            counts[msg.friendId] = (counts[msg.friendId] || 0) + 1;
+        }
+    }
+    return counts;
+};
+
 export const saveCallLogLocal = async (log: CallLogEntry): Promise<void> => {
     const db = await getDB();
     await db.put('call_history', log);
@@ -147,4 +196,41 @@ export const deleteCallLogLocal = async (id: string): Promise<void> => {
 export const clearCallHistoryLocal = async (): Promise<void> => {
     const db = await getDB();
     await db.clear('call_history');
+};
+
+// Crypto key storage
+export const saveCryptoKeyLocal = async (keyRecord: StoredCryptoKey): Promise<void> => {
+    const db = await getDB();
+    await db.put('crypto_keys', keyRecord);
+};
+
+export const getCryptoKeyLocal = async (id: string): Promise<StoredCryptoKey | undefined> => {
+    const db = await getDB();
+    return await db.get('crypto_keys', id);
+};
+
+// Blocked users storage
+export const blockUserLocal = async (userId: string, reason?: string): Promise<void> => {
+    const db = await getDB();
+    await db.put('blocked_users', {
+        userId,
+        blockedAt: Date.now(),
+        reason,
+    });
+};
+
+export const unblockUserLocal = async (userId: string): Promise<void> => {
+    const db = await getDB();
+    await db.delete('blocked_users', userId);
+};
+
+export const isUserBlockedLocal = async (userId: string): Promise<boolean> => {
+    const db = await getDB();
+    const rec = await db.get('blocked_users', userId);
+    return Boolean(rec);
+};
+
+export const getBlockedUsersLocal = async (): Promise<BlockedUserRecord[]> => {
+    const db = await getDB();
+    return await db.getAll('blocked_users');
 };

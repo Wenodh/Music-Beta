@@ -9,15 +9,18 @@ import {
     IoTimeOutline,
     IoCheckmarkCircle,
     IoRefreshOutline,
+    IoBanOutline,
 } from 'react-icons/io5';
 import {
     CallLogEntry,
     getCallHistoryLocal,
     deleteCallLogLocal,
     clearCallHistoryLocal,
+    blockUserLocal,
     CallOutcome,
     CallDirection,
 } from '../../../utils/friendsDb';
+import { socialService } from '../../../services/socialService';
 import { useDirectCommunication } from '../../../hooks/useDirectCommunication';
 import { useAppDispatch } from '../../../hooks/redux';
 import { showToast } from '../../ui/uiSlice';
@@ -302,6 +305,23 @@ export const CallHistoryTab: React.FC = () => {
                                         aria-label={`Call back ${log.peerName}`}
                                     >
                                         {log.callType === 'video' ? <IoVideocam size={15} /> : <IoCall size={15} />}
+                                    </button>
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm(`Block ${log.peerName || 'this user'}? Future calls and messages from them will be dropped.`)) {
+                                                await blockUserLocal(log.peerId, 'Blocked from call history');
+                                                if (socialService.isValidUUID(log.peerId)) {
+                                                    await socialService.blockUser(log.peerId).catch(() => {});
+                                                }
+                                                dispatch(showToast({ message: `Blocked ${log.peerName || 'user'}` }));
+                                            }
+                                        }}
+                                        className="p-2 text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-colors active:scale-95"
+                                        title="Block caller"
+                                        aria-label="Block caller"
+                                    >
+                                        <IoBanOutline size={16} />
                                     </button>
                                     <button
                                         onClick={(e) => handleDeleteLog(e, log.id)}

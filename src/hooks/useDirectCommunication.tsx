@@ -28,11 +28,14 @@ import {
     saveDirectMessageLocal,
     updateDirectMessageStatusLocal,
     updateDirectMessagesStatusByFriendLocal,
+    getNextMessageSequenceLocal,
     saveCallLogLocal,
+    isUserBlockedLocal,
     Friend,
     DirectMessage,
     CallLogEntry,
 } from '../utils/friendsDb';
+import { e2eeService, EncryptedPayload } from '../services/e2eeService';
 
 export interface DirectCommunicationContextValue {
     sendDirectMessage: (friendId: string, text: string) => Promise<void>;
@@ -126,12 +129,24 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
     }, []);
 
-    // Helper to send message or signal via recipient channel with assured connection
+    // Managed outbound channel map with 30s idle disposal timeout
+    const outboundChannelsRef = useRef<Map<string, { channel: RealtimeChannel; idleTimer: NodeJS.Timeout | null }>>(new Map());
+
+    // Helper to send message or signal via recipient channel with assured connection and idle cleanup
     const sendToUser = useCallback(async (targetUserId: string, event: string, payload: any) => {
         const targetChannelName = `user:${targetUserId}`;
-        let targetChannel = supabase.getChannels().find(ch => ch.topic === `realtime:${targetChannelName}` || ch.topic === targetChannelName);
+        let entry = outboundChannelsRef.current.get(targetUserId);
+
+        if (entry?.idleTimer) {
+            clearTimeout(entry.idleTimer);
+            entry.idleTimer = null;
+        }
+
+        let targetChannel = entry?.channel;
         if (!targetChannel) {
             targetChannel = supabase.channel(targetChannelName);
+            entry = { channel: targetChannel, idleTimer: null };
+            outboundChannelsRef.current.set(targetUserId, entry);
         }
 
         if (targetChannel.state !== 'joined') {
@@ -152,7 +167,36 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             });
         } catch (e) {
             console.warn(`Error sending ${event} to ${targetUserId}:`, e);
+        } finally {
+            // Schedule 30-second idle channel cleanup
+            if (entry) {
+                entry.idleTimer = setTimeout(() => {
+                    try {
+                        entry!.channel.unsubscribe();
+                        supabase.removeChannel(entry!.channel);
+                    } catch (cleanupErr) {
+                        console.warn('[Realtime] Outbound channel cleanup error:', cleanupErr);
+                    }
+                    outboundChannelsRef.current.delete(targetUserId);
+                }, 30000);
+            }
         }
+    }, []);
+
+    // Cleanup all outbound channels on unmount
+    useEffect(() => {
+        return () => {
+            outboundChannelsRef.current.forEach((entry) => {
+                if (entry.idleTimer) clearTimeout(entry.idleTimer);
+                try {
+                    entry.channel.unsubscribe();
+                    supabase.removeChannel(entry.channel);
+                } catch {
+                    // ignore
+                }
+            });
+            outboundChannelsRef.current.clear();
+        };
     }, []);
 
     // Initial load of local friends
@@ -346,18 +390,27 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     reconnectTimeoutRef.current = setTimeout(async () => {
                         if (pc.iceConnectionState === 'disconnected') {
                             try {
-                                if ('restartIce' in pc && typeof (pc as any).restartIce === 'function') {
-                                    (pc as any).restartIce();
-                                    const offer = await pc.createOffer({ iceRestart: true });
-                                    await pc.setLocalDescription(offer);
-                                    sendToUser(targetId, 'direct_signal', {
-                                        callId: currentCallId,
-                                        senderId: userId,
-                                        senderName: userName,
-                                        signalType: 'offer',
-                                        sdp: pc.localDescription,
+                                // Refresh TURN/STUN credentials before attempting ICE restart
+                                const freshConfig = await iceServerService.getIceServers();
+                                if (pc.setConfiguration && pc.signalingState !== 'closed') {
+                                    pc.setConfiguration({
+                                        iceServers: freshConfig.iceServers,
+                                        iceTransportPolicy: freshConfig.iceTransportPolicy,
                                     });
                                 }
+
+                                if ('restartIce' in pc && typeof (pc as any).restartIce === 'function') {
+                                    (pc as any).restartIce();
+                                }
+                                const offer = await pc.createOffer({ iceRestart: true });
+                                await pc.setLocalDescription(offer);
+                                sendToUser(targetId, 'direct_signal', {
+                                    callId: currentCallId,
+                                    senderId: userId,
+                                    senderName: userName,
+                                    signalType: 'offer',
+                                    sdp: pc.localDescription,
+                                });
                             } catch (e) {
                                 console.warn('ICE restart attempt error:', e);
                             }
@@ -387,12 +440,47 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         channel
             .on('broadcast', { event: 'direct_message' }, async ({ payload }) => {
-                const incomingMsg: DirectMessage = payload;
+                const incomingPayload = payload as {
+                    id: string;
+                    senderId: string;
+                    senderName: string;
+                    text?: string;
+                    encrypted?: EncryptedPayload;
+                    timestamp: number;
+                    seq?: number;
+                };
+
+                if (!incomingPayload?.senderId) return;
+
+                // Check blocklist
+                const isBlocked = await isUserBlockedLocal(incomingPayload.senderId);
+                if (isBlocked) {
+                    console.info('[DirectComms] Dropped direct_message from blocked user:', incomingPayload.senderId);
+                    return;
+                }
+
+                // If message provides sender's public key (root or inside encrypted payload), cache it for future replies
+                const senderPubJwk = (incomingPayload as any).senderPublicKey || incomingPayload.encrypted?.senderPublicKey;
+                if (senderPubJwk) {
+                    await e2eeService.savePeerPublicKey(incomingPayload.senderId, senderPubJwk);
+                }
+
+                // Decrypt message if encrypted payload is provided
+                let decryptedText = incomingPayload.text || '';
+                if (incomingPayload.encrypted) {
+                    try {
+                        decryptedText = await e2eeService.decryptMessage(incomingPayload.senderId, incomingPayload.encrypted);
+                    } catch (decErr) {
+                        console.warn('[DirectComms] Decryption failed, falling back to raw text if present:', decErr);
+                        decryptedText = incomingPayload.text || '🔒 [Encrypted message - could not decrypt]';
+                    }
+                }
+
                 const currentFriends = await getFriendsLocal();
-                if (!currentFriends.some((f) => f.id === incomingMsg.senderId)) {
+                if (!currentFriends.some((f) => f.id === incomingPayload.senderId)) {
                     const newContact: Friend = {
-                        id: incomingMsg.senderId,
-                        name: incomingMsg.senderName || 'Friend',
+                        id: incomingPayload.senderId,
+                        name: incomingPayload.senderName || 'Friend',
                         addedAt: Date.now(),
                     };
                     await saveFriendLocal(newContact);
@@ -400,19 +488,24 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     dispatch(setFriendsList(updated));
                 }
 
-                const isCurrentlyChatting = activeFriendIdRef.current === incomingMsg.senderId;
+                const isCurrentlyChatting = activeFriendIdRef.current === incomingPayload.senderId;
                 const statusOnReceipt = isCurrentlyChatting ? 'seen' : 'delivered';
 
                 const localMsg: DirectMessage = {
-                    ...incomingMsg,
-                    friendId: incomingMsg.senderId,
+                    id: incomingPayload.id,
+                    friendId: incomingPayload.senderId,
+                    senderId: incomingPayload.senderId,
+                    senderName: incomingPayload.senderName || 'Friend',
+                    text: decryptedText,
+                    timestamp: incomingPayload.timestamp || Date.now(),
+                    seq: incomingPayload.seq,
                     status: statusOnReceipt,
                 };
                 await saveDirectMessageLocal(localMsg);
                 dispatch(addDirectMessage(localMsg));
 
-                sendToUser(incomingMsg.senderId, isCurrentlyChatting ? 'message_seen' : 'message_ack', {
-                    messageId: incomingMsg.id,
+                sendToUser(incomingPayload.senderId, isCurrentlyChatting ? 'message_seen' : 'message_ack', {
+                    messageId: incomingPayload.id,
                     senderId: userId,
                     timestamp: Date.now(),
                 });
@@ -436,6 +529,21 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const { callId, senderId, senderName, signalType, sdp, candidate, callType = 'audio' } = payload;
 
                 if (!senderId || !signalType) return;
+
+                // Check blocklist for signaling
+                const isBlocked = await isUserBlockedLocal(senderId);
+                if (isBlocked) {
+                    console.info('[DirectComms] Dropped direct_signal from blocked user:', senderId);
+                    if (signalType === 'call-request') {
+                        sendToUser(senderId, 'direct_signal', {
+                            callId,
+                            senderId: userId,
+                            senderName: userName,
+                            signalType: 'call-declined',
+                        });
+                    }
+                    return;
+                }
 
                 // Handle incoming call request
                 if (signalType === 'call-request') {
@@ -644,24 +752,58 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         };
     }, [userId, userName, dispatch, getOrCreatePeerConnection, sendToUser, cleanupCallResources, clearTimers]);
 
-    // Send 1-on-1 direct message
+    // Send 1-on-1 direct message with E2EE encryption and sequence counter
     const sendDirectMessage = useCallback(async (friendId: string, text: string) => {
         if (!text.trim()) return;
 
+        const cleanText = text.trim();
+        const nextSeq = await getNextMessageSequenceLocal(friendId);
+        const messageId = Date.now().toString() + Math.random().toString(36).substring(7);
+
         const msg: DirectMessage = {
-            id: Date.now().toString() + Math.random().toString(36).substring(7),
+            id: messageId,
             friendId,
             senderId: userId,
             senderName: userName,
-            text: text.trim(),
+            text: cleanText,
             timestamp: Date.now(),
+            seq: nextSeq,
             status: 'sent',
         };
 
+        // Save unencrypted plaintext locally in IndexedDB (local storage is considered secure on-device)
         await saveDirectMessageLocal(msg);
         dispatch(addDirectMessage(msg));
 
-        sendToUser(friendId, 'direct_message', msg);
+        // Obtain our local identity public key to share in-band for zero-friction key exchange
+        let myPublicKeyJwk: JsonWebKey | undefined;
+        try {
+            const identity = await e2eeService.getOrCreateLocalIdentity();
+            myPublicKeyJwk = identity.publicKeyJwk;
+        } catch (idErr) {
+            console.warn('[DirectComms] Could not export local identity public key:', idErr);
+        }
+
+        // Attempt E2EE encryption before sending over Supabase Realtime broadcast
+        let encryptedPayload: EncryptedPayload | undefined;
+        try {
+            encryptedPayload = await e2eeService.encryptMessage(friendId, cleanText);
+        } catch (encErr) {
+            console.info('[DirectComms] Initial message handshake - transmitting initial plaintext with in-band public key exchange:', encErr);
+        }
+
+        const networkPayload = {
+            id: msg.id,
+            senderId: userId,
+            senderName: userName,
+            text: encryptedPayload ? '' : cleanText,
+            encrypted: encryptedPayload,
+            senderPublicKey: myPublicKeyJwk,
+            timestamp: msg.timestamp,
+            seq: nextSeq,
+        };
+
+        sendToUser(friendId, 'direct_message', networkPayload);
     }, [userId, userName, dispatch, sendToUser]);
 
     // Acquire media stream with camera fallback

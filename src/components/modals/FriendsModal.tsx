@@ -351,20 +351,28 @@ export const FriendsModal: React.FC = () => {
                                             const isActive = activeFriendId === friend.id;
                                             const friendMsgs = directMessages[friend.id] || [];
                                             const lastMsg = friendMsgs[friendMsgs.length - 1];
+                                            const unreadCount = friendMsgs.filter((m) => m.senderId !== userId && m.status !== 'seen').length;
 
                                             return (
                                                 <div
                                                     key={friend.id}
                                                     onClick={() => dispatch(setActiveFriendId(friend.id))}
-                                                    className={`group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all ${
+                                                    className={`group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all relative ${
                                                         isActive
                                                             ? 'bg-primary/20 border border-primary/30 text-white'
                                                             : 'hover:bg-white/5 text-gray-300 border border-transparent'
                                                     }`}
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-black text-sm shrink-0 border border-white/10 shadow-sm">
-                                                            {friend.name[0]?.toUpperCase()}
+                                                        <div className="relative">
+                                                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-black text-sm shrink-0 border border-white/10 shadow-sm">
+                                                                {friend.name[0]?.toUpperCase()}
+                                                            </div>
+                                                            {unreadCount > 0 && !isActive && (
+                                                                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-primary text-white text-[9px] font-black rounded-full border-2 border-gray-900 animate-pulse">
+                                                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center justify-between gap-1">
@@ -375,7 +383,7 @@ export const FriendsModal: React.FC = () => {
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <p className="text-[10px] text-gray-400 truncate font-mono">
+                                                            <p className={`text-[10px] truncate font-mono ${unreadCount > 0 && !isActive ? 'text-white font-semibold' : 'text-gray-400'}`}>
                                                                 {lastMsg ? lastMsg.text : friend.id}
                                                             </p>
                                                         </div>

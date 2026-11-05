@@ -19,6 +19,7 @@ import { useDirectCommunication } from '../../../hooks/useDirectCommunication';
 import { socialService } from '../../../services/socialService';
 import { showToast } from '../../ui/uiSlice';
 import { supabase } from '../../../lib/supabase';
+import { blockUserLocal } from '../../../utils/friendsDb';
 
 interface FriendProfileViewProps {
     profile: UserProfile;
@@ -100,14 +101,19 @@ export const FriendProfileView: React.FC<FriendProfileViewProps> = ({ profile })
         if (!confirm(`Block ${profile.display_name}? They will no longer be able to call, message, or view your activity.`)) return;
         setActionLoading(true);
         try {
-            const res = await socialService.blockUser(profile.id);
-            if (res.success) {
-                dispatch(removeCloudFriend(profile.id));
-                dispatch(setActiveProfileView(null));
-                dispatch(showToast({ message: 'User blocked' }));
-            } else {
-                dispatch(showToast({ message: res.message, type: 'error' }));
+            // Block in local IndexedDB so offline P2P calls and messages from this user are rejected immediately
+            await blockUserLocal(profile.id, 'Blocked from profile view');
+
+            // If user is authenticated and target is a UUID, also block on cloud Supabase
+            if (socialService.isValidUUID(profile.id)) {
+                await socialService.blockUser(profile.id);
             }
+
+            dispatch(removeCloudFriend(profile.id));
+            dispatch(setActiveProfileView(null));
+            dispatch(showToast({ message: 'User blocked' }));
+        } catch (err: any) {
+            dispatch(showToast({ message: err.message || 'Error blocking user', type: 'error' }));
         } finally {
             setActionLoading(false);
         }
