@@ -30,6 +30,7 @@ const LudoGame = lazy(() => import('../games/ludo/LudoGame').then((m) => ({ defa
 const TicTacToeGame = lazy(() => import('../games/tic-tac-toe/TicTacToeGame').then((m) => ({ default: m.TicTacToeGame })));
 const ConnectFourGame = lazy(() => import('../games/connect-four/ConnectFourGame').then((m) => ({ default: m.ConnectFourGame })));
 const CheckersGame = lazy(() => import('../games/checkers/CheckersGame').then((m) => ({ default: m.CheckersGame })));
+const ChessGame = lazy(() => import('../games/chess/ChessGame').then((m) => ({ default: m.ChessGame })));
 const CarromGame = lazy(() => import('../games/carrom/CarromGame').then((m) => ({ default: m.CarromGame })));
 
 // Batch 4 Games: Retro Arcade, Rhythm & Cards
@@ -207,6 +208,13 @@ export const ArcadeGameView: React.FC = () => {
 
                 {gameId === 'vibe-checkers' && (
                     <CheckersGame
+                        theme={initialThemeRef.current}
+                        onBack={() => navigate('/arcade')}
+                    />
+                )}
+
+                {gameId === 'vibe-chess' && (
+                    <ChessGame
                         theme={initialThemeRef.current}
                         onBack={() => navigate('/arcade')}
                     />

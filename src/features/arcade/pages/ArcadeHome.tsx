@@ -205,6 +205,19 @@ export const ARCADE_GAMES_CATALOG: ArcadeGameMetadata[] = [
         batch: 3,
     },
     {
+        id: 'vibe-chess',
+        title: 'Vibe Chess',
+        desc: 'Grandmaster strategy powered by chess.js with checkmate detection and minimax bot.',
+        icon: '♟️',
+        tag: 'Grandmaster Chess',
+        category: 'board',
+        metricType: 'moves',
+        metricUnit: 'moves',
+        lowerIsBetter: true,
+        supportsDaily: false,
+        batch: 3,
+    },
+    {
         id: 'carrom-disc',
         title: 'Carrom Disc',
         desc: 'Top-down realistic physics board flicking striker, white/black coins, and red queen.',
@@ -422,7 +435,7 @@ export const ArcadeHome: React.FC = () => {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 sm:p-8 bg-gradient-to-r from-purple-900/40 via-pink-900/30 to-black/60 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl relative overflow-hidden">
                 <div className="space-y-2 z-10 text-center md:text-left w-full md:w-auto">
                     <div className="inline-flex items-center gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 bg-primary/20 border border-primary/30 rounded-full text-[10px] sm:text-xs font-bold text-primary uppercase tracking-widest">
-                        <IoGameControllerOutline size={15} /> 25-Game Suite & Daily Challenges
+                        <IoGameControllerOutline size={15} /> 26-Game Suite & Daily Challenges
                     </div>
                     <h1 className="text-2xl sm:text-5xl font-black text-white tracking-tight">
                         Vibe <span className="text-primary italic">Arcade</span>

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { GameTheme } from '../../types';
 import { arcadeAudio } from '../../services/arcadeAudio';
 import { DailySeedEngine } from '../../engine/dailySeedEngine';
-import { WordleEngine, WordleFeedback } from './wordleEngine';
+import { WordleFeedback } from './wordleEngine';
+import { WordleEngineAdapter } from './wordleEngineAdapter';
 import { ArcadeLeaderboardService } from '../../services/arcadeLeaderboardService';
 import { getHighScore } from '../../services/arcadeStorage';
 import { ArcadeGameShell } from '../../components/ArcadeGameShell';
@@ -21,13 +22,16 @@ const KEYBOARD_ROWS = [
 ];
 
 export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
+    const adapter = WordleEngineAdapter.getInstance();
     const [mode, setMode] = useState<'daily' | 'practice'>('daily');
     const [dailySeed, setDailySeed] = useState(() => DailySeedEngine.getDailySeed('vibe-word'));
-    const [targetWord, setTargetWord] = useState(() => WordleEngine.getDailyWord(dailySeed));
+    const [targetWord, setTargetWord] = useState(() => adapter.getDailyTargetWord(dailySeed));
     const [guesses, setGuesses] = useState<string[]>([]);
     const [currentGuess, setCurrentGuess] = useState('');
     const [bestGuesses, setBestGuesses] = useState<number>(0);
     const [isMuted, setIsMuted] = useState(true);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isRowShaking, setIsRowShaking] = useState(false);
 
     const {
         gameState,
@@ -49,39 +53,68 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
             : `practice_${Date.now()}`;
         setDailySeed(seed);
         const word = nextMode === 'daily'
-            ? WordleEngine.getDailyWord(seed)
-            : WordleEngine.getPracticeWord();
+            ? adapter.getDailyTargetWord(seed)
+            : adapter.getPracticeTargetWord(targetWord);
         setTargetWord(word);
         setGuesses([]);
         setCurrentGuess('');
+        setErrorMessage(null);
+        setIsRowShaking(false);
         setGameState('playing');
-    }, [mode, setGameState]);
+    }, [adapter, mode, setGameState, targetWord]);
 
     useEffect(() => {
         resetGame(mode);
     }, []);
 
+    const triggerInvalidFeedback = (msg: string) => {
+        setErrorMessage(msg);
+        setIsRowShaking(true);
+        arcadeAudio.playLaser(); // soft error sound
+
+        setTimeout(() => {
+            setIsRowShaking(false);
+        }, 600);
+
+        setTimeout(() => {
+            setErrorMessage(null);
+        }, 1800);
+    };
+
     const handleKeyPress = (key: string) => {
         if (gameState !== 'playing') return;
 
         if (key === 'ENTER') {
-            if (currentGuess.length === 5) {
-                submitGuess();
-            }
+            submitGuess();
         } else if (key === 'BACK' || key === 'Backspace') {
             setCurrentGuess((prev) => prev.slice(0, -1));
+            setErrorMessage(null);
         } else if (/^[A-Za-z]$/.test(key) && currentGuess.length < 5) {
             setCurrentGuess((prev) => prev + key.toUpperCase());
+            setErrorMessage(null);
         }
     };
 
     const submitGuess = async () => {
-        const nextGuesses = [...guesses, currentGuess];
+        if (currentGuess.length < 5) {
+            triggerInvalidFeedback('Not enough letters');
+            return;
+        }
+
+        const validation = adapter.isValidGuess(currentGuess);
+        if (!validation.isValid) {
+            triggerInvalidFeedback('Not in word list');
+            return;
+        }
+
+        const normalizedGuess = currentGuess.trim().toUpperCase();
+        const nextGuesses = [...guesses, normalizedGuess];
         setGuesses(nextGuesses);
         setCurrentGuess('');
+        setErrorMessage(null);
         arcadeAudio.playJump();
 
-        if (currentGuess === targetWord) {
+        if (normalizedGuess === targetWord) {
             // Won!
             setGameState('completed');
             arcadeAudio.playMilestone();
@@ -119,9 +152,9 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
 
     // Letter feedback status map for keyboard
     const letterStatus: Record<string, WordleFeedback> = {};
-    guesses.forEach((g) => {
-        const feedback = WordleEngine.evaluateGuess(g, targetWord);
-        g.split('').forEach((letter, i) => {
+    guesses.forEach((guess) => {
+        const feedback = adapter.evaluateGuess(guess, targetWord);
+        guess.split('').forEach((letter, i) => {
             const status = feedback[i];
             if (status === 'correct' || (status === 'present' && letterStatus[letter] !== 'correct')) {
                 letterStatus[letter] = status;
@@ -151,16 +184,16 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
             theme={theme}
         >
             <div className="w-full max-w-sm flex flex-col items-center justify-between h-full space-y-3 p-1">
-                {/* Mode Selector */}
-                <div className="w-full flex items-center justify-between text-xs px-2">
+                {/* Mode Selector & Status Toast */}
+                <div className="w-full flex items-center justify-between text-xs px-2 relative">
                     <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl p-1">
                         <button
                             onClick={() => {
                                 setMode('daily');
                                 resetGame('daily');
                             }}
-                            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                                mode === 'daily' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                                mode === 'daily' ? 'bg-primary text-white shadow' : 'text-gray-400 hover:text-white'
                             }`}
                         >
                             Daily
@@ -170,17 +203,23 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
                                 setMode('practice');
                                 resetGame('practice');
                             }}
-                            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                                mode === 'practice' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
+                            className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                                mode === 'practice' ? 'bg-primary text-white shadow' : 'text-gray-400 hover:text-white'
                             }`}
                         >
                             Practice
                         </button>
                     </div>
 
-                    <div className="text-[11px] text-gray-400">
-                        Guess the 5-letter music word in 6 tries.
-                    </div>
+                    {errorMessage ? (
+                        <div className="px-3 py-1 bg-red-500/90 text-white font-bold text-[11px] rounded-lg shadow-lg animate-bounce">
+                            {errorMessage}
+                        </div>
+                    ) : (
+                        <div className="text-[11px] text-gray-400">
+                            Guess the 5-letter word in 6 tries.
+                        </div>
+                    )}
                 </div>
 
                 {/* 6-Row Guess Grid */}
@@ -188,10 +227,11 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
                     {Array.from({ length: 6 }).map((_, rowIdx) => {
                         const guess = guesses[rowIdx];
                         const isCurrentRow = rowIdx === guesses.length;
-                        const feedback = guess ? WordleEngine.evaluateGuess(guess, targetWord) : [];
+                        const feedback = guess ? adapter.evaluateGuess(guess, targetWord) : [];
+                        const rowShakeClass = isCurrentRow && isRowShaking ? 'animate-[shake_0.5s_ease-in-out]' : '';
 
                         return (
-                            <div key={rowIdx} className="grid grid-cols-5 gap-1.5">
+                            <div key={rowIdx} className={`grid grid-cols-5 gap-1.5 ${rowShakeClass}`}>
                                 {Array.from({ length: 5 }).map((_, colIdx) => {
                                     let char = '';
                                     let status: WordleFeedback | 'empty' = 'empty';
@@ -204,10 +244,10 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
                                     }
 
                                     let bgClass = 'bg-white/5 border-white/15';
-                                    if (status === 'correct') bgClass = 'bg-emerald-600 border-emerald-500 text-white';
-                                    else if (status === 'present') bgClass = 'bg-amber-500 border-amber-400 text-white';
+                                    if (status === 'correct') bgClass = 'bg-emerald-600 border-emerald-500 text-white shadow-sm';
+                                    else if (status === 'present') bgClass = 'bg-amber-500 border-amber-400 text-white shadow-sm';
                                     else if (status === 'absent') bgClass = 'bg-gray-800 border-gray-700 text-gray-400';
-                                    else if (char) bgClass = 'bg-white/10 border-white/40 text-white';
+                                    else if (char) bgClass = 'bg-white/10 border-white/40 text-white scale-105';
 
                                     return (
                                         <div
@@ -230,8 +270,8 @@ export const WordleGame: React.FC<WordleGameProps> = ({ theme, onBack }) => {
                             {row.map((key) => {
                                 const status = letterStatus[key];
                                 let keyBg = 'bg-white/15 text-white';
-                                if (status === 'correct') keyBg = 'bg-emerald-600 text-white';
-                                else if (status === 'present') keyBg = 'bg-amber-500 text-white';
+                                if (status === 'correct') keyBg = 'bg-emerald-600 text-white shadow';
+                                else if (status === 'present') keyBg = 'bg-amber-500 text-white shadow';
                                 else if (status === 'absent') keyBg = 'bg-gray-800 text-gray-500';
 
                                 const isSpecial = key === 'ENTER' || key === 'BACK';
