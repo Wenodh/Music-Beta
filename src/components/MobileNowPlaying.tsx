@@ -154,11 +154,11 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     {/* Main Layout Container */}
                     <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-4 sm:gap-y-8">
 
-                        {/* Artwork & Desktop Vertical Volume Booster Container */}
-                        <div className="relative w-full flex items-center justify-center gap-4 sm:gap-6 z-[20]">
+                        {/* Artwork & Vertical Volume Booster Container (Available on both Mobile & Desktop right beside album) */}
+                        <div className="relative w-full flex items-center justify-center gap-2 xs:gap-3 sm:gap-6 z-[20] px-1 sm:px-0">
                             {/* Card Stack & Floating Menu */}
                             <div
-                                className="relative flex-1 max-h-[40vh] aspect-square max-w-[280px] xs:max-w-[320px] sm:max-w-[380px] flex items-center justify-center"
+                                className="relative flex-1 max-h-[40vh] aspect-square max-w-[240px] xs:max-w-[280px] sm:max-w-[380px] flex items-center justify-center"
                                 style={{ perspective: '1200px' }}
                             >
                                 <AnimatePresence mode="popLayout">
@@ -198,10 +198,10 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                                     <img
                                                         src={getSongImage(song)}
                                                         alt=""
-                                                        className="w-full h-full object-cover rounded-[2rem] shadow-2xl border border-white/10"
+                                                        className="w-full h-full object-cover rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl border border-white/10"
                                                     />
                                                     {isTop && (
-                                                        <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-tr from-primary/20 to-transparent pointer-events-none" />
+                                                        <div className="absolute inset-0 rounded-[1.75rem] sm:rounded-[2rem] bg-gradient-to-tr from-primary/20 to-transparent pointer-events-none" />
                                                     )}
                                                 </div>
                                             </motion.div>
@@ -210,28 +210,31 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                 </AnimatePresence>
                             </div>
 
-                            {/* Desktop Expanded Player Vertical Volume Slider beside Album Art */}
-                            <div className="hidden sm:flex flex-col items-center justify-between h-[240px] px-3 py-4 rounded-3xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl select-none">
-                                <span className={`text-[11px] font-black tracking-wider ${effectiveVolume > 1.0 ? 'text-amber-400' : 'text-gray-300'}`}>
+                            {/* Direct Vertical Volume Slider beside Album Art (Mobile & Desktop) */}
+                            <div
+                                data-testid="expanded-volume-control"
+                                className="flex flex-col items-center justify-between h-[210px] xs:h-[230px] sm:h-[260px] w-11 xs:w-12 sm:w-14 py-3 px-1 rounded-2xl sm:rounded-3xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl select-none shrink-0"
+                            >
+                                <span className={`text-[10px] xs:text-[11px] font-black tracking-wider ${effectiveVolume > 1.0 ? 'text-amber-400' : 'text-gray-300'}`}>
                                     {Math.round(effectiveVolume * 100)}%
                                 </span>
                                 {effectiveVolume > 1.0 && (
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                    <span className={`text-[7.5px] xs:text-[8.5px] font-extrabold px-1 py-0.2 rounded-full border ${
                                         isBoosterAvailable
                                             ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                                             : 'bg-red-500/20 text-red-400 border-red-500/30'
                                     }`}>
-                                        {isBoosterAvailable ? 'BOOST' : '100% CAP'}
+                                        {isBoosterAvailable ? 'BOOST' : '100%'}
                                     </span>
                                 )}
-                                <div className="relative flex-1 flex items-center justify-center py-2">
+                                <div className="relative flex-1 flex items-center justify-center py-2 w-full">
                                     {/* 100% normal indicator tick mark */}
                                     <div
-                                        className="absolute right-0 w-2.5 h-[2px] bg-white/40 pointer-events-none rounded-full"
+                                        className="absolute right-1 w-2 h-[2px] bg-white/40 pointer-events-none rounded-full"
                                         style={{ bottom: '50%' }}
                                         title="100% (Normal Ceiling)"
                                     />
-                                    <div className="h-40 w-8 flex items-center justify-center relative">
+                                    <div className="h-32 xs:h-36 sm:h-40 w-8 flex items-center justify-center relative">
                                         <input
                                             type="range"
                                             min="0"
@@ -240,7 +243,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                             value={effectiveVolume}
                                             onChange={(e) => dispatch(setVolume(parseFloat(e.target.value)))}
                                             aria-label="Volume with Booster"
-                                            className={`w-36 h-2 -rotate-90 origin-center rounded-lg appearance-none cursor-pointer transition-colors ${
+                                            className={`w-28 xs:w-32 sm:w-36 h-2.5 -rotate-90 origin-center rounded-lg appearance-none cursor-pointer transition-colors ${
                                                 effectiveVolume > 1.0 ? 'accent-amber-400 bg-white/15' : 'accent-primary bg-white/15'
                                             }`}
                                         />
@@ -250,9 +253,9 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     type="button"
                                     onClick={() => dispatch(toggleMute())}
                                     title={isMuted ? "Unmute" : "Mute"}
-                                    className="p-1.5 rounded-full hover:bg-white/10 active:scale-90 transition-transform text-gray-300 hover:text-white"
+                                    className="p-1 xs:p-1.5 rounded-full hover:bg-white/10 active:scale-90 transition-transform text-gray-300 hover:text-white"
                                 >
-                                    {isMuted || effectiveVolume === 0 ? <HiSpeakerXMark size={20} className="text-red-400" /> : <HiSpeakerWave size={20} />}
+                                    {isMuted || effectiveVolume === 0 ? <HiSpeakerXMark size={18} className="text-red-400 sm:w-5 sm:h-5" /> : <HiSpeakerWave size={18} className="sm:w-5 sm:h-5" />}
                                 </button>
                             </div>
                         </div>
