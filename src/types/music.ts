@@ -50,6 +50,9 @@ export interface MusicPlayerState {
     shuffle: boolean;
     playbackSpeed: 0.75 | 1.0 | 1.25 | 1.5 | 2.0;
     sleepTimerMode: 'duration' | 'endOfTrack' | null;
+    volume: number; // 0 to 2.0 (0-1.0 normal, 1.0-2.0 boosted)
+    isMuted: boolean;
+    previousVolume: number;
 }
 
 export interface DownloadSettings {

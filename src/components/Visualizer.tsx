@@ -1,21 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppSelector } from '../hooks/redux';
-import { FREQUENCIES } from '../constants/equalizer';
+import { audioEngine } from '../services/audioEngine';
 
 interface VisualizerProps {
     audioRefs: React.RefObject<HTMLAudioElement>[];
     isPlaying: boolean;
 }
 
-// Singleton Audio Graph
-let sharedContext: AudioContext | null = null;
-let sharedAnalyser: AnalyserNode | null = null;
-let sharedFilters: BiquadFilterNode[] = [];
-let isInitialized = false;
-
 const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const requestRef = useRef<number>();
+    const requestRef = useRef<number | undefined>(undefined);
     const smoothedValuesRef = useRef<number[]>([]);
     const peaksRef = useRef<number[]>([]);
     const particlesRef = useRef<any[]>([]);
@@ -29,110 +23,38 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
             if (color) accentColorRef.current = color;
         };
         updateAccentColor();
-        // The accent color changes based on album art, which happens when song changes
-        // A simple observer or interval could work, but usually it's stable during a song
         const interval = setInterval(updateAccentColor, 1000);
         return () => clearInterval(interval);
     }, []);
 
-    const setupAudioSource = (audioEl: HTMLAudioElement, context: AudioContext, firstFilter: BiquadFilterNode) => {
-        const el = audioEl as any;
-        if (el._visualizerSource) return;
-
-        try {
-            const source = context.createMediaElementSource(audioEl);
-            const gainNode = context.createGain();
-
-            source.connect(gainNode);
-            gainNode.connect(firstFilter);
-
-            el._visualizerSource = source;
-            el._gainNode = gainNode;
-            el._visualizerContext = context;
-        } catch (e) {
-            console.error("Error setting up audio source", e);
-        }
-    };
-
-    const initAudio = () => {
-        if (isInitialized) return;
-
-        try {
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            sharedContext = new AudioContextClass();
-
-            sharedAnalyser = sharedContext.createAnalyser();
-            sharedAnalyser.fftSize = 512;
-            sharedAnalyser.smoothingTimeConstant = 0.8;
-
-            // Create shared filters (EQ)
-            sharedFilters = FREQUENCIES.map((freq, i) => {
-                const filter = sharedContext!.createBiquadFilter();
-                filter.type = 'peaking';
-                filter.frequency.value = freq;
-                filter.Q.value = 1;
-                filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
-                return filter;
-            });
-
-            // Connect filters in series
-            for (let i = 0; i < sharedFilters.length - 1; i++) {
-                sharedFilters[i].connect(sharedFilters[i + 1]);
-            }
-
-            // Last filter connects to analyser
-            sharedFilters[sharedFilters.length - 1].connect(sharedAnalyser);
-            sharedAnalyser.connect(sharedContext.destination);
-
-            isInitialized = true;
-        } catch (err) {
-            console.warn('Failed to initialize audio visualizer singleton:', err);
-        }
-    };
-
     useEffect(() => {
         if (isPlaying) {
-            initAudio();
-            if (sharedContext?.state === 'suspended') {
-                sharedContext.resume();
-            }
+            audioEngine.initContext();
+            audioEngine.resume();
         }
 
         const handleFirstInteraction = () => {
-            initAudio();
-            if (sharedContext?.state === 'suspended') {
-                sharedContext.resume();
-            }
+            audioEngine.initContext();
+            audioEngine.resume();
             document.removeEventListener('click', handleFirstInteraction);
         };
 
         document.addEventListener('click', handleFirstInteraction);
 
-        // Re-check refs on update
-        if (isInitialized && sharedContext && sharedFilters[0]) {
-            audioRefs.forEach(ref => {
-                if (ref.current) {
-                    setupAudioSource(ref.current, sharedContext!, sharedFilters[0]);
-                }
-            });
-        }
-
         return () => {
             document.removeEventListener('click', handleFirstInteraction);
         };
-    }, [audioRefs, isPlaying]);
+    }, [isPlaying]);
 
     useEffect(() => {
-        if (isInitialized && sharedFilters.length > 0) {
-            sharedFilters.forEach((filter, i) => {
-                filter.gain.value = equalizerSettings.enabled ? equalizerSettings.bands[i] : 0;
-            });
-        }
+        audioEngine.updateEqualizer(equalizerSettings.bands, equalizerSettings.enabled);
     }, [equalizerSettings]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas || !sharedAnalyser) return;
+        const sharedAnalyser = audioEngine.getAnalyser();
+        const sharedContext = audioEngine.getAudioContext();
+        if (!canvas || !sharedAnalyser || !sharedContext) return;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -142,7 +64,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ audioRefs, isPlaying }) => {
 
         const draw = () => {
             requestRef.current = requestAnimationFrame(draw);
-            sharedAnalyser!.getByteFrequencyData(dataArray);
+            sharedAnalyser.getByteFrequencyData(dataArray);
 
             const dpr = window.devicePixelRatio || 1;
             if (canvas.width !== canvas.clientWidth * dpr || canvas.height !== canvas.clientHeight * dpr) {

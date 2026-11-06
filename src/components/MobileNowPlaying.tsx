@@ -7,10 +7,10 @@ import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { BiRepeat } from 'react-icons/bi';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { MdOutlineLyrics, MdOutlineGraphicEq, MdBarChart, MdShowChart, MdBubbleChart, MdDonutLarge, MdApps } from 'react-icons/md';
-import { HiQueueList } from 'react-icons/hi2';
+import { HiQueueList, HiSpeakerWave, HiSpeakerXMark } from 'react-icons/hi2';
 import { IoPeopleOutline } from 'react-icons/io5';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
-import { playMusic, setCurrentTime, setPlaybackSpeed, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle } from '../features/musicplayer/musicPlayerSlice';
+import { playMusic, setCurrentTime, setPlaybackSpeed, setVisualizerStyle, nextSong as nextSongAction, prevSong as prevSongAction, toggleRepeatMode, toggleShuffle, setVolume, toggleMute } from '../features/musicplayer/musicPlayerSlice';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
@@ -25,6 +25,7 @@ interface MobileNowPlayingProps {
     handleSeek?: (time: number) => void;
     imageUrl: string;
     audioRefs: React.RefObject<HTMLAudioElement>[];
+    isBoosterAvailable?: boolean;
     onOpenSession?: () => void;
 }
 
@@ -36,6 +37,7 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     handleSeek,
     imageUrl,
     audioRefs,
+    isBoosterAvailable = true,
     onOpenSession
 }) => {
     const dispatch = useAppDispatch();
@@ -45,10 +47,15 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const { isJoined } = useAppSelector(state => state.session);
 
     // States for overlays
+    const { volume: reduxVolume, isMuted } = useAppSelector(state => state.musicPlayer);
+    const effectiveVolume = isMuted ? 0 : (typeof reduxVolume === 'number' && !isNaN(reduxVolume) ? reduxVolume : 0.7);
+
+    // States for overlays
     const [isLyricsOverlayOpen, setIsLyricsOverlayOpen] = useState(false);
     const [isQueueOverlayOpen, setIsQueueOverlayOpen] = useState(false);
     const [isInfoOverlayOpen, setIsInfoOverlayOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+    const [isVolumeSheetOpen, setIsVolumeSheetOpen] = useState(false);
 
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');
@@ -147,59 +154,107 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                     {/* Main Layout Container */}
                     <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-2 sm:px-6 pt-4 pb-8 sm:py-8 overflow-hidden gap-y-4 sm:gap-y-8">
 
-                        {/* Card Stack & Floating Menu */}
-                        <div
-                            className="relative w-full flex-1 max-h-[40vh] aspect-square max-w-[280px] xs:max-w-[320px] sm:max-w-[380px] z-[20] flex items-center justify-center"
-                            style={{ perspective: '1200px' }}
-                        >
-                            <AnimatePresence mode="popLayout">
-                                {songStack.slice().reverse().map((song, index) => {
-                                    const stackIndex = songStack.length - 1 - index;
-                                    const isTop = stackIndex === 0;
+                        {/* Artwork & Desktop Vertical Volume Booster Container */}
+                        <div className="relative w-full flex items-center justify-center gap-4 sm:gap-6 z-[20]">
+                            {/* Card Stack & Floating Menu */}
+                            <div
+                                className="relative flex-1 max-h-[40vh] aspect-square max-w-[280px] xs:max-w-[320px] sm:max-w-[380px] flex items-center justify-center"
+                                style={{ perspective: '1200px' }}
+                            >
+                                <AnimatePresence mode="popLayout">
+                                    {songStack.slice().reverse().map((song, index) => {
+                                        const stackIndex = songStack.length - 1 - index;
+                                        const isTop = stackIndex === 0;
 
-                                    return (
-                                        <motion.div
-                                            key={song.id}
-                                            style={{ zIndex: 50 - stackIndex }}
-                                            initial={moveDirection === 'backward' && isTop ? { x: -1000, rotate: -45, opacity: 0 } : { scale: 0.8, y: 20, opacity: 0 }}
-                                            animate={{
-                                                scale: 1 - stackIndex * 0.08,
-                                                y: stackIndex * 15,
-                                                z: -stackIndex * 150,
-                                                opacity: 1 - stackIndex * 0.3,
-                                                x: 0, rotate: 0
-                                            }}
-                                            exit={{
-                                                x: isTop ? exitDirection : 0,
-                                                opacity: 0,
-                                                rotate: isTop ? (exitDirection > 0 ? 45 : -45) : 0,
-                                                transition: { duration: 0.4 }
-                                            }}
-                                            drag={isTop ? "x" : false}
-                                            dragConstraints={{ left: 0, right: 0 }}
-                                            onDragEnd={(_, info) => {
-                                                if (isTop) {
-                                                    if (info.offset.x > 100) handlePrev();
-                                                    else if (info.offset.x < -100) handleNext();
-                                                }
-                                            }}
-                                            className="absolute inset-0"
-                                        >
-                                            <div className="relative w-full h-full">
-                                                <img
-                                                    src={getSongImage(song)}
-                                                    alt=""
-                                                    className="w-full h-full object-cover rounded-[2rem] shadow-2xl border border-white/10"
-                                                />
-                                                {isTop && (
-                                                    <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-tr from-primary/20 to-transparent pointer-events-none" />
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                            </AnimatePresence>
+                                        return (
+                                            <motion.div
+                                                key={song.id}
+                                                style={{ zIndex: 50 - stackIndex }}
+                                                initial={moveDirection === 'backward' && isTop ? { x: -1000, rotate: -45, opacity: 0 } : { scale: 0.8, y: 20, opacity: 0 }}
+                                                animate={{
+                                                    scale: 1 - stackIndex * 0.08,
+                                                    y: stackIndex * 15,
+                                                    z: -stackIndex * 150,
+                                                    opacity: 1 - stackIndex * 0.3,
+                                                    x: 0, rotate: 0
+                                                }}
+                                                exit={{
+                                                    x: isTop ? exitDirection : 0,
+                                                    opacity: 0,
+                                                    rotate: isTop ? (exitDirection > 0 ? 45 : -45) : 0,
+                                                    transition: { duration: 0.4 }
+                                                }}
+                                                drag={isTop ? "x" : false}
+                                                dragConstraints={{ left: 0, right: 0 }}
+                                                onDragEnd={(_, info) => {
+                                                    if (isTop) {
+                                                        if (info.offset.x > 100) handlePrev();
+                                                        else if (info.offset.x < -100) handleNext();
+                                                    }
+                                                }}
+                                                className="absolute inset-0"
+                                            >
+                                                <div className="relative w-full h-full">
+                                                    <img
+                                                        src={getSongImage(song)}
+                                                        alt=""
+                                                        className="w-full h-full object-cover rounded-[2rem] shadow-2xl border border-white/10"
+                                                    />
+                                                    {isTop && (
+                                                        <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-tr from-primary/20 to-transparent pointer-events-none" />
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </AnimatePresence>
+                            </div>
 
+                            {/* Desktop Expanded Player Vertical Volume Slider beside Album Art */}
+                            <div className="hidden sm:flex flex-col items-center justify-between h-[240px] px-3 py-4 rounded-3xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl select-none">
+                                <span className={`text-[11px] font-black tracking-wider ${effectiveVolume > 1.0 ? 'text-amber-400' : 'text-gray-300'}`}>
+                                    {Math.round(effectiveVolume * 100)}%
+                                </span>
+                                {effectiveVolume > 1.0 && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                        isBoosterAvailable
+                                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                            : 'bg-red-500/20 text-red-400 border-red-500/30'
+                                    }`}>
+                                        {isBoosterAvailable ? 'BOOST' : '100% CAP'}
+                                    </span>
+                                )}
+                                <div className="relative flex-1 flex items-center justify-center py-2">
+                                    {/* 100% normal indicator tick mark */}
+                                    <div
+                                        className="absolute right-0 w-2.5 h-[2px] bg-white/40 pointer-events-none rounded-full"
+                                        style={{ bottom: '50%' }}
+                                        title="100% (Normal Ceiling)"
+                                    />
+                                    <div className="h-40 w-8 flex items-center justify-center relative">
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="2"
+                                            step="0.01"
+                                            value={effectiveVolume}
+                                            onChange={(e) => dispatch(setVolume(parseFloat(e.target.value)))}
+                                            aria-label="Volume with Booster"
+                                            className={`w-36 h-2 -rotate-90 origin-center rounded-lg appearance-none cursor-pointer transition-colors ${
+                                                effectiveVolume > 1.0 ? 'accent-amber-400 bg-white/15' : 'accent-primary bg-white/15'
+                                            }`}
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => dispatch(toggleMute())}
+                                    title={isMuted ? "Unmute" : "Mute"}
+                                    className="p-1.5 rounded-full hover:bg-white/10 active:scale-90 transition-transform text-gray-300 hover:text-white"
+                                >
+                                    {isMuted || effectiveVolume === 0 ? <HiSpeakerXMark size={20} className="text-red-400" /> : <HiSpeakerWave size={20} />}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Content Group (Info, Progress, Controls) */}
@@ -289,6 +344,19 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <span className="text-[10px] font-bold uppercase text-gray-500">Add</span>
                                 </button>
                                 <button
+                                    onClick={() => setIsVolumeSheetOpen(true)}
+                                    className="sm:hidden p-2.5 xs:p-3 sm:p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
+                                >
+                                    {isMuted || effectiveVolume === 0 ? (
+                                        <HiSpeakerXMark size={24} className="text-red-400" />
+                                    ) : (
+                                        <HiSpeakerWave size={24} className={effectiveVolume > 1.0 ? 'text-amber-400' : 'text-gray-300'} />
+                                    )}
+                                    <span className={`text-[10px] font-bold uppercase ${effectiveVolume > 1.0 ? 'text-amber-400' : 'text-gray-500'}`}>
+                                        {Math.round(effectiveVolume * 100)}%
+                                    </span>
+                                </button>
+                                <button
                                     onClick={() => setIsMoreMenuOpen(true)}
                                     className="p-2.5 xs:p-3 sm:p-4 flex flex-col items-center gap-1 active:scale-90 transition-all"
                                 >
@@ -368,6 +436,22 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                                 ))}
                                             </div>
                                         </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setIsVolumeSheetOpen(true);
+                                                setIsMoreMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl text-gray-200 active:scale-[0.98] transition-all"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <HiSpeakerWave size={24} className={effectiveVolume > 1.0 ? 'text-amber-400' : 'text-gray-300'} />
+                                                <span className="font-bold">Volume & Booster</span>
+                                            </div>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${effectiveVolume > 1.0 ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-gray-400'}`}>
+                                                {Math.round(effectiveVolume * 100)}%
+                                            </span>
+                                        </button>
 
                                         <button
                                             onClick={() => {
@@ -475,6 +559,115 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
                                     <QueueContent />
                                 </div>
                             </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Mobile Volume Booster Bottom Sheet */}
+                    <AnimatePresence>
+                        {isVolumeSheetOpen && (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setIsVolumeSheetOpen(false)}
+                                    className="fixed inset-0 z-[400] bg-black/70 backdrop-blur-sm"
+                                />
+                                <motion.div
+                                    initial={{ y: '100%' }}
+                                    animate={{ y: 0 }}
+                                    exit={{ y: '100%' }}
+                                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                    className="fixed bottom-0 left-0 right-0 z-[410] bg-gray-900 rounded-t-[32px] p-6 pb-12 pb-safe border-t border-white/10 select-none shadow-[0_-10px_40px_rgba(0,0,0,0.8)]"
+                                >
+                                    <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
+
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => dispatch(toggleMute())}
+                                                className="p-2.5 rounded-full bg-white/10 active:scale-95 transition-transform"
+                                            >
+                                                {isMuted || effectiveVolume === 0 ? <HiSpeakerXMark size={24} className="text-red-400" /> : <HiSpeakerWave size={24} />}
+                                            </button>
+                                            <div>
+                                                <h3 className="text-lg font-black flex items-center gap-2">
+                                                    Volume Control
+                                                    {effectiveVolume > 1.0 && (
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                            isBoosterAvailable
+                                                                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                                                : 'bg-red-500/20 text-red-400 border-red-500/30'
+                                                        }`}>
+                                                            {isBoosterAvailable ? 'BOOST ACTIVE' : 'BOOST UNAVAILABLE (NATIVE)'}
+                                                        </span>
+                                                    )}
+                                                </h3>
+                                                <p className="text-xs text-gray-400">
+                                                    {isBoosterAvailable
+                                                        ? 'Amplification up to 200% with soft limiter'
+                                                        : 'Source does not support CORS boost. Native playback capped at 100%'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className={`text-xl font-black ${effectiveVolume > 1.0 ? 'text-amber-400' : 'text-primary'}`}>
+                                            {Math.round(effectiveVolume * 100)}%
+                                        </span>
+                                    </div>
+
+                                    {/* Continuous 0-200% Slider with 100% midpoint mark */}
+                                    <div className="relative mb-6 px-1">
+                                        <div
+                                            className="absolute top-1/2 -translate-y-1/2 w-1.5 h-4 bg-white/30 rounded-full pointer-events-none"
+                                            style={{ left: '50%' }}
+                                            title="100% Standard Ceiling"
+                                        />
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="2"
+                                            step="0.01"
+                                            value={effectiveVolume}
+                                            onChange={(e) => dispatch(setVolume(parseFloat(e.target.value)))}
+                                            className={`w-full h-3 rounded-lg appearance-none cursor-pointer bg-white/10 ${
+                                                effectiveVolume > 1.0 ? 'accent-amber-400' : 'accent-primary'
+                                            }`}
+                                        />
+                                        <div className="flex justify-between text-[11px] font-bold text-gray-400 mt-2 px-1">
+                                            <span>0%</span>
+                                            <span className="text-gray-300">100% (Standard)</span>
+                                            <span className="text-amber-400">200% (Boost)</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Quick Presets */}
+                                    <div className="grid grid-cols-4 gap-2 mb-6">
+                                        {[0.5, 1.0, 1.5, 2.0].map((preset) => (
+                                            <button
+                                                key={preset}
+                                                type="button"
+                                                onClick={() => dispatch(setVolume(preset))}
+                                                className={`py-2.5 rounded-xl text-xs font-black transition-all ${
+                                                    Math.abs(effectiveVolume - preset) < 0.03
+                                                        ? (preset > 1.0 ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/30' : 'bg-primary text-white shadow-lg')
+                                                        : 'bg-white/5 text-gray-300 hover:bg-white/10 active:scale-95'
+                                                }`}
+                                            >
+                                                {preset * 100}%
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsVolumeSheetOpen(false)}
+                                        className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-2xl font-bold text-sm transition-colors"
+                                    >
+                                        Done
+                                    </button>
+                                </motion.div>
+                            </>
                         )}
                     </AnimatePresence>
 
