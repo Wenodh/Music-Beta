@@ -2,8 +2,9 @@ import { BiRepeat } from 'react-icons/bi';
 import { IoMdSkipBackward, IoMdSkipForward } from 'react-icons/io';
 import { PiShuffleBold, PiRepeatOnceBold } from 'react-icons/pi';
 import { FaPlay, FaPause } from 'react-icons/fa';
-import { HiSpeakerWave } from 'react-icons/hi2';
+import { HiSpeakerWave, HiSpeakerXMark } from 'react-icons/hi2';
 import { LuHardDriveDownload } from 'react-icons/lu';
+import { audioEngine, isWebAudioEligibleSource } from '../services/audioEngine';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { IoEllipsisVertical } from 'react-icons/io5';
 import { RiShareForwardLine } from 'react-icons/ri';
@@ -21,6 +22,8 @@ import {
     nextSong,
     prevSong as prevSongAction,
     setSleepTimer,
+    setVolume,
+    toggleMute as toggleVolumeMute,
 } from '../features/musicplayer/musicPlayerSlice';
 import SleepTimer from './SleepTimer';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,13 +56,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const moreMenuRef = useRef<HTMLDivElement>(null);
-    const [userVolume, setUserVolume] = useState(0.7);
-
     const {
         currentSong, isPlaying, songs, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
-        visualizerStyle, repeatMode, shuffle, playbackSpeed, sleepTimerMode, recommendationsCache, currentTime: savedCurrentTime
+        visualizerStyle, repeatMode, shuffle, playbackSpeed, sleepTimerMode, recommendationsCache,
+        currentTime: savedCurrentTime, volume: reduxVolume, isMuted
     } = useAppSelector((state) => state.musicPlayer);
+
+    const effectiveVolume = isMuted ? 0 : (typeof reduxVolume === 'number' && !isNaN(reduxVolume) ? reduxVolume : 0.7);
 
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
@@ -125,19 +129,92 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Dual buffer system
     const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
     const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
+    const [isSourceWebAudioEligible, setIsSourceWebAudioEligible] = useState<boolean>(true);
     const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
     const [isCrossfading, setIsCrossfading] = useState(false);
 
     const getActiveAudio = () => activeBuffer === 'A' ? audioRefA.current : audioRefB.current;
     const getInactiveAudio = () => activeBuffer === 'A' ? audioRefB.current : audioRefA.current;
 
-    useEffect(() => {
-        [audioRefA.current, audioRefB.current].forEach(audio => {
-            audio.crossOrigin = 'anonymous';
-            audio.preload = 'auto';
-            audio.preservesPitch = true;
-        });
+    // Track attached listeners to guarantee clean replacement without leaks or timing gaps
+    const attachedListenersRef = useRef<WeakMap<HTMLAudioElement, { timeupdate: () => void; ended: () => void }>>(new WeakMap());
+    const currentListenersRef = useRef<{ timeupdate: () => void; ended: () => void } | null>(null);
+
+    // Helper to bind listeners cleanly and idempotently
+    const bindAudioListeners = useCallback((audio: HTMLAudioElement) => {
+        const handlers = currentListenersRef.current;
+        if (!audio || !handlers) return;
+
+        // If this element already has listeners bound, detach them first
+        const existing = attachedListenersRef.current.get(audio);
+        if (existing) {
+            audio.removeEventListener('timeupdate', existing.timeupdate);
+            audio.removeEventListener('ended', existing.ended);
+        }
+
+        audio.addEventListener('timeupdate', handlers.timeupdate);
+        audio.addEventListener('ended', handlers.ended);
+        attachedListenersRef.current.set(audio, handlers);
     }, []);
+
+    // Helper to unbind listeners
+    const unbindAudioListeners = useCallback((audio: HTMLAudioElement) => {
+        if (!audio) return;
+        const existing = attachedListenersRef.current.get(audio);
+        if (existing) {
+            audio.removeEventListener('timeupdate', existing.timeupdate);
+            audio.removeEventListener('ended', existing.ended);
+            attachedListenersRef.current.delete(audio);
+        }
+    }, []);
+
+    // Helper to configure audio element
+    const configureAudioElement = useCallback((audio: HTMLAudioElement) => {
+        audio.crossOrigin = 'anonymous';
+        audio.preload = 'auto';
+        audio.preservesPitch = true;
+        audio.playbackRate = playbackSpeed;
+    }, [playbackSpeed]);
+
+    useEffect(() => {
+        [audioRefA.current, audioRefB.current].forEach(configureAudioElement);
+    }, [configureAudioElement]);
+
+    // Ensure audio element is Web-Audio ready or cleanly isolated for native playback
+    const prepareAudioForSource = useCallback((buffer: 'A' | 'B', songUrl: string): HTMLAudioElement => {
+        const audioRef = buffer === 'A' ? audioRefA : audioRefB;
+        const currentAudio = audioRef.current;
+        const isEligible = isWebAudioEligibleSource(songUrl);
+
+        if (isEligible) {
+            // Eligible for Web Audio: initialize context and register element
+            audioEngine.initContext();
+            audioEngine.registerAudioElement(currentAudio);
+            currentAudio.playbackRate = playbackSpeed;
+            currentAudio.preservesPitch = true;
+            return currentAudio;
+        } else {
+            // Ineligible for Web Audio (unverified or cross-origin without CORS)
+            // If already captured by Web Audio, create a fresh un-captured HTMLAudioElement to prevent silent capture
+            if (audioEngine.isElementCaptured(currentAudio)) {
+                unbindAudioListeners(currentAudio);
+                currentAudio.pause();
+                currentAudio.src = '';
+                const freshAudio = new Audio('');
+                configureAudioElement(freshAudio);
+                audioRef.current = freshAudio;
+
+                // If replacing the active buffer, bind listeners immediately
+                if (buffer === activeBuffer) {
+                    bindAudioListeners(freshAudio);
+                }
+                return freshAudio;
+            }
+            currentAudio.playbackRate = playbackSpeed;
+            currentAudio.preservesPitch = true;
+            return currentAudio;
+        }
+    }, [activeBuffer, bindAudioListeners, configureAudioElement, playbackSpeed, unbindAudioListeners]);
 
     // Synchronize playback speed across both audio buffers (accounting for temporary session drift correction)
     useEffect(() => {
@@ -321,46 +398,59 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const isInitialPositionRestoredRef = useRef(false);
     const restoredSongIdRef = useRef<string | null>(null);
 
+    // Monotonically increasing generation counters to guard against out-of-order promise resolutions
+    const activePlaybackRequestIdRef = useRef<number>(0);
+    const crossfadeRequestIdRef = useRef<number>(0);
+
     // Handle Playback State
     useEffect(() => {
         const activeAudio = getActiveAudio();
         const targetSong = currentSong;
         const targetSongId = targetSong?.id;
+        const currentRequestId = ++activePlaybackRequestIdRef.current;
 
         getSongUrl(targetSong).then(songUrl => {
-            // Guard: If currentSong changed while resolving URL, ignore stale resolution
+            // Check generation token and current song ID before mutating state
+            if (activePlaybackRequestIdRef.current !== currentRequestId) return;
             if (currentSongRef.current?.id !== targetSongId) return;
 
-            if (songUrl && activeAudio.src !== songUrl) {
-                activeAudio.src = songUrl;
+            const isEligible = isWebAudioEligibleSource(songUrl);
+            setIsSourceWebAudioEligible(isEligible);
+
+            const resolvedAudio = prepareAudioForSource(activeBuffer, songUrl);
+
+            // Double check generation after potential element preparation
+            if (activePlaybackRequestIdRef.current !== currentRequestId) return;
+
+            if (songUrl && resolvedAudio.src !== songUrl) {
+                resolvedAudio.src = songUrl;
                 setIsCrossfading(false);
 
                 // Restore position only once for the re-hydrated initial song
                 if (!isInitialPositionRestoredRef.current && savedCurrentTime > 0 && targetSongId) {
                     restoredSongIdRef.current = targetSongId;
                     const onLoadedMetadata = () => {
-                        // Ensure we are still targeting the exact same song ID when metadata loaded
                         if (currentSongRef.current?.id === targetSongId && restoredSongIdRef.current === targetSongId) {
-                            if (savedCurrentTime < (activeAudio.duration || Infinity)) {
-                                activeAudio.currentTime = savedCurrentTime;
-                                const progressVal = (savedCurrentTime / (activeAudio.duration || 1)) * 100;
+                            if (savedCurrentTime < (resolvedAudio.duration || Infinity)) {
+                                resolvedAudio.currentTime = savedCurrentTime;
+                                const progressVal = (savedCurrentTime / (resolvedAudio.duration || 1)) * 100;
                                 setProgress(progressVal);
                             }
                         }
                     };
-                    activeAudio.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+                    resolvedAudio.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
                     isInitialPositionRestoredRef.current = true;
                 }
             }
 
             if (isPlaying) {
-                activeAudio.play().catch(e => console.warn("Playback failed", e));
+                resolvedAudio.play().catch(e => console.warn("Playback failed", e));
             } else {
-                activeAudio.pause();
+                resolvedAudio.pause();
                 getInactiveAudio().pause();
             }
         });
-    }, [currentSong?.id, activeBuffer, getSongUrl]);
+    }, [currentSong?.id, activeBuffer, getSongUrl, prepareAudioForSource]);
 
     useEffect(() => {
         const activeAudio = getActiveAudio();
@@ -470,8 +560,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 return;
             }
 
+            const currentCrossfadeId = ++crossfadeRequestIdRef.current;
+
             getSongUrl(next, true).then(url => {
-                inactiveAudio.src = url;
+                if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
+                const inactiveBuffer = activeBuffer === 'A' ? 'B' : 'A';
+                const resolvedInactive = prepareAudioForSource(inactiveBuffer, url);
+                if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
+                resolvedInactive.src = url;
             });
 
             inactiveAudio.volume = 0;
@@ -485,9 +581,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     step++;
                     const progress = step / steps;
 
-                    // Simple linear fade for now
-                    activeAudio.volume = userVolume * (1 - progress);
-                    inactiveAudio.volume = userVolume * progress;
+                    // Hardware volume scaled linearly during crossfade (booster gain is handled by audioEngine)
+                    const baseVol = Math.min(1.0, Math.max(0, effectiveVolume));
+                    activeAudio.volume = baseVol * (1 - progress);
+                    inactiveAudio.volume = baseVol * progress;
 
                     if (step >= steps) {
                         clearInterval(fade);
@@ -542,22 +639,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         };
 
-        activeAudio.addEventListener('timeupdate', handleTimeUpdate);
-        activeAudio.addEventListener('ended', handleSongEnd);
+        currentListenersRef.current = { timeupdate: handleTimeUpdate, ended: handleSongEnd };
+        bindAudioListeners(activeAudio);
 
         return () => {
-            activeAudio.removeEventListener('timeupdate', handleTimeUpdate);
-            activeAudio.removeEventListener('ended', handleSongEnd);
+            unbindAudioListeners(activeAudio);
         };
-    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, userVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations, sleepTimerMode]);
+    }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, effectiveVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations, sleepTimerMode, bindAudioListeners, unbindAudioListeners]);
 
-    // Update individual audio volumes based on user global volume
+    // Update individual audio volumes and Web Audio booster gain based on user global volume
     useEffect(() => {
+        const hardwareVolume = Math.min(1.0, Math.max(0, effectiveVolume));
+        // If current source is ineligible for Web Audio, cap gain to 1.0
+        const softwareGain = isSourceWebAudioEligible && effectiveVolume > 1.0 ? effectiveVolume : 1.0;
+
         if (!isCrossfading) {
-            audioRefA.current.volume = userVolume;
-            audioRefB.current.volume = userVolume;
+            audioRefA.current.volume = hardwareVolume;
+            audioRefB.current.volume = hardwareVolume;
         }
-    }, [userVolume, isCrossfading]);
+        audioEngine.setBoosterGain(softwareGain);
+    }, [effectiveVolume, isCrossfading, isSourceWebAudioEligible]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1219,24 +1320,52 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                                 onMouseLeave={() => setIsVolumeVisible(false)}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <HiSpeakerWave className="text-gray-700 dark:text-gray-200 hover:text-primary text-2xl lg:text-3xl cursor-pointer hidden lg:block transition-colors" />
+                                <button
+                                    type="button"
+                                    onClick={() => dispatch(toggleVolumeMute())}
+                                    title={isMuted ? "Unmute" : "Mute"}
+                                    className="text-gray-700 dark:text-gray-200 hover:text-primary text-2xl lg:text-3xl cursor-pointer hidden lg:block transition-colors"
+                                >
+                                    {isMuted || effectiveVolume === 0 ? <HiSpeakerXMark className="text-red-500" /> : <HiSpeakerWave />}
+                                </button>
                                 <div
                                     className={`absolute bottom-full right-0 mb-4 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-xl rounded-2xl border border-white/20 transition-all duration-300 ${
                                         isVolumeVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
                                     }`}
                                 >
-                                    <div className="h-24 flex flex-col items-center gap-2">
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="1"
-                                            step="0.01"
-                                            value={userVolume}
-                                            onChange={(e) => setUserVolume(parseFloat(e.target.value))}
-                                            className="h-20 appearance-none bg-gray-200 dark:bg-gray-700 rounded-lg cursor-pointer"
-                                            style={{ writingMode: 'bt-lr', appearance: 'slider-vertical' } as any}
-                                        />
-                                        <span className="text-[10px] font-bold text-gray-500">{Math.round(userVolume * 100)}%</span>
+                                    <div className="h-36 flex flex-col items-center justify-between py-1 select-none">
+                                        <span className={`text-[11px] font-black ${effectiveVolume > 1.0 ? 'text-amber-500' : 'text-gray-600 dark:text-gray-300'}`}>
+                                            {Math.round(effectiveVolume * 100)}%
+                                        </span>
+                                        {effectiveVolume > 1.0 && (
+                                            <span className="text-[9px] font-bold px-1 rounded bg-amber-500/20 text-amber-500">
+                                                BOOST
+                                            </span>
+                                        )}
+                                        {/* Cross-browser vertical slider wrapper using standards-compliant CSS rotation */}
+                                        <div className="relative w-8 h-24 flex items-center justify-center my-1">
+                                            {/* Midpoint 100% normal volume marker */}
+                                            <div
+                                                className="absolute right-0 w-2 h-[2px] bg-gray-400 dark:bg-gray-500 pointer-events-none rounded-full"
+                                                style={{ bottom: '50%' }}
+                                                title="100% Standard Ceiling"
+                                            />
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="2"
+                                                step="0.01"
+                                                value={effectiveVolume}
+                                                aria-label="Volume with Booster"
+                                                onChange={(e) => dispatch(setVolume(parseFloat(e.target.value)))}
+                                                className={`w-24 h-2 rounded-lg cursor-pointer -rotate-90 origin-center ${
+                                                    effectiveVolume > 1.0 ? 'accent-amber-500' : 'accent-primary'
+                                                }`}
+                                            />
+                                        </div>
+                                        <span className="text-[9px] font-bold text-gray-400">
+                                            {isMuted ? 'MUTED' : '0%'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -1253,6 +1382,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             handleSeek={handleSeek}
             imageUrl={imageUrl || ''}
             audioRefs={[audioRefA, audioRefB]}
+            isBoosterAvailable={isSourceWebAudioEligible}
             onOpenSession={() => dispatch(setSessionModalOpen(true))}
         />
 

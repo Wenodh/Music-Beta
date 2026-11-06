@@ -38,6 +38,9 @@ const initialState: MusicPlayerState = {
     shuffle: false,
     playbackSpeed: 1.0,
     sleepTimerMode: null,
+    volume: 0.7,
+    isMuted: false,
+    previousVolume: 0.7,
 };
 
 // Helper to format song for currentSong state
@@ -300,6 +303,50 @@ const musicPlayerSlice = createSlice({
         setRecentlyPlayed: (state, action: PayloadAction<Song[]>) => {
             state.recentlyPlayed = action.payload.slice(0, 20);
         },
+        setVolume: (state, action: PayloadAction<number>) => {
+            const raw = typeof action.payload === 'number' && !isNaN(action.payload) ? action.payload : 0.7;
+            const clamped = Math.min(2.0, Math.max(0, raw));
+            if (state.isMuted) {
+                // If currently muted, updating volume updates the stored target volume without unmuting
+                state.previousVolume = clamped > 0 ? clamped : 0.7;
+            } else {
+                state.volume = clamped;
+                if (clamped > 0) {
+                    state.previousVolume = clamped;
+                }
+            }
+        },
+        toggleMute: (state) => {
+            if (state.isMuted) {
+                // Unmute: restore previous non-zero volume
+                state.isMuted = false;
+                state.volume = state.previousVolume > 0 ? state.previousVolume : 0.7;
+            } else {
+                // Mute: save current volume if positive
+                if (state.volume > 0) {
+                    state.previousVolume = state.volume;
+                }
+                state.isMuted = true;
+                state.volume = 0;
+            }
+        },
+    },
+    extraReducers: (builder) => {
+        // Redux Persist Rehydration normalization
+        builder.addCase('persist/REHYDRATE', (state: any, action: any) => {
+            const incoming = action.payload?.musicPlayer;
+            if (incoming) {
+                // Normalize volume (0 - 2.0, default 0.7)
+                const rawVol = incoming.volume;
+                const validVol = typeof rawVol === 'number' && !isNaN(rawVol) ? Math.min(2.0, Math.max(0, rawVol)) : 0.7;
+                state.volume = validVol;
+
+                state.isMuted = Boolean(incoming.isMuted);
+
+                const rawPrev = incoming.previousVolume;
+                state.previousVolume = typeof rawPrev === 'number' && !isNaN(rawPrev) && rawPrev > 0 ? Math.min(2.0, Math.max(0.05, rawPrev)) : (validVol > 0 ? validVol : 0.7);
+            }
+        });
     },
 });
 
@@ -342,6 +389,8 @@ export const {
     prevSong,
     applyMusicPlayerSettings,
     setRecentlyPlayed,
+    setVolume,
+    toggleMute,
 } = musicPlayerSlice.actions;
 
 export default musicPlayerSlice.reducer;
