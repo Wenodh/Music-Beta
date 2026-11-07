@@ -253,9 +253,11 @@ export const useFriendPresence = () => {
 
             channel
                 .on('presence', { event: 'sync' }, () => {
+                    if (channelRef.current !== channel) return;
                     syncPresenceRoster(channel);
                 })
                 .on('presence', { event: 'join' }, ({ key }) => {
+                    if (channelRef.current !== channel) return;
                     const presenceState = channel.presenceState();
                     const userSessions = (presenceState[key] || []) as any[];
                     const aggregated = aggregateUserPresenceSessions(userSessions, Date.now());
@@ -270,6 +272,7 @@ export const useFriendPresence = () => {
                     );
                 })
                 .on('presence', { event: 'leave' }, ({ key }) => {
+                    if (channelRef.current !== channel) return;
                     const presenceState = channel.presenceState();
                     const remaining = (presenceState[key] || []) as any[];
                     const aggregated = aggregateUserPresenceSessions(remaining, Date.now());

@@ -36,6 +36,7 @@ import {
     CallLogEntry,
 } from '../utils/friendsDb';
 import { e2eeService, EncryptedPayload } from '../services/e2eeService';
+import { aggregateUserPresenceSessions } from '../utils/presenceUtils';
 
 export interface DirectCommunicationContextValue {
     sendDirectMessage: (friendId: string, text: string) => Promise<void>;
@@ -831,8 +832,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
     };
 
-    // Receiver presence availability check with reconnection resilience
+    // Receiver presence availability check reusing aggregateUserPresenceSessions
+    // Inherits strict 15s future-drift tolerance, 90s stale threshold, and online=false filtering
     const checkRecipientOnline = useCallback((targetUserId: string): boolean => {
+        const now = Date.now();
+
         // 1. Inspect presence state in active joined social:presence channel
         try {
             const channels = supabase.getChannels();
@@ -845,28 +849,19 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const presenceState = globalChannel.presenceState();
                 const sessions = presenceState[targetUserId] as any[];
                 if (Array.isArray(sessions) && sessions.length > 0) {
-                    const now = Date.now();
-                    const hasActiveSession = sessions.some((s) => {
-                        if (!s || typeof s !== 'object') return false;
-                        if (s.online === false) return false;
-                        const ts = Number(s.lastSeen ?? s.updatedAt);
-                        return !isNaN(ts) && ts > 0 && (now - ts) < 90000;
-                    });
-                    if (hasActiveSession) return true;
+                    const aggregated = aggregateUserPresenceSessions(sessions, now);
+                    if (aggregated.online) return true;
                 }
             }
         } catch (err) {
             console.warn('[DirectComms] Could not inspect channel presence state:', err);
         }
 
-        // 2. Fallback to local Redux onlinePresenceMap (handles brief reconnection windows)
+        // 2. Fallback to local Redux onlinePresenceMap (evaluated with same validation rules)
         const mapEntry = onlinePresenceMapRef.current[targetUserId];
-        if (mapEntry && mapEntry.online) {
-            const now = Date.now();
-            const ts = Number(mapEntry.lastSeen);
-            if (!isNaN(ts) && (now - ts) < 90000) {
-                return true;
-            }
+        if (mapEntry) {
+            const aggregated = aggregateUserPresenceSessions([mapEntry], now);
+            if (aggregated.online) return true;
         }
 
         return false;
