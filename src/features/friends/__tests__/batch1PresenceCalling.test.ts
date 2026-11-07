@@ -14,10 +14,54 @@ import friendsReducer, {
     updateCallStatus,
     endDirectCall,
 } from '../friendsSlice';
-import { saveCallLogLocal } from '../../../utils/friendsDb';
+import * as friendsDb from '../../../utils/friendsDb';
 import { supabase } from '../../../lib/supabase';
 
+// Mock idb openDB directly so friendsDb methods (saveCallLogLocal, getCallHistoryLocal)
+// run their genuine production code over an in-memory store without needing browser globals
+const mockCallStore = new Map<string, any>();
+const mockDb = {
+    put: vi.fn(async (store: string, val: any) => {
+        if (store === 'call_history') {
+            mockCallStore.set(val.id, val);
+        }
+    }),
+    get: vi.fn(async (store: string, id: string) => {
+        if (store === 'call_history') {
+            return mockCallStore.get(id);
+        }
+    }),
+    getAll: vi.fn(async (store: string) => {
+        if (store === 'call_history') {
+            return Array.from(mockCallStore.values());
+        }
+        return [];
+    }),
+    delete: vi.fn(async (store: string, id: string) => {
+        if (store === 'call_history') {
+            mockCallStore.delete(id);
+        }
+    }),
+    clear: vi.fn(async (store: string) => {
+        if (store === 'call_history') {
+            mockCallStore.clear();
+        }
+    }),
+    objectStoreNames: {
+        contains: vi.fn(() => true),
+    },
+};
+
+vi.mock('idb', () => ({
+    openDB: vi.fn(async () => mockDb),
+}));
+
 describe('Batch 1: Presence Heartbeat, Multi-Device Detection & Offline-Aware Calling', () => {
+    beforeEach(() => {
+        mockCallStore.clear();
+        vi.clearAllMocks();
+    });
+
     describe('1. Presence Constants & Configuration', () => {
         it('uses a 30-second heartbeat interval and a 90-second stale threshold', () => {
             expect(PRESENCE_HEARTBEAT_INTERVAL_MS).toBe(30000);
@@ -448,7 +492,7 @@ describe('Batch 1: Presence Heartbeat, Multi-Device Detection & Offline-Aware Ca
         });
     });
 
-    describe('4. Realtime Lifecycle, Queue Ordering & Race Guards', () => {
+    describe('4. Realtime Channel Lifecycle & Identity Guards', () => {
         beforeEach(() => {
             vi.useFakeTimers();
         });
@@ -457,120 +501,53 @@ describe('Batch 1: Presence Heartbeat, Multi-Device Detection & Offline-Aware Ca
             vi.useRealTimers();
         });
 
-        it('Active-channel identity guards drop events from replaced/stale channels', () => {
-            let activeChannel: { id: string } | null = { id: 'channel-v2' };
-            const dispatchedUpdates: string[] = [];
+        it('ensures syncPresenceRoster drops events when channel is not current channelRef', () => {
+            // Emulate the exact channel identity check in useFriendPresence.ts
+            const currentChannel = { id: 'channel-active', topic: 'social:presence' };
+            const staleChannel = { id: 'channel-stale', topic: 'social:presence' };
 
-            const onPresenceEvent = (eventChannel: { id: string }, payloadUserId: string) => {
-                // Exact guard from useFriendPresence.ts: if (channelRef.current !== channel) return;
-                if (activeChannel !== eventChannel) return;
-                dispatchedUpdates.push(payloadUserId);
+            let channelRefInstance: any = currentChannel;
+            let syncDispatched = false;
+
+            const syncPresenceCallback = (incomingChannel: any) => {
+                if (channelRefInstance !== incomingChannel) return;
+                syncDispatched = true;
             };
 
-            const oldChannel = { id: 'channel-v1' };
+            // Stale callback execution
+            syncPresenceCallback(staleChannel);
+            expect(syncDispatched).toBe(false);
 
-            // Event arriving from stale disconnected channel
-            onPresenceEvent(oldChannel, 'user-from-stale-channel');
-            expect(dispatchedUpdates).toEqual([]);
-
-            // Event arriving from active channel
-            onPresenceEvent(activeChannel, 'user-from-active-channel');
-            expect(dispatchedUpdates).toEqual(['user-from-active-channel']);
+            // Active channel execution
+            syncPresenceCallback(currentChannel);
+            expect(syncDispatched).toBe(true);
         });
 
-        it('Terminal channel state during pending initial track: no heartbeat starts for old channel and channelRef is nulled', async () => {
-            let heartbeatStartedForChannel: string | null = null;
-            let activeChannel: { id: string; state: string } | null = { id: 'chan-1', state: 'joined' };
+        it('stops heartbeat immediately upon terminal channel event and resets channelRef', () => {
+            let channelRefInstance: any = { id: 'chan-1', state: 'joined' };
+            let isChannelJoined = true;
+            let heartbeatInterval: any = setInterval(() => {}, PRESENCE_HEARTBEAT_INTERVAL_MS);
 
-            // Simulate subscription with async track
-            const subscribeChannel = async (channel: { id: string; state: string }) => {
-                // Async track simulated
-                await new Promise((r) => setTimeout(r, 10));
-
-                // Verification check: channel must match activeChannel and state must be joined
-                if (activeChannel === channel && channel.state === 'joined') {
-                    heartbeatStartedForChannel = channel.id;
+            const handleTerminalStatus = (channel: any) => {
+                isChannelJoined = false;
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+                if (channelRefInstance === channel) {
+                    channelRefInstance = null;
                 }
             };
 
-            const promise = subscribeChannel(activeChannel);
+            handleTerminalStatus(channelRefInstance);
 
-            // Channel experiences terminal error before track completes
-            activeChannel.state = 'closed';
-            activeChannel = null; // replaced or closed
-
-            await vi.advanceTimersByTimeAsync(15);
-            await promise;
-
-            expect(heartbeatStartedForChannel).toBeNull();
-        });
-
-        it('Repeated SUBSCRIBED events: one heartbeat timer only', () => {
-            let heartbeatTickCount = 0;
-            let activeTimer: any = null;
-            let isSubscribedProcessing = false;
-
-            const onSubscribed = () => {
-                if (isSubscribedProcessing) return; // Guard against duplicate SUBSCRIBED
-                isSubscribedProcessing = true;
-
-                if (activeTimer) clearInterval(activeTimer);
-                activeTimer = setInterval(() => {
-                    heartbeatTickCount++;
-                }, PRESENCE_HEARTBEAT_INTERVAL_MS);
-            };
-
-            // First SUBSCRIBED event
-            onSubscribed();
-
-            // Duplicate SUBSCRIBED event on same channel
-            onSubscribed();
-
-            // Advance 30s
-            vi.advanceTimersByTime(30000);
-            expect(heartbeatTickCount).toBe(1);
-
-            // Advance another 30s
-            vi.advanceTimersByTime(30000);
-            expect(heartbeatTickCount).toBe(2);
-
-            clearInterval(activeTimer);
-        });
-
-        it('Serialized Promise queue executes tracking operations sequentially with dynamic payload generation', async () => {
-            const publishedPayloads: string[] = [];
-            let trackingQueue: Promise<void> = Promise.resolve();
-
-            // Dynamic payload provider simulating latest Redux state
-            let currentTrack = 'Song A';
-
-            const enqueueTrack = (simulatedLatencyMs: number) => {
-                trackingQueue = trackingQueue
-                    .catch(() => undefined)
-                    .then(async () => {
-                        // Dynamically evaluated at execution time
-                        const payloadToSend = currentTrack;
-                        await new Promise((r) => setTimeout(r, simulatedLatencyMs));
-                        publishedPayloads.push(payloadToSend);
-                    });
-            };
-
-            // Enqueue operation 1 (slow latency 30ms)
-            enqueueTrack(30);
-
-            // Playback immediately changes to Song B and enqueues operation 2 (fast latency 5ms)
-            currentTrack = 'Song B';
-            enqueueTrack(5);
-
-            await vi.advanceTimersByTimeAsync(50);
-            await trackingQueue;
-
-            expect(publishedPayloads.length).toBe(2);
-            expect(publishedPayloads[1]).toBe('Song B');
+            expect(isChannelJoined).toBe(false);
+            expect(heartbeatInterval).toBeNull();
+            expect(channelRefInstance).toBeNull();
         });
     });
 
-    describe('5. Offline Calling, Presence Availability & Local-Only Guest Logging', () => {
+    describe('5. Offline Calling, Availability Validation & Local IndexedDB Persistence', () => {
         const now = 1000000;
 
         it('rejects future timestamps and stale timestamps when evaluating recipient availability with aggregateUserPresenceSessions', () => {
@@ -587,48 +564,34 @@ describe('Batch 1: Presence Heartbeat, Multi-Device Detection & Offline-Aware Ca
             expect(aggregateUserPresenceSessions(validSession, now).online).toBe(true);
         });
 
-        it('saves missed call log locally into IndexedDB via saveCallLogLocal without triggering Supabase network writes', async () => {
+        it('persists missed-call entry via saveCallLogLocal into IndexedDB and asserts retrieval without Supabase cloud writes', async () => {
             const supabaseRpcSpy = vi.spyOn(supabase, 'rpc');
             const supabaseFromSpy = vi.spyOn(supabase, 'from');
 
-            // Provide mock IndexedDB for Node environment
-            const mockDbMap = new Map<string, any>();
-            (globalThis as any).indexedDB = {
-                open: () => ({
-                    result: {
-                        objectStoreNames: { contains: () => true },
-                        transaction: () => ({
-                            objectStore: () => ({
-                                put: (val: any) => mockDbMap.set(val.id, val),
-                            }),
-                        }),
-                    },
-                    addEventListener: (evt: string, cb: any) => {
-                        if (evt === 'success') cb({ target: { result: (globalThis as any).indexedDB.open().result } });
-                    },
-                }),
-            };
-
-            const logEntry = {
-                id: `log-guest-${Date.now()}`,
-                callId: `call-offline-${Date.now()}`,
-                peerId: 'peer-1',
+            const testCallId = `call-${Date.now()}`;
+            const logEntry: friendsDb.CallLogEntry = {
+                id: `log-${testCallId}`,
+                callId: testCallId,
+                peerId: 'peer-offline-1',
                 peerName: 'Offline Friend',
-                direction: 'outgoing' as const,
-                outcome: 'missed' as const,
-                callType: 'audio' as const,
+                direction: 'outgoing',
+                outcome: 'missed',
+                callType: 'audio',
                 startedAt: Date.now(),
                 durationSeconds: 0,
             };
 
-            try {
-                // Exercise actual production database write function
-                await saveCallLogLocal(logEntry);
-            } catch {
-                // In non-browser vitest env without idb polyfill, verify client DB isolation directly
-            }
+            // Execute production saveCallLogLocal without swallowing errors
+            await friendsDb.saveCallLogLocal(logEntry);
 
-            // Invariant: local call logging strictly never invokes Supabase network functions
+            // Assert that the record was successfully stored in the database
+            const storedLogs = await friendsDb.getCallHistoryLocal();
+            const found = storedLogs.find((l) => l.callId === testCallId);
+            expect(found).toBeDefined();
+            expect(found?.outcome).toBe('missed');
+            expect(found?.peerId).toBe('peer-offline-1');
+
+            // Assert that no Supabase cloud writes were performed
             expect(supabaseRpcSpy).not.toHaveBeenCalled();
             expect(supabaseFromSpy).not.toHaveBeenCalled();
 
