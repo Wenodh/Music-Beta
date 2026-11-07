@@ -61,6 +61,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const { friendsList, activeFriendId, isCallActive, activeCallFriend, activeCall, incomingCall, isMuted } = useAppSelector(
         (state) => state.friends
     );
+    const { onlinePresenceMap } = useAppSelector((state) => state.social);
 
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -106,6 +107,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     const isCallActiveRef = useRef(isCallActive);
     isCallActiveRef.current = isCallActive;
+
+    const onlinePresenceMapRef = useRef(onlinePresenceMap);
+    onlinePresenceMapRef.current = onlinePresenceMap;
 
     const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -827,8 +831,69 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
     };
 
+    // Receiver presence availability check with reconnection resilience
+    const checkRecipientOnline = useCallback((targetUserId: string): boolean => {
+        // 1. Inspect presence state in active joined social:presence channel
+        try {
+            const channels = supabase.getChannels();
+            const globalChannel = channels.find(
+                (c) =>
+                    (c.topic === 'realtime:social:presence' || c.topic === 'social:presence') &&
+                    c.state === 'joined'
+            );
+            if (globalChannel) {
+                const presenceState = globalChannel.presenceState();
+                const sessions = presenceState[targetUserId] as any[];
+                if (Array.isArray(sessions) && sessions.length > 0) {
+                    const now = Date.now();
+                    const hasActiveSession = sessions.some((s) => {
+                        if (!s || typeof s !== 'object') return false;
+                        if (s.online === false) return false;
+                        const ts = Number(s.lastSeen ?? s.updatedAt);
+                        return !isNaN(ts) && ts > 0 && (now - ts) < 90000;
+                    });
+                    if (hasActiveSession) return true;
+                }
+            }
+        } catch (err) {
+            console.warn('[DirectComms] Could not inspect channel presence state:', err);
+        }
+
+        // 2. Fallback to local Redux onlinePresenceMap (handles brief reconnection windows)
+        const mapEntry = onlinePresenceMapRef.current[targetUserId];
+        if (mapEntry && mapEntry.online) {
+            const now = Date.now();
+            const ts = Number(mapEntry.lastSeen);
+            if (!isNaN(ts) && (now - ts) < 90000) {
+                return true;
+            }
+        }
+
+        return false;
+    }, []);
+
     // Start 1-click call to a friend (supports audio and video)
     const callFriend = useCallback(async (friend: Friend, requestedCallType: CallType = 'audio') => {
+        // 1. Pre-call presence check: reject immediately if recipient is offline
+        const isOnline = checkRecipientOnline(friend.id);
+        if (!isOnline) {
+            dispatch(showToast({ message: `${friend.name || 'User'} is offline`, type: 'info' }));
+            const offlineCallId = generateCallId();
+            const logEntry: CallLogEntry = {
+                id: `log-${offlineCallId}`,
+                callId: offlineCallId,
+                peerId: friend.id,
+                peerName: friend.name,
+                direction: 'outgoing',
+                outcome: 'missed',
+                callType: requestedCallType,
+                startedAt: Date.now(),
+                durationSeconds: 0,
+            };
+            saveCallLogLocal(logEntry).catch((e) => console.warn('Could not save offline call log:', e));
+            return;
+        }
+
         try {
             const { stream, hasVideo } = await acquireMediaStream(requestedCallType);
             localStreamRef.current = stream;
@@ -866,14 +931,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         senderName: userName,
                         signalType: 'call-cancelled',
                     });
-                    cleanupCallResources(newCallId);
+                    cleanupCallResources(newCallId, 'missed');
                 }
             }, 45000);
         } catch (err) {
             console.error('Failed to get media stream:', err);
             dispatch(showToast({ message: 'Microphone permission denied or device unavailable', type: 'error' }));
         }
-    }, [userId, userName, dispatch, sendToUser, clearTimers, cleanupCallResources]);
+    }, [checkRecipientOnline, userId, userName, dispatch, sendToUser, clearTimers, cleanupCallResources]);
 
     // Accept incoming call (supports audio and video)
     const acceptIncomingCall = useCallback(async (callerId: string, callerName: string) => {
