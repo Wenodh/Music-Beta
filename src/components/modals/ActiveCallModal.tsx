@@ -11,14 +11,19 @@ import {
     IoVolumeMuteOutline,
     IoChevronDown,
     IoCameraReverseOutline,
+    IoChatbubbleEllipsesOutline,
 } from 'react-icons/io5';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setIsCallScreenExpanded } from '../../features/friends/friendsSlice';
 import { useDirectCommunication } from '../../hooks/useDirectCommunication';
+import { InCallChatDrawer } from './InCallChatDrawer';
 
 export const ActiveCallModal: React.FC = () => {
     const dispatch = useAppDispatch();
-    const { isCallActive, activeCall, isCallScreenExpanded } = useAppSelector((state) => state.friends);
+    const { isCallActive, activeCall, isCallScreenExpanded, directMessages } = useAppSelector((state) => state.friends);
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+    const prevMsgCountRef = useRef(activeCall?.friendId ? directMessages[activeCall.friendId]?.length || 0 : 0);
     const {
         endCall,
         toggleMute,
@@ -32,6 +37,29 @@ export const ActiveCallModal: React.FC = () => {
     const [durationSeconds, setDurationSeconds] = useState(0);
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
+    // Track unread messages received while chat drawer is closed
+    useEffect(() => {
+        if (!activeCall?.friendId) return;
+        const currentMessages = directMessages[activeCall.friendId] || [];
+        const newCount = currentMessages.length;
+
+        if (newCount > prevMsgCountRef.current) {
+            const added = newCount - prevMsgCountRef.current;
+            if (!isChatOpen) {
+                setUnreadChatCount((prev) => prev + added);
+            }
+        }
+        prevMsgCountRef.current = newCount;
+    }, [directMessages, activeCall?.friendId, isChatOpen]);
+
+    // Toggle chat drawer and clear unread count
+    const handleToggleChat = () => {
+        setIsChatOpen((prev) => {
+            if (!prev) setUnreadChatCount(0);
+            return !prev;
+        });
+    };
 
     // Duration timer
     useEffect(() => {
@@ -229,6 +257,28 @@ export const ActiveCallModal: React.FC = () => {
                             <span className="text-[9px] font-bold">Speaker</span>
                         </button>
 
+                        {/* In-Call Text Chat Toggle Button */}
+                        <button
+                            onClick={handleToggleChat}
+                            className={`relative p-3.5 sm:p-4 rounded-2xl transition-all active:scale-95 flex flex-col items-center gap-1 ${
+                                isChatOpen
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-500/20'
+                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                            }`}
+                            title="In-Call Chat"
+                            aria-label="Open in-call chat"
+                        >
+                            <IoChatbubbleEllipsesOutline size={22} />
+                            <span className="text-[9px] font-bold">Chat</span>
+
+                            {/* Unread Message Badge Indicator */}
+                            {unreadChatCount > 0 && !isChatOpen && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-emerald-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-black animate-pulse">
+                                    {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                                </span>
+                            )}
+                        </button>
+
                         {/* End Call Button */}
                         <button
                             onClick={endCall}
@@ -240,6 +290,14 @@ export const ActiveCallModal: React.FC = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* In-Call Text Chat Slide-Over Drawer */}
+                <InCallChatDrawer
+                    isOpen={isChatOpen}
+                    onClose={() => setIsChatOpen(false)}
+                    friendId={activeCall.friendId}
+                    friendName={activeCall.friendName}
+                />
             </motion.div>
         </AnimatePresence>
     );
