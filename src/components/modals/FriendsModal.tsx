@@ -27,6 +27,8 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setIsFriendsModalOpen, setActiveFriendId } from '../../features/friends/friendsSlice';
 import { setActiveProfileView, setIsNotificationPanelOpen, setCloudFriends, setNotifications } from '../../features/social/socialSlice';
 import { useDirectCommunication } from '../../hooks/useDirectCommunication';
+import { useBackHandler } from '../../hooks/useBackHandler';
+import { backNavigationService } from '../../services/backNavigationService';
 import { socialService } from '../../services/socialService';
 import { socialNotificationService } from '../../services/socialNotificationService';
 import { removeFriendLocal, getFriendsLocal } from '../../utils/friendsDb';
@@ -59,6 +61,31 @@ export const FriendsModal: React.FC = () => {
     const [isCopied, setIsCopied] = useState(false);
     const [isCallScreenExpanded, setIsCallScreenExpanded] = useState(true);
     const [callDuration, setCallDuration] = useState(0);
+
+    // Register nested sub-views in FriendsModal (Notifications, Active Chat, Profile, Add Friend)
+    useBackHandler(isFriendsModalOpen && isNotificationPanelOpen, {
+        id: 'friends-notifications-modal',
+        priority: backNavigationService.PRIORITY.NESTED_SHEET_OR_MENU + 20,
+        onBack: () => dispatch(setIsNotificationPanelOpen(false)),
+    });
+
+    useBackHandler(isFriendsModalOpen && isAddFriendOpen, {
+        id: 'friends-add-friend-dialog',
+        priority: backNavigationService.PRIORITY.NESTED_SHEET_OR_MENU + 10,
+        onBack: () => setIsAddFriendOpen(false),
+    });
+
+    useBackHandler(isFriendsModalOpen && Boolean(activeProfileView), {
+        id: 'friends-active-profile-view',
+        priority: backNavigationService.PRIORITY.NESTED_SUB_VIEW + 10,
+        onBack: () => dispatch(setActiveProfileView(null)),
+    });
+
+    useBackHandler(isFriendsModalOpen && Boolean(activeFriendId), {
+        id: 'friends-active-chat-view',
+        priority: backNavigationService.PRIORITY.NESTED_SUB_VIEW,
+        onBack: () => dispatch(setActiveFriendId(null)),
+    });
 
     // Load cloud friends and notifications when modal opens for authenticated users
     React.useEffect(() => {

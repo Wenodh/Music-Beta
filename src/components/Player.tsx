@@ -46,6 +46,8 @@ import { useSession } from '../hooks/useSession';
 import { IoPeopleOutline } from 'react-icons/io5';
 import { toggleFavoriteCloud } from '../features/library/libraryActions';
 import { openPlaylistModal, setEqualizerOpen, setLyricsOpen, setAccentColor, setPlayerExpanded, setSessionModalOpen } from '../features/ui/uiSlice';
+import { useBackHandler } from '../hooks/useBackHandler';
+import { backNavigationService } from '../services/backNavigationService';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { getNextSong } from '../utils/playlist';
@@ -57,6 +59,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const moreMenuRef = useRef<HTMLDivElement>(null);
+
+    // Register Player popup/menu with BackNavigationManager
+    useBackHandler(isMoreMenuOpen, {
+        id: 'desktop-player-more-menu',
+        priority: backNavigationService.PRIORITY.NESTED_SHEET_OR_MENU,
+        onBack: () => setIsMoreMenuOpen(false),
+    });
     const {
         currentSong, isPlaying, songs, preferredQuality, isQueueOpen,
         isGaplessEnabled, crossfadeDuration, recommendations, isSongRadioEnabled,
