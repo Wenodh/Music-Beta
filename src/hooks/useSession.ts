@@ -27,6 +27,7 @@ import {
     setHostId
 } from '../features/session/sessionSlice';
 import { partyService } from '../services/partyService';
+import { iceServerService } from '../services/webrtc/iceServerService';
 import {
     playMusic,
     pauseMusic,
@@ -438,11 +439,23 @@ export const useSession = () => {
             return peerConnectionsRef.current.get(peerId)!;
         }
 
+        const initialIce = iceServerService.getInitialIceServers();
         const pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+            iceServers: initialIce.iceServers,
+            iceTransportPolicy: initialIce.iceTransportPolicy,
+        });
+
+        iceServerService.getIceServers().then((config) => {
+            try {
+                if (pc.setConfiguration && pc.signalingState !== 'closed') {
+                    pc.setConfiguration({
+                        iceServers: config.iceServers,
+                        iceTransportPolicy: config.iceTransportPolicy,
+                    });
+                }
+            } catch (err) {
+                console.warn('[useSession] RTCPeerConnection setConfiguration error:', err);
+            }
         });
 
         if (localStreamRef.current) {

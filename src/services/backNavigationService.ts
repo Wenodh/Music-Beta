@@ -41,6 +41,8 @@ class BackNavigationService {
         DRAWER_OR_PANEL: 300,       // Settings Drawer, Queue Drawer, Equalizer, Lyrics
     };
 
+    public readonly PRIORITY = BackNavigationService.PRIORITY;
+
     constructor() {
         // Will initialize browser/history listeners on demand
     }

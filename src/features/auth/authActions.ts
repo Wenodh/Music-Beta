@@ -6,6 +6,7 @@ import { clearLibrary } from '../library/librarySlice';
 import { setLoading, setError, setUser } from './authSlice';
 import { resetSettingsTimestamp } from '../ui/uiSlice';
 import { setRecentlyPlayed } from '../musicplayer/musicPlayerSlice';
+import { setMyProfile, setPresenceMap, setCloudFriends, setFriendRequests, setNotifications } from '../social/socialSlice';
 import { Logger } from '../../lib/logger';
 
 export const signInWithGoogle = () => async (dispatch: AppDispatch) => {
@@ -71,5 +72,12 @@ export const signOut = () => async (dispatch: AppDispatch) => {
         dispatch(clearLibrary());
         dispatch(resetSettingsTimestamp());
         dispatch(setRecentlyPlayed([]));
+        // Reset user-specific transient cloud social and presence state
+        // Note: Local IndexedDB guest data (vibeon_offline, vibeon_friends) is explicitly preserved
+        dispatch(setMyProfile(null));
+        dispatch(setPresenceMap({}));
+        dispatch(setCloudFriends([]));
+        dispatch(setFriendRequests({ incoming: [], outgoing: [] }));
+        dispatch(setNotifications([]));
     }
 };

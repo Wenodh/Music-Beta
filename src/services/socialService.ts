@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { UserProfile, Friendship, FriendshipStatus, GuestMigrationResult } from '../types/social';
+import { getFriendsLocal, getCallHistoryLocal } from '../utils/friendsDb';
 
 export const socialService = {
     /**
@@ -26,6 +27,8 @@ export const socialService = {
 
     /**
      * Update current authenticated user profile and privacy settings.
+     * Supabase `profiles` table is the authoritative source of truth.
+     * Also synchronizes Supabase Auth metadata without overwriting unrelated metadata keys.
      */
     async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<{ success: boolean; data?: UserProfile; error?: string }> {
         try {
@@ -42,6 +45,30 @@ export const socialService = {
             if (error) {
                 return { success: false, error: error.message };
             }
+
+            // Sync with auth user metadata if display_name or avatar_url changed
+            // Does not overwrite unrelated auth user metadata
+            if (updates.display_name !== undefined || updates.avatar_url !== undefined) {
+                try {
+                    const authUpdateData: Record<string, any> = {};
+                    if (updates.display_name !== undefined) {
+                        authUpdateData.full_name = updates.display_name;
+                    }
+                    if (updates.avatar_url !== undefined) {
+                        authUpdateData.avatar_url = updates.avatar_url;
+                    }
+
+                    const { error: authErr } = await supabase.auth.updateUser({
+                        data: authUpdateData,
+                    });
+                    if (authErr) {
+                        console.warn('[socialService] Auth user_metadata sync notice:', authErr.message);
+                    }
+                } catch (metaErr) {
+                    console.warn('[socialService] Failed to sync auth metadata:', metaErr);
+                }
+            }
+
             return { success: true, data };
         } catch (e: any) {
             return { success: false, error: e.message || 'Failed to update profile' };
