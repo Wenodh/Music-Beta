@@ -853,6 +853,21 @@ export const useSession = () => {
             isCancelled = true;
             restoreBaseSpeed();
             cancelHostGracePeriod();
+
+            // Release WebRTC audio tracks and close peer connections
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach((t) => t.stop());
+                localStreamRef.current = null;
+            }
+            peerConnectionsRef.current.forEach((pc) => {
+                try {
+                    pc.close();
+                } catch {
+                    // Ignore already closed peer connections
+                }
+            });
+            peerConnectionsRef.current.clear();
+
             try {
                 if (isHost && isPublic) {
                     partyService.broadcastPartyEnded(roomCode);

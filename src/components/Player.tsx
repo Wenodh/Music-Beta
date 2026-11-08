@@ -104,11 +104,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
+    const preloadBlobUrlRef = useRef<string | undefined>(undefined);
 
     const revokeAudioBlob = useCallback(() => {
         if (currentBlobUrlsRef.current.audio) {
-            URL.revokeObjectURL(currentBlobUrlsRef.current.audio);
+            const urlToRevoke = currentBlobUrlsRef.current.audio;
             currentBlobUrlsRef.current.audio = undefined;
+            // Defer slightly to avoid cutting off media decoder in Chromium/Android WebView
+            setTimeout(() => {
+                URL.revokeObjectURL(urlToRevoke);
+            }, 1000);
+        }
+    }, []);
+
+    const revokePreloadBlob = useCallback(() => {
+        if (preloadBlobUrlRef.current) {
+            const urlToRevoke = preloadBlobUrlRef.current;
+            preloadBlobUrlRef.current = undefined;
+            setTimeout(() => {
+                URL.revokeObjectURL(urlToRevoke);
+            }, 1000);
         }
     }, []);
 
@@ -122,9 +137,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         return () => {
             revokeAudioBlob();
+            revokePreloadBlob();
             revokeImageBlob();
         };
-    }, [revokeAudioBlob, revokeImageBlob]);
+    }, [revokeAudioBlob, revokePreloadBlob, revokeImageBlob]);
 
     // Dual buffer system
     const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
@@ -254,6 +270,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (!isPreload) {
                 revokeAudioBlob();
                 currentBlobUrlsRef.current.audio = url;
+            } else {
+                revokePreloadBlob();
+                preloadBlobUrlRef.current = url;
             }
             return url;
         }
@@ -263,9 +282,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
         }
         return musicData || '';
-    }, [preferredQuality, revokeAudioBlob]);
+    }, [preferredQuality, revokeAudioBlob, revokePreloadBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
+        cancelActiveFade();
+        setIsCrossfading(false);
+
         if (!isManual && repeatMode === 'one') {
             const activeAudio = getActiveAudio();
             activeAudio.currentTime = 0;
@@ -279,7 +301,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
 
         dispatch(nextSong({ isManual }));
-    }, [dispatch, isGaplessEnabled, isCrossfading, repeatMode, shuffle]);
+    }, [cancelActiveFade, dispatch, isGaplessEnabled, isCrossfading, repeatMode, shuffle]);
 
     const prevSong = useCallback(() => {
         dispatch(prevSongAction());
@@ -401,6 +423,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Monotonically increasing generation counters to guard against out-of-order promise resolutions
     const activePlaybackRequestIdRef = useRef<number>(0);
     const crossfadeRequestIdRef = useRef<number>(0);
+    const activeFadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const cancelActiveFade = useCallback(() => {
+        if (activeFadeIntervalRef.current) {
+            clearInterval(activeFadeIntervalRef.current);
+            activeFadeIntervalRef.current = null;
+        }
+    }, []);
 
     // Handle Playback State
     useEffect(() => {
@@ -455,6 +485,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         const activeAudio = getActiveAudio();
         if (isPlaying) {
+            audioEngine.resume();
             activeAudio.play().catch(e => console.warn("Playback failed", e));
         } else {
             activeAudio.pause();
@@ -560,50 +591,73 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 return;
             }
 
+            cancelActiveFade();
             const currentCrossfadeId = ++crossfadeRequestIdRef.current;
 
             getSongUrl(next, true).then(url => {
                 if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
+                if (!url) {
+                    setIsCrossfading(false);
+                    return;
+                }
+
                 const inactiveBuffer = activeBuffer === 'A' ? 'B' : 'A';
                 const resolvedInactive = prepareAudioForSource(inactiveBuffer, url);
                 if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
-                resolvedInactive.src = url;
-            });
 
-            inactiveAudio.volume = 0;
-            inactiveAudio.play().then(() => {
-                // Ramp volumes
-                const steps = 20;
-                const interval = (crossfadeDuration * 1000) / steps;
-                let step = 0;
+                if (resolvedInactive.src !== url) {
+                    resolvedInactive.src = url;
+                }
 
-                const fade = setInterval(() => {
-                    step++;
-                    const progress = step / steps;
+                resolvedInactive.volume = 0;
+                resolvedInactive.play().then(() => {
+                    if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
 
-                    // Hardware volume scaled linearly during crossfade (booster gain is handled by audioEngine)
-                    const baseVol = Math.min(1.0, Math.max(0, effectiveVolume));
-                    activeAudio.volume = baseVol * (1 - progress);
-                    inactiveAudio.volume = baseVol * progress;
+                    // Ramp volumes
+                    const steps = 20;
+                    const interval = (crossfadeDuration * 1000) / steps;
+                    let step = 0;
 
-                    if (step >= steps) {
-                        clearInterval(fade);
-                        // Complete transition
-                        activeAudio.pause();
-                        activeAudio.currentTime = 0;
-                        setActiveBuffer(activeBuffer === 'A' ? 'B' : 'A');
-                        setIsCrossfading(false);
+                    const fade = setInterval(() => {
+                        if (crossfadeRequestIdRef.current !== currentCrossfadeId) {
+                            clearInterval(fade);
+                            return;
+                        }
 
-                        // Update Redux state to the new song
-                        dispatch(playMusic({
-                            ...next,
-                            albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
-                            forcePlay: true, // Ensure it plays and handles state update correctly
-                        }));
-                    }
-                }, interval);
+                        step++;
+                        const progress = step / steps;
+
+                        // Hardware volume scaled linearly during crossfade (booster gain is handled by audioEngine)
+                        const baseVol = Math.min(1.0, Math.max(0, effectiveVolume));
+                        activeAudio.volume = Math.max(0, baseVol * (1 - progress));
+                        resolvedInactive.volume = Math.min(1.0, baseVol * progress);
+
+                        if (step >= steps) {
+                            clearInterval(fade);
+                            activeFadeIntervalRef.current = null;
+
+                            // Complete transition
+                            activeAudio.pause();
+                            activeAudio.currentTime = 0;
+                            setActiveBuffer(inactiveBuffer);
+                            setIsCrossfading(false);
+
+                            // Update Redux state to the new song
+                            dispatch(playMusic({
+                                ...next,
+                                albumId: next?.album && typeof next.album !== 'string' ? next.album.id : undefined,
+                                forcePlay: true, // Ensure it plays and handles state update correctly
+                            }));
+                        }
+                    }, interval);
+
+                    activeFadeIntervalRef.current = fade;
+                }).catch(err => {
+                    console.warn("[Player] Crossfade play failed or aborted:", err);
+                    setIsCrossfading(false);
+                });
             }).catch(err => {
-                console.error("Crossfade play failed", err);
+                console.warn("[Player] Failed to resolve next song URL for crossfade:", err);
                 setIsCrossfading(false);
             });
         };

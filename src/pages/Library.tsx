@@ -12,7 +12,6 @@ import {
 import { RepairFavoritesModal } from '../components/modals/RepairFavoritesModal';
 import { BulkDownloadModal } from '../components/modals/BulkDownloadModal';
 import { DownloadManagerModal } from '../components/modals/DownloadManagerModal';
-import { ImportExportModal } from '../components/modals/ImportExportModal';
 import { setImportExportModalOpen } from '../features/ui/uiSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -759,8 +758,6 @@ const Library: React.FC = () => {
                 isOpen={isManagerModalOpen}
                 onClose={() => setIsManagerModalOpen(false)}
             />
-
-            <ImportExportModal />
 
             <AnimatePresence>
                 {isCreating && (

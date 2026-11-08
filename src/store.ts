@@ -90,12 +90,7 @@ historyListener.startListening({
 });
 
 // Combine reducers
-const sessionPersistConfig = {
-    key: 'session',
-    storage,
-    whitelist: ['roomCode', 'isJoined'],
-};
-
+// Note: Session state is ephemeral and realtime; do not persist active room membership across app restarts (VIBE-BUG-009)
 const rootReducer = combineReducers({
     musicPlayer: musicPlayerReducer,
     language: languageReducer,
@@ -105,7 +100,7 @@ const rootReducer = combineReducers({
     friends: friendsReducer,
     social: socialReducer,
     community: communityReducer,
-    session: persistReducer(sessionPersistConfig, sessionReducer),
+    session: sessionReducer,
 });
 
 const persistConfig = {
