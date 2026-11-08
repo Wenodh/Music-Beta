@@ -45,7 +45,7 @@ export const FriendsModal: React.FC = () => {
     const { isFriendsModalOpen, friendsList, activeFriendId, directMessages, isCallActive, activeCallFriend } = useAppSelector(
         (state) => state.friends
     );
-    const { activeProfileView, unreadNotificationsCount, isNotificationPanelOpen } = useAppSelector(
+    const { activeProfileView, unreadNotificationsCount, isNotificationPanelOpen, onlinePresenceMap } = useAppSelector(
         (state) => state.social
     );
     const { sendDirectMessage, callFriend, endCall, addNewFriend, userId } = useDirectCommunication();
@@ -352,6 +352,9 @@ export const FriendsModal: React.FC = () => {
                                             const friendMsgs = directMessages[friend.id] || [];
                                             const lastMsg = friendMsgs[friendMsgs.length - 1];
                                             const unreadCount = friendMsgs.filter((m) => m.senderId !== userId && m.status !== 'seen').length;
+                                            const rawPresence = onlinePresenceMap[friend.id];
+                                            const isFriendOnline = Boolean(rawPresence?.online && (Date.now() - (rawPresence.lastSeen || 0) < 90000));
+                                            const friendSong = isFriendOnline ? rawPresence?.currentSong : null;
 
                                             return (
                                                 <div
@@ -364,10 +367,17 @@ export const FriendsModal: React.FC = () => {
                                                     }`}
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                        <div className="relative">
-                                                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-black text-sm shrink-0 border border-white/10 shadow-sm">
+                                                        <div className="relative shrink-0">
+                                                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-black text-sm border border-white/10 shadow-sm">
                                                                 {friend.name[0]?.toUpperCase()}
                                                             </div>
+                                                            {/* Online presence badge */}
+                                                            <span
+                                                                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-900 ${
+                                                                    isFriendOnline ? 'bg-green-400 ring-2 ring-green-500/30' : 'bg-gray-600'
+                                                                }`}
+                                                                title={isFriendOnline ? 'Online' : 'Offline'}
+                                                            />
                                                             {unreadCount > 0 && !isActive && (
                                                                 <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-primary text-white text-[9px] font-black rounded-full border-2 border-gray-900 animate-pulse">
                                                                     {unreadCount > 9 ? '9+' : unreadCount}
@@ -383,9 +393,16 @@ export const FriendsModal: React.FC = () => {
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <p className={`text-[10px] truncate font-mono ${unreadCount > 0 && !isActive ? 'text-white font-semibold' : 'text-gray-400'}`}>
-                                                                {lastMsg ? lastMsg.text : friend.id}
-                                                            </p>
+                                                            {friendSong?.isPlaying ? (
+                                                                <p className="text-[10px] truncate text-primary font-medium flex items-center gap-1">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping inline-block" />
+                                                                    <span className="truncate">Listening to {friendSong.title}</span>
+                                                                </p>
+                                                            ) : (
+                                                                <p className={`text-[10px] truncate font-mono ${unreadCount > 0 && !isActive ? 'text-white font-semibold' : 'text-gray-400'}`}>
+                                                                    {lastMsg ? lastMsg.text : (isFriendOnline ? 'Online' : friend.id)}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -447,12 +464,47 @@ export const FriendsModal: React.FC = () => {
                                         {/* Conversation Sub-Header */}
                                         <div className="p-3 border-b border-white/10 flex items-center justify-between bg-white/5 shrink-0">
                                             <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-bold text-xs border border-white/10 shrink-0">
-                                                    {activeFriend.name[0]?.toUpperCase()}
+                                                <div className="relative shrink-0">
+                                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-bold text-xs border border-white/10">
+                                                        {activeFriend.name[0]?.toUpperCase()}
+                                                    </div>
+                                                    {/* Active Friend Header Presence Dot */}
+                                                    {(() => {
+                                                        const rawP = onlinePresenceMap[activeFriend.id];
+                                                        const isOnline = Boolean(rawP?.online && (Date.now() - (rawP.lastSeen || 0) < 90000));
+                                                        return (
+                                                            <span
+                                                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-gray-900 ${
+                                                                    isOnline ? 'bg-green-400' : 'bg-gray-600'
+                                                                }`}
+                                                            />
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-xs font-bold text-white truncate">{activeFriend.name}</p>
-                                                    <p className="text-[9px] text-gray-400 font-mono truncate">{activeFriend.id}</p>
+                                                    {(() => {
+                                                        const rawP = onlinePresenceMap[activeFriend.id];
+                                                        const isOnline = Boolean(rawP?.online && (Date.now() - (rawP.lastSeen || 0) < 90000));
+                                                        const song = isOnline ? rawP?.currentSong : null;
+                                                        if (song?.isPlaying) {
+                                                            return (
+                                                                <p className="text-[9px] text-primary truncate font-medium flex items-center gap-1">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping inline-block" />
+                                                                    <span className="truncate">Listening to {song.title}</span>
+                                                                </p>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <p className="text-[9px] truncate font-medium flex items-center gap-1">
+                                                                <span className={isOnline ? 'text-green-400 font-semibold' : 'text-gray-400'}>
+                                                                    {isOnline ? 'Online' : 'Offline'}
+                                                                </span>
+                                                                <span className="text-gray-500">·</span>
+                                                                <span className="text-gray-500 font-mono truncate">{activeFriend.id}</span>
+                                                            </p>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">

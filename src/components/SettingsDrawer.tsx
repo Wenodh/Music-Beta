@@ -6,8 +6,9 @@ import { setEqualizerOpen, setAccentColor, setOledMode, showToast, setSessionMod
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
 import ThemeToggle from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline, IoChevronDownOutline, IoChevronForwardOutline, IoShieldCheckmarkOutline } from 'react-icons/io5';
+import { IoCloseOutline, IoLibraryOutline, IoSettingsOutline, IoMusicalNotesOutline, IoGlobeOutline, IoOptionsOutline, IoCloudDownloadOutline, IoTrashOutline, IoLogoGoogle, IoLogOutOutline, IoPersonOutline, IoSyncOutline, IoPeopleOutline, IoSwapHorizontalOutline, IoChatbubbleEllipsesOutline, IoCallOutline, IoChevronDownOutline, IoChevronForwardOutline, IoShieldCheckmarkOutline, IoVolumeHighOutline, IoPlayOutline, IoStopOutline, IoRefreshOutline } from 'react-icons/io5';
 import { iceServerService } from '../services/webrtc/iceServerService';
+import { soundService, AVAILABLE_RINGTONES, AVAILABLE_MESSAGE_SOUNDS, AVAILABLE_INVITE_SOUNDS, NotificationSoundPreferences } from '../services/soundService';
 import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
@@ -27,6 +28,9 @@ const SettingsDrawer: React.FC = () => {
 
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
     const [isNavSettingsExpanded, setIsNavSettingsExpanded] = useState(false);
+    const [isSoundSettingsExpanded, setIsSoundSettingsExpanded] = useState(false);
+    const [soundPrefs, setSoundPrefs] = useState<NotificationSoundPreferences>(soundService.getPreferences());
+    const [previewingId, setPreviewingId] = useState<string | null>(null);
 
     const accentColors = [
         { name: 'Red', value: '#ef4444' },
@@ -62,8 +66,35 @@ const SettingsDrawer: React.FC = () => {
     useEffect(() => {
         if (isSettingsOpen) {
             updateStorageInfo();
+            setSoundPrefs(soundService.getPreferences());
+        } else {
+            soundService.stopPreview();
+            setPreviewingId(null);
         }
     }, [isSettingsOpen]);
+
+    const handleUpdateSoundPref = (updates: Partial<NotificationSoundPreferences>) => {
+        const next = soundService.updatePreferences(updates);
+        setSoundPrefs(next);
+    };
+
+    const handleRestoreDefaultSounds = () => {
+        soundService.stopPreview();
+        setPreviewingId(null);
+        const restored = soundService.restoreDefaults();
+        setSoundPrefs(restored);
+        dispatch(showToast({ message: 'Restored default sound settings', type: 'info' }));
+    };
+
+    const handleTogglePreview = (soundId: string, category: 'ringtone' | 'message' | 'invitation') => {
+        if (previewingId === soundId) {
+            soundService.stopPreview();
+            setPreviewingId(null);
+        } else {
+            soundService.previewSound(soundId, category);
+            setPreviewingId(soundId);
+        }
+    };
 
     const updateStorageInfo = async () => {
         const info = await getDownloadStorageInfo();
@@ -689,6 +720,261 @@ const SettingsDrawer: React.FC = () => {
                                             <span className="text-gray-400 text-xs">Configure</span>
                                         </button>
                                     </div>
+                                </section>
+
+                                {/* Sounds & Customizable Notifications Section */}
+                                <section className="mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
+                                    <button
+                                        onClick={() => setIsSoundSettingsExpanded(!isSoundSettingsExpanded)}
+                                        className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all cursor-pointer text-left"
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                                <IoVolumeHighOutline size={18} />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-xs font-bold uppercase text-gray-700 dark:text-gray-200">
+                                                        Sounds & Notifications
+                                                    </h3>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${soundPrefs.masterEnabled ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                                                        {soundPrefs.masterEnabled ? 'Active' : 'Muted'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-gray-500">Ringtones, message tones, and invitation sounds</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-gray-400">
+                                            {isSoundSettingsExpanded ? <IoChevronDownOutline size={18} /> : <IoChevronForwardOutline size={18} />}
+                                        </div>
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {isSoundSettingsExpanded && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="overflow-hidden pt-3 space-y-4"
+                                            >
+                                                {/* Master Sound Toggle */}
+                                                <div className="p-3 bg-white/5 rounded-2xl flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-gray-200">Master Sound Toggle</p>
+                                                        <p className="text-[10px] text-gray-400">Enable or mute all in-app alert sounds</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleUpdateSoundPref({ masterEnabled: !soundPrefs.masterEnabled })}
+                                                        className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${soundPrefs.masterEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                    >
+                                                        <motion.div
+                                                            animate={{ x: soundPrefs.masterEnabled ? 20 : 2 }}
+                                                            className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                                                        />
+                                                    </button>
+                                                </div>
+
+                                                {/* Incoming Voice Call Ringtone */}
+                                                <div className="p-3 bg-white/5 rounded-2xl space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-gray-200">Voice Call Ringtone</p>
+                                                            <p className="text-[10px] text-gray-400">Continuous ringtone for incoming calls</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleUpdateSoundPref({ ringtoneEnabled: !soundPrefs.ringtoneEnabled })}
+                                                            className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${soundPrefs.ringtoneEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                        >
+                                                            <motion.div
+                                                                animate={{ x: soundPrefs.ringtoneEnabled ? 16 : 2 }}
+                                                                className="w-3 h-3 bg-white rounded-full absolute top-0.5"
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {AVAILABLE_RINGTONES.map((tone) => {
+                                                            const isSelected = soundPrefs.voiceCallRingtone === tone.id;
+                                                            const isPlaying = previewingId === tone.id;
+                                                            return (
+                                                                <div
+                                                                    key={tone.id}
+                                                                    onClick={() => handleUpdateSoundPref({ voiceCallRingtone: tone.id })}
+                                                                    className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-all border ${
+                                                                        isSelected
+                                                                            ? 'bg-primary/20 border-primary text-white font-bold'
+                                                                            : 'bg-black/20 hover:bg-white/5 border-transparent text-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <span>{tone.name}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleTogglePreview(tone.id, 'ringtone');
+                                                                        }}
+                                                                        className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200"
+                                                                        title={isPlaying ? 'Stop Preview' : 'Play Preview'}
+                                                                    >
+                                                                        {isPlaying ? <IoStopOutline size={14} className="text-primary animate-pulse" /> : <IoPlayOutline size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Incoming Video Call Ringtone */}
+                                                <div className="p-3 bg-white/5 rounded-2xl space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-gray-200">Video Call Ringtone</p>
+                                                            <p className="text-[10px] text-gray-400">Distinguishable ringtone for video requests</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {AVAILABLE_RINGTONES.map((tone) => {
+                                                            const isSelected = soundPrefs.videoCallRingtone === tone.id;
+                                                            const isPlaying = previewingId === tone.id;
+                                                            return (
+                                                                <div
+                                                                    key={tone.id}
+                                                                    onClick={() => handleUpdateSoundPref({ videoCallRingtone: tone.id })}
+                                                                    className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-all border ${
+                                                                        isSelected
+                                                                            ? 'bg-primary/20 border-primary text-white font-bold'
+                                                                            : 'bg-black/20 hover:bg-white/5 border-transparent text-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <span>{tone.name}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleTogglePreview(tone.id, 'ringtone');
+                                                                        }}
+                                                                        className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200"
+                                                                        title={isPlaying ? 'Stop Preview' : 'Play Preview'}
+                                                                    >
+                                                                        {isPlaying ? <IoStopOutline size={14} className="text-primary animate-pulse" /> : <IoPlayOutline size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Direct Message Notification Sounds */}
+                                                <div className="p-3 bg-white/5 rounded-2xl space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-gray-200">Message Notification Tone</p>
+                                                            <p className="text-[10px] text-gray-400">One-shot sound on received direct chats</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleUpdateSoundPref({ messageEnabled: !soundPrefs.messageEnabled })}
+                                                            className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${soundPrefs.messageEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                        >
+                                                            <motion.div
+                                                                animate={{ x: soundPrefs.messageEnabled ? 16 : 2 }}
+                                                                className="w-3 h-3 bg-white rounded-full absolute top-0.5"
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {AVAILABLE_MESSAGE_SOUNDS.map((tone) => {
+                                                            const isSelected = soundPrefs.messageSound === tone.id;
+                                                            const isPlaying = previewingId === tone.id;
+                                                            return (
+                                                                <div
+                                                                    key={tone.id}
+                                                                    onClick={() => handleUpdateSoundPref({ messageSound: tone.id })}
+                                                                    className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-all border ${
+                                                                        isSelected
+                                                                            ? 'bg-primary/20 border-primary text-white font-bold'
+                                                                            : 'bg-black/20 hover:bg-white/5 border-transparent text-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <span>{tone.name}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleTogglePreview(tone.id, 'message');
+                                                                        }}
+                                                                        className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200"
+                                                                        title={isPlaying ? 'Stop Preview' : 'Play Preview'}
+                                                                    >
+                                                                        {isPlaying ? <IoStopOutline size={14} className="text-primary animate-pulse" /> : <IoPlayOutline size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Group & Invitation Sounds */}
+                                                <div className="p-3 bg-white/5 rounded-2xl space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-gray-200">Invitation Alert Tone</p>
+                                                            <p className="text-[10px] text-gray-400">Tone for party and collaborative invites</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleUpdateSoundPref({ invitationEnabled: !soundPrefs.invitationEnabled })}
+                                                            className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${soundPrefs.invitationEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                        >
+                                                            <motion.div
+                                                                animate={{ x: soundPrefs.invitationEnabled ? 16 : 2 }}
+                                                                className="w-3 h-3 bg-white rounded-full absolute top-0.5"
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {AVAILABLE_INVITE_SOUNDS.map((tone) => {
+                                                            const isSelected = soundPrefs.invitationSound === tone.id;
+                                                            const isPlaying = previewingId === tone.id;
+                                                            return (
+                                                                <div
+                                                                    key={tone.id}
+                                                                    onClick={() => handleUpdateSoundPref({ invitationSound: tone.id })}
+                                                                    className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-all border ${
+                                                                        isSelected
+                                                                            ? 'bg-primary/20 border-primary text-white font-bold'
+                                                                            : 'bg-black/20 hover:bg-white/5 border-transparent text-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <span>{tone.name}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleTogglePreview(tone.id, 'invitation');
+                                                                        }}
+                                                                        className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200"
+                                                                        title={isPlaying ? 'Stop Preview' : 'Play Preview'}
+                                                                    >
+                                                                        {isPlaying ? <IoStopOutline size={14} className="text-primary animate-pulse" /> : <IoPlayOutline size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Restore Default Sounds Button */}
+                                                <div className="pt-2 flex justify-end">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRestoreDefaultSounds}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all"
+                                                    >
+                                                        <IoRefreshOutline size={14} /> Restore Default Sounds
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </section>
 
                                 <section>

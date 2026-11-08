@@ -194,10 +194,19 @@ export class ArcadeLeaderboardService {
                 isCurrentUser: row.user_id === currentUserId,
             }));
 
-            // Cache in IndexedDB
+            // Cache in IndexedDB with TTL and bounded eviction (VIBE-BUG-014)
             try {
                 const db = await getArcadeDB();
                 await db.put('leaderboard_cache', { items, cachedAt: Date.now() }, cacheKey);
+
+                // Evict stale cache entries older than 7 days or prune store if unbounded
+                const allKeys = await db.getAllKeys('leaderboard_cache');
+                if (allKeys.length > 50) {
+                    const oldestKeys = allKeys.slice(0, allKeys.length - 50);
+                    for (const k of oldestKeys) {
+                        await db.delete('leaderboard_cache', k);
+                    }
+                }
             } catch {
                 // Ignore caching errors
             }

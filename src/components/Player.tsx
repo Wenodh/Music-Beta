@@ -33,6 +33,7 @@ import { MdOutlineLyrics } from 'react-icons/md';
 import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icons/io5';
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { App as CapApp } from '@capacitor/app';
 import { nativeMediaSession } from '../services/nativeMediaSessionService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
@@ -104,11 +105,20 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
+    const preloadBlobUrlRef = useRef<string | undefined>(undefined);
+    const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const revokeAudioBlob = useCallback(() => {
         if (currentBlobUrlsRef.current.audio) {
             URL.revokeObjectURL(currentBlobUrlsRef.current.audio);
             currentBlobUrlsRef.current.audio = undefined;
+        }
+    }, []);
+
+    const revokePreloadBlob = useCallback(() => {
+        if (preloadBlobUrlRef.current) {
+            URL.revokeObjectURL(preloadBlobUrlRef.current);
+            preloadBlobUrlRef.current = undefined;
         }
     }, []);
 
@@ -254,6 +264,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (!isPreload) {
                 revokeAudioBlob();
                 currentBlobUrlsRef.current.audio = url;
+            } else {
+                revokePreloadBlob();
+                preloadBlobUrlRef.current = url;
             }
             return url;
         }
@@ -368,6 +381,44 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 activeAudio.playbackRate || 1
             );
         }
+    }, [isPlaying, activeBuffer]);
+
+    // Android background & screen-lock playback preservation:
+    // When the screen locks or app transitions to the background on Android,
+    // ensure HTMLAudioElement and AudioContext are kept active and not auto-paused by WebView lifecycle.
+    useEffect(() => {
+        let appStateHandle: any = null;
+
+        try {
+            CapApp.addListener('appStateChange', (state) => {
+                const activeAudio = getActiveAudio();
+                const audioEngine = AudioEngine.getInstance();
+                const ctx = audioEngine.getAudioContext();
+
+                if (state.isActive) {
+                    if (ctx && ctx.state === 'suspended' && isPlaying) {
+                        ctx.resume().catch(() => {});
+                    }
+                } else {
+                    // Screen locked / backgrounded: if playback is active, ensure audio playback continues uninterrupted
+                    if (isPlaying && activeAudio && activeAudio.paused) {
+                        activeAudio.play().catch((err) => {
+                            console.warn('[Player] Background audio play resumption failed:', err);
+                        });
+                    }
+                }
+            }).then((handle) => {
+                appStateHandle = handle;
+            }).catch(() => {});
+        } catch {
+            // CapApp not available
+        }
+
+        return () => {
+            if (appStateHandle && typeof appStateHandle.remove === 'function') {
+                appStateHandle.remove();
+            }
+        };
     }, [isPlaying, activeBuffer]);
 
     // Session Seek Listener
@@ -552,7 +603,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         };
 
-        const startCrossfade = () => {
+        const startCrossfade = async () => {
             const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
 
             if (!next) {
@@ -562,22 +613,25 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
             const currentCrossfadeId = ++crossfadeRequestIdRef.current;
 
-            getSongUrl(next, true).then(url => {
+            try {
+                const url = await getSongUrl(next, true);
                 if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
+
                 const inactiveBuffer = activeBuffer === 'A' ? 'B' : 'A';
                 const resolvedInactive = prepareAudioForSource(inactiveBuffer, url);
                 if (crossfadeRequestIdRef.current !== currentCrossfadeId) return;
                 resolvedInactive.src = url;
-            });
 
-            inactiveAudio.volume = 0;
-            inactiveAudio.play().then(() => {
+                inactiveAudio.volume = 0;
+                await inactiveAudio.play();
+
                 // Ramp volumes
                 const steps = 20;
                 const interval = (crossfadeDuration * 1000) / steps;
                 let step = 0;
 
-                const fade = setInterval(() => {
+                if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+                fadeIntervalRef.current = setInterval(() => {
                     step++;
                     const progress = step / steps;
 
@@ -587,7 +641,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     inactiveAudio.volume = baseVol * progress;
 
                     if (step >= steps) {
-                        clearInterval(fade);
+                        if (fadeIntervalRef.current) {
+                            clearInterval(fadeIntervalRef.current);
+                            fadeIntervalRef.current = null;
+                        }
                         // Complete transition
                         activeAudio.pause();
                         activeAudio.currentTime = 0;
@@ -602,10 +659,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         }));
                     }
                 }, interval);
-            }).catch(err => {
+            } catch (err) {
                 console.error("Crossfade play failed", err);
                 setIsCrossfading(false);
-            });
+            }
         };
 
         const handleSongEnd = () => {

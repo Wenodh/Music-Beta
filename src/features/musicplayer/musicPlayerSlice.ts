@@ -84,6 +84,12 @@ const musicPlayerSlice = createSlice({
             const { forcePlay, ...songData } = action.payload;
             const id = songData.id;
 
+            // VIBE-BUG-002: Reset endOfTrack sleep timer when track changes
+            if (state.sleepTimerMode === 'endOfTrack' && state.currentSong?.id !== id) {
+                state.sleepTimer = null;
+                state.sleepTimerMode = null;
+            }
+
             // Toggle play/pause if current song is clicked again (unless forcePlay is true)
             if (!forcePlay && state.currentSong && state.currentSong.id === id) {
                 state.isPlaying = !state.isPlaying;

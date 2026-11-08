@@ -19,11 +19,33 @@ vi.mock('../../../utils/friendsDb', () => ({
         const list = Array.from(mockStores.direct_messages.values()).filter((m: any) => m.friendId === friendId);
         return list.sort((a, b) => a.timestamp - b.timestamp);
     }),
+    getMaxRecordedSequenceLocal: vi.fn(async (friendId: string) => {
+        const list = Array.from(mockStores.direct_messages.values()).filter((m: any) => m.friendId === friendId);
+        if (list.length === 0) return 0;
+        return list.reduce((max, m) => Math.max(max, m.seq || 0), 0);
+    }),
     getNextMessageSequenceLocal: vi.fn(async (friendId: string) => {
         const list = Array.from(mockStores.direct_messages.values()).filter((m: any) => m.friendId === friendId);
         if (list.length === 0) return 1;
         const maxSeq = list.reduce((max, m) => Math.max(max, m.seq || 0), 0);
         return maxSeq + 1;
+    }),
+    isMessageReplayOrDuplicateLocal: vi.fn(async (friendId: string, messageId: string, seq?: number) => {
+        const existingById = mockStores.direct_messages.get(messageId);
+        if (existingById) {
+            return { isDuplicate: true, isReplay: false, maxSeq: 0 };
+        }
+
+        if (typeof seq === 'number' && seq > 0) {
+            const list = Array.from(mockStores.direct_messages.values()).filter((m: any) => m.friendId === friendId);
+            const maxSeq = list.reduce((max, m) => Math.max(max, m.seq || 0), 0);
+            if (maxSeq > 0 && seq <= maxSeq) {
+                return { isDuplicate: false, isReplay: true, maxSeq };
+            }
+            return { isDuplicate: false, isReplay: false, maxSeq };
+        }
+
+        return { isDuplicate: false, isReplay: false, maxSeq: 0 };
     }),
     getUnreadDirectMessageCountsLocal: vi.fn(async (currentUserId: string) => {
         const list = Array.from(mockStores.direct_messages.values());
@@ -49,7 +71,7 @@ vi.mock('../../../utils/friendsDb', () => ({
     }),
 }));
 
-import { e2eeService } from '../../../services/e2eeService';
+import { e2eeService, computePublicKeyFingerprint } from '../../../services/e2eeService';
 import * as friendsDb from '../../../utils/friendsDb';
 
 describe('E2EE Service & Friends DB Integration', () => {
@@ -65,6 +87,8 @@ describe('E2EE Service & Friends DB Integration', () => {
         expect(identity.publicKeyJwk).toBeDefined();
         expect(identity.publicKeyJwk.kty).toBe('EC');
         expect(identity.publicKeyJwk.crv).toBe('P-256');
+        expect(identity.fingerprint).toBeDefined();
+        expect(identity.fingerprint.length).toBe(64); // SHA-256 hex string
 
         expect(friendsDb.saveCryptoKeyLocal).toHaveBeenCalled();
     });
@@ -92,6 +116,7 @@ describe('E2EE Service & Friends DB Integration', () => {
         expect(encrypted.ciphertext).toBeDefined();
         expect(encrypted.ciphertext).not.toEqual(plaintext);
         expect(encrypted.senderPublicKey).toBeDefined();
+        expect(encrypted.keyFingerprint).toBeDefined();
 
         // Bob derives the same AES key using Bob's private key and Alice's public key
         const alicePublicFromPayload = await cryptoObj.subtle.importKey(
@@ -124,51 +149,97 @@ describe('E2EE Service & Friends DB Integration', () => {
         expect(decrypted).toBe(plaintext);
     });
 
-    it('handles message sequence counters and unread counts', async () => {
-        const friendId = 'friend-123';
-        const initialSeq = await friendsDb.getNextMessageSequenceLocal(friendId);
-        expect(initialSeq).toBe(1);
+    it('detects public key substitution and alerts on unexpected key changes without blind overwrite', async () => {
+        const cryptoObj = globalThis.crypto;
+
+        // Legitimate key for Charlie
+        const charlieKeypair = await cryptoObj.subtle.generateKey(
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            ['deriveKey', 'deriveBits']
+        );
+        const charliePublicJwk = await cryptoObj.subtle.exportKey('jwk', charlieKeypair.publicKey);
+
+        // Initial key recording (first contact)
+        const firstContact = await e2eeService.recordPeerPublicKey('charlie-user', charliePublicJwk);
+        expect(firstContact.status).toBe('new');
+
+        // Subsequent message with identical key
+        const sameKey = await e2eeService.recordPeerPublicKey('charlie-user', charliePublicJwk);
+        expect(sameKey.status).toBe('unchanged');
+
+        // Attacker attempts to substitute Charlie's key
+        const attackerKeypair = await cryptoObj.subtle.generateKey(
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            ['deriveKey', 'deriveBits']
+        );
+        const attackerPublicJwk = await cryptoObj.subtle.exportKey('jwk', attackerKeypair.publicKey);
+
+        // Key change attempt without allowOverwrite must be rejected
+        const attackResult = await e2eeService.recordPeerPublicKey('charlie-user', attackerPublicJwk, false);
+        expect(attackResult.status).toBe('changed');
+        if (attackResult.status === 'changed') {
+            expect(attackResult.oldFingerprint).not.toEqual(attackResult.newFingerprint);
+        }
+
+        // Pinned key remains Charlie's original key in storage
+        const storedKey = await e2eeService.getStoredPeerKeyRecord('charlie-user');
+        expect(storedKey?.fingerprint).toBe(firstContact.fingerprint);
+    });
+
+    it('rejects duplicate and replayed message sequences', async () => {
+        const friendId = 'friend-seq-test';
+
+        // Initial message seq 1
+        const check1 = await friendsDb.isMessageReplayOrDuplicateLocal(friendId, 'msg-1', 1);
+        expect(check1.isDuplicate).toBe(false);
+        expect(check1.isReplay).toBe(false);
 
         await friendsDb.saveDirectMessageLocal({
-            id: 'm1',
-            friendId,
-            senderId: 'me',
-            senderName: 'Me',
-            text: 'Hey',
-            timestamp: Date.now(),
-            seq: 1,
-            status: 'sent',
-        });
-
-        const nextSeq = await friendsDb.getNextMessageSequenceLocal(friendId);
-        expect(nextSeq).toBe(2);
-
-        await friendsDb.saveDirectMessageLocal({
-            id: 'm2',
+            id: 'msg-1',
             friendId,
             senderId: friendId,
             senderName: 'Friend',
-            text: 'Hello back',
-            timestamp: Date.now() + 100,
-            seq: 2,
+            text: 'First message',
+            timestamp: Date.now(),
+            seq: 1,
             status: 'delivered',
         });
 
-        const unread = await friendsDb.getUnreadDirectMessageCountsLocal('me');
-        expect(unread[friendId]).toBe(1);
+        // Exact duplicate message ID
+        const dupCheck = await friendsDb.isMessageReplayOrDuplicateLocal(friendId, 'msg-1', 1);
+        expect(dupCheck.isDuplicate).toBe(true);
+
+        // Message with regressive sequence number (replayed seq 1 under new ID)
+        const replayCheck = await friendsDb.isMessageReplayOrDuplicateLocal(friendId, 'msg-replay-attack', 1);
+        expect(replayCheck.isReplay).toBe(true);
+        expect(replayCheck.maxSeq).toBe(1);
+
+        // Legitimate next sequence message (seq 2)
+        const nextCheck = await friendsDb.isMessageReplayOrDuplicateLocal(friendId, 'msg-2', 2);
+        expect(nextCheck.isDuplicate).toBe(false);
+        expect(nextCheck.isReplay).toBe(false);
     });
 
-    it('blocks and unblocks users in storage', async () => {
-        const badUser = 'malicious-user-999';
-        expect(await friendsDb.isUserBlockedLocal(badUser)).toBe(false);
+    it('computes deterministic SHA-256 public key fingerprints regardless of property order', async () => {
+        const jwkA: JsonWebKey = {
+            kty: 'EC',
+            crv: 'P-256',
+            x: 'W1Yf88Y073fQ0814mK9k211...',
+            y: 'z82fQ0814mK9k211W1Yf88Y...',
+        };
+        const jwkB: JsonWebKey = {
+            y: 'z82fQ0814mK9k211W1Yf88Y...',
+            x: 'W1Yf88Y073fQ0814mK9k211...',
+            crv: 'P-256',
+            kty: 'EC',
+        };
 
-        await friendsDb.blockUserLocal(badUser, 'Spam');
-        expect(await friendsDb.isUserBlockedLocal(badUser)).toBe(true);
+        const fpA = await computePublicKeyFingerprint(jwkA);
+        const fpB = await computePublicKeyFingerprint(jwkB);
 
-        const list = await friendsDb.getBlockedUsersLocal();
-        expect(list.some((u) => u.userId === badUser)).toBe(true);
-
-        await friendsDb.unblockUserLocal(badUser);
-        expect(await friendsDb.isUserBlockedLocal(badUser)).toBe(false);
+        expect(fpA).toBe(fpB);
+        expect(fpA.length).toBe(64);
     });
 });

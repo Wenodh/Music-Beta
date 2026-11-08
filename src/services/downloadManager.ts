@@ -584,8 +584,8 @@ export class DownloadManagerService {
                 attempt++;
                 job.retryCount = attempt;
 
-                // Permanent errors (e.g. 404 / 403 or invalid stream URL) should fail immediately
-                if (err?.message?.includes('404') || err?.message?.includes('403') || err?.message?.includes('No valid audio URL')) {
+                // Permanent errors (e.g. QuotaExceededError, 404 / 403 or invalid stream URL) should fail immediately
+                if (err?.message?.includes('Storage quota exceeded') || err?.name === 'QuotaExceededError' || err?.message?.includes('404') || err?.message?.includes('403') || err?.message?.includes('No valid audio URL')) {
                     throw err;
                 }
 

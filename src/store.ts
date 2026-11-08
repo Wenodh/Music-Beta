@@ -90,10 +90,11 @@ historyListener.startListening({
 });
 
 // Combine reducers
+// VIBE-BUG-009: Exclude transient isJoined from Redux Persist whitelist to prevent ghost reconnect loops
 const sessionPersistConfig = {
     key: 'session',
     storage,
-    whitelist: ['roomCode', 'isJoined'],
+    whitelist: ['roomCode'],
 };
 
 const rootReducer = combineReducers({

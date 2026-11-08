@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { supabase } from '../lib/supabase';
 import { useAppDispatch, useAppSelector } from './redux';
 import { setPresenceMap, updateUserPresence } from '../features/social/socialSlice';
@@ -52,6 +53,9 @@ export const useFriendPresence = () => {
     const myProfileRef = useRef(myProfile);
     myProfileRef.current = myProfile;
 
+    // Track app foreground/active state (Capacitor & Web visibility)
+    const isAppActiveRef = useRef<boolean>(true);
+
     /**
      * Stable payload builder:
      * - Heartbeats and state syncs call this function.
@@ -70,14 +74,19 @@ export const useFriendPresence = () => {
         const profile = myProfileRef.current;
         const showOnline = profile?.show_online ?? true;
         const shareActivity = profile?.share_activity ?? true;
+        const isAppActive = isAppActiveRef.current;
         const song = currentSongRef.current;
         const playing = isPlayingRef.current;
         const latestEvent = latestPlaybackEventRef.current;
         const hasSong = Boolean(song?.id);
 
+        // If user disabled online visibility or app is backgrounded/inactive without active music,
+        // broadcast online: false
+        const isUserOnline = showOnline && (isAppActive || (playing && hasSong));
+
         const payload: any = {
             userId: user.id,
-            online: showOnline,
+            online: isUserOnline,
             lastSeen: Date.now(),
         };
 
@@ -212,6 +221,20 @@ export const useFriendPresence = () => {
 
         dispatch(setPresenceMap(newPresenceMap));
     }, [dispatch]);
+
+    // Periodic sweep to clean up stale entries from onlinePresenceMap
+    useEffect(() => {
+        if (!isAuthenticated || !user?.id) return;
+
+        const sweepInterval = setInterval(() => {
+            if (channelRef.current && isChannelJoinedRef.current) {
+                // Re-evaluate current channel presence state against fresh Date.now()
+                syncPresenceRoster(channelRef.current);
+            }
+        }, PRESENCE_HEARTBEAT_INTERVAL_MS);
+
+        return () => clearInterval(sweepInterval);
+    }, [isAuthenticated, user?.id, syncPresenceRoster]);
 
     // Setup and manage channel subscription lifecycle
     useEffect(() => {
@@ -381,6 +404,65 @@ export const useFriendPresence = () => {
         stopReconnect,
         syncPresenceRoster,
     ]);
+
+    // App foreground / background and visibility lifecycle handling
+    useEffect(() => {
+        if (!isAuthenticated || !user?.id) return;
+
+        const handleVisibilityOrStateChange = async (isActive: boolean) => {
+            isAppActiveRef.current = isActive;
+
+            if (channelRef.current && isChannelJoinedRef.current && channelRef.current.state === 'joined') {
+                if (isActive) {
+                    // Resumed into foreground: immediately re-sync roster and broadcast fresh presence
+                    syncPresenceRoster(channelRef.current);
+                    enqueueTrackPresence(channelRef.current).catch((err) => {
+                        console.warn('[useFriendPresence] Foreground presence track error:', err);
+                    });
+                } else {
+                    // Backgrounded: broadcast immediately (will update online: false unless music is actively playing)
+                    enqueueTrackPresence(channelRef.current).catch((err) => {
+                        console.warn('[useFriendPresence] Background presence track error:', err);
+                    });
+                }
+            }
+        };
+
+        const onVisibilityChange = () => {
+            handleVisibilityOrStateChange(document.visibilityState === 'visible');
+        };
+
+        const onWindowFocus = () => handleVisibilityOrStateChange(true);
+        const onWindowBlur = () => {
+            if (document.visibilityState !== 'visible') {
+                handleVisibilityOrStateChange(false);
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('focus', onWindowFocus);
+        window.addEventListener('blur', onWindowBlur);
+
+        let capAppHandle: any = null;
+        try {
+            CapApp.addListener('appStateChange', (state) => {
+                handleVisibilityOrStateChange(state.isActive);
+            }).then((handle) => {
+                capAppHandle = handle;
+            }).catch(() => {});
+        } catch {
+            // Not native or CapApp unavailable
+        }
+
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('focus', onWindowFocus);
+            window.removeEventListener('blur', onWindowBlur);
+            if (capAppHandle && typeof capAppHandle.remove === 'function') {
+                capAppHandle.remove();
+            }
+        };
+    }, [isAuthenticated, user?.id, syncPresenceRoster, enqueueTrackPresence]);
 
     // Track actual playback transitions independently from privacy changes
     // Detects same-track metadata changes (title, artist, artworkUrl, isPlaying)
