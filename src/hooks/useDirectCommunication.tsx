@@ -114,6 +114,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     onlinePresenceMapRef.current = onlinePresenceMap;
 
     const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const incomingRingingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Cryptographically collision-resistant callId generator
@@ -128,6 +129,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         if (ringingTimeoutRef.current) {
             clearTimeout(ringingTimeoutRef.current);
             ringingTimeoutRef.current = null;
+        }
+        if (incomingRingingTimeoutRef.current) {
+            clearTimeout(incomingRingingTimeoutRef.current);
+            incomingRingingTimeoutRef.current = null;
         }
         if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
@@ -629,9 +634,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         dispatch(setFriendsList(updated));
                     }
 
+                    const targetCallId = callId || `call-${Date.now()}`;
                     dispatch(
                         setIncomingCall({
-                            callId: callId || `call-${Date.now()}`,
+                            callId: targetCallId,
                             callerId: senderId,
                             callerName: senderName || 'Friend',
                             channelName: `user:${userId}`,
@@ -639,6 +645,30 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                             receivedAt: Date.now(),
                         })
                     );
+
+                    // Callee-side ringing timeout: automatically dismiss and record missed call if caller drops
+                    if (incomingRingingTimeoutRef.current) {
+                        clearTimeout(incomingRingingTimeoutRef.current);
+                    }
+                    incomingRingingTimeoutRef.current = setTimeout(async () => {
+                        if (incomingCallRef.current?.callId === targetCallId) {
+                            dispatch(setIncomingCall(null));
+                            dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
+
+                            const missedLog: CallLogEntry = {
+                                id: targetCallId,
+                                callId: targetCallId,
+                                peerId: senderId,
+                                peerName: senderName || 'Friend',
+                                direction: 'incoming',
+                                outcome: 'missed',
+                                callType,
+                                startedAt: Date.now(),
+                                durationSeconds: 0,
+                            };
+                            await saveCallLogLocal(missedLog);
+                        }
+                    }, 45000);
                     return;
                 }
 
@@ -1125,10 +1155,17 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         } else {
             const videoTracks = localStreamRef.current?.getVideoTracks() || [];
             videoTracks.forEach((t) => {
-                t.enabled = false;
+                t.stop();
+                localStreamRef.current?.removeTrack(t);
             });
 
+            if (videoSender) {
+                videoSender.replaceTrack(null).catch(() => {});
+            }
+
             dispatch(setCallVideoEnabled(false));
+            setLocalStream(new MediaStream(localStreamRef.current?.getTracks() || []));
+
             sendToUser(active.friendId, 'direct_signal', {
                 callId: active.callId,
                 senderId: userId,

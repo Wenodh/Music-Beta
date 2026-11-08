@@ -10,13 +10,25 @@ export const ActiveCallBar: React.FC = () => {
     const { isCallActive, activeCall, isCallScreenExpanded } = useAppSelector((state) => state.friends);
     const { endCall, toggleMute, toggleSpeaker } = useDirectCommunication();
 
+    const [, setTicker] = React.useState(0);
+    React.useEffect(() => {
+        if (activeCall?.status === 'connected') {
+            const timer = setInterval(() => setTicker((t) => t + 1), 1000);
+            return () => clearInterval(timer);
+        }
+    }, [activeCall?.status]);
+
     if (!isCallActive || !activeCall || isCallScreenExpanded) return null;
 
     const formatDuration = (connectedAt: number | null) => {
         if (!connectedAt) return activeCall.status;
         const totalSecs = Math.max(0, Math.floor((Date.now() - connectedAt) / 1000));
-        const mins = Math.floor(totalSecs / 60);
+        const hours = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
         const secs = totalSecs % 60;
+        if (hours > 0) {
+            return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 

@@ -67,7 +67,9 @@ const AddToPlaylistModal = lazyRetry(() => import('./components/modals/AddToPlay
 const FriendsModal = lazyRetry(() => import('./components/modals/FriendsModal').then(m => ({ default: m.FriendsModal })));
 const IncomingCallModal = lazyRetry(() => import('./components/modals/IncomingCallModal').then(m => ({ default: m.IncomingCallModal })));
 const ActiveCallModal = lazyRetry(() => import('./components/modals/ActiveCallModal').then(m => ({ default: m.ActiveCallModal })));
+const ImportExportModal = lazyRetry(() => import('./components/modals/ImportExportModal').then(m => ({ default: m.ImportExportModal })));
 import { ActiveCallBar } from './components/ActiveCallBar';
+import { setImportExportModalOpen } from './features/ui/uiSlice';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -216,7 +218,7 @@ export const AppContent = () => {
     // Mount real-time presence & playback status broadcasting for social layer
     useFriendPresence();
 
-    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, theme, mobileNavPosition = 'bottom' } = useAppSelector(state => state.ui);
+    const { toasts, playlistModal, isLyricsOpen, isPlayerExpanded, isEqualizerOpen, isSessionModalOpen, isImportExportModalOpen, theme, mobileNavPosition = 'bottom' } = useAppSelector(state => state.ui);
     const { currentSong, isSettingsOpen, isQueueOpen, preferredQuality, downloadSettings } = useAppSelector(state => state.musicPlayer);
     const { isCallActive, isCallScreenExpanded, isFriendsModalOpen, incomingCall } = useAppSelector(state => state.friends);
     const wifiOnly = downloadSettings?.wifiOnly ?? false;
@@ -245,6 +247,7 @@ export const AppContent = () => {
         isCallScreenExpanded,
         isFriendsModalOpen,
         hasIncomingCall: Boolean(incomingCall),
+        isImportExportModalOpen,
     });
 
     useEffect(() => {
@@ -275,6 +278,7 @@ export const AppContent = () => {
         isCallScreenExpanded,
         isFriendsModalOpen,
         incomingCall,
+        isImportExportModalOpen,
     ]);
 
     // Keep track of our route history
@@ -346,6 +350,11 @@ export const AppContent = () => {
                 // Priority 3: If friends modal is open, dismiss it
                 if (friendsOpen) {
                     dispatch(setIsFriendsModalOpen(false));
+                    return;
+                }
+
+                if (stateRef.current.isImportExportModalOpen) {
+                    dispatch(setImportExportModalOpen(false));
                     return;
                 }
 
@@ -611,6 +620,7 @@ export const AppContent = () => {
                         onSuccess={(name: string) => dispatch(showToast({ message: `Added to ${name}` }))}
                         onError={(msg: string) => dispatch(showToast({ message: msg, type: 'error' }))}
                     />
+                    <ImportExportModal />
                 </Suspense>
 
                 <ToastContainer

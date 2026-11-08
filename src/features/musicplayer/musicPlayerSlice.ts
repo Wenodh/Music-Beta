@@ -84,6 +84,12 @@ const musicPlayerSlice = createSlice({
             const { forcePlay, ...songData } = action.payload;
             const id = songData.id;
 
+            // If switching to a new track, clear previous track's endOfTrack sleep timer
+            if (state.sleepTimerMode === 'endOfTrack' && state.currentSong?.id !== id) {
+                state.sleepTimer = null;
+                state.sleepTimerMode = null;
+            }
+
             // Toggle play/pause if current song is clicked again (unless forcePlay is true)
             if (!forcePlay && state.currentSong && state.currentSong.id === id) {
                 state.isPlaying = !state.isPlaying;
@@ -251,6 +257,11 @@ const musicPlayerSlice = createSlice({
             const isManual = action.payload?.isManual ?? true;
             const next = getNextSong(state.currentSong, state.songs, state.shuffle, state.repeatMode, isManual);
 
+            if (isManual && state.sleepTimerMode === 'endOfTrack') {
+                state.sleepTimer = null;
+                state.sleepTimerMode = null;
+            }
+
             if (next) {
                 state.currentSong = formatSong(next, state.preferredQuality);
                 state.isPlaying = true;
@@ -265,6 +276,11 @@ const musicPlayerSlice = createSlice({
         },
         prevSong: (state) => {
             const prev = getPrevSong(state.currentSong, state.songs, state.shuffle);
+
+            if (state.sleepTimerMode === 'endOfTrack') {
+                state.sleepTimer = null;
+                state.sleepTimerMode = null;
+            }
 
             if (prev) {
                 state.currentSong = formatSong(prev, state.preferredQuality);
