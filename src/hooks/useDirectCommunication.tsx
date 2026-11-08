@@ -31,6 +31,7 @@ import {
     getNextMessageSequenceLocal,
     saveCallLogLocal,
     isUserBlockedLocal,
+    isMessageReplayOrDuplicateLocal,
     Friend,
     DirectMessage,
     CallLogEntry,
@@ -464,10 +465,44 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     return;
                 }
 
-                // If message provides sender's public key (root or inside encrypted payload), cache it for future replies
+                // Sequence Replay and Duplicate Message Defense:
+                // Check if message ID already exists or if sequence number is regressive
+                const replayCheck = await isMessageReplayOrDuplicateLocal(
+                    incomingPayload.senderId,
+                    incomingPayload.id,
+                    incomingPayload.seq
+                );
+
+                if (replayCheck.isDuplicate) {
+                    console.warn('[DirectComms] Dropping duplicate message with existing ID:', incomingPayload.id);
+                    return;
+                }
+
+                if (replayCheck.isReplay) {
+                    console.warn(
+                        `[DirectComms] Dropping replayed or out-of-order message from ${incomingPayload.senderId}. Incoming seq ${incomingPayload.seq} <= last seen ${replayCheck.maxSeq}`
+                    );
+                    return;
+                }
+
+                // Cryptographic Key Change Detection & Verification:
+                // If message provides sender's public key (root or inside encrypted payload), record it safely
                 const senderPubJwk = (incomingPayload as any).senderPublicKey || incomingPayload.encrypted?.senderPublicKey;
+                let keyChangedAlert = false;
+
                 if (senderPubJwk) {
-                    await e2eeService.savePeerPublicKey(incomingPayload.senderId, senderPubJwk);
+                    const keyComparison = await e2eeService.recordPeerPublicKey(incomingPayload.senderId, senderPubJwk, false);
+                    if (keyComparison.status === 'changed') {
+                        keyChangedAlert = true;
+                        console.warn(
+                            `[DirectComms] Security Alert: Peer ${incomingPayload.senderId} public key has changed! ` +
+                            `Old: ${keyComparison.oldFingerprint.slice(0, 8)}..., New: ${keyComparison.newFingerprint.slice(0, 8)}...`
+                        );
+                        dispatch(showToast({
+                            message: `Security notice: ${incomingPayload.senderName || 'Contact'} identity key has changed.`,
+                            type: 'info',
+                        }));
+                    }
                 }
 
                 // Decrypt message if encrypted payload is provided
@@ -479,6 +514,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         console.warn('[DirectComms] Decryption failed, falling back to raw text if present:', decErr);
                         decryptedText = incomingPayload.text || '🔒 [Encrypted message - could not decrypt]';
                     }
+                }
+
+                if (keyChangedAlert) {
+                    decryptedText = `⚠️ [Security notice: Sender's cryptographic key changed]\n${decryptedText}`;
                 }
 
                 const currentFriends = await getFriendsLocal();

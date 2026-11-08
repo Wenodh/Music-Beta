@@ -27,7 +27,13 @@ export interface EncryptedPayload {
     iv: string; // Base64 12-byte initialization vector
     ciphertext: string; // Base64 AES-GCM ciphertext + auth tag
     senderPublicKey?: JsonWebKey; // Optional in-band public key exchange
+    keyFingerprint?: string; // Hex fingerprint of sender public key
 }
+
+export type PeerKeyComparisonResult =
+    | { status: 'new'; fingerprint: string }
+    | { status: 'unchanged'; fingerprint: string }
+    | { status: 'changed'; oldFingerprint: string; newFingerprint: string };
 
 const ECDH_PARAMS: EcKeyGenParams = {
     name: 'ECDH',
@@ -56,19 +62,45 @@ const base64ToBuffer = (base64: string): Uint8Array => {
     return bytes;
 };
 
+const bufferToHex = (buffer: ArrayBuffer): string => {
+    const bytes = new Uint8Array(buffer);
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+};
+
+/**
+ * Computes a deterministic SHA-256 fingerprint for a public key JWK.
+ * Normalizes parameters (crv, kty, x, y) to ensure identical hashes regardless of object property ordering.
+ */
+export const computePublicKeyFingerprint = async (jwk: JsonWebKey): Promise<string> => {
+    const canonical = JSON.stringify({
+        crv: jwk.crv || 'P-256',
+        kty: jwk.kty || 'EC',
+        x: jwk.x || '',
+        y: jwk.y || '',
+    });
+    const cryptoObj = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
+    const encoded = new TextEncoder().encode(canonical);
+    const digest = await cryptoObj.subtle.digest('SHA-256', encoded);
+    return bufferToHex(digest);
+};
+
 class E2EEService {
     private localKeyPair: CryptoKeyPair | null = null;
     private localPublicKeyJwk: JsonWebKey | null = null;
+    private localFingerprint: string | null = null;
     private derivedKeyCache = new Map<string, CryptoKey>();
 
     /**
      * Initializes or loads the local device identity keypair.
      */
-    async getOrCreateLocalIdentity(): Promise<{ publicKeyJwk: JsonWebKey; keyPair: CryptoKeyPair }> {
-        if (this.localKeyPair && this.localPublicKeyJwk) {
+    async getOrCreateLocalIdentity(): Promise<{ publicKeyJwk: JsonWebKey; keyPair: CryptoKeyPair; fingerprint: string }> {
+        if (this.localKeyPair && this.localPublicKeyJwk && this.localFingerprint) {
             return {
                 publicKeyJwk: this.localPublicKeyJwk,
                 keyPair: this.localKeyPair,
+                fingerprint: this.localFingerprint,
             };
         }
 
@@ -92,9 +124,21 @@ class E2EEService {
                 );
                 this.localKeyPair = { publicKey, privateKey };
                 this.localPublicKeyJwk = stored.publicKeyJwk;
+                this.localFingerprint = stored.fingerprint || (await computePublicKeyFingerprint(stored.publicKeyJwk));
+
+                // Backfill fingerprint if missing from legacy storage
+                if (!stored.fingerprint) {
+                    await saveCryptoKeyLocal({
+                        ...stored,
+                        fingerprint: this.localFingerprint,
+                        updatedAt: Date.now(),
+                    });
+                }
+
                 return {
                     publicKeyJwk: this.localPublicKeyJwk,
                     keyPair: this.localKeyPair,
+                    fingerprint: this.localFingerprint,
                 };
             } catch (err) {
                 console.warn('[E2EE] Failed to import stored identity keys, generating new pair:', err);
@@ -110,12 +154,15 @@ class E2EEService {
 
         const publicKeyJwk = await cryptoObj.subtle.exportKey('jwk', keyPair.publicKey);
         const privateKeyJwk = await cryptoObj.subtle.exportKey('jwk', keyPair.privateKey);
+        const fingerprint = await computePublicKeyFingerprint(publicKeyJwk);
 
         const record: StoredCryptoKey = {
             id: 'local_identity',
             keyType: 'identity_keypair',
             publicKeyJwk,
             privateKeyJwk,
+            fingerprint,
+            verificationStatus: 'verified',
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };
@@ -123,18 +170,27 @@ class E2EEService {
         await saveCryptoKeyLocal(record);
         this.localKeyPair = keyPair;
         this.localPublicKeyJwk = publicKeyJwk;
+        this.localFingerprint = fingerprint;
 
         return {
             publicKeyJwk,
             keyPair,
+            fingerprint,
         };
     }
 
     /**
-     * Retrieves the cached or stored public key for a peer.
+     * Retrieves the cached or stored public key record for a peer.
+     */
+    async getStoredPeerKeyRecord(peerId: string): Promise<StoredCryptoKey | undefined> {
+        return await getCryptoKeyLocal(`peer:${peerId}`);
+    }
+
+    /**
+     * Retrieves the cached or stored public key CryptoKey for a peer.
      */
     async getPeerPublicKey(peerId: string): Promise<CryptoKey | null> {
-        const stored = await getCryptoKeyLocal(`peer:${peerId}`);
+        const stored = await this.getStoredPeerKeyRecord(peerId);
         if (!stored?.publicKeyJwk) return null;
 
         try {
@@ -153,19 +209,75 @@ class E2EEService {
     }
 
     /**
-     * Saves a peer's public key (e.g. received via in-band message or handshake).
+     * Saves or validates a peer's public key with explicit key-change detection.
+     * Returns whether the key is new, unchanged, or represents a key change.
+     */
+    async recordPeerPublicKey(
+        peerId: string,
+        publicKeyJwk: JsonWebKey,
+        allowOverwrite = false
+    ): Promise<PeerKeyComparisonResult> {
+        const newFingerprint = await computePublicKeyFingerprint(publicKeyJwk);
+        const existing = await this.getStoredPeerKeyRecord(peerId);
+
+        if (!existing) {
+            // First contact: pin key
+            const record: StoredCryptoKey = {
+                id: `peer:${peerId}`,
+                keyType: 'peer_public_key',
+                publicKeyJwk,
+                fingerprint: newFingerprint,
+                verificationStatus: 'unverified',
+                previousFingerprints: [],
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            };
+            await saveCryptoKeyLocal(record);
+            this.derivedKeyCache.delete(peerId);
+            return { status: 'new', fingerprint: newFingerprint };
+        }
+
+        const oldFingerprint = existing.fingerprint || (await computePublicKeyFingerprint(existing.publicKeyJwk));
+
+        if (oldFingerprint === newFingerprint) {
+            // Key is unchanged
+            if (!existing.fingerprint) {
+                // Backfill fingerprint
+                await saveCryptoKeyLocal({ ...existing, fingerprint: oldFingerprint });
+            }
+            return { status: 'unchanged', fingerprint: newFingerprint };
+        }
+
+        // Key has changed!
+        if (allowOverwrite) {
+            const previousFingerprints = existing.previousFingerprints || [];
+            if (!previousFingerprints.includes(oldFingerprint)) {
+                previousFingerprints.push(oldFingerprint);
+            }
+            const updatedRecord: StoredCryptoKey = {
+                ...existing,
+                publicKeyJwk,
+                fingerprint: newFingerprint,
+                verificationStatus: 'key_changed',
+                previousFingerprints,
+                updatedAt: Date.now(),
+            };
+            await saveCryptoKeyLocal(updatedRecord);
+            this.derivedKeyCache.delete(peerId);
+        }
+
+        return {
+            status: 'changed',
+            oldFingerprint,
+            newFingerprint,
+        };
+    }
+
+    /**
+     * Backward-compatible alias for recordPeerPublicKey (without blind overwrite).
      */
     async savePeerPublicKey(peerId: string, publicKeyJwk: JsonWebKey): Promise<void> {
-        const record: StoredCryptoKey = {
-            id: `peer:${peerId}`,
-            keyType: 'peer_public_key',
-            publicKeyJwk,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-        await saveCryptoKeyLocal(record);
-        // Invalidate cached derived symmetric key
-        this.derivedKeyCache.delete(peerId);
+        await this.recordPeerPublicKey(peerId, publicKeyJwk, false);
     }
 
     /**
@@ -237,11 +349,14 @@ class E2EEService {
             encodedText
         );
 
+        const fingerprint = await computePublicKeyFingerprint(publicKeyJwk);
+
         return {
             v: 1,
             iv: bufferToBase64(iv),
             ciphertext: bufferToBase64(ciphertextBuffer),
             senderPublicKey: publicKeyJwk,
+            keyFingerprint: fingerprint,
         };
     }
 
@@ -253,9 +368,9 @@ class E2EEService {
             throw new Error('Invalid encrypted payload');
         }
 
-        // If the message contains sender's public key, store/update it
+        // If the message contains sender's public key, validate without blind overwrite
         if (payload.senderPublicKey) {
-            await this.savePeerPublicKey(senderId, payload.senderPublicKey);
+            await this.recordPeerPublicKey(senderId, payload.senderPublicKey, false);
         }
 
         const peerKey = await this.getPeerPublicKey(senderId);
