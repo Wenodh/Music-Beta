@@ -53,6 +53,18 @@ export const ActiveCallModal: React.FC = () => {
         prevMsgCountRef.current = newCount;
     }, [directMessages, activeCall?.friendId, isChatOpen]);
 
+    // Handle Escape key to close in-call chat drawer first without minimizing call
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isChatOpen) {
+                e.stopPropagation();
+                setIsChatOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isChatOpen]);
+
     // Toggle chat drawer and clear unread count
     const handleToggleChat = () => {
         setIsChatOpen((prev) => {

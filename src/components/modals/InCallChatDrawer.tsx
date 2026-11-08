@@ -8,9 +8,10 @@ import {
     IoTimeOutline,
     IoShieldCheckmarkOutline,
 } from 'react-icons/io5';
-import { useAppSelector } from '../../hooks/redux';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { useDirectCommunication } from '../../hooks/useDirectCommunication';
 import { MessageStatus } from '../../utils/friendsDb';
+import { markFriendMessagesSeen } from '../../features/friends/friendsSlice';
 
 interface InCallChatDrawerProps {
     isOpen: boolean;
@@ -25,18 +26,23 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
     friendId,
     friendName,
 }) => {
+    const dispatch = useAppDispatch();
     const { sendDirectMessage, userId } = useDirectCommunication();
     const directMessages = useAppSelector((state) => state.friends.directMessages[friendId] || []);
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-    // Auto-scroll to latest message when new messages arrive or drawer opens
+    // Auto-scroll to latest message when new messages arrive or drawer opens, and mark as seen
     useEffect(() => {
-        if (isOpen && typeof messagesEndRef.current?.scrollIntoView === 'function') {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        if (isOpen) {
+            if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
+                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+            // Mark incoming messages as seen when chat drawer is open
+            dispatch(markFriendMessagesSeen({ friendId }));
         }
-    }, [directMessages.length, isOpen]);
+    }, [directMessages.length, isOpen, dispatch, friendId]);
 
     // Focus input field when drawer opens
     useEffect(() => {
