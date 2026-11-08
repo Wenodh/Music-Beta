@@ -31,12 +31,15 @@ import {
     getNextMessageSequenceLocal,
     saveCallLogLocal,
     isUserBlockedLocal,
+    isMessageReplayOrDuplicateLocal,
     Friend,
     DirectMessage,
     CallLogEntry,
 } from '../utils/friendsDb';
 import { e2eeService, EncryptedPayload } from '../services/e2eeService';
 import { aggregateUserPresenceSessions } from '../utils/presenceUtils';
+import { soundService } from '../services/soundService';
+import { nativeCallNotificationService } from '../services/nativeCallNotificationService';
 
 export interface DirectCommunicationContextValue {
     sendDirectMessage: (friendId: string, text: string) => Promise<void>;
@@ -113,6 +116,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     onlinePresenceMapRef.current = onlinePresenceMap;
 
     const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const incomingRingingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Cryptographically collision-resistant callId generator
@@ -128,10 +132,15 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             clearTimeout(ringingTimeoutRef.current);
             ringingTimeoutRef.current = null;
         }
+        if (incomingRingingTimeoutRef.current) {
+            clearTimeout(incomingRingingTimeoutRef.current);
+            incomingRingingTimeoutRef.current = null;
+        }
         if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
             reconnectTimeoutRef.current = null;
         }
+        soundService.stopIncomingCallRingtone();
     }, []);
 
     // Managed outbound channel map with 30s idle disposal timeout
@@ -281,6 +290,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
 
         dispatch(endDirectCall(targetCallId ? { callId: targetCallId } : undefined));
+        nativeCallNotificationService.clearCallNotification();
     }, [clearTimers, dispatch]);
 
     // Setup RTCPeerConnection instance helper with Perfect Negotiation support
@@ -464,10 +474,44 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     return;
                 }
 
-                // If message provides sender's public key (root or inside encrypted payload), cache it for future replies
+                // Sequence Replay and Duplicate Message Defense:
+                // Check if message ID already exists or if sequence number is regressive
+                const replayCheck = await isMessageReplayOrDuplicateLocal(
+                    incomingPayload.senderId,
+                    incomingPayload.id,
+                    incomingPayload.seq
+                );
+
+                if (replayCheck.isDuplicate) {
+                    console.warn('[DirectComms] Dropping duplicate message with existing ID:', incomingPayload.id);
+                    return;
+                }
+
+                if (replayCheck.isReplay) {
+                    console.warn(
+                        `[DirectComms] Dropping replayed or out-of-order message from ${incomingPayload.senderId}. Incoming seq ${incomingPayload.seq} <= last seen ${replayCheck.maxSeq}`
+                    );
+                    return;
+                }
+
+                // Cryptographic Key Change Detection & Verification:
+                // If message provides sender's public key (root or inside encrypted payload), record it safely
                 const senderPubJwk = (incomingPayload as any).senderPublicKey || incomingPayload.encrypted?.senderPublicKey;
+                let keyChangedAlert = false;
+
                 if (senderPubJwk) {
-                    await e2eeService.savePeerPublicKey(incomingPayload.senderId, senderPubJwk);
+                    const keyComparison = await e2eeService.recordPeerPublicKey(incomingPayload.senderId, senderPubJwk, false);
+                    if (keyComparison.status === 'changed') {
+                        keyChangedAlert = true;
+                        console.warn(
+                            `[DirectComms] Security Alert: Peer ${incomingPayload.senderId} public key has changed! ` +
+                            `Old: ${keyComparison.oldFingerprint.slice(0, 8)}..., New: ${keyComparison.newFingerprint.slice(0, 8)}...`
+                        );
+                        dispatch(showToast({
+                            message: `Security notice: ${incomingPayload.senderName || 'Contact'} identity key has changed.`,
+                            type: 'info',
+                        }));
+                    }
                 }
 
                 // Decrypt message if encrypted payload is provided
@@ -479,6 +523,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         console.warn('[DirectComms] Decryption failed, falling back to raw text if present:', decErr);
                         decryptedText = incomingPayload.text || '🔒 [Encrypted message - could not decrypt]';
                     }
+                }
+
+                if (keyChangedAlert) {
+                    decryptedText = `⚠️ [Security notice: Sender's cryptographic key changed]\n${decryptedText}`;
                 }
 
                 const currentFriends = await getFriendsLocal();
@@ -508,6 +556,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 };
                 await saveDirectMessageLocal(localMsg);
                 dispatch(addDirectMessage(localMsg));
+
+                // Play incoming message notification sound (throttled, never on own messages)
+                soundService.playMessageSound();
 
                 sendToUser(incomingPayload.senderId, isCurrentlyChatting ? 'message_seen' : 'message_ack', {
                     messageId: incomingPayload.id,
@@ -590,16 +641,29 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         dispatch(setFriendsList(updated));
                     }
 
-                    dispatch(
-                        setIncomingCall({
-                            callId: callId || `call-${Date.now()}`,
-                            callerId: senderId,
-                            callerName: senderName || 'Friend',
-                            channelName: `user:${userId}`,
-                            callType,
-                            receivedAt: Date.now(),
-                        })
-                    );
+                    const incomingCallPayload = {
+                        callId: callId || `call-${Date.now()}`,
+                        callerId: senderId,
+                        callerName: senderName || 'Friend',
+                        channelName: `user:${userId}`,
+                        callType,
+                        receivedAt: Date.now(),
+                    };
+
+                    dispatch(setIncomingCall(incomingCallPayload));
+
+                    // Start continuous ringtone
+                    soundService.startIncomingCallRingtone(callType);
+
+                    // Callee-side 45-second auto-expiration (VIBE-BUG-004)
+                    if (incomingRingingTimeoutRef.current) clearTimeout(incomingRingingTimeoutRef.current);
+                    incomingRingingTimeoutRef.current = setTimeout(() => {
+                        if (incomingCallRef.current?.callId === incomingCallPayload.callId) {
+                            soundService.stopIncomingCallRingtone();
+                            dispatch(setIncomingCall(null));
+                            dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
+                        }
+                    }, 45000);
                     return;
                 }
 
@@ -607,6 +671,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const incomingId = incomingCallRef.current?.callId;
 
                 if (signalType === 'call-cancelled') {
+                    soundService.stopIncomingCallRingtone();
+                    if (incomingRingingTimeoutRef.current) {
+                        clearTimeout(incomingRingingTimeoutRef.current);
+                        incomingRingingTimeoutRef.current = null;
+                    }
                     if (incomingId === callId || (!incomingId && !activeId)) {
                         dispatch(setIncomingCall(null));
                         dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
@@ -623,6 +692,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 }
 
                 if (signalType === 'call-declined') {
+                    soundService.stopIncomingCallRingtone();
                     if (activeId === callId) {
                         dispatch(showToast({ message: `${senderName || 'Contact'} declined the call` }));
                         cleanupCallResources(callId);
@@ -631,6 +701,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 }
 
                 if (signalType === 'call-ended') {
+                    soundService.stopIncomingCallRingtone();
                     if (activeId === callId || incomingId === callId) {
                         dispatch(showToast({ message: 'Call ended' }));
                         cleanupCallResources(callId);
@@ -937,6 +1008,12 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Accept incoming call (supports audio and video)
     const acceptIncomingCall = useCallback(async (callerId: string, callerName: string) => {
+        soundService.stopIncomingCallRingtone();
+        if (incomingRingingTimeoutRef.current) {
+            clearTimeout(incomingRingingTimeoutRef.current);
+            incomingRingingTimeoutRef.current = null;
+        }
+
         const incoming = incomingCallRef.current;
         const currentCallId = incoming?.callId || generateCallId();
         const incomingCallType = incoming?.callType || 'audio';
@@ -987,6 +1064,12 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Decline incoming call
     const declineIncomingCall = useCallback((callerId: string) => {
+        soundService.stopIncomingCallRingtone();
+        if (incomingRingingTimeoutRef.current) {
+            clearTimeout(incomingRingingTimeoutRef.current);
+            incomingRingingTimeoutRef.current = null;
+        }
+
         const incoming = incomingCallRef.current;
         const currentCallId = incoming?.callId;
 
@@ -1029,6 +1112,47 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             dispatch(setCallMuted(willBeMuted));
         }
     }, [isMuted, dispatch]);
+
+    // Synchronize ongoing call state to native Android notification and listen for native notification action buttons
+    useEffect(() => {
+        if (!isCallActive || !activeCall) {
+            nativeCallNotificationService.clearCallNotification();
+            return;
+        }
+
+        const formatDuration = (connectedAt: number | null) => {
+            if (!connectedAt) return activeCall.status;
+            const totalSecs = Math.max(0, Math.floor((Date.now() - connectedAt) / 1000));
+            const mins = Math.floor(totalSecs / 60);
+            const secs = totalSecs % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const updateNotification = () => {
+            nativeCallNotificationService.showCallNotification({
+                friendName: activeCall.friendName,
+                callType: activeCall.callType,
+                isMuted: Boolean(activeCall.isMuted),
+                duration: formatDuration(activeCall.connectedAt),
+            });
+        };
+
+        updateNotification();
+        const interval = setInterval(updateNotification, 1000);
+
+        nativeCallNotificationService.setupActionListener((action) => {
+            if (action === 'toggleMute') {
+                toggleMute();
+            } else if (action === 'endCall') {
+                endCall();
+            }
+        });
+
+        return () => {
+            clearInterval(interval);
+            nativeCallNotificationService.removeActionListener();
+        };
+    }, [isCallActive, activeCall, toggleMute, endCall]);
 
     // Toggle Video Camera with reusable RTCRtpSender
     const toggleVideo = useCallback(async () => {
@@ -1084,12 +1208,28 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 dispatch(showToast({ message: 'Could not access camera', type: 'error' }));
             }
         } else {
+            // VIBE-BUG-006: Explicitly stop camera hardware sensor and release sender track
             const videoTracks = localStreamRef.current?.getVideoTracks() || [];
             videoTracks.forEach((t) => {
-                t.enabled = false;
+                try {
+                    t.stop();
+                    localStreamRef.current?.removeTrack(t);
+                } catch (e) {
+                    console.warn('Error stopping video track:', e);
+                }
             });
 
+            if (videoSender) {
+                try {
+                    await videoSender.replaceTrack(null);
+                } catch (e) {
+                    console.warn('Error replacing sender track with null:', e);
+                }
+            }
+
             dispatch(setCallVideoEnabled(false));
+            setLocalStream(new MediaStream(localStreamRef.current?.getTracks() || []));
+
             sendToUser(active.friendId, 'direct_signal', {
                 callId: active.callId,
                 senderId: userId,

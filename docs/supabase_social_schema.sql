@@ -222,9 +222,17 @@ CREATE POLICY "Users can delete their own notifications" ON public.social_notifi
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Anyone authenticated can insert notifications intended for other users (e.g. sending a friend request)
+-- Direct client inserts are strictly forbidden. Only authoritative SECURITY DEFINER RPCs
+-- (e.g., send_friend_request, respond_friend_request) create notification rows.
 DROP POLICY IF EXISTS "Users can create notifications for others" ON public.social_notifications;
-CREATE POLICY "Users can create notifications for others" ON public.social_notifications
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Deny direct client insert on social_notifications" ON public.social_notifications;
+CREATE POLICY "Deny direct client insert on social_notifications" ON public.social_notifications
+    FOR INSERT TO authenticated, anon
+    WITH CHECK (false);
+
+REVOKE INSERT ON public.social_notifications FROM authenticated;
+REVOKE INSERT ON public.social_notifications FROM anon;
+GRANT SELECT, UPDATE, DELETE ON public.social_notifications TO authenticated;
 
 
 -- ------------------------------------------------------------------------------

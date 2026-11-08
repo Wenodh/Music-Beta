@@ -67,7 +67,14 @@ export const saveSongOffline = async (
         const request = store.put(offlineSong);
 
         request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
+        request.onerror = () => {
+            // VIBE-BUG-010: Categorize QuotaExceededError distinctly to prevent futile retries
+            if (request.error?.name === 'QuotaExceededError') {
+                reject(new Error('Storage quota exceeded. Please free up disk space to download more songs.'));
+            } else {
+                reject(request.error);
+            }
+        };
     });
 };
 

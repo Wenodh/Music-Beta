@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from './redux';
 import { supabase } from '../lib/supabase';
+import { soundService } from '../services/soundService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import {
     setParticipants,
@@ -158,6 +159,8 @@ export const useSession = () => {
         lobbyChannel
             .on('broadcast', { event: 'party_update' }, ({ payload }) => {
                 dispatch(addOrUpdatePublicParty(payload));
+                // Play invitation/party alert sound for incoming session events
+                soundService.playInvitationSound();
             })
             .on('broadcast', { event: 'party_ended' }, ({ payload }) => {
                 dispatch(removePublicParty(payload.roomCode));
@@ -853,6 +856,30 @@ export const useSession = () => {
             isCancelled = true;
             restoreBaseSpeed();
             cancelHostGracePeriod();
+
+            // VIBE-BUG-007: Teardown WebRTC PeerConnections and MediaTracks on unmount
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach((t) => {
+                    try {
+                        t.stop();
+                    } catch (e) {
+                        console.warn('Error stopping session media track on unmount:', e);
+                    }
+                });
+                localStreamRef.current = null;
+            }
+
+            peerConnectionsRef.current.forEach((pc) => {
+                try {
+                    pc.onicecandidate = null;
+                    pc.ontrack = null;
+                    pc.close();
+                } catch (e) {
+                    console.warn('Error closing session peer connection on unmount:', e);
+                }
+            });
+            peerConnectionsRef.current.clear();
+
             try {
                 if (isHost && isPublic) {
                     partyService.broadcastPartyEnded(roomCode);

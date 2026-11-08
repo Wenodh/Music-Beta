@@ -39,6 +39,9 @@ export interface StoredCryptoKey {
     id: string; // 'local_identity' or 'peer:<peerId>'
     keyType: 'identity_keypair' | 'peer_public_key';
     publicKeyJwk: JsonWebKey;
+    fingerprint?: string; // SHA-256 hex fingerprint of canonical JWK
+    verificationStatus?: 'unverified' | 'verified' | 'key_changed';
+    previousFingerprints?: string[]; // Audit history of rotated keys
     privateKeyJwk?: JsonWebKey; // Only stored for local identity
     createdAt: number;
     updatedAt: number;
@@ -158,11 +161,38 @@ export const getDirectMessagesLocal = async (friendId: string): Promise<DirectMe
     return messages.sort((a, b) => a.timestamp - b.timestamp);
 };
 
-export const getNextMessageSequenceLocal = async (friendId: string): Promise<number> => {
+export const getMaxRecordedSequenceLocal = async (friendId: string): Promise<number> => {
     const messages = await getDirectMessagesLocal(friendId);
-    if (messages.length === 0) return 1;
-    const maxSeq = messages.reduce((max, m) => Math.max(max, m.seq || 0), 0);
+    if (messages.length === 0) return 0;
+    return messages.reduce((max, m) => Math.max(max, m.seq || 0), 0);
+};
+
+export const getNextMessageSequenceLocal = async (friendId: string): Promise<number> => {
+    const maxSeq = await getMaxRecordedSequenceLocal(friendId);
     return maxSeq + 1;
+};
+
+export const isMessageReplayOrDuplicateLocal = async (
+    friendId: string,
+    messageId: string,
+    seq?: number
+): Promise<{ isDuplicate: boolean; isReplay: boolean; maxSeq: number }> => {
+    const db = await getDB();
+    const existingById = await db.get('direct_messages', messageId);
+    if (existingById) {
+        return { isDuplicate: true, isReplay: false, maxSeq: 0 };
+    }
+
+    if (typeof seq === 'number' && seq > 0) {
+        const maxSeq = await getMaxRecordedSequenceLocal(friendId);
+        if (maxSeq > 0 && seq <= maxSeq) {
+            // Sequence regression or replayed sequence number
+            return { isDuplicate: false, isReplay: true, maxSeq };
+        }
+        return { isDuplicate: false, isReplay: false, maxSeq };
+    }
+
+    return { isDuplicate: false, isReplay: false, maxSeq: 0 };
 };
 
 export const getUnreadDirectMessageCountsLocal = async (currentUserId: string): Promise<Record<string, number>> => {

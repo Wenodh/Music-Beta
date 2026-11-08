@@ -1,5 +1,9 @@
 package com.wenodh.vibeon;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -14,12 +18,40 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
 
     private static final String TAG = "VibeOnMediaPlugin";
     private VibeOnAudioService audioService;
+    private VibeOnCallNotificationManager callNotificationManager;
+    private BroadcastReceiver callActionReceiver;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public void load() {
         super.load();
         audioService = new VibeOnAudioService(getContext(), this);
+        callNotificationManager = new VibeOnCallNotificationManager(getContext());
+
+        callActionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null || intent.getAction() == null) return;
+                String action = intent.getAction();
+                JSObject ret = new JSObject();
+                if (VibeOnCallNotificationManager.ACTION_TOGGLE_MUTE.equals(action)) {
+                    ret.put("action", "toggleMute");
+                    notifyListeners("callNotificationAction", ret);
+                } else if (VibeOnCallNotificationManager.ACTION_END_CALL.equals(action)) {
+                    ret.put("action", "endCall");
+                    notifyListeners("callNotificationAction", ret);
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(VibeOnCallNotificationManager.ACTION_TOGGLE_MUTE);
+        filter.addAction(VibeOnCallNotificationManager.ACTION_END_CALL);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(callActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            getContext().registerReceiver(callActionReceiver, filter);
+        }
     }
 
     @PluginMethod
@@ -41,6 +73,31 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
             call.resolve();
         } else {
             call.reject("Audio service not initialized");
+        }
+    }
+
+    @PluginMethod
+    public void showCallNotification(PluginCall call) {
+        String friendName = call.getString("friendName", "Friend");
+        String callType = call.getString("callType", "audio");
+        boolean isMuted = Boolean.TRUE.equals(call.getBoolean("isMuted", false));
+        String duration = call.getString("duration", "Active");
+
+        if (callNotificationManager != null) {
+            callNotificationManager.showCallNotification(friendName, callType, isMuted, duration);
+            call.resolve();
+        } else {
+            call.reject("Call notification manager not initialized");
+        }
+    }
+
+    @PluginMethod
+    public void clearCallNotification(PluginCall call) {
+        if (callNotificationManager != null) {
+            callNotificationManager.clearCallNotification();
+            call.resolve();
+        } else {
+            call.reject("Call notification manager not initialized");
         }
     }
 
@@ -75,6 +132,14 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     protected void handleOnDestroy() {
         if (audioService != null) {
             audioService.abandonAudioFocus();
+        }
+        if (callNotificationManager != null) {
+            callNotificationManager.clearCallNotification();
+        }
+        if (callActionReceiver != null) {
+            try {
+                getContext().unregisterReceiver(callActionReceiver);
+            } catch (Exception ignored) {}
         }
         super.handleOnDestroy();
     }
