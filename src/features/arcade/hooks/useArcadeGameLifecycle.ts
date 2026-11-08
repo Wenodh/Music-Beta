@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { useBackHandler } from '../../../hooks/useBackHandler';
+import { backNavigationService } from '../../../services/backNavigationService';
 
 export type GameLifecycleState = 'idle' | 'playing' | 'paused' | 'gameover' | 'completed';
 
@@ -46,6 +48,24 @@ export const useArcadeGameLifecycle = ({
         setShowExitConfirm(false);
         onBack();
     }, [onBack]);
+
+    // Register active exit confirmation or active gameplay with BackNavigationManager
+    useBackHandler(showExitConfirm, {
+        id: 'arcade-game-exit-confirm',
+        priority: backNavigationService.PRIORITY.CONFIRMATION_DIALOG,
+        onBack: () => {
+            // Dismiss confirmation and resume
+            resumeGame();
+        },
+    });
+
+    useBackHandler(!showExitConfirm && gameState === 'playing', {
+        id: 'arcade-game-playing',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => {
+            pauseGame();
+        },
+    });
 
     // Native Capacitor Android Back Button handling for active games
     useEffect(() => {

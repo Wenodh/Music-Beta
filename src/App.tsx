@@ -14,7 +14,9 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
-import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen } from './features/ui/uiSlice';
+import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen, setImportExportModalOpen } from './features/ui/uiSlice';
+import { backNavigationService } from './services/backNavigationService';
+import { useBackHandler } from './hooks/useBackHandler';
 import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
 import { setIsCallScreenExpanded, setIsFriendsModalOpen, setIncomingCall } from './features/friends/friendsSlice';
 import { useAppSelector, useAppDispatch } from './hooks/redux';
@@ -224,6 +226,96 @@ export const AppContent = () => {
     const maxConcurrency = downloadSettings?.maxConcurrency ?? 3;
     const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false);
 
+    // Register Global Modals with the centralized Back Navigation Manager
+    useBackHandler(isCallActive && isCallScreenExpanded, {
+        id: 'active-call-fullscreen',
+        priority: 450,
+        onBack: () => {
+            dispatch(setIsCallScreenExpanded(false));
+        },
+    });
+
+    useBackHandler(Boolean(incomingCall), {
+        id: 'incoming-call',
+        priority: 440,
+        onBack: () => {
+            // Dismiss incoming call modal safely without answering or disconnecting
+            dispatch(setIncomingCall(null));
+        },
+    });
+
+    useBackHandler(isFriendsModalOpen, {
+        id: 'friends-modal',
+        priority: 420,
+        onBack: () => {
+            dispatch(setIsFriendsModalOpen(false));
+        },
+    });
+
+    useBackHandler(isImportExportModalOpen, {
+        id: 'import-export-modal',
+        priority: 410,
+        onBack: () => {
+            dispatch(setImportExportModalOpen(false));
+        },
+    });
+
+    useBackHandler(playlistModal.isOpen, {
+        id: 'playlist-modal',
+        priority: 400,
+        onBack: () => {
+            dispatch(closePlaylistModal());
+        },
+    });
+
+    useBackHandler(isSessionModalOpen, {
+        id: 'session-modal',
+        priority: 390,
+        onBack: () => {
+            dispatch(setSessionModalOpen(false));
+        },
+    });
+
+    useBackHandler(isEqualizerOpen, {
+        id: 'equalizer-panel',
+        priority: 380,
+        onBack: () => {
+            dispatch(setEqualizerOpen(false));
+        },
+    });
+
+    useBackHandler(isLyricsOpen, {
+        id: 'lyrics-panel',
+        priority: 370,
+        onBack: () => {
+            dispatch(setLyricsOpen(false));
+        },
+    });
+
+    useBackHandler(isQueueOpen, {
+        id: 'queue-drawer',
+        priority: 360,
+        onBack: () => {
+            dispatch(setQueueOpen(false));
+        },
+    });
+
+    useBackHandler(isSettingsOpen, {
+        id: 'settings-drawer',
+        priority: 350,
+        onBack: () => {
+            dispatch(setSettingsOpen(false));
+        },
+    });
+
+    useBackHandler(isPlayerExpanded, {
+        id: 'player-expanded',
+        priority: 340,
+        onBack: () => {
+            dispatch(setPlayerExpanded(false));
+        },
+    });
+
     const navigate = useNavigate();
     const location = useLocation();
     const navigationType = useNavigationType();
@@ -316,6 +408,12 @@ export const AppContent = () => {
 
         const registerListener = async () => {
             const handle = await CapApp.addListener('backButton', () => {
+                // Check if centralized BackNavigationService has any active overlays to dismiss first
+                if (backNavigationService.hasActiveOverlays()) {
+                    const dismissed = backNavigationService.handleBack();
+                    if (dismissed) return;
+                }
+
                 const {
                     pathname,
                     isPlayerExpanded: playerOpen,
@@ -327,7 +425,7 @@ export const AppContent = () => {
                     isSessionModalOpen: sessionOpen,
                 } = stateRef.current;
 
-                // 1. Close/minimize active overlays first (topmost to bottommost priority)
+                // 1. Close/minimize active overlays first (fallback if not registered in backNavigationService)
                 const {
                     isCallActive: callActive,
                     isCallScreenExpanded: callExpanded,
@@ -343,7 +441,6 @@ export const AppContent = () => {
 
                 // Priority 2: If incoming call is ringing, do not silently accept/terminate (consume back event)
                 if (incomingActive) {
-                    // Back button dismisses the incoming modal without breaking state
                     return;
                 }
 
@@ -418,6 +515,14 @@ export const AppContent = () => {
             }
         };
     }, [dispatch, navigate]);
+
+    // Initialize Centralized Back Navigation Service for browser popstate, Alt+Left, and Escape
+    useEffect(() => {
+        const cleanup = backNavigationService.init();
+        return () => {
+            cleanup();
+        };
+    }, []);
 
     // Scroll Lock when overlays are open
     useEffect(() => {

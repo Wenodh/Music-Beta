@@ -17,6 +17,8 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setIsCallScreenExpanded } from '../../features/friends/friendsSlice';
 import { useDirectCommunication } from '../../hooks/useDirectCommunication';
 import { InCallChatDrawer } from './InCallChatDrawer';
+import { useBackHandler } from '../../hooks/useBackHandler';
+import { backNavigationService } from '../../services/backNavigationService';
 
 export const ActiveCallModal: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -53,17 +55,12 @@ export const ActiveCallModal: React.FC = () => {
         prevMsgCountRef.current = newCount;
     }, [directMessages, activeCall?.friendId, isChatOpen]);
 
-    // Handle Escape key to close in-call chat drawer first without minimizing call
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && isChatOpen) {
-                e.stopPropagation();
-                setIsChatOpen(false);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isChatOpen]);
+    // Register in-call chat drawer with BackNavigationManager (closes drawer before call minimize)
+    useBackHandler(isCallActive && isCallScreenExpanded && isChatOpen, {
+        id: 'in-call-chat-drawer',
+        priority: backNavigationService.PRIORITY.NESTED_SHEET_OR_MENU + 30,
+        onBack: () => setIsChatOpen(false),
+    });
 
     // Toggle chat drawer and clear unread count
     const handleToggleChat = () => {

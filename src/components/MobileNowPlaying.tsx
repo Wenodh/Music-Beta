@@ -16,6 +16,8 @@ import { openPlaylistModal, setEqualizerOpen } from '../features/ui/uiSlice';
 import Visualizer from './Visualizer';
 import Lyrics from './Lyrics';
 import { QueueContent } from './QueueContent';
+import { useBackHandler } from '../hooks/useBackHandler';
+import { backNavigationService } from '../services/backNavigationService';
 
 interface MobileNowPlayingProps {
     isOpen: boolean;
@@ -56,6 +58,37 @@ const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
     const [isInfoOverlayOpen, setIsInfoOverlayOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const [isVolumeSheetOpen, setIsVolumeSheetOpen] = useState(false);
+
+    // Register nested MobileNowPlaying overlays with BackNavigationManager (higher priority than parent player)
+    useBackHandler(isOpen && isVolumeSheetOpen, {
+        id: 'mobile-player-volume-sheet',
+        priority: backNavigationService.PRIORITY.NESTED_SHEET_OR_MENU + 20,
+        onBack: () => setIsVolumeSheetOpen(false),
+    });
+
+    useBackHandler(isOpen && isMoreMenuOpen, {
+        id: 'mobile-player-more-menu',
+        priority: backNavigationService.PRIORITY.NESTED_SHEET_OR_MENU + 10,
+        onBack: () => setIsMoreMenuOpen(false),
+    });
+
+    useBackHandler(isOpen && isLyricsOverlayOpen, {
+        id: 'mobile-player-lyrics',
+        priority: backNavigationService.PRIORITY.NESTED_SUB_VIEW + 10,
+        onBack: () => setIsLyricsOverlayOpen(false),
+    });
+
+    useBackHandler(isOpen && isQueueOverlayOpen, {
+        id: 'mobile-player-queue',
+        priority: backNavigationService.PRIORITY.NESTED_SUB_VIEW + 10,
+        onBack: () => setIsQueueOverlayOpen(false),
+    });
+
+    useBackHandler(isOpen && isInfoOverlayOpen, {
+        id: 'mobile-player-info',
+        priority: backNavigationService.PRIORITY.NESTED_SUB_VIEW + 10,
+        onBack: () => setIsInfoOverlayOpen(false),
+    });
 
     const [exitDirection, setExitDirection] = useState<number>(0);
     const [moveDirection, setMoveDirection] = useState<'forward' | 'backward' | 'none'>('none');

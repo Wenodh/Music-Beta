@@ -14,6 +14,8 @@ import {
 import { playMusic, addToQueue } from '../features/musicplayer/musicPlayerSlice';
 import { showToast } from '../features/ui/uiSlice';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
+import { useBackHandler } from '../hooks/useBackHandler';
+import { backNavigationService } from '../services/backNavigationService';
 
 const Community: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -30,6 +32,28 @@ const Community: React.FC = () => {
     const [expandedCommentsPostId, setExpandedCommentsPostId] = useState<string | null>(null);
     const [newCommentText, setNewCommentText] = useState('');
     const [authPromptOpen, setAuthPromptOpen] = useState(false);
+
+    // Register Community modals with BackNavigationManager (with unsaved changes check)
+    useBackHandler(isCreateOpen, {
+        id: 'community-create-post-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => {
+            const hasDraft = captionText.trim() || pollQuestion.trim() || pollOption1.trim() || pollOption2.trim();
+            if (hasDraft) {
+                const confirmed = window.confirm('You have unsaved changes in your post. Discard draft?');
+                if (!confirmed) {
+                    return false; // prevent closing
+                }
+            }
+            setIsCreateOpen(false);
+        },
+    });
+
+    useBackHandler(authPromptOpen, {
+        id: 'community-auth-prompt-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG + 10,
+        onBack: () => setAuthPromptOpen(false),
+    });
 
     useEffect(() => {
         dispatch(setIsLoading(true));

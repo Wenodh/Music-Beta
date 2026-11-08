@@ -9,6 +9,8 @@ import { ArcadeLeaderboardService } from '../services/arcadeLeaderboardService';
 import { NowPlayingMini } from '../components/NowPlayingMini';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { LeaderboardModal } from '../components/LeaderboardModal';
+import { useBackHandler } from '../../../hooks/useBackHandler';
+import { backNavigationService } from '../../../services/backNavigationService';
 import {
     IoGameControllerOutline,
     IoColorPaletteOutline,
@@ -384,6 +386,19 @@ export const ArcadeHome: React.FC = () => {
 
     const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
     const [leaderboardModalGame, setLeaderboardModalGame] = useState<{ id: ArcadeGameId; title: string } | null>(null);
+
+    // Register Arcade modals with BackNavigationManager
+    useBackHandler(isThemeModalOpen, {
+        id: 'arcade-theme-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setIsThemeModalOpen(false),
+    });
+
+    useBackHandler(Boolean(leaderboardModalGame), {
+        id: 'arcade-leaderboard-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setLeaderboardModalGame(null),
+    });
 
     useEffect(() => {
         getArcadeSettings().then(setSettings);

@@ -14,6 +14,8 @@ import { BulkDownloadModal } from '../components/modals/BulkDownloadModal';
 import { DownloadManagerModal } from '../components/modals/DownloadManagerModal';
 import { ImportExportModal } from '../components/modals/ImportExportModal';
 import { setImportExportModalOpen } from '../features/ui/uiSlice';
+import { useBackHandler } from '../hooks/useBackHandler';
+import { backNavigationService } from '../services/backNavigationService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getOfflineSongs, OfflineSong, deleteOfflineSong } from '../utils/db';
@@ -41,6 +43,31 @@ const Library: React.FC = () => {
     const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
+
+    // Register Library page dialogs and modals with BackNavigationManager
+    useBackHandler(isCreating, {
+        id: 'library-create-playlist-dialog',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG + 10,
+        onBack: () => setIsCreating(false),
+    });
+
+    useBackHandler(isRepairModalOpen, {
+        id: 'library-repair-favorites-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setIsRepairModalOpen(false),
+    });
+
+    useBackHandler(isBulkModalOpen, {
+        id: 'library-bulk-download-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setIsBulkModalOpen(false),
+    });
+
+    useBackHandler(isManagerModalOpen, {
+        id: 'library-download-manager-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setIsManagerModalOpen(false),
+    });
 
     const [downloadJobsMap, setDownloadJobsMap] = useState<Map<string, DownloadJob>>(new Map());
     const [downloadSummary, setDownloadSummary] = useState<DownloadSummary>({

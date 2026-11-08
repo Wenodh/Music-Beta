@@ -25,6 +25,8 @@ import { useNavigate } from 'react-router-dom';
 import { RepairFavoritesModal } from '../components/modals/RepairFavoritesModal';
 import { DownloadManagerModal } from '../components/modals/DownloadManagerModal';
 import { supabase } from '../lib/supabase';
+import { useBackHandler } from '../hooks/useBackHandler';
+import { backNavigationService } from '../services/backNavigationService';
 import { getOfflineSongs } from '../utils/db';
 
 const Profile: React.FC = () => {
@@ -37,6 +39,25 @@ const Profile: React.FC = () => {
     const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
     const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+
+    // Register Profile dialogs with BackNavigationManager
+    useBackHandler(isEditProfileOpen, {
+        id: 'profile-edit-dialog',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG + 10,
+        onBack: () => setIsEditProfileOpen(false),
+    });
+
+    useBackHandler(isRepairModalOpen, {
+        id: 'profile-repair-favorites-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setIsRepairModalOpen(false),
+    });
+
+    useBackHandler(isManagerModalOpen, {
+        id: 'profile-download-manager-modal',
+        priority: backNavigationService.PRIORITY.MODAL_DIALOG,
+        onBack: () => setIsManagerModalOpen(false),
+    });
     const [offlineCount, setOfflineCount] = useState(0);
 
     // Edit profile state
