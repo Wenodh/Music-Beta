@@ -47,7 +47,11 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
         IntentFilter filter = new IntentFilter();
         filter.addAction(VibeOnCallNotificationManager.ACTION_TOGGLE_MUTE);
         filter.addAction(VibeOnCallNotificationManager.ACTION_END_CALL);
-        getContext().registerReceiver(callActionReceiver, filter);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(callActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            getContext().registerReceiver(callActionReceiver, filter);
+        }
     }
 
     @PluginMethod
