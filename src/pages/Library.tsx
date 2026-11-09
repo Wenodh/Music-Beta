@@ -518,6 +518,10 @@ const Library: React.FC = () => {
                             [...favorites].sort((a, b) => {
                                 if (sortBy === 'name') return a.name.localeCompare(b.name);
                                 if (sortBy === 'artist') return a.primaryArtists.localeCompare(b.primaryArtists);
+                                // Default 'date' (Recently Added): newest added first
+                                const timeA = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+                                const timeB = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+                                if (timeA && timeB) return timeB - timeA;
                                 return 0;
                             }).map((song) => {
                                 const isCurrent = currentSong?.id === song.id;

@@ -111,7 +111,11 @@ const librarySlice = createSlice({
             if (index >= 0) {
                 state.favorites.splice(index, 1);
             } else {
-                state.favorites.push(action.payload);
+                const songToAdd = {
+                    ...action.payload,
+                    addedAt: action.payload.addedAt || Date.now(),
+                };
+                state.favorites.unshift(songToAdd);
             }
         },
         createPlaylist: (state, action: PayloadAction<{ name: string; song?: Song; songs?: Song[]; id?: string; isCollaborative?: boolean }>) => {

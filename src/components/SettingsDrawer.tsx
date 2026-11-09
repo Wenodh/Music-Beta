@@ -21,6 +21,7 @@ import {
     resetMobileNavItems,
     setMobileNavPosition,
     setProtectIpInCalls,
+    setIsNavSettingsViewing,
     MobileNavPosition,
 } from '../features/ui/uiSlice';
 import { ALL_MOBILE_NAV_ITEMS } from '../constants/navigation';
@@ -65,6 +66,7 @@ import {
     NotificationSoundPreferences,
 } from '../services/soundService';
 import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
+import { setSocialActiveTab } from '../features/social/socialSlice';
 import { useNavigate } from 'react-router-dom';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
 import { syncLibrary } from '../features/library/libraryActions';
@@ -392,8 +394,26 @@ const SettingsDrawer: React.FC = () => {
             setSearchQuery('');
             setMobileActiveCategory(null);
             setHighlightedSettingId(null);
+            dispatch(setIsNavSettingsViewing(false));
         }
-    }, [isSettingsOpen]);
+    }, [isSettingsOpen, dispatch]);
+
+    // Keep track of whether user is currently viewing the navigation settings section
+    useEffect(() => {
+        if (!isSettingsOpen) {
+            dispatch(setIsNavSettingsViewing(false));
+            return;
+        }
+
+        // On mobile (<768px), nav settings are visible when mobileActiveCategory === 'data'
+        // On desktop, nav settings are visible when selectedCategory === 'data'
+        const isViewingNav = mobileActiveCategory === 'data' || (!mobileActiveCategory && selectedCategory === 'data');
+        dispatch(setIsNavSettingsViewing(isViewingNav));
+
+        return () => {
+            dispatch(setIsNavSettingsViewing(false));
+        };
+    }, [isSettingsOpen, selectedCategory, mobileActiveCategory, dispatch]);
 
     const handleUpdateSoundPref = (updates: Partial<NotificationSoundPreferences>) => {
         const next = soundService.updatePreferences(updates);
@@ -598,6 +618,7 @@ const SettingsDrawer: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         dispatch(setSettingsOpen(false));
+                                        dispatch(setSocialActiveTab('chats'));
                                         dispatch(setIsFriendsModalOpen(true));
                                     }}
                                     className="flex items-center gap-2.5 p-3.5 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all border border-primary/20 group text-left cursor-pointer"
@@ -614,6 +635,7 @@ const SettingsDrawer: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         dispatch(setSettingsOpen(false));
+                                        dispatch(setSocialActiveTab('calls'));
                                         dispatch(setIsFriendsModalOpen(true));
                                     }}
                                     className="flex items-center gap-2.5 p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-2xl transition-all border border-emerald-500/20 group text-left cursor-pointer"

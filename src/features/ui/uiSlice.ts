@@ -37,6 +37,7 @@ interface UIState {
     mobileNavPosition: MobileNavPosition;
     settingsUpdatedAt: number;
     protectIpInCalls: boolean;
+    isNavSettingsViewing: boolean;
 }
 
 const initialState: UIState = {
@@ -61,6 +62,7 @@ const initialState: UIState = {
     mobileNavPosition: 'bottom',
     settingsUpdatedAt: 0,
     protectIpInCalls: false,
+    isNavSettingsViewing: false,
 };
 
 const uiSlice = createSlice({
@@ -172,6 +174,9 @@ const uiSlice = createSlice({
         setProtectIpInCalls: (state, action: PayloadAction<boolean>) => {
             state.protectIpInCalls = action.payload;
         },
+        setIsNavSettingsViewing: (state, action: PayloadAction<boolean>) => {
+            state.isNavSettingsViewing = action.payload;
+        },
     },
 });
 
@@ -198,5 +203,6 @@ export const {
     setSettingsUpdatedAt,
     resetSettingsTimestamp,
     setProtectIpInCalls,
+    setIsNavSettingsViewing,
 } = uiSlice.actions;
 export default uiSlice.reducer;

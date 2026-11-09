@@ -14,6 +14,7 @@ export interface Song {
     } | string;
     type?: string;
     year?: string | number;
+    addedAt?: number | string;
 }
 
 export interface MusicPlayerState {

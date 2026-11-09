@@ -13,6 +13,7 @@ interface SocialState {
     onlinePresenceMap: Record<string, { online: boolean; lastSeen: number; currentSong?: any }>;
     isLoadingFriends: boolean;
     isLoadingRequests: boolean;
+    socialActiveTab: 'chats' | 'calls' | 'discover' | 'activity';
 }
 
 const initialState: SocialState = {
@@ -27,6 +28,7 @@ const initialState: SocialState = {
     onlinePresenceMap: {},
     isLoadingFriends: false,
     isLoadingRequests: false,
+    socialActiveTab: 'chats',
 };
 
 const socialSlice = createSlice({
@@ -114,6 +116,9 @@ const socialSlice = createSlice({
         setIsLoadingRequests: (state, action: PayloadAction<boolean>) => {
             state.isLoadingRequests = action.payload;
         },
+        setSocialActiveTab: (state, action: PayloadAction<'chats' | 'calls' | 'discover' | 'activity'>) => {
+            state.socialActiveTab = action.payload;
+        },
     },
 });
 
@@ -134,6 +139,7 @@ export const {
     setPresenceMap,
     setIsLoadingFriends,
     setIsLoadingRequests,
+    setSocialActiveTab,
 } = socialSlice.actions;
 
 export default socialSlice.reducer;
