@@ -1263,113 +1263,123 @@ const SettingsDrawer: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                                {ALL_MOBILE_NAV_ITEMS.map((item) => {
-                                    const Icon = item.icon;
-                                    const currentIndex = mobileNavItems.indexOf(item.id);
-                                    const isEnabled = currentIndex !== -1;
+                                {(() => {
+                                    // Order items: active items sorted by user custom order in mobileNavItems, then inactive items
+                                    const itemMap = new Map(ALL_MOBILE_NAV_ITEMS.map((item) => [item.id, item]));
+                                    const activeItems = mobileNavItems
+                                        .map((id) => itemMap.get(id))
+                                        .filter((item): item is typeof ALL_MOBILE_NAV_ITEMS[0] => item !== undefined);
+                                    const inactiveItems = ALL_MOBILE_NAV_ITEMS.filter((item) => !mobileNavItems.includes(item.id));
+                                    const orderedItems = [...activeItems, ...inactiveItems];
 
-                                    const handleToggle = () => {
-                                        if (!item.isRemovable) {
-                                            dispatch(showToast({ message: 'Home is required for navigation', type: 'info' }));
-                                            return;
-                                        }
-                                        if (isEnabled) {
-                                            if (mobileNavItems.length <= 2) {
-                                                dispatch(showToast({ message: 'Minimum 2 navigation destinations required', type: 'error' }));
+                                    return orderedItems.map((item) => {
+                                        const Icon = item.icon;
+                                        const currentIndex = mobileNavItems.indexOf(item.id);
+                                        const isEnabled = currentIndex !== -1;
+
+                                        const handleToggle = () => {
+                                            if (!item.isRemovable) {
+                                                dispatch(showToast({ message: 'Home is required for navigation', type: 'info' }));
                                                 return;
                                             }
-                                            dispatch(setMobileNavItems(mobileNavItems.filter((id) => id !== item.id)));
-                                        } else {
-                                            dispatch(setMobileNavItems([...mobileNavItems, item.id]));
-                                        }
-                                    };
+                                            if (isEnabled) {
+                                                if (mobileNavItems.length <= 2) {
+                                                    dispatch(showToast({ message: 'Minimum 2 navigation destinations required', type: 'error' }));
+                                                    return;
+                                                }
+                                                dispatch(setMobileNavItems(mobileNavItems.filter((id) => id !== item.id)));
+                                            } else {
+                                                dispatch(setMobileNavItems([...mobileNavItems, item.id]));
+                                            }
+                                        };
 
-                                    const handleMoveUp = () => {
-                                        if (currentIndex <= 0) return;
-                                        const nextItems = [...mobileNavItems];
-                                        const temp = nextItems[currentIndex - 1];
-                                        nextItems[currentIndex - 1] = nextItems[currentIndex];
-                                        nextItems[currentIndex] = temp;
-                                        dispatch(setMobileNavItems(nextItems));
-                                    };
+                                        const handleMoveUp = () => {
+                                            if (currentIndex <= 0) return;
+                                            const nextItems = [...mobileNavItems];
+                                            const temp = nextItems[currentIndex - 1];
+                                            nextItems[currentIndex - 1] = nextItems[currentIndex];
+                                            nextItems[currentIndex] = temp;
+                                            dispatch(setMobileNavItems(nextItems));
+                                        };
 
-                                    const handleMoveDown = () => {
-                                        if (currentIndex === -1 || currentIndex >= mobileNavItems.length - 1) return;
-                                        const nextItems = [...mobileNavItems];
-                                        const temp = nextItems[currentIndex + 1];
-                                        nextItems[currentIndex + 1] = nextItems[currentIndex];
-                                        nextItems[currentIndex] = temp;
-                                        dispatch(setMobileNavItems(nextItems));
-                                    };
+                                        const handleMoveDown = () => {
+                                            if (currentIndex === -1 || currentIndex >= mobileNavItems.length - 1) return;
+                                            const nextItems = [...mobileNavItems];
+                                            const temp = nextItems[currentIndex + 1];
+                                            nextItems[currentIndex + 1] = nextItems[currentIndex];
+                                            nextItems[currentIndex] = temp;
+                                            dispatch(setMobileNavItems(nextItems));
+                                        };
 
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200/60 dark:border-white/5"
-                                        >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                                                    <Icon size={16} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
-                                                            {item.label}
-                                                        </p>
-                                                        {isEnabled && (
-                                                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-mono font-bold">
-                                                                #{currentIndex + 1}
-                                                            </span>
-                                                        )}
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200/60 dark:border-white/5"
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                                        <Icon size={16} />
                                                     </div>
-                                                    <p className="text-[10px] text-gray-400 truncate">{item.description}</p>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                                                                {item.label}
+                                                            </p>
+                                                            {isEnabled && (
+                                                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-mono font-bold">
+                                                                    #{currentIndex + 1}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-400 truncate">{item.description}</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                    {/* Accessible Move Up / Down Buttons */}
+                                                    {isEnabled && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleMoveUp}
+                                                                disabled={currentIndex <= 0}
+                                                                className="p-1 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold"
+                                                                title="Move Up"
+                                                                aria-label={`Move ${item.label} Up`}
+                                                            >
+                                                                ▲
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleMoveDown}
+                                                                disabled={currentIndex >= mobileNavItems.length - 1}
+                                                                className="p-1 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold"
+                                                                title="Move Down"
+                                                                aria-label={`Move ${item.label} Down`}
+                                                            >
+                                                                ▼
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        onClick={handleToggle}
+                                                        disabled={!item.isRemovable}
+                                                        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+                                                            !item.isRemovable
+                                                                ? 'opacity-50 cursor-not-allowed bg-primary'
+                                                                : isEnabled
+                                                                ? 'bg-primary'
+                                                                : 'bg-gray-300 dark:bg-gray-700'
+                                                        }`}
+                                                    >
+                                                        <motion.div animate={{ x: isEnabled ? 18 : 2 }} className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5" />
+                                                    </button>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                                {/* Accessible Move Up / Down Buttons */}
-                                                {isEnabled && (
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleMoveUp}
-                                                            disabled={currentIndex <= 0}
-                                                            className="p-1 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold"
-                                                            title="Move Up"
-                                                            aria-label={`Move ${item.label} Up`}
-                                                        >
-                                                            ▲
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleMoveDown}
-                                                            disabled={currentIndex >= mobileNavItems.length - 1}
-                                                            className="p-1 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold"
-                                                            title="Move Down"
-                                                            aria-label={`Move ${item.label} Down`}
-                                                        >
-                                                            ▼
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                <button
-                                                    onClick={handleToggle}
-                                                    disabled={!item.isRemovable}
-                                                    className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-                                                        !item.isRemovable
-                                                            ? 'opacity-50 cursor-not-allowed bg-primary'
-                                                            : isEnabled
-                                                            ? 'bg-primary'
-                                                            : 'bg-gray-300 dark:bg-gray-700'
-                                                    }`}
-                                                >
-                                                    <motion.div animate={{ x: isEnabled ? 18 : 2 }} className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 
@@ -1452,7 +1462,7 @@ const SettingsDrawer: React.FC = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={() => dispatch(setSettingsOpen(false))}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[300]"
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[360]"
                     />
 
                     {/* Dual-Pane Drawer Container */}
@@ -1461,7 +1471,7 @@ const SettingsDrawer: React.FC = () => {
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-                        className={`fixed right-0 top-0 bottom-0 w-full md:w-[720px] lg:w-[820px] max-w-full bg-white shadow-2xl z-[310] flex flex-col ${
+                        className={`fixed right-0 top-0 bottom-0 w-full md:w-[720px] lg:w-[820px] max-w-full bg-white shadow-2xl z-[370] flex flex-col ${
                             theme.isOled ? 'dark:bg-black' : 'dark:bg-gray-900'
                         }`}
                     >
@@ -1662,7 +1672,7 @@ const SettingsDrawer: React.FC = () => {
                                                     {SETTINGS_CATEGORIES.find((c) => c.id === mobileActiveCategory)?.title}
                                                 </span>
                                             </div>
-                                            <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-6">
+                                            <div className="flex-1 overflow-y-auto p-4 pb-safe pb-32 space-y-6">
                                                 {renderCategoryContent(mobileActiveCategory)}
                                             </div>
                                         </div>

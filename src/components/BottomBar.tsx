@@ -10,9 +10,10 @@ const BottomBar: React.FC = () => {
     const location = useLocation();
     const dispatch = useAppDispatch();
     const { theme, mobileNavItems, mobileNavPosition = 'bottom' } = useAppSelector((state) => state.ui);
+    const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
     const { unreadNotificationsCount } = useAppSelector((state) => state.social);
 
-    // Filter all navigation items down to user-selected visible items, preserving canonical order
+    // Map user-selected navigation items in user-configured custom order
     const visibleItems = React.useMemo(() => {
         const itemMap = new Map(ALL_MOBILE_NAV_ITEMS.map((item) => [item.id, item]));
         return mobileNavItems
@@ -78,6 +79,10 @@ const BottomBar: React.FC = () => {
 
         return `${base} flex items-center justify-around w-full max-w-md mx-auto px-0.5 py-1`;
     };
+
+    if (isSettingsOpen) {
+        return null;
+    }
 
     return (
         <div className={`md:hidden ${getContainerPositionClasses()}`}>
