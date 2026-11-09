@@ -11,9 +11,19 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import android.Manifest;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
 
-@CapacitorPlugin(name = "VibeOnMedia")
+@CapacitorPlugin(
+    name = "VibeOnMedia",
+    permissions = {
+        @Permission(
+            strings = { Manifest.permission.POST_NOTIFICATIONS },
+            alias = "notifications"
+        )
+    }
+)
 public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.AudioFocusListener {
 
     private static final String TAG = "VibeOnMediaPlugin";

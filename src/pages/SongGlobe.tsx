@@ -1,8 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import axios from 'axios';
 import { useAppSelector } from '../hooks/redux';
 import { IoGlobeOutline } from 'react-icons/io5';
-import { songs as songsUrl } from '../constants';
+import { musicApiService } from '../services/musicApiService';
 import { Song } from '../types/music';
 
 const GlobeScene = lazy(() => import('../components/globe/GlobeScene'));
@@ -23,29 +22,36 @@ const SongGlobe: React.FC = () => {
             try {
                 setLoading(true);
 
-                const queries = [
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=1&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Trending')}&page=2&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=0&limit=40`,
-                    `${songsUrl}?query=${encodeURIComponent(activeCategory + ' Popular')}&page=1&limit=40`
+                const endpoints = [
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=0&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=1&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Top Hits')}&page=2&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=0&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=1&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' New Songs')}&page=2&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Trending')}&page=0&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Trending')}&page=1&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Trending')}&page=2&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Popular')}&page=0&limit=40`,
+                    `/api/search/songs?query=${encodeURIComponent(activeCategory + ' Popular')}&page=1&limit=40`
                 ];
 
-                const results = await Promise.allSettled(queries.map(q => axios.get(q, { signal: controller.signal })));
+                const results = await Promise.allSettled(
+                    endpoints.map(endpoint =>
+                        musicApiService.fetchWithFallback(endpoint, {
+                            signal: controller.signal,
+                            timeout: 8000
+                        })
+                    )
+                );
                 if (isAborted) return;
 
                 const allSongs = results
                     .filter((res): res is PromiseFulfilledResult<any> => res.status === 'fulfilled')
-                    .flatMap(res => res.value.data.data.results || []);
+                    .flatMap(res => res.value?.data?.results || res.value?.results || []);
                 setApiSongs(allSongs);
-            } catch (error) {
-                if (axios.isCancel(error)) {
+            } catch (error: any) {
+                if (error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
                     return;
                 }
                 console.error('Error fetching globe songs:', error);

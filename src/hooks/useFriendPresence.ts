@@ -1,9 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { supabase } from '../lib/supabase';
 import { useAppDispatch, useAppSelector } from './redux';
 import { setPresenceMap, updateUserPresence } from '../features/social/socialSlice';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { guestSessionService } from '../services/guestSessionService';
 import {
     PRESENCE_HEARTBEAT_INTERVAL_MS,
     aggregateUserPresenceSessions,
@@ -22,6 +23,27 @@ export const useFriendPresence = () => {
     const dispatch = useAppDispatch();
     const { user, isAuthenticated } = useAppSelector((state) => state.auth);
     const { currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
+    const [guestId, setGuestId] = useState<string>(() => {
+        try {
+            const cached = localStorage.getItem('vibeon_guest_id');
+            if (cached) return cached;
+        } catch {
+            // Handled silently
+        }
+        return `anon-guest-${Math.random().toString(36).substring(2, 8)}`;
+    });
+
+    useEffect(() => {
+        if (!user?.id) {
+            guestSessionService.getOrCreateGuestIdentityKey().then(({ guestId: verifiedGuestId }) => {
+                setGuestId(verifiedGuestId);
+            }).catch((err) => {
+                console.warn('[useFriendPresence] Failed to initialize verified guest identity:', err);
+            });
+        }
+    }, [user?.id]);
+
+    const activeUserId = user?.id || guestId;
     const { myProfile } = useAppSelector((state) => state.social);
 
     const channelRef = useRef<RealtimeChannel | null>(null);
@@ -69,7 +91,7 @@ export const useFriendPresence = () => {
      * - Re-enabling sharing while idle after a song ended in private NEVER manufactures playbackStopped.
      */
     const getPresencePayload = useCallback(() => {
-        if (!user?.id) return null;
+        if (!activeUserId) return null;
 
         const profile = myProfileRef.current;
         const showOnline = profile?.show_online ?? true;
@@ -85,7 +107,7 @@ export const useFriendPresence = () => {
         const isUserOnline = showOnline && (isAppActive || (playing && hasSong));
 
         const payload: any = {
-            userId: user.id,
+            userId: activeUserId,
             online: isUserOnline,
             lastSeen: Date.now(),
         };
@@ -120,7 +142,7 @@ export const useFriendPresence = () => {
         }
 
         return payload;
-    }, [user?.id]);
+    }, [activeUserId]);
 
     /**
      * Serialized channel tracking helper using an active Promise queue.
@@ -224,7 +246,7 @@ export const useFriendPresence = () => {
 
     // Periodic sweep to clean up stale entries from onlinePresenceMap
     useEffect(() => {
-        if (!isAuthenticated || !user?.id) return;
+        if (!activeUserId) return;
 
         const sweepInterval = setInterval(() => {
             if (channelRef.current && isChannelJoinedRef.current) {
@@ -234,11 +256,11 @@ export const useFriendPresence = () => {
         }, PRESENCE_HEARTBEAT_INTERVAL_MS);
 
         return () => clearInterval(sweepInterval);
-    }, [isAuthenticated, user?.id, syncPresenceRoster]);
+    }, [activeUserId, syncPresenceRoster]);
 
     // Setup and manage channel subscription lifecycle
     useEffect(() => {
-        if (!isAuthenticated || !user?.id) {
+        if (!activeUserId) {
             stopHeartbeat();
             stopReconnect();
             if (channelRef.current) {
@@ -269,7 +291,7 @@ export const useFriendPresence = () => {
             const channel = supabase.channel(PRESENCE_CHANNEL_NAME, {
                 config: {
                     presence: {
-                        key: user.id,
+                        key: activeUserId,
                     },
                 },
             });
@@ -395,8 +417,7 @@ export const useFriendPresence = () => {
             trackingQueueRef.current = Promise.resolve();
         };
     }, [
-        isAuthenticated,
-        user?.id,
+        activeUserId,
         dispatch,
         enqueueTrackPresence,
         startHeartbeat,
@@ -407,7 +428,7 @@ export const useFriendPresence = () => {
 
     // App foreground / background and visibility lifecycle handling
     useEffect(() => {
-        if (!isAuthenticated || !user?.id) return;
+        if (!activeUserId) return;
 
         const handleVisibilityOrStateChange = async (isActive: boolean) => {
             isAppActiveRef.current = isActive;
@@ -462,13 +483,13 @@ export const useFriendPresence = () => {
                 capAppHandle.remove();
             }
         };
-    }, [isAuthenticated, user?.id, syncPresenceRoster, enqueueTrackPresence]);
+    }, [activeUserId, syncPresenceRoster, enqueueTrackPresence]);
 
     // Track actual playback transitions independently from privacy changes
     // Detects same-track metadata changes (title, artist, artworkUrl, isPlaying)
     // using Boolean(song?.id) consistently and avoids unnecessary broadcasts from object-reference changes
     useEffect(() => {
-        if (!channelRef.current || !isAuthenticated || !user?.id) return;
+        if (!channelRef.current || !activeUserId) return;
 
         const song = currentSong;
         const playing = isPlaying;
@@ -512,7 +533,7 @@ export const useFriendPresence = () => {
                 console.warn('[useFriendPresence] Playback track update error:', e);
             });
         }
-    }, [currentSong, isPlaying, myProfile, isAuthenticated, user?.id, enqueueTrackPresence]);
+    }, [currentSong, isPlaying, myProfile, activeUserId, enqueueTrackPresence]);
 
     // Privacy preference change effect:
     // Fires when share_activity or show_online changes.
@@ -522,7 +543,7 @@ export const useFriendPresence = () => {
     const lastBroadcastShowOnlineRef = useRef<boolean | null>(null);
 
     useEffect(() => {
-        if (!channelRef.current || !isAuthenticated || !user?.id) return;
+        if (!channelRef.current || !activeUserId) return;
 
         const shareActivity = myProfile?.share_activity ?? true;
         const showOnline = myProfile?.show_online ?? true;
@@ -543,5 +564,5 @@ export const useFriendPresence = () => {
                 console.warn('[useFriendPresence] Privacy track update error:', e);
             });
         }
-    }, [myProfile?.share_activity, myProfile?.show_online, isAuthenticated, user?.id, enqueueTrackPresence]);
+    }, [myProfile?.share_activity, myProfile?.show_online, activeUserId, enqueueTrackPresence]);
 };
