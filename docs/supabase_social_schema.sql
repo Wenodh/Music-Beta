@@ -222,8 +222,9 @@ CREATE POLICY "Users can delete their own notifications" ON public.social_notifi
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Anyone authenticated can insert notifications intended for other users (e.g. sending a friend request)
--- Direct client inserts are strictly forbidden. Only authoritative SECURITY DEFINER RPCs
--- (e.g., send_friend_request, respond_friend_request) create notification rows.
+-- Direct client inserts are strictly forbidden to prevent notification spoofing (VIBE-BUG-008).
+-- Only authoritative SECURITY DEFINER RPCs (e.g., send_friend_request, respond_friend_request)
+-- or superuser/service_role bypass RLS to create notification rows.
 DROP POLICY IF EXISTS "Users can create notifications for others" ON public.social_notifications;
 DROP POLICY IF EXISTS "Deny direct client insert on social_notifications" ON public.social_notifications;
 CREATE POLICY "Deny direct client insert on social_notifications" ON public.social_notifications

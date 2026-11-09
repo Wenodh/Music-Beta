@@ -169,6 +169,10 @@ class AudioEngine {
         }
 
         try {
+            // Ensure audio element has crossOrigin attribute set prior to stream decoding
+            if (!audioEl.crossOrigin) {
+                audioEl.crossOrigin = 'anonymous';
+            }
             // Attempt to create media element source node
             const sourceNode = ctx.createMediaElementSource(audioEl);
             // Connect to first EQ filter
@@ -177,7 +181,7 @@ class AudioEngine {
             this.capturedElements.add(audioEl);
             return true;
         } catch (err) {
-            console.warn('[AudioEngine] Could not attach MediaElementAudioSourceNode:', err);
+            console.warn('[AudioEngine] Could not attach MediaElementAudioSourceNode (falling back to unboosted native audio):', err);
             return false;
         }
     }
