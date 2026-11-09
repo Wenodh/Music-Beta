@@ -48,6 +48,7 @@ export interface SignedSignalingEnvelope {
 
 const GUEST_KEY_STORAGE_KEY = 'vibeon_guest_identity_key';
 const INSTALLATION_STORAGE_KEY = 'vibeon_installation_id';
+const REPLAY_STORAGE_KEY = 'vibeon_guest_replay_cache';
 const SIGNALING_TOKEN_TTL_MS = 30 * 1000; // 30 seconds
 const MAX_CLOCK_DRIFT_MS = 15 * 1000; // 15 seconds
 const REPLAY_CACHE_MAX_ENTRIES = 500;
@@ -133,6 +134,47 @@ export class GuestSessionService {
 
     // Bounded LRU replay cache: key = `${senderId}:${nonce}`, value = timestamp
     private replayCache = new Map<string, number>();
+    private isReplayCacheLoaded = false;
+
+    /**
+     * Loads persisted nonces from storage to prevent cross-reload replay attacks
+     */
+    private ensureReplayCacheLoaded() {
+        if (this.isReplayCacheLoaded) return;
+        this.isReplayCacheLoaded = true;
+
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
+                if (raw) {
+                    const entries: [string, number][] = JSON.parse(raw);
+                    const now = Date.now();
+                    const cutoff = now - (SIGNALING_TOKEN_TTL_MS + MAX_CLOCK_DRIFT_MS);
+                    for (const [key, timestamp] of entries) {
+                        if (timestamp >= cutoff) {
+                            this.replayCache.set(key, timestamp);
+                        }
+                    }
+                }
+            }
+        } catch {
+            // sessionStorage blocked or unavailable
+        }
+    }
+
+    /**
+     * Persists recent nonces to sessionStorage
+     */
+    private saveReplayCacheToStorage() {
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                const entries = Array.from(this.replayCache.entries());
+                sessionStorage.setItem(REPLAY_STORAGE_KEY, JSON.stringify(entries));
+            }
+        } catch {
+            // ignore
+        }
+    }
 
     /**
      * Gets or creates a local installation identifier (for logging / telemetry)
@@ -390,6 +432,7 @@ export class GuestSessionService {
         }
 
         // 7. Replay Cache Check
+        this.ensureReplayCacheLoaded();
         this.pruneReplayCache(now);
         const replayKey = `${envelope.senderId}:${envelope.nonce}`;
         if (this.replayCache.has(replayKey)) {
@@ -424,6 +467,7 @@ export class GuestSessionService {
 
             // Record into replay cache
             this.replayCache.set(replayKey, now);
+            this.saveReplayCacheToStorage();
             return { isValid: true };
         } catch (err: any) {
             return { isValid: false, reason: `Verification exception: ${err.message || String(err)}` };
@@ -449,6 +493,14 @@ export class GuestSessionService {
      */
     public clearReplayCache() {
         this.replayCache.clear();
+        this.isReplayCacheLoaded = false;
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.removeItem(REPLAY_STORAGE_KEY);
+            }
+        } catch {
+            // ignore
+        }
     }
 }
 

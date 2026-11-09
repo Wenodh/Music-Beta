@@ -5,6 +5,7 @@ import { guestSessionService, computePayloadHash } from '../guestSessionService'
 describe('GuestSessionService - Message-Level Envelope Signing & Verification', () => {
     beforeEach(() => {
         localStorage.clear();
+        sessionStorage.clear();
         guestSessionService.clearReplayCache();
     });
 
@@ -115,6 +116,33 @@ describe('GuestSessionService - Message-Level Envelope Signing & Verification', 
 
         // Replay attempt with same envelope: rejected by replay cache
         const replay = await guestSessionService.verifySignalingEnvelope(
+            signedEnv,
+            'user-bob',
+            'call-request'
+        );
+        expect(replay.isValid).toBe(false);
+        expect(replay.reason).toContain('Replay attack detected');
+    });
+
+    it('persists replay cache across service instance reloads', async () => {
+        const signedEnv = await guestSessionService.signSignalingEnvelope({
+            callId: 'call-persist-1',
+            recipientId: 'user-bob',
+            signalType: 'call-request',
+        });
+
+        // Verification in first instance
+        const first = await guestSessionService.verifySignalingEnvelope(
+            signedEnv,
+            'user-bob',
+            'call-request'
+        );
+        expect(first.isValid).toBe(true);
+
+        // Simulate new instance or browser tab reload by clearing in-memory Map only (not sessionStorage)
+        const reloadedService = new (guestSessionService.constructor as any)();
+
+        const replay = await reloadedService.verifySignalingEnvelope(
             signedEnv,
             'user-bob',
             'call-request'
