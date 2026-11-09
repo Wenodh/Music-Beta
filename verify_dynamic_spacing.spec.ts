@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 
 test('verify desktop spacing', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });

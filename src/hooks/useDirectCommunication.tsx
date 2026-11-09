@@ -106,6 +106,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const makingOfferRef = useRef<boolean>(false);
     const ignoreOfferRef = useRef<boolean>(false);
     const isSettingRemoteAnswerPendingRef = useRef<boolean>(false);
+    const isProcessingOfferRef = useRef<boolean>(false);
+    const pendingOffersQueueRef = useRef<Array<() => Promise<void>>>([]);
     const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
     // Call state refs for thread-safe access in closures & event callbacks
@@ -772,54 +774,75 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     return;
                 }
 
-                // Handle WebRTC Offer with Perfect Negotiation glare resolution
+                // Handle WebRTC Offer with Perfect Negotiation glare resolution and atomic queuing
                 if (signalType === 'offer') {
                     if (activeId !== callId) return;
 
                     clearTimers();
-                    const pc = getOrCreatePeerConnection(senderId, callId);
 
-                    const readyForOffer = !makingOfferRef.current &&
-                        (pc.signalingState === 'stable' || isSettingRemoteAnswerPendingRef.current);
-                    const offerCollision = !readyForOffer;
+                    const executeOffer = async () => {
+                        const pc = getOrCreatePeerConnection(senderId, callId);
 
-                    ignoreOfferRef.current = !isPolitePeerRef.current && offerCollision;
-                    if (ignoreOfferRef.current) {
-                        console.info('[WebRTC Perfect Negotiation] Glare detected: impolite peer ignoring incoming offer');
+                        const readyForOffer = !makingOfferRef.current &&
+                            (pc.signalingState === 'stable' || isSettingRemoteAnswerPendingRef.current);
+                        const offerCollision = !readyForOffer;
+
+                        ignoreOfferRef.current = !isPolitePeerRef.current && offerCollision;
+                        if (ignoreOfferRef.current) {
+                            console.info('[WebRTC Perfect Negotiation] Glare detected: impolite peer ignoring incoming offer');
+                            return;
+                        }
+
+                        // Polite peer executes rollback on offer collision if local offer is uncommitted
+                        if (offerCollision && pc.signalingState !== 'stable') {
+                            try {
+                                await pc.setLocalDescription({ type: 'rollback' });
+                            } catch (rollbackErr) {
+                                console.warn('[WebRTC Perfect Negotiation] Polite peer rollback warning:', rollbackErr);
+                            }
+                        }
+
+                        try {
+                            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+
+                            sendToUser(senderId, 'direct_signal', {
+                                callId,
+                                senderId: userId,
+                                senderName: userName,
+                                signalType: 'answer',
+                                sdp: answer,
+                            });
+
+                            // Flush buffered early ICE candidates
+                            while (pendingIceCandidatesRef.current.length > 0) {
+                                const cand = pendingIceCandidatesRef.current.shift();
+                                if (cand) {
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Error handling offer in Perfect Negotiation:', err);
+                        }
+                    };
+
+                    if (isProcessingOfferRef.current) {
+                        pendingOffersQueueRef.current.push(executeOffer);
                         return;
                     }
 
-                    // Polite peer executes rollback on offer collision if local offer is uncommitted
-                    if (offerCollision && pc.signalingState !== 'stable') {
-                        try {
-                            await pc.setLocalDescription({ type: 'rollback' });
-                        } catch (rollbackErr) {
-                            console.warn('[WebRTC Perfect Negotiation] Polite peer rollback warning:', rollbackErr);
-                        }
-                    }
-
+                    isProcessingOfferRef.current = true;
                     try {
-                        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-
-                        sendToUser(senderId, 'direct_signal', {
-                            callId,
-                            senderId: userId,
-                            senderName: userName,
-                            signalType: 'answer',
-                            sdp: answer,
-                        });
-
-                        // Flush buffered early ICE candidates
-                        while (pendingIceCandidatesRef.current.length > 0) {
-                            const cand = pendingIceCandidatesRef.current.shift();
-                            if (cand) {
-                                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                        await executeOffer();
+                        while (pendingOffersQueueRef.current.length > 0) {
+                            const nextOffer = pendingOffersQueueRef.current.shift();
+                            if (nextOffer) {
+                                await nextOffer();
                             }
                         }
-                    } catch (err) {
-                        console.warn('Error handling offer in Perfect Negotiation:', err);
+                    } finally {
+                        isProcessingOfferRef.current = false;
                     }
                     return;
                 }

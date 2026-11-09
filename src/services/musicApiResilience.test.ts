@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios from 'axios';
-import { MusicApiService, PRIMARY_API_BASE, SECONDARY_API_BASE } from './musicApiService';
+import { MusicApiService, PRIMARY_API_BASE } from './musicApiService';
 
 vi.mock('axios');
 
