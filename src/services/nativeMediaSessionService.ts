@@ -6,6 +6,8 @@ import { Song } from '../types/music';
 interface VibeOnMediaPluginInterface {
     requestAudioFocus(): Promise<{ granted: boolean }>;
     abandonAudioFocus(): Promise<void>;
+    checkPermissions?(): Promise<{ notifications: string }>;
+    requestPermissions?(): Promise<{ notifications: string }>;
     addListener(eventName: 'audioFocusChanged', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
     addListener(eventName: 'becomingNoisy', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
 }
@@ -28,6 +30,26 @@ class NativeMediaSessionBridge {
     private listenersRegistered = false;
     private removeFocusListener: (() => void) | null = null;
     private removeNoisyListener: (() => void) | null = null;
+
+    public async checkAndRequestNotificationPermissions(): Promise<boolean> {
+        if (!this.isNative) return true;
+
+        try {
+            if (typeof VibeOnMedia.checkPermissions === 'function') {
+                const status = await VibeOnMedia.checkPermissions();
+                if (status.notifications === 'granted') {
+                    return true;
+                }
+                if (typeof VibeOnMedia.requestPermissions === 'function') {
+                    const result = await VibeOnMedia.requestPermissions();
+                    return result.notifications === 'granted';
+                }
+            }
+        } catch (err) {
+            console.warn('[NativeMediaSession] Notification permission check/request ignored or unsupported:', err);
+        }
+        return false;
+    }
 
     public async registerCallbacks(callbacks: MediaControlsCallbacks) {
         this.activeHandlers = callbacks;

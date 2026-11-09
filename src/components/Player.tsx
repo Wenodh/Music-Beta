@@ -24,6 +24,7 @@ import {
     setSleepTimer,
     setVolume,
     toggleMute as toggleVolumeMute,
+    addToQueue,
 } from '../features/musicplayer/musicPlayerSlice';
 import SleepTimer from './SleepTimer';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -353,14 +354,37 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const oneHour = 60 * 60 * 1000;
             const isCacheValid = cached && (Date.now() - cached.timestamp < oneHour);
 
+            const handleLoadedRecommendations = (songsList: Song[]) => {
+                dispatch(setRecommendations({ songId: currentSong.id, recommendations: songsList }));
+
+                // Song Radio infinite auto-replenishment:
+                // If Song Radio is enabled and 1 or fewer songs remain in the queue,
+                // automatically enqueue up to 5 unplayed recommendations.
+                if (isSongRadioEnabled && songsList.length > 0) {
+                    const currentIndex = songs.findIndex((s) => s.id === currentSong.id);
+                    const remainingInQueue = currentIndex === -1 ? 0 : songs.length - 1 - currentIndex;
+
+                    if (remainingInQueue <= 1) {
+                        const existingIds = new Set(songs.map((s) => s.id));
+                        const kindredSongs = songsList
+                            .filter((s) => !existingIds.has(s.id))
+                            .slice(0, 5);
+
+                        kindredSongs.forEach((song) => {
+                            dispatch(addToQueue(song));
+                        });
+                    }
+                }
+            };
+
             if (isCacheValid) {
-                dispatch(setRecommendations({ songId: currentSong.id, recommendations: cached.songs }));
+                handleLoadedRecommendations(cached.songs);
             } else {
                 fetch(suggestions(currentSong.id))
                     .then(res => res.json())
                     .then(data => {
                         if (data.status === 'SUCCESS' && data.data) {
-                            dispatch(setRecommendations({ songId: currentSong.id, recommendations: data.data }));
+                            handleLoadedRecommendations(data.data);
                         }
                     }).catch(err => console.error('Error fetching recommendations:', err));
             }

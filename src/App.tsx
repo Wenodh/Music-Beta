@@ -520,6 +520,12 @@ export const AppContent = () => {
     // Initialize Centralized Back Navigation Service for browser popstate, Alt+Left, and Escape
     useEffect(() => {
         const cleanup = backNavigationService.init();
+
+        // Check and prompt for Android 13+ notification permissions on native launch
+        if (Capacitor.isNativePlatform()) {
+            nativeMediaSession.checkAndRequestNotificationPermissions().catch(() => {});
+        }
+
         return () => {
             cleanup();
         };

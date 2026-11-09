@@ -157,7 +157,9 @@ class SoundService {
                         try {
                             audio.pause();
                             audio.currentTime = 0;
-                        } catch {}
+                        } catch {
+                            // Ignored: audio element already detached or silenced
+                        }
                     }
                     console.warn('[SoundService] Ringtone autoplay blocked or aborted:', err);
                 });
