@@ -77,6 +77,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const { isLyricsOpen, isPlayerExpanded, isSessionModalOpen, theme: uiTheme } = useAppSelector((state) => state.ui);
     const { favorites } = useAppSelector((state) => state.library);
+    const { isCallActive, incomingCall } = useAppSelector((state) => state.friends);
+    const wasPlayingBeforeCallRef = useRef<boolean>(false);
 
     const pillRef = useRef<HTMLDivElement>(null);
     const [pillDimensions, setPillDimensions] = useState({ width: 0, height: 0 });
@@ -391,6 +393,27 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             );
         }
     }, [isPlaying, activeBuffer]);
+
+    // Audio focus management during Voice & Video Calls:
+    // When an incoming call arrives or a direct call is active, pause music cleanly.
+    // When the call ends, resume music ONLY if it was playing before the call started.
+    useEffect(() => {
+        const inCallOrRinging = isCallActive || Boolean(incomingCall);
+
+        if (inCallOrRinging) {
+            if (isPlaying) {
+                wasPlayingBeforeCallRef.current = true;
+                dispatch(pauseMusic());
+            }
+        } else {
+            if (wasPlayingBeforeCallRef.current) {
+                wasPlayingBeforeCallRef.current = false;
+                if (currentSongRef.current) {
+                    dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+                }
+            }
+        }
+    }, [isCallActive, incomingCall, isPlaying, dispatch]);
 
     // Android background & screen-lock playback preservation:
     // When the screen locks or app transitions to the background on Android,
