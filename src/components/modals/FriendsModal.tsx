@@ -25,14 +25,15 @@ import {
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { setIsFriendsModalOpen, setActiveFriendId } from '../../features/friends/friendsSlice';
-import { setActiveProfileView, setIsNotificationPanelOpen, setCloudFriends, setNotifications } from '../../features/social/socialSlice';
+import { setActiveProfileView, setIsNotificationPanelOpen, setCloudFriends, setNotifications, setSocialActiveTab } from '../../features/social/socialSlice';
 import { useDirectCommunication } from '../../hooks/useDirectCommunication';
 import { useBackHandler } from '../../hooks/useBackHandler';
 import { backNavigationService } from '../../services/backNavigationService';
 import { socialService } from '../../services/socialService';
 import { socialNotificationService } from '../../services/socialNotificationService';
-import { removeFriendLocal, getFriendsLocal } from '../../utils/friendsDb';
+import { removeFriendLocal, getFriendsLocal, saveFriendLocal } from '../../utils/friendsDb';
 import { setFriendsList } from '../../features/friends/friendsSlice';
+import { Friend } from '../../types/friends';
 import { showToast } from '../../features/ui/uiSlice';
 import { CallHistoryTab } from '../../features/friends/components/CallHistoryTab';
 import { DiscoverTab } from '../../features/friends/components/DiscoverTab';
@@ -47,12 +48,19 @@ export const FriendsModal: React.FC = () => {
     const { isFriendsModalOpen, friendsList, activeFriendId, directMessages, isCallActive, activeCallFriend } = useAppSelector(
         (state) => state.friends
     );
-    const { activeProfileView, unreadNotificationsCount, isNotificationPanelOpen, onlinePresenceMap } = useAppSelector(
+    const { activeProfileView, unreadNotificationsCount, isNotificationPanelOpen, onlinePresenceMap, socialActiveTab, cloudFriends } = useAppSelector(
         (state) => state.social
     );
     const { sendDirectMessage, callFriend, endCall, addNewFriend, userId } = useDirectCommunication();
 
-    const [activeTab, setActiveTab] = useState<SocialTab>('chats');
+    const [activeTab, setActiveTab] = useState<SocialTab>(socialActiveTab || 'chats');
+
+    // Sync tab with Redux socialActiveTab when changed externally (e.g. from SettingsDrawer or Profile)
+    React.useEffect(() => {
+        if (socialActiveTab && isFriendsModalOpen) {
+            setActiveTab(socialActiveTab);
+        }
+    }, [socialActiveTab, isFriendsModalOpen]);
     const [newFriendId, setNewFriendId] = useState('');
     const [newFriendName, setNewFriendName] = useState('');
     const [messageText, setMessageText] = useState('');
@@ -96,8 +104,33 @@ export const FriendsModal: React.FC = () => {
             supabase.auth.getSession().then(({ data: { session } }) => {
                 const uid = session?.user?.id || (authUser ? authUser.id : null);
                 if (uid) {
-                    socialService.getFriends(uid).then((friends) => {
+                    socialService.getFriends(uid).then(async (friends) => {
                         dispatch(setCloudFriends(friends));
+                        // Automatically sync accepted cloud friends into local contacts for seamless chatting & calling
+                        try {
+                            const existingLocal = await getFriendsLocal();
+                            const existingLocalIds = new Set(existingLocal.map((f) => f.id));
+                            let updated = false;
+
+                            for (const cf of friends) {
+                                const friendId = cf.user_id_1 === uid ? cf.user_id_2 : cf.user_id_1;
+                                if (!existingLocalIds.has(friendId)) {
+                                    const friendObj: Friend = {
+                                        id: friendId,
+                                        name: cf.friend_profile?.display_name || cf.friend_profile?.username || 'Friend',
+                                        addedAt: new Date(cf.created_at || Date.now()).getTime(),
+                                    };
+                                    await saveFriendLocal(friendObj);
+                                    updated = true;
+                                }
+                            }
+                            if (updated) {
+                                const refreshedList = await getFriendsLocal();
+                                dispatch(setFriendsList(refreshedList));
+                            }
+                        } catch (err) {
+                            console.warn('[FriendsModal] Error syncing cloud friends to local contacts:', err);
+                        }
                     }).catch(() => {});
                     socialNotificationService.getNotifications(uid).then((notifs) => {
                         dispatch(setNotifications(notifs));
@@ -130,10 +163,29 @@ export const FriendsModal: React.FC = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    if (!isFriendsModalOpen) return null;
+    // Merge friendsList with cloudFriends so logged-in users always see all their accepted contacts even before async local save resolves
+    const combinedFriends: Friend[] = React.useMemo(() => {
+        const map = new Map<string, Friend>();
+        friendsList.forEach((f) => map.set(f.id, f));
 
-    const activeFriend = friendsList.find((f) => f.id === activeFriendId);
+        cloudFriends.forEach((cf) => {
+            const friendId = cf.user_id_1 === userId ? cf.user_id_2 : cf.user_id_1;
+            if (!map.has(friendId)) {
+                map.set(friendId, {
+                    id: friendId,
+                    name: cf.friend_profile?.display_name || cf.friend_profile?.username || 'Friend',
+                    addedAt: new Date(cf.created_at || Date.now()).getTime(),
+                });
+            }
+        });
+
+        return Array.from(map.values());
+    }, [friendsList, cloudFriends, userId]);
+
+    const activeFriend = combinedFriends.find((f) => f.id === activeFriendId);
     const activeMessages = activeFriendId ? directMessages[activeFriendId] || [] : [];
+
+    if (!isFriendsModalOpen) return null;
 
     const handleAddFriend = (e: React.FormEvent) => {
         e.preventDefault();
@@ -273,7 +325,10 @@ export const FriendsModal: React.FC = () => {
                         ].map((t) => (
                             <button
                                 key={t.id}
-                                onClick={() => setActiveTab(t.id as SocialTab)}
+                                onClick={() => {
+                                    setActiveTab(t.id as SocialTab);
+                                    dispatch(setSocialActiveTab(t.id as SocialTab));
+                                }}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                                     activeTab === t.id
                                         ? 'bg-primary text-white shadow-sm shadow-primary/20'
@@ -368,13 +423,13 @@ export const FriendsModal: React.FC = () => {
                                 activeFriend ? 'hidden sm:flex' : 'flex'
                             }`}>
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between text-xs text-gray-400">
-                                    <span className="font-bold uppercase tracking-wider text-[10px]">Your Contacts ({friendsList.length})</span>
+                                    <span className="font-bold uppercase tracking-wider text-[10px]">Your Contacts ({combinedFriends.length})</span>
                                     <span className="text-[10px] text-gray-500">Saved on Device</span>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-                                    {friendsList.length > 0 ? (
-                                        friendsList.map((friend) => {
+                                    {combinedFriends.length > 0 ? (
+                                        combinedFriends.map((friend) => {
                                             const isActive = activeFriendId === friend.id;
                                             const friendMsgs = directMessages[friend.id] || [];
                                             const lastMsg = friendMsgs[friendMsgs.length - 1];

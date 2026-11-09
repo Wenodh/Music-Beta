@@ -37,7 +37,7 @@ import { useBackHandler } from '../hooks/useBackHandler';
 import { backNavigationService } from '../services/backNavigationService';
 import { getOfflineSongs } from '../utils/db';
 import { socialService } from '../services/socialService';
-import { setMyProfile } from '../features/social/socialSlice';
+import { setMyProfile, setSocialActiveTab } from '../features/social/socialSlice';
 import { Song } from '../types/music';
 
 const Profile: React.FC = () => {
@@ -636,7 +636,10 @@ const Profile: React.FC = () => {
                 {/* 9. Social & Connections Card */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div
-                        onClick={() => dispatch(setIsFriendsModalOpen(true))}
+                        onClick={() => {
+                            dispatch(setSocialActiveTab('chats'));
+                            dispatch(setIsFriendsModalOpen(true));
+                        }}
                         className="p-5 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-between cursor-pointer hover:bg-primary/15 transition-all group shadow-sm"
                     >
                         <div className="flex items-center gap-3">

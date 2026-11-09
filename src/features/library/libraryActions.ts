@@ -39,15 +39,33 @@ export const syncLibrary = createAsyncThunk(
 
         dispatch(setSyncing(true));
         try {
-            // 1. Sync Favorites
-            const { data: cloudFavs, error: favError } = await supabase
+            // 1. Sync Favorites (order latest added first)
+            let cloudFavs: any[] | null = null;
+            const queryRes = await supabase
                 .from('favorites')
-                .select('song_id, song_data')
-                .eq('user_id', user.id);
+                .select('song_id, song_data, created_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
 
-            if (favError) throw favError;
+            if (queryRes.error) {
+                // Fallback query if created_at column is not present in mock or older tables
+                const fallbackRes = await supabase
+                    .from('favorites')
+                    .select('song_id, song_data')
+                    .eq('user_id', user.id);
+                if (fallbackRes.error) throw fallbackRes.error;
+                cloudFavs = fallbackRes.data;
+            } else {
+                cloudFavs = queryRes.data;
+            }
 
-            let finalFavorites = cloudFavs?.map(f => f.song_data as Song) || [];
+            let finalFavorites = cloudFavs?.map(f => {
+                const s = f.song_data as Song;
+                return {
+                    ...s,
+                    addedAt: s.addedAt || (f.created_at ? new Date(f.created_at).getTime() : Date.now()),
+                };
+            }) || [];
 
             if (options.merge) {
                 // Merge local into cloud
@@ -161,9 +179,13 @@ export const toggleFavoriteCloud = createAsyncThunk(
         const state = getState() as RootState;
         const user = state.auth.user;
         const isFavorite = state.library.favorites.some(s => s.id === song.id);
+        const songWithTimestamp: Song = {
+            ...song,
+            addedAt: song.addedAt || Date.now(),
+        };
 
         // Update local state first for responsiveness
-        dispatch(toggleFavorite(song));
+        dispatch(toggleFavorite(songWithTimestamp));
 
         if (!user) return;
 
@@ -174,7 +196,7 @@ export const toggleFavoriteCloud = createAsyncThunk(
                 await supabase.from('favorites').upsert({
                     user_id: user.id,
                     song_id: song.id,
-                    song_data: song
+                    song_data: songWithTimestamp
                 });
             }
         } catch (error) {

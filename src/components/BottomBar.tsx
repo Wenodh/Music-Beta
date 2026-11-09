@@ -9,7 +9,7 @@ import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
 const BottomBar: React.FC = () => {
     const location = useLocation();
     const dispatch = useAppDispatch();
-    const { theme, mobileNavItems, mobileNavPosition = 'bottom' } = useAppSelector((state) => state.ui);
+    const { theme, mobileNavItems, mobileNavPosition = 'bottom', isNavSettingsViewing } = useAppSelector((state) => state.ui);
     const { isSettingsOpen } = useAppSelector((state) => state.musicPlayer);
     const { unreadNotificationsCount } = useAppSelector((state) => state.social);
 
@@ -47,20 +47,21 @@ const BottomBar: React.FC = () => {
 
     // Container position styling based on position option (Windows / Mac Dock style)
     const getContainerPositionClasses = () => {
+        const zIndex = isNavSettingsViewing ? 'z-[380]' : 'z-[350]';
         switch (mobileNavPosition) {
             case 'top':
-                return 'fixed top-[calc(var(--navbar-height,56px)+6px)] left-0 right-0 z-[350] px-3 pointer-events-none';
+                return `fixed top-[calc(var(--navbar-height,56px)+6px)] left-0 right-0 ${zIndex} px-3 pointer-events-none`;
             case 'left':
-                return 'fixed left-2 top-1/2 -translate-y-1/2 z-[350] pointer-events-none';
+                return `fixed left-2 top-1/2 -translate-y-1/2 ${zIndex} pointer-events-none`;
             case 'right':
-                return 'fixed right-2 top-1/2 -translate-y-1/2 z-[350] pointer-events-none';
+                return `fixed right-2 top-1/2 -translate-y-1/2 ${zIndex} pointer-events-none`;
             case 'bottom-left':
-                return 'fixed bottom-0 left-0 z-[350] px-3 pb-3 pb-safe pointer-events-none';
+                return `fixed bottom-0 left-0 ${zIndex} px-3 pb-3 pb-safe pointer-events-none`;
             case 'bottom-right':
-                return 'fixed bottom-0 right-0 z-[350] px-3 pb-3 pb-safe pointer-events-none';
+                return `fixed bottom-0 right-0 ${zIndex} px-3 pb-3 pb-safe pointer-events-none`;
             case 'bottom':
             default:
-                return 'fixed bottom-0 left-0 right-0 z-[350] px-3 pb-3 pb-safe pointer-events-none';
+                return `fixed bottom-0 left-0 right-0 ${zIndex} px-3 pb-3 pb-safe pointer-events-none`;
         }
     };
 
@@ -80,7 +81,7 @@ const BottomBar: React.FC = () => {
         return `${base} flex items-center justify-around w-full max-w-md mx-auto px-0.5 py-1`;
     };
 
-    if (isSettingsOpen) {
+    if (isSettingsOpen && !isNavSettingsViewing) {
         return null;
     }
 
