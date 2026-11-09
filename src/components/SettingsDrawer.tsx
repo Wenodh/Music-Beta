@@ -1265,7 +1265,8 @@ const SettingsDrawer: React.FC = () => {
                             <div className="space-y-2">
                                 {ALL_MOBILE_NAV_ITEMS.map((item) => {
                                     const Icon = item.icon;
-                                    const isEnabled = mobileNavItems.includes(item.id);
+                                    const currentIndex = mobileNavItems.indexOf(item.id);
+                                    const isEnabled = currentIndex !== -1;
 
                                     const handleToggle = () => {
                                         if (!item.isRemovable) {
@@ -1283,6 +1284,24 @@ const SettingsDrawer: React.FC = () => {
                                         }
                                     };
 
+                                    const handleMoveUp = () => {
+                                        if (currentIndex <= 0) return;
+                                        const nextItems = [...mobileNavItems];
+                                        const temp = nextItems[currentIndex - 1];
+                                        nextItems[currentIndex - 1] = nextItems[currentIndex];
+                                        nextItems[currentIndex] = temp;
+                                        dispatch(setMobileNavItems(nextItems));
+                                    };
+
+                                    const handleMoveDown = () => {
+                                        if (currentIndex === -1 || currentIndex >= mobileNavItems.length - 1) return;
+                                        const nextItems = [...mobileNavItems];
+                                        const temp = nextItems[currentIndex + 1];
+                                        nextItems[currentIndex + 1] = nextItems[currentIndex];
+                                        nextItems[currentIndex] = temp;
+                                        dispatch(setMobileNavItems(nextItems));
+                                    };
+
                                     return (
                                         <div
                                             key={item.id}
@@ -1293,26 +1312,61 @@ const SettingsDrawer: React.FC = () => {
                                                     <Icon size={16} />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
-                                                        {item.label}
-                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                                                            {item.label}
+                                                        </p>
+                                                        {isEnabled && (
+                                                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-mono font-bold">
+                                                                #{currentIndex + 1}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-[10px] text-gray-400 truncate">{item.description}</p>
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={handleToggle}
-                                                disabled={!item.isRemovable}
-                                                className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ml-2 ${
-                                                    !item.isRemovable
-                                                        ? 'opacity-50 cursor-not-allowed bg-primary'
-                                                        : isEnabled
-                                                        ? 'bg-primary'
-                                                        : 'bg-gray-300 dark:bg-gray-700'
-                                                }`}
-                                            >
-                                                <motion.div animate={{ x: isEnabled ? 18 : 2 }} className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5" />
-                                            </button>
+                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                {/* Accessible Move Up / Down Buttons */}
+                                                {isEnabled && (
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleMoveUp}
+                                                            disabled={currentIndex <= 0}
+                                                            className="p-1 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold"
+                                                            title="Move Up"
+                                                            aria-label={`Move ${item.label} Up`}
+                                                        >
+                                                            ▲
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleMoveDown}
+                                                            disabled={currentIndex >= mobileNavItems.length - 1}
+                                                            className="p-1 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed text-[10px] font-bold"
+                                                            title="Move Down"
+                                                            aria-label={`Move ${item.label} Down`}
+                                                        >
+                                                            ▼
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                <button
+                                                    onClick={handleToggle}
+                                                    disabled={!item.isRemovable}
+                                                    className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+                                                        !item.isRemovable
+                                                            ? 'opacity-50 cursor-not-allowed bg-primary'
+                                                            : isEnabled
+                                                            ? 'bg-primary'
+                                                            : 'bg-gray-300 dark:bg-gray-700'
+                                                    }`}
+                                                >
+                                                    <motion.div animate={{ x: isEnabled ? 18 : 2 }} className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 })}

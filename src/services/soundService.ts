@@ -119,6 +119,8 @@ class SoundService {
     /**
      * Start playing continuous incoming call ringtone
      */
+    private isRingtonePlaying = false;
+
     public startIncomingCallRingtone(callType: 'audio' | 'video' = 'audio'): void {
         this.stopPreview();
 
@@ -138,8 +140,10 @@ class SoundService {
             } catch {
                 // Handled safely
             }
+            this.ringtoneAudio = null;
         }
 
+        this.isRingtonePlaying = true;
         try {
             const audio = new Audio(soundPath);
             audio.loop = true;
@@ -148,6 +152,13 @@ class SoundService {
             const playPromise = audio.play();
             if (playPromise) {
                 playPromise.catch((err) => {
+                    // If call was stopped while play promise was resolving, ensure silence
+                    if (!this.isRingtonePlaying && this.ringtoneAudio === audio) {
+                        try {
+                            audio.pause();
+                            audio.currentTime = 0;
+                        } catch {}
+                    }
                     console.warn('[SoundService] Ringtone autoplay blocked or aborted:', err);
                 });
             }
@@ -160,6 +171,7 @@ class SoundService {
      * Stop incoming call ringtone immediately
      */
     public stopIncomingCallRingtone(): void {
+        this.isRingtonePlaying = false;
         if (this.ringtoneAudio) {
             try {
                 this.ringtoneAudio.pause();

@@ -71,6 +71,7 @@ const FriendsModal = lazyRetry(() => import('./components/modals/FriendsModal').
 const IncomingCallModal = lazyRetry(() => import('./components/modals/IncomingCallModal').then(m => ({ default: m.IncomingCallModal })));
 const ActiveCallModal = lazyRetry(() => import('./components/modals/ActiveCallModal').then(m => ({ default: m.ActiveCallModal })));
 import { ActiveCallBar } from './components/ActiveCallBar';
+import { VideoPipOverlay } from './components/calling/VideoPipOverlay';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
     <motion.div
@@ -719,6 +720,7 @@ export const AppContent = () => {
                     <IncomingCallModal />
                     <ActiveCallModal />
                     <ActiveCallBar />
+                    <VideoPipOverlay />
                     <ImportExportModal />
                     <AddToPlaylistModal
                         song={playlistModal.song}

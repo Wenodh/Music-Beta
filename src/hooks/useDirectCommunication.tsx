@@ -40,6 +40,7 @@ import { e2eeService, EncryptedPayload } from '../services/e2eeService';
 import { aggregateUserPresenceSessions } from '../utils/presenceUtils';
 import { soundService } from '../services/soundService';
 import { nativeCallNotificationService } from '../services/nativeCallNotificationService';
+import { guestSessionService } from '../services/guestSessionService';
 
 export interface DirectCommunicationContextValue {
     sendDirectMessage: (friendId: string, text: string) => Promise<void>;
@@ -70,23 +71,28 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-    const getPersistentAnonymousId = (): string => {
+    const [guestId, setGuestId] = useState<string>(() => {
         try {
             const stored = localStorage.getItem('vibeon_user_code');
-            if (stored && stored.startsWith('anon-')) {
-                return stored;
-            }
-            const generated = `anon-${Math.random().toString(36).substring(2, 9)}`;
-            localStorage.setItem('vibeon_user_code', generated);
-            return generated;
+            if (stored && stored.startsWith('anon-')) return stored;
         } catch {
-            return `anon-${Math.random().toString(36).substring(2, 9)}`;
+            // Handled safely
         }
-    };
+        return `anon-guest-${Math.random().toString(36).substring(2, 8)}`;
+    });
 
-    const anonymousId = useRef(getPersistentAnonymousId()).current;
-    const userId = user?.id || anonymousId;
-    const userName = user?.user_metadata?.full_name || 'Vibe User';
+    useEffect(() => {
+        if (!user?.id) {
+            guestSessionService.getOrCreateGuestIdentityKey().then(({ guestId: verifiedGuestId }) => {
+                setGuestId(verifiedGuestId);
+            }).catch((err) => {
+                console.warn('[DirectCommunication] Failed to initialize verified guest identity:', err);
+            });
+        }
+    }, [user?.id]);
+
+    const userId = user?.id || guestId;
+    const userName = user?.user_metadata?.full_name || (user?.id ? 'Vibe User' : `Guest ${guestId.slice(-4)}`);
 
     const personalChannelRef = useRef<RealtimeChannel | null>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -146,6 +152,30 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Managed outbound channel map with 30s idle disposal timeout
     const outboundChannelsRef = useRef<Map<string, { channel: RealtimeChannel; idleTimer: NodeJS.Timeout | null }>>(new Map());
 
+    // Sign complete message envelope if sender is an unauthenticated guest
+    const enrichPayloadWithGuestEnvelope = useCallback(async (targetUserId: string, event: string, payload: any) => {
+        if (!user?.id && userId.startsWith('anon-') && event === 'direct_signal') {
+            try {
+                // Pass only media payload (sdp or candidate) or null for control signals
+                const mediaData = payload.sdp || payload.candidate || null;
+                const signedEnvelope = await guestSessionService.signSignalingEnvelope({
+                    callId: payload.callId || '',
+                    recipientId: targetUserId,
+                    signalType: payload.signalType || '',
+                    callType: payload.callType,
+                    data: mediaData,
+                });
+                return {
+                    ...payload,
+                    signedEnvelope,
+                };
+            } catch (err) {
+                console.warn('[DirectCommunication] Failed to sign signaling envelope:', err);
+            }
+        }
+        return payload;
+    }, [user?.id, userId]);
+
     // Helper to send message or signal via recipient channel with assured connection and idle cleanup
     const sendToUser = useCallback(async (targetUserId: string, event: string, payload: any) => {
         const targetChannelName = `user:${targetUserId}`;
@@ -174,10 +204,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
 
         try {
+            const enrichedPayload = await enrichPayloadWithGuestEnvelope(targetUserId, event, payload);
             await targetChannel.send({
                 type: 'broadcast',
                 event,
-                payload,
+                payload: enrichedPayload,
             });
         } catch (e) {
             console.warn(`Error sending ${event} to ${targetUserId}:`, e);
@@ -195,7 +226,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 }, 30000);
             }
         }
-    }, []);
+    }, [enrichPayloadWithGuestEnvelope]);
 
     // Cleanup all outbound channels on unmount
     useEffect(() => {
@@ -582,9 +613,29 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 }
             })
             .on('broadcast', { event: 'direct_signal' }, async ({ payload }) => {
-                const { callId, senderId, senderName, signalType, sdp, candidate, callType = 'audio' } = payload;
+                const { callId, senderId, senderName, signalType, sdp, candidate, callType = 'audio', signedEnvelope } = payload;
 
                 if (!senderId || !signalType) return;
+
+                // Cryptographic Guest Identity, Message Envelope & Replay Verification
+                if (senderId.startsWith('anon-')) {
+                    if (!signedEnvelope) {
+                        console.warn('[DirectComms] Dropped direct_signal from unverified guest (missing signedEnvelope):', senderId);
+                        return;
+                    }
+                    // Evaluate exact media data matching what sender signed
+                    const actualData = sdp || candidate || null;
+                    const verifyResult = await guestSessionService.verifySignalingEnvelope(
+                        signedEnvelope,
+                        userId, // expected recipientId is us!
+                        signalType,
+                        actualData
+                    );
+                    if (!verifyResult.isValid) {
+                        console.warn(`[DirectComms] Dropped forged/tampered/replayed guest signal from ${senderId}:`, verifyResult.reason);
+                        return;
+                    }
+                }
 
                 // Check blocklist for signaling
                 const isBlocked = await isUserBlockedLocal(senderId);
@@ -736,6 +787,15 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     if (ignoreOfferRef.current) {
                         console.info('[WebRTC Perfect Negotiation] Glare detected: impolite peer ignoring incoming offer');
                         return;
+                    }
+
+                    // Polite peer executes rollback on offer collision if local offer is uncommitted
+                    if (offerCollision && pc.signalingState !== 'stable') {
+                        try {
+                            await pc.setLocalDescription({ type: 'rollback' });
+                        } catch (rollbackErr) {
+                            console.warn('[WebRTC Perfect Negotiation] Polite peer rollback warning:', rollbackErr);
+                        }
                     }
 
                     try {
@@ -939,25 +999,12 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     }, []);
 
     // Start 1-click call to a friend (supports audio and video)
+    // Signaling-First implementation: Presence is informational, NOT an unconditional gate.
     const callFriend = useCallback(async (friend: Friend, requestedCallType: CallType = 'audio') => {
-        // 1. Pre-call presence check: reject immediately if recipient is offline
+        // Presence is evaluated for informational awareness only (e.g. logging)
         const isOnline = checkRecipientOnline(friend.id);
         if (!isOnline) {
-            dispatch(showToast({ message: `${friend.name || 'User'} is offline`, type: 'info' }));
-            const offlineCallId = generateCallId();
-            const logEntry: CallLogEntry = {
-                id: `log-${offlineCallId}`,
-                callId: offlineCallId,
-                peerId: friend.id,
-                peerName: friend.name,
-                direction: 'outgoing',
-                outcome: 'missed',
-                callType: requestedCallType,
-                startedAt: Date.now(),
-                durationSeconds: 0,
-            };
-            saveCallLogLocal(logEntry).catch((e) => console.warn('Could not save offline call log:', e));
-            return;
+            console.info(`[DirectCommunication] Recipient ${friend.name} presence is not currently visible; proceeding with signaling-first invitation.`);
         }
 
         try {
@@ -979,18 +1026,20 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 dispatch(setCallVideoEnabled(false));
             }
 
+            // Attempt authorized signaling over Realtime channel
             sendToUser(friend.id, 'direct_signal', {
                 callId: newCallId,
                 senderId: userId,
                 senderName: userName,
                 signalType: 'call-request',
                 callType: requestedCallType,
+                sentAt: Date.now(),
             });
 
             clearTimers();
             ringingTimeoutRef.current = setTimeout(() => {
                 if (activeCallRef.current?.status === 'ringing' && activeCallRef.current.callId === newCallId) {
-                    dispatch(showToast({ message: 'No answer', type: 'info' }));
+                    dispatch(showToast({ message: `${friend.name || 'User'} is unavailable`, type: 'info' }));
                     sendToUser(friend.id, 'direct_signal', {
                         callId: newCallId,
                         senderId: userId,
