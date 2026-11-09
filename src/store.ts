@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { persistStore, persistReducer } from 'redux-persist';
+import { persistStore, persistReducer, createTransform } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // Use local storage for persistence
 import { combineReducers } from '@reduxjs/toolkit';
 import musicPlayerReducer from './features/musicplayer/musicPlayerSlice';
@@ -109,10 +109,26 @@ const rootReducer = combineReducers({
     session: persistReducer(sessionPersistConfig, sessionReducer),
 });
 
+// Ensure ephemeral drawer state (isSettingsOpen, isQueueOpen) is never persisted or restored open across restarts
+const musicPlayerTransform = createTransform(
+    (inboundState: Record<string, unknown>) => ({
+        ...inboundState,
+        isSettingsOpen: false,
+        isQueueOpen: false,
+    }),
+    (outboundState: Record<string, unknown>) => ({
+        ...outboundState,
+        isSettingsOpen: false,
+        isQueueOpen: false,
+    }),
+    { whitelist: ['musicPlayer'] }
+);
+
 const persistConfig = {
     key: 'root',
     storage,
     whitelist: ['musicPlayer', 'language', 'library', 'ui', 'auth'],
+    transforms: [musicPlayerTransform],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -125,7 +141,7 @@ export const store = configureStore({
         }).prepend(settingsListener.middleware, historyListener.middleware),
 });
 
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && typeof window !== 'undefined') {
     (window as any).__REDUX_STORE__ = store;
 }
 

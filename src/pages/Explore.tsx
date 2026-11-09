@@ -9,8 +9,21 @@ import { Song } from '../types/music';
 import { useMasonryColumns } from '../hooks/useMasonryColumns';
 import { musicApiService } from '../services/musicApiService';
 
+export const EXPLORE_LANGUAGES = [
+    { name: 'Telugu', value: 'telugu' },
+    { name: 'Hindi', value: 'hindi' },
+    { name: 'English', value: 'english' },
+    { name: 'Tamil', value: 'tamil' },
+    { name: 'Punjabi', value: 'punjabi' },
+];
+
 const Explore: React.FC = () => {
-    const { language } = useAppSelector((state) => state.language);
+    const { language: globalLanguage } = useAppSelector((state) => state.language);
+    // Local Explore-only language filter initialized with the user's default language
+    const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
+        const normalized = (globalLanguage || 'telugu').toLowerCase();
+        return EXPLORE_LANGUAGES.some(l => l.value === normalized) ? normalized : 'telugu';
+    });
     const [songs, setSongs] = useState<Song[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -38,11 +51,13 @@ const Explore: React.FC = () => {
             if (isReset) {
                 setSongs([]); // Clear stale results immediately to show skeleton
             }
-            const query = language;
+            const query = selectedLanguage;
             const path = `/api/search/songs?query=${encodeURIComponent(query)}&page=${pageNum}&limit=30`;
             const res = await musicApiService.fetchWithFallback(path, { signal, timeout: 7000 });
             setIsCached(res.isCached);
             const newSongs = res.data?.data?.results || res.data?.results || [];
+
+            if (signal?.aborted) return;
 
             if (newSongs.length === 0) {
                 updateHasMore(false);
@@ -61,7 +76,7 @@ const Explore: React.FC = () => {
                 isFetching.current = false;
             }
         }
-    }, [language, updateHasMore]);
+    }, [selectedLanguage, updateHasMore]);
 
     useEffect(() => {
         // Reset and fetch when language changes
@@ -80,7 +95,7 @@ const Explore: React.FC = () => {
                 abortControllerRef.current.abort();
             }
         };
-    }, [language, fetchSongs, updateHasMore]);
+    }, [selectedLanguage, fetchSongs, updateHasMore]);
 
     const lastSongElementRef = useCallback((node: HTMLDivElement) => {
         if (loading) return;
@@ -112,7 +127,7 @@ const Explore: React.FC = () => {
                         <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Explore</h1>
                     </div>
                     <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight max-w-2xl">
-                        Discover new music in <span className="text-primary font-medium capitalize">{language}</span> curated just for you.
+                        Discover new music in <span className="text-primary font-medium capitalize">{selectedLanguage}</span> curated just for you.
                     </p>
                 </div>
 
@@ -123,6 +138,33 @@ const Explore: React.FC = () => {
                     <IoPeopleOutline size={16} /> Community Pulse
                 </Link>
             </header>
+
+            {/* Language Filter Pills */}
+            <div className="mb-4 -mx-2 px-2 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto custom-scrollbar scroll-smooth py-1">
+                {EXPLORE_LANGUAGES.map((lang) => {
+                    const isSelected = selectedLanguage === lang.value;
+                    return (
+                        <button
+                            key={lang.value}
+                            type="button"
+                            onClick={() => {
+                                if (selectedLanguage !== lang.value) {
+                                    setSelectedLanguage(lang.value);
+                                }
+                            }}
+                            className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer select-none active:scale-95 ${
+                                isSelected
+                                    ? 'bg-primary text-white shadow-md shadow-primary/25 font-bold'
+                                    : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white border border-transparent dark:border-white/5'
+                            }`}
+                            aria-pressed={isSelected}
+                            aria-label={`Filter by ${lang.name}`}
+                        >
+                            {lang.name}
+                        </button>
+                    );
+                })}
+            </div>
 
             {/* Stale Cache Notice Banner */}
             {isCached && songs.length > 0 && (
@@ -205,9 +247,24 @@ const Explore: React.FC = () => {
 
             {songs.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <IoSearchOutline size={64} className="text-gray-300 mb-4" />
+                    <IoSearchOutline size={64} className="text-gray-300 dark:text-gray-600 mb-4" />
                     <h2 className="text-xl font-semibold">No songs found</h2>
-                    <p className="text-gray-500">Try changing your language in settings.</p>
+                    <p className="text-gray-500 mb-4">Try selecting another language filter above.</p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                        {EXPLORE_LANGUAGES.map((lang) => (
+                            <button
+                                key={lang.value}
+                                onClick={() => setSelectedLanguage(lang.value)}
+                                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                                    selectedLanguage === lang.value
+                                        ? 'bg-primary text-white'
+                                        : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
+                                }`}
+                            >
+                                {lang.name}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
