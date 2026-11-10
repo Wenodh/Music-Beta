@@ -184,4 +184,43 @@ describe('Centralized Back Navigation Manager', () => {
 
         cleanup();
     });
+
+    it('prevents ghost popstate closure during overlay handoff (e.g. SettingsDrawer to FriendsModal)', async () => {
+        const cleanup = backNavigationService.init();
+
+        const onSettingsDismiss = vi.fn();
+        const onFriendsDismiss = vi.fn();
+
+        // 1. SettingsDrawer is open
+        const unregisterSettings = backNavigationService.registerOverlay({
+            id: 'settings-drawer',
+            priority: 350,
+            onBack: onSettingsDismiss,
+        });
+
+        expect(backNavigationService.hasActiveOverlays()).toBe(true);
+
+        // 2. User clicks "Direct Chat" or "Calls" shortcut:
+        // SettingsDrawer unregisters as it closes
+        unregisterSettings();
+
+        // Immediately in the same frame/tick, FriendsModal registers as it opens
+        const unregisterFriends = backNavigationService.registerOverlay({
+            id: 'friends-modal',
+            priority: 420,
+            onBack: onFriendsDismiss,
+        });
+
+        // Wait for microtasks and timer resolution (16ms)
+        await new Promise(r => setTimeout(r, 40));
+
+        // The FriendsModal should remain securely active and not be dismissed by a ghost popstate
+        expect(backNavigationService.hasActiveOverlays()).toBe(true);
+        expect(backNavigationService.getActiveOverlayCount()).toBe(1);
+        expect(onFriendsDismiss).not.toHaveBeenCalled();
+        expect(onSettingsDismiss).not.toHaveBeenCalled();
+
+        unregisterFriends();
+        cleanup();
+    });
 });

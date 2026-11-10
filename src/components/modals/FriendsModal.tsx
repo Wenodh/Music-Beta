@@ -59,8 +59,15 @@ export const FriendsModal: React.FC = () => {
     React.useEffect(() => {
         if (socialActiveTab && isFriendsModalOpen) {
             setActiveTab(socialActiveTab);
+            // If switched to calls, discover, or activity, clear stale active friend chat view
+            if (socialActiveTab !== 'chats' && activeFriendId) {
+                dispatch(setActiveFriendId(null));
+            }
+            if (activeProfileView) {
+                dispatch(setActiveProfileView(null));
+            }
         }
-    }, [socialActiveTab, isFriendsModalOpen]);
+    }, [socialActiveTab, isFriendsModalOpen, activeFriendId, activeProfileView, dispatch]);
     const [newFriendId, setNewFriendId] = useState('');
     const [newFriendName, setNewFriendName] = useState('');
     const [messageText, setMessageText] = useState('');
@@ -341,7 +348,7 @@ export const FriendsModal: React.FC = () => {
                         ))}
                         <Link
                             to="/community"
-                            onClick={() => onClose()}
+                            onClick={() => dispatch(setIsFriendsModalOpen(false))}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-primary hover:bg-primary/10 transition-all shrink-0 ml-auto border border-primary/20"
                         >
                             <IoPeopleOutline size={15} />

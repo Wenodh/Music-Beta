@@ -352,6 +352,9 @@ const musicPlayerSlice = createSlice({
                 const rawPrev = incoming.previousVolume;
                 state.previousVolume = typeof rawPrev === 'number' && !isNaN(rawPrev) && rawPrev > 0 ? Math.min(2.0, Math.max(0.05, rawPrev)) : (validVol > 0 ? validVol : 0.7);
             }
+            // Guarantee ephemeral drawer overlays always initialize closed on application startup/rehydration
+            state.isSettingsOpen = false;
+            state.isQueueOpen = false;
         });
     },
 });

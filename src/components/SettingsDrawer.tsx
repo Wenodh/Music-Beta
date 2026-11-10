@@ -65,8 +65,8 @@ import {
     AVAILABLE_INVITE_SOUNDS,
     NotificationSoundPreferences,
 } from '../services/soundService';
-import { setIsFriendsModalOpen } from '../features/friends/friendsSlice';
-import { setSocialActiveTab } from '../features/social/socialSlice';
+import { setIsFriendsModalOpen, setActiveFriendId } from '../features/friends/friendsSlice';
+import { setSocialActiveTab, setActiveProfileView } from '../features/social/socialSlice';
 import { useNavigate } from 'react-router-dom';
 import { signInWithGoogle, signOut } from '../features/auth/authActions';
 import { syncLibrary } from '../features/library/libraryActions';
@@ -618,6 +618,8 @@ const SettingsDrawer: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         dispatch(setSettingsOpen(false));
+                                        dispatch(setActiveFriendId(null));
+                                        dispatch(setActiveProfileView(null));
                                         dispatch(setSocialActiveTab('chats'));
                                         dispatch(setIsFriendsModalOpen(true));
                                     }}
@@ -635,6 +637,8 @@ const SettingsDrawer: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         dispatch(setSettingsOpen(false));
+                                        dispatch(setActiveFriendId(null));
+                                        dispatch(setActiveProfileView(null));
                                         dispatch(setSocialActiveTab('calls'));
                                         dispatch(setIsFriendsModalOpen(true));
                                     }}

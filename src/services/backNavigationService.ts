@@ -24,6 +24,7 @@ class BackNavigationService {
     private historySyntheticPushed = 0;
     private isProcessingBack = false;
     private initialized = false;
+    private pendingSyntheticPopTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Listeners for UI updates/debugging
     private listeners: Array<() => void> = [];
@@ -93,11 +94,25 @@ class BackNavigationService {
     }
 
     /**
+     * Cancel any pending synthetic history pop. This is crucial during overlay handoffs
+     * (e.g. closing SettingsDrawer and immediately opening FriendsModal/Calls/Chat) so that
+     * the new overlay inherits the synthetic history state without a premature window.history.back()
+     * firing a ghost popstate event that closes the new modal.
+     */
+    private cancelPendingSyntheticPop() {
+        if (this.pendingSyntheticPopTimer) {
+            clearTimeout(this.pendingSyntheticPopTimer);
+            this.pendingSyntheticPopTimer = null;
+        }
+    }
+
+    /**
      * Push a synthetic history state if not already pushed, so the browser back button
      * triggers popstate instead of navigating to the previous page.
      */
     private pushSyntheticHistoryState() {
         if (typeof window === 'undefined') return;
+        this.cancelPendingSyntheticPop();
         try {
             window.history.pushState({ isVibeOverlay: true, timestamp: Date.now() }, '');
             this.historySyntheticPushed++;
@@ -109,18 +124,24 @@ class BackNavigationService {
     /**
      * Clean up synthetic history entries when overlays are closed programmatically
      * (e.g. clicking the 'X' button or backdrop).
+     * Defers execution slightly to avoid race conditions during modal handoffs.
      */
     private popSyntheticHistoryState() {
         if (typeof window === 'undefined') return;
-        if (this.historySyntheticPushed > 0) {
-            this.historySyntheticPushed--;
-            // Silently back out of the synthetic entry if we are closing via UI
-            try {
-                window.history.back();
-            } catch {
-                // Ignore
+        this.cancelPendingSyntheticPop();
+
+        this.pendingSyntheticPopTimer = setTimeout(() => {
+            this.pendingSyntheticPopTimer = null;
+            if (this.overlayStack.length === 0 && this.historySyntheticPushed > 0) {
+                this.historySyntheticPushed--;
+                // Silently back out of the synthetic entry if we are closing via UI
+                try {
+                    window.history.back();
+                } catch {
+                    // Ignore
+                }
             }
-        }
+        }, 16);
     }
 
     /**
@@ -130,11 +151,15 @@ class BackNavigationService {
     public registerOverlay(options: BackHandlerOptions): () => void {
         const { id, priority = BackNavigationService.PRIORITY.MODAL_DIALOG, onBack } = options;
 
+        // If an overlay transition is occurring (e.g. SettingsDrawer -> FriendsModal),
+        // cancel any pending history pop so the new overlay stays open seamlessly.
+        this.cancelPendingSyntheticPop();
+
         // Remove existing entry with identical ID if already registered
         this.overlayStack = this.overlayStack.filter(entry => entry.id !== id);
 
-        // Push synthetic history entry if this is the first overlay
-        if (this.overlayStack.length === 0) {
+        // Push synthetic history entry if this is the first overlay and none was pushed yet
+        if (this.overlayStack.length === 0 && this.historySyntheticPushed === 0) {
             this.pushSyntheticHistoryState();
         }
 
@@ -254,6 +279,7 @@ class BackNavigationService {
      * Reset service state (for test isolation)
      */
     public resetForTests() {
+        this.cancelPendingSyntheticPop();
         this.overlayStack = [];
         this.historySyntheticPushed = 0;
         this.isProcessingBack = false;
