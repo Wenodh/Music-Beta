@@ -637,6 +637,7 @@ To eliminate overlay stacking collisions:
 * **Full-Screen Arcade View**: `z-[400]`
 * **Bottom Bar Navigation (`BottomBar.tsx`)**: `z-[350]`
 * **Drawers & Sidebars (`SettingsDrawer`, `Queue`)**: `z-[300]` / `z-[310]`
+* **Privacy Policy View**: Accessible globally at route `/privacy` or from the Settings Drawer ("About" and "Privacy & Calling" sections via `handleViewPolicy` / "View Policy →" buttons). Includes dedicated header back navigation returning cleanly to previous app context or home.
 * **Player Pill (`Player.tsx`)**: `z-[210]`
 * **Main Content Layout**: `z-[10]`
 

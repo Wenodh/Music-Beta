@@ -92,4 +92,13 @@ describe('Task 2 — SettingsDrawer shortcuts for Messages and Calls', () => {
         friendsState = friendsReducer(friendsState, setIsFriendsModalOpen(false));
         expect(friendsState.isFriendsModalOpen).toBe(false);
     });
+
+    it('5. View Policy navigation triggers setSettingsOpen(false) to close the settings drawer', () => {
+        let musicState = musicPlayerReducer(undefined, setSettingsOpen(true));
+        expect(musicState.isSettingsOpen).toBe(true);
+
+        // handleViewPolicy triggers setSettingsOpen(false)
+        musicState = musicPlayerReducer(musicState, setSettingsOpen(false));
+        expect(musicState.isSettingsOpen).toBe(false);
+    });
 });

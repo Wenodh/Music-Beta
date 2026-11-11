@@ -1,9 +1,31 @@
 import { motion } from 'framer-motion';
 import { PiShieldCheck } from 'react-icons/pi';
+import { IoArrowBack } from 'react-icons/io5';
+import { useNavigate } from 'react-router-dom';
 
 const PrivacyPolicy = () => {
+    const navigate = useNavigate();
+
     return (
-        <div className="max-w-4xl mx-auto py-12 px-2 sm:px-4 space-y-12 mb-24">
+        <div className="max-w-4xl mx-auto py-8 sm:py-12 px-4 space-y-8 sm:space-y-12 mb-24">
+            {/* Header navigation back button */}
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={() => {
+                        if (window.history.length > 1) {
+                            navigate(-1);
+                        } else {
+                            navigate('/');
+                        }
+                    }}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold transition-all"
+                    aria-label="Back"
+                >
+                    <IoArrowBack size={18} />
+                    <span>Back</span>
+                </button>
+            </div>
+
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -12,8 +34,8 @@ const PrivacyPolicy = () => {
                 <div className="inline-flex items-center justify-center p-4 bg-primary/10 rounded-2xl mb-4">
                     <PiShieldCheck className="text-5xl text-primary" />
                 </div>
-                <h1 className="text-4xl md:text-5xl font-bold">Privacy Policy</h1>
-                <p className="text-gray-400">Last updated: June 3, 2025</p>
+                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
+                <p className="text-gray-500 dark:text-gray-400">Last updated: June 3, 2025</p>
             </motion.div>
 
             <div className="space-y-10 text-gray-300 leading-relaxed">

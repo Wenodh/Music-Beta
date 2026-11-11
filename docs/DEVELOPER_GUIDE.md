@@ -368,6 +368,7 @@ Vibe On Phase 2 establishes a complete social music experience across profiles, 
 
 ### 1. Database Schema & RLS Security (`docs/supabase_social_schema.sql`)
 * **`profiles`**: Stores user profiles with strict uniqueness on `username` (case-insensitive via lower-case unique index), display name, avatar, bio, and privacy settings (`is_private`, `share_activity`, `show_online`, `allow_discovery`). RLS enforces that profiles are discoverable only when `allow_discovery = true`, or when users are mutual friends.
+* **Privacy Policy (`/privacy` & `PrivacyPolicy.tsx`)**: Rendered at route `/privacy` wrapped in `PageWrapper` and accessible via `handleViewPolicy` in `SettingsDrawer.tsx`. Features header back navigation supporting browser/app history with safe fallback to `/`.
 * **`friendships`**: Implements a canonical unordered pair constraint (`canonical_pair_order CHECK (user_id_1 < user_id_2)`) to strictly prevent reverse-direction duplicate rows, while tracking `requester_id` and `recipient_id`. Supports `pending`, `accepted`, and `blocked` states.
 * **`social_notifications`**: Stores cloud notifications for incoming friend requests, accepted requests, and missed calls with read/unread tracking.
 * **Transition RPC Functions**: Secure transitions (`send_friend_request`, `respond_friend_request`, `cancel_friend_request`, `remove_friend`, `block_user`, `unblock_user`) use explicit `SECURITY DEFINER` and fixed safe search paths (`SET search_path = public, auth`).

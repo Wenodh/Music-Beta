@@ -88,6 +88,16 @@ By signing in with your **Google Account**, your settings, favorite songs, and c
 
 ---
 
+## 🛡️ Privacy Policy & Data Protection
+
+Transparency and user privacy are foundational to Vibe On:
+* **Viewing the Privacy Policy**: You can view the full Privacy Policy and Terms at any time by navigating to `/privacy`, clicking **"View Policy →"** under the **About** section in the Settings Drawer, or tapping the Privacy Policy link under **Privacy & Calling**.
+* **Zero Plaintext Transmission**: Direct 1-on-1 friend chat messages remain strictly encrypted (E2EE) and local in IndexedDB; they are never stored on public database tables.
+* **IP Protection**: Enable "Protect IP Address in Calls" in Settings to relay WebRTC voice/video calls through TURN servers, concealing your device's direct IP address from peers.
+* **Back Navigation**: On the `/privacy` page, tap the **Back** button to return cleanly to your previous screen or Home.
+
+---
+
 ## 🔮 Future Feature Roadmap
 
 To ensure transparency, the following features are actively planned and currently in development:

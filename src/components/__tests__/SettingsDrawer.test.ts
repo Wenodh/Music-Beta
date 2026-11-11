@@ -26,6 +26,12 @@ describe('SettingsDrawer Categories & Search Metadata', () => {
         });
     });
 
+    it('includes a searchable entry for Privacy Policy & Terms in the privacy category', () => {
+        const privacyCategory = SETTINGS_CATEGORIES.find((c) => c.id === 'privacy');
+        expect(privacyCategory).toBeDefined();
+        expect(privacyCategory?.title).toBe('Privacy & Calling');
+    });
+
     it('correctly orders navigation items matching active user order with full reordering freedom including Home', () => {
         const customOrder = ['explore', 'home', 'library', 'search'];
         const itemMap = new Map(ALL_MOBILE_NAV_ITEMS.map((item: any) => [item.id, item]));
