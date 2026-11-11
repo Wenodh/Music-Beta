@@ -11,7 +11,10 @@ class PersistentAudioManager {
             const audio = document.createElement('audio');
             audio.id = 'vibeon-webrtc-remote-audio';
             audio.autoplay = true;
+            audio.muted = false;
+            audio.volume = 1.0;
             (audio as any).playsInline = true;
+            audio.setAttribute('playsinline', 'true');
             audio.style.display = 'none';
             document.body.appendChild(audio);
             this.audioElement = audio;
@@ -21,19 +24,37 @@ class PersistentAudioManager {
 
     public attachStream(stream: MediaStream): void {
         const audio = this.getOrCreateAudio();
+        audio.muted = false;
+        audio.volume = 1.0;
         if (audio.srcObject !== stream) {
             audio.srcObject = stream;
         }
-        audio.play().catch((err) => {
-            console.warn('[PersistentAudioManager] Autoplay blocked, unlocking on user gesture:', err);
-            const unlock = () => {
-                audio.play().catch((e) => console.error('[PersistentAudioManager] Unlock play error:', e));
-                window.removeEventListener('click', unlock);
-                window.removeEventListener('touchstart', unlock);
-            };
-            window.addEventListener('click', unlock, { once: true });
-            window.addEventListener('touchstart', unlock, { once: true });
-        });
+        try {
+            const playPromise = audio.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch((err) => {
+                    console.warn('[PersistentAudioManager] Autoplay blocked, unlocking on user gesture:', err);
+                    const unlock = () => {
+                        audio.muted = false;
+                        audio.volume = 1.0;
+                        try {
+                            const p = audio.play();
+                            if (p && typeof p.catch === 'function') {
+                                p.catch((e) => console.error('[PersistentAudioManager] Unlock play error:', e));
+                            }
+                        } catch (e) {
+                            console.error('[PersistentAudioManager] Unlock play error:', e);
+                        }
+                        window.removeEventListener('click', unlock);
+                        window.removeEventListener('touchstart', unlock);
+                    };
+                    window.addEventListener('click', unlock, { once: true });
+                    window.addEventListener('touchstart', unlock, { once: true });
+                });
+            }
+        } catch (syncErr) {
+            console.warn('[PersistentAudioManager] audio.play() sync error:', syncErr);
+        }
     }
 
     public setVolume(volume: number): void {

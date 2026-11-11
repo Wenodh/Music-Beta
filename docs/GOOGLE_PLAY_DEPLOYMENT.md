@@ -33,8 +33,8 @@ This guide provides step-by-step instructions for building, signing, and submitt
 ### Release Versioning
 Application versioning is configured in `android/app/build.gradle`:
 * **Version Code**: `6` (Must strictly increment for every new Play Console submission).
-* **Version Name**: `1.0.2` (User-visible release version).
-* **`package.json`**: `1.0.2` (Kept in alignment with app releases).
+* **Version Name**: `1.0.3` (User-visible release version).
+* **`package.json`**: `1.0.3` (Kept in alignment with app releases).
 
 ---
 
@@ -222,7 +222,7 @@ Google Play Store **requires** a publicly accessible Privacy Policy URL for apps
 
 ## 14. Pre-Submission Checklist & Rejection Risks
 
-- [x] `versionCode` set to `6` and `versionName` set to `1.0.2` in `android/app/build.gradle`.
+- [x] `versionCode` set to `7` and `versionName` set to `1.0.3` in `android/app/build.gradle`.
 - [x] Target SDK set to `36` (Android 16 compatibility).
 - [x] `signing.properties` created locally with valid upload key credentials.
 - [x] Web assets built (`npm run build`) and synced to Capacitor (`npx cap sync android`).
