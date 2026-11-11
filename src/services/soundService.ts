@@ -65,6 +65,11 @@ class SoundService {
     private lastMessageSoundPlayedAt = 0;
     private preferences: NotificationSoundPreferences = { ...DEFAULT_NOTIFICATION_SOUNDS };
 
+    // Outgoing ringback synthesizer state
+    private ringbackContext: AudioContext | null = null;
+    private ringbackTimer: any = null;
+    private isRingbackPlaying = false;
+
     constructor() {
         this.loadPreferences();
     }
@@ -182,6 +187,98 @@ class SoundService {
                 // Handled safely
             }
             this.ringtoneAudio = null;
+        }
+    }
+
+    /**
+     * Start playing standard telephone-style rhythmic ringback tone for caller
+     * (e.g. 440Hz + 480Hz dual-frequency tone for 1.8s, followed by 2.2s silence).
+     */
+    public startOutgoingCallRingback(): void {
+        this.stopOutgoingCallRingback();
+
+        if (!this.preferences.masterEnabled || !this.preferences.ringtoneEnabled) {
+            return;
+        }
+
+        this.isRingbackPlaying = true;
+
+        const playChimeCycle = () => {
+            if (!this.isRingbackPlaying) return;
+
+            try {
+                const AudioCtxClass = typeof window !== 'undefined'
+                    ? window.AudioContext || (window as any).webkitAudioContext
+                    : null;
+                if (!AudioCtxClass) return;
+
+                if (!this.ringbackContext || this.ringbackContext.state === 'closed') {
+                    this.ringbackContext = new AudioCtxClass();
+                }
+
+                const ctx = this.ringbackContext;
+                if (ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                }
+
+                const startTime = ctx.currentTime;
+                const duration = 1.6;
+
+                const osc1 = ctx.createOscillator();
+                const osc2 = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(440, startTime); // Standard dial tone frequency 1
+
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(480, startTime); // Standard dial tone frequency 2
+
+                gain.gain.setValueAtTime(0.001, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.12, startTime + 0.05);
+                gain.gain.setValueAtTime(0.12, startTime + duration - 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc1.start(startTime);
+                osc2.start(startTime);
+                osc1.stop(startTime + duration);
+                osc2.stop(startTime + duration);
+            } catch (err) {
+                console.warn('[SoundService] Ringback audio generation error:', err);
+            }
+        };
+
+        // Play initial burst immediately, then repeat every 4 seconds
+        playChimeCycle();
+        this.ringbackTimer = setInterval(() => {
+            if (this.isRingbackPlaying) {
+                playChimeCycle();
+            } else {
+                this.stopOutgoingCallRingback();
+            }
+        }, 4000);
+    }
+
+    /**
+     * Stop outgoing call ringback tone immediately
+     */
+    public stopOutgoingCallRingback(): void {
+        this.isRingbackPlaying = false;
+        if (this.ringbackTimer) {
+            clearInterval(this.ringbackTimer);
+            this.ringbackTimer = null;
+        }
+        if (this.ringbackContext) {
+            try {
+                this.ringbackContext.close().catch(() => {});
+            } catch {
+                // Handled safely
+            }
+            this.ringbackContext = null;
         }
     }
 

@@ -15,6 +15,7 @@ import {
     setRemoteVideoEnabled,
     setCallFacingMode,
     setCallSpeakerOn,
+    setCallType,
     endDirectCall,
 } from '../features/friends/friendsSlice';
 import { CallType } from '../types/call';
@@ -149,6 +150,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             reconnectTimeoutRef.current = null;
         }
         soundService.stopIncomingCallRingtone();
+        soundService.stopOutgoingCallRingback();
     }, []);
 
     // Managed outbound channel map with 30s idle disposal timeout
@@ -875,11 +877,22 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     return;
                 }
 
-                // Handle remote camera toggle notification
+                // Handle remote camera toggle notification & voice-to-video upgrade/downgrade
                 if (signalType === 'camera-toggle') {
                     if (activeId === callId) {
                         const isVideoOn = Boolean(payload.isVideoEnabled);
                         dispatch(setRemoteVideoEnabled(isVideoOn));
+
+                        const currentCall = activeCallRef.current;
+                        if (isVideoOn) {
+                            // If remote peer upgraded their camera, promote callType to video
+                            dispatch(setCallType('video'));
+                        } else {
+                            // If remote peer disabled camera, and local camera is also not active, revert callType to audio
+                            if (!currentCall?.isVideoEnabled) {
+                                dispatch(setCallType('audio'));
+                            }
+                        }
                     }
                     return;
                 }
@@ -1050,6 +1063,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             if (requestedCallType === 'video' && !hasVideo) {
                 dispatch(setCallVideoEnabled(false));
             }
+
+            // Start playing standard telephone-style rhythmic ringback tone for caller
+            soundService.startOutgoingCallRingback();
 
             // Attempt authorized signaling over Realtime channel
             sendToUser(friend.id, 'direct_signal', {
@@ -1271,6 +1287,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 }
 
                 dispatch(setCallVideoEnabled(true));
+                dispatch(setCallType('video'));
                 setLocalStream(new MediaStream(localStreamRef.current?.getTracks() || []));
 
                 sendToUser(active.friendId, 'direct_signal', {
@@ -1305,6 +1322,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
 
             dispatch(setCallVideoEnabled(false));
+            // If remote video is also not active, downgrade callType to audio
+            if (!active.isRemoteVideoEnabled) {
+                dispatch(setCallType('audio'));
+            }
             setLocalStream(new MediaStream(localStreamRef.current?.getTracks() || []));
 
             sendToUser(active.friendId, 'direct_signal', {

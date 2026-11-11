@@ -1,10 +1,19 @@
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PiShieldCheck } from 'react-icons/pi';
 import { IoArrowBack } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 
-const PrivacyPolicy = () => {
+const PrivacyPolicy: React.FC = () => {
     const navigate = useNavigate();
+
+    useEffect(() => {
+        try {
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        } catch {
+            window.scrollTo(0, 0);
+        }
+    }, []);
 
     return (
         <div className="max-w-4xl mx-auto py-8 sm:py-12 px-4 space-y-8 sm:space-y-12 mb-24">

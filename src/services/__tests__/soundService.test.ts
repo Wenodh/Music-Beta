@@ -80,5 +80,9 @@ describe('SoundService - Centralized Sound Management', () => {
         expect(soundService.getCurrentPreviewId()).toBe('ringtone_bell');
         expect(() => soundService.stopPreview()).not.toThrow();
         expect(soundService.getCurrentPreviewId()).toBeNull();
+
+        // start and stop outgoing call ringback tone
+        expect(() => soundService.startOutgoingCallRingback()).not.toThrow();
+        expect(() => soundService.stopOutgoingCallRingback()).not.toThrow();
     });
 });

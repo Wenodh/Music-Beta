@@ -120,11 +120,11 @@ export const ActiveCallModal: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-[500] bg-gradient-to-b from-gray-950 via-gray-900 to-black text-white flex flex-col justify-between overflow-hidden"
+                className="fixed inset-0 z-[500] bg-gradient-to-b from-slate-100 via-slate-50 to-white dark:from-gray-950 dark:via-gray-900 dark:to-black text-slate-900 dark:text-white flex flex-col justify-between overflow-hidden"
             >
                 {/* Video Calling Surface */}
                 {isVideoMode && (
-                    <div className="absolute inset-0 z-0 bg-black flex items-center justify-center">
+                    <div className="absolute inset-0 z-0 bg-slate-900 dark:bg-black flex items-center justify-center">
                         {/* Remote Video Feed */}
                         <video
                             ref={remoteVideoRef}
@@ -135,12 +135,12 @@ export const ActiveCallModal: React.FC = () => {
 
                         {/* Fallback if remote video is not yet rendered or disabled */}
                         {(!remoteStream || remoteStream.getVideoTracks().length === 0 || !activeCall.isRemoteVideoEnabled) && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-950/80 backdrop-blur-md">
-                                <div className="w-28 h-28 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-4xl font-black mb-4">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/90 dark:bg-gray-950/80 backdrop-blur-md">
+                                <div className="w-28 h-28 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-4xl font-black text-primary mb-4">
                                     {activeCall.friendName[0]?.toUpperCase() || 'U'}
                                 </div>
-                                <p className="text-lg font-bold">{activeCall.friendName}</p>
-                                <p className="text-xs text-gray-400 mt-1">
+                                <p className="text-lg font-bold text-slate-900 dark:text-white">{activeCall.friendName}</p>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
                                     {!activeCall.isRemoteVideoEnabled && isConnected ? 'Remote camera is paused' : `${activeCall.status}...`}
                                 </p>
                             </div>
@@ -152,7 +152,7 @@ export const ActiveCallModal: React.FC = () => {
                                 drag
                                 dragConstraints={{ left: 16, right: 280, top: 16, bottom: 480 }}
                                 dragMomentum={false}
-                                className="absolute top-20 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-gray-900 z-20 cursor-grab active:cursor-grabbing"
+                                className="absolute top-20 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-300 dark:border-white/20 bg-slate-800 dark:bg-gray-900 z-20 cursor-grab active:cursor-grabbing"
                             >
                                 <video
                                     ref={localVideoRef}
@@ -170,18 +170,18 @@ export const ActiveCallModal: React.FC = () => {
                 <div className="relative z-10 p-4 sm:p-6 pt-[calc(env(safe-area-inset-top)+1rem)] flex items-center justify-between">
                     <button
                         onClick={() => dispatch(setIsCallScreenExpanded(false))}
-                        className="p-2.5 rounded-2xl bg-black/40 backdrop-blur-md hover:bg-black/60 border border-white/10 text-gray-300 hover:text-white transition-all active:scale-95"
+                        className="p-2.5 rounded-2xl bg-slate-200/80 dark:bg-black/40 backdrop-blur-md hover:bg-slate-300 dark:hover:bg-black/60 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
                         title="Minimize Call"
                     >
                         <IoChevronDown size={22} />
                     </button>
 
                     <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-400 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping" />
                             {isVideoMode ? 'Encrypted Video Call' : 'Encrypted Voice Call'}
                         </span>
-                        <p className="text-xs font-mono text-gray-300 mt-0.5">
+                        <p className="text-xs font-mono text-slate-600 dark:text-gray-300 mt-0.5">
                             {isConnected ? formatDuration(durationSeconds) : activeCall.status}
                         </p>
                     </div>
@@ -193,17 +193,17 @@ export const ActiveCallModal: React.FC = () => {
                 {!isVideoMode && (
                     <div className="relative z-10 flex flex-col items-center justify-center my-auto px-6 text-center">
                         <div className="relative mb-6">
-                            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center text-white text-5xl font-black shadow-2xl shadow-emerald-500/30 border-4 border-white/15">
+                            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center text-white text-5xl font-black shadow-2xl shadow-emerald-500/30 border-4 border-white/20 dark:border-white/15">
                                 {activeCall.friendName[0]?.toUpperCase() || 'U'}
                             </div>
                             {isConnected && (
-                                <div className="absolute inset-0 rounded-full border-2 border-emerald-400/50 animate-ping pointer-events-none" />
+                                <div className="absolute inset-0 rounded-full border-2 border-emerald-500/50 dark:border-emerald-400/50 animate-ping pointer-events-none" />
                             )}
                         </div>
 
-                        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">{activeCall.friendName}</h2>
-                        <p className="text-xs font-mono text-gray-400 mb-2">{activeCall.friendId}</p>
-                        <span className="inline-block px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-emerald-400 capitalize">
+                        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1 text-slate-900 dark:text-white">{activeCall.friendName}</h2>
+                        <p className="text-xs font-mono text-slate-500 dark:text-gray-400 mb-2">{activeCall.friendId}</p>
+                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-white/5 border border-emerald-500/20 dark:border-white/10 text-xs font-bold text-emerald-600 dark:text-emerald-400 capitalize">
                             {activeCall.status}
                         </span>
                     </div>
@@ -211,14 +211,14 @@ export const ActiveCallModal: React.FC = () => {
 
                 {/* Bottom Control Bar */}
                 <div className="relative z-10 p-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] flex flex-col items-center">
-                    <div className="flex items-center justify-center gap-3 sm:gap-6 max-w-md w-full bg-black/50 backdrop-blur-2xl p-4 rounded-3xl border border-white/10 shadow-2xl">
+                    <div className="flex items-center justify-center gap-3 sm:gap-6 max-w-md w-full bg-white/80 dark:bg-black/50 backdrop-blur-2xl p-4 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-2xl">
                         {/* Mute Toggle */}
                         <button
                             onClick={toggleMute}
                             className={`p-3.5 sm:p-4 rounded-2xl transition-all active:scale-95 flex flex-col items-center gap-1 ${
                                 activeCall.isMuted
-                                    ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                                    ? 'bg-red-500/20 text-red-500 dark:text-red-400 border border-red-500/40'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white border border-slate-200 dark:border-transparent'
                             }`}
                             title={activeCall.isMuted ? 'Unmute Mic' : 'Mute Mic'}
                         >
@@ -231,8 +231,8 @@ export const ActiveCallModal: React.FC = () => {
                             onClick={toggleVideo}
                             className={`p-3.5 sm:p-4 rounded-2xl transition-all active:scale-95 flex flex-col items-center gap-1 ${
                                 !activeCall.isVideoEnabled
-                                    ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                                    ? 'bg-red-500/20 text-red-500 dark:text-red-400 border border-red-500/40'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white border border-slate-200 dark:border-transparent'
                             }`}
                             title={activeCall.isVideoEnabled ? 'Turn Off Video' : 'Turn On Video'}
                         >
@@ -244,7 +244,7 @@ export const ActiveCallModal: React.FC = () => {
                         {activeCall.isVideoEnabled && (
                             <button
                                 onClick={flipCamera}
-                                className="p-3.5 sm:p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95 flex flex-col items-center gap-1"
+                                className="p-3.5 sm:p-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white border border-slate-200 dark:border-transparent transition-all active:scale-95 flex flex-col items-center gap-1"
                                 title="Flip Camera"
                             >
                                 <IoCameraReverseOutline size={22} />
@@ -258,7 +258,7 @@ export const ActiveCallModal: React.FC = () => {
                             className={`p-3.5 sm:p-4 rounded-2xl transition-all active:scale-95 flex flex-col items-center gap-1 ${
                                 activeCall.isSpeakerOn
                                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white border border-slate-200 dark:border-transparent'
                             }`}
                             title="Speaker Output"
                         >
@@ -271,8 +271,8 @@ export const ActiveCallModal: React.FC = () => {
                             onClick={handleToggleChat}
                             className={`relative p-3.5 sm:p-4 rounded-2xl transition-all active:scale-95 flex flex-col items-center gap-1 ${
                                 isChatOpen
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-500/20'
-                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-500/20'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white border border-slate-200 dark:border-transparent'
                             }`}
                             title="In-Call Chat"
                             aria-label="Open in-call chat"
@@ -282,7 +282,7 @@ export const ActiveCallModal: React.FC = () => {
 
                             {/* Unread Message Badge Indicator */}
                             {unreadChatCount > 0 && !isChatOpen && (
-                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-emerald-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-black animate-pulse">
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-emerald-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-black animate-pulse">
                                     {unreadChatCount > 9 ? '9+' : unreadChatCount}
                                 </span>
                             )}

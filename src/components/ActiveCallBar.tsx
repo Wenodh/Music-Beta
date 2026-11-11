@@ -20,6 +20,8 @@ export const ActiveCallBar: React.FC = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const isRinging = activeCall.status === 'ringing';
+
     return (
         <AnimatePresence>
             <motion.div
@@ -27,7 +29,7 @@ export const ActiveCallBar: React.FC = () => {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 50, opacity: 0 }}
                 onClick={() => dispatch(setIsCallScreenExpanded(true))}
-                className="fixed bottom-[calc(var(--player-pill-bottom,5.5rem)+0.5rem)] left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-[340] bg-gray-900/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3 cursor-pointer group"
+                className="fixed bottom-[calc(var(--player-pill-bottom,5.5rem)+0.5rem)] left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-[340] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3 cursor-pointer group text-slate-900 dark:text-white"
             >
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center text-white shrink-0 shadow-md shadow-emerald-500/30">
@@ -35,43 +37,55 @@ export const ActiveCallBar: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                            <p className="text-xs font-bold text-white truncate">{activeCall.friendName}</p>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping shrink-0" />
+                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{activeCall.friendName}</p>
                         </div>
-                        <p className="text-[10px] text-emerald-400 font-mono">
-                            {activeCall.status === 'connected' ? formatDuration(activeCall.connectedAt) : activeCall.status}
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium capitalize">
+                            {activeCall.status === 'connected'
+                                ? formatDuration(activeCall.connectedAt)
+                                : isRinging
+                                ? 'Calling...'
+                                : activeCall.status}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <button
-                        onClick={toggleMute}
-                        className={`p-2 rounded-xl transition-colors ${
-                            activeCall.isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                        title={activeCall.isMuted ? 'Unmute' : 'Mute'}
-                    >
-                        {activeCall.isMuted ? <IoMicOffOutline size={16} /> : <IoMicOutline size={16} />}
-                    </button>
-                    <button
-                        onClick={toggleSpeaker}
-                        className={`p-2 rounded-xl transition-colors ${
-                            activeCall.isSpeakerOn ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                        title="Speaker"
-                    >
-                        <IoVolumeHighOutline size={16} />
-                    </button>
+                    {!isRinging && (
+                        <>
+                            <button
+                                onClick={toggleMute}
+                                className={`p-2 rounded-xl transition-colors ${
+                                    activeCall.isMuted
+                                        ? 'bg-red-500/20 text-red-500 dark:text-red-400 border border-red-500/30'
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
+                                }`}
+                                title={activeCall.isMuted ? 'Unmute' : 'Mute'}
+                            >
+                                {activeCall.isMuted ? <IoMicOffOutline size={16} /> : <IoMicOutline size={16} />}
+                            </button>
+                            <button
+                                onClick={toggleSpeaker}
+                                className={`p-2 rounded-xl transition-colors ${
+                                    activeCall.isSpeakerOn
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
+                                }`}
+                                title="Speaker"
+                            >
+                                <IoVolumeHighOutline size={16} />
+                            </button>
+                        </>
+                    )}
                     <button
                         onClick={endCall}
                         className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
                     >
-                        End
+                        {isRinging ? 'Cancel' : 'End'}
                     </button>
                     <button
                         onClick={() => dispatch(setIsCallScreenExpanded(true))}
-                        className="p-1.5 text-gray-400 hover:text-white"
+                        className="p-1.5 text-slate-400 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white"
                         title="Maximize"
                     >
                         <IoChevronUp size={18} />
