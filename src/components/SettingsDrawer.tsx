@@ -287,6 +287,13 @@ const SEARCHABLE_SETTINGS: SearchableItem[] = [
         keywords: ['privacy', 'ip', 'protection', 'relay', 'turn', 'webrtc', 'p2p', 'calls', 'security'],
     },
     {
+        id: 'privacy-policy',
+        categoryId: 'privacy',
+        title: 'Privacy Policy & Terms',
+        description: 'Read our full privacy policy, data collection, and security practices',
+        keywords: ['privacy', 'policy', 'terms', 'data', 'legal', 'security', 'protection'],
+    },
+    {
         id: 'data-navigation',
         categoryId: 'data',
         title: 'Navigation Dock Placement & Reordering',
@@ -495,6 +502,12 @@ const SettingsDrawer: React.FC = () => {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }, 150);
+    };
+
+    // Seamless navigation to Privacy Policy
+    const handleViewPolicy = () => {
+        dispatch(setSettingsOpen(false));
+        navigate('/privacy');
     };
 
     // Highlight text helper
@@ -1213,12 +1226,26 @@ const SettingsDrawer: React.FC = () => {
                             </div>
                             <button
                                 onClick={() => {
-                                    navigate('/profile');
                                     dispatch(setSettingsOpen(false));
+                                    navigate('/profile');
                                 }}
                                 className="px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-sm"
                             >
                                 Open Profile →
+                            </button>
+                        </div>
+
+                        {/* Privacy Policy & Terms Link in Privacy Category */}
+                        <div id="privacy-policy" className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200/60 dark:border-white/5 flex items-center justify-between">
+                            <div className="text-left">
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">Privacy Policy & Terms</p>
+                                <p className="text-xs text-gray-500">Read our full privacy policy, data collection, and security practices</p>
+                            </div>
+                            <button
+                                onClick={handleViewPolicy}
+                                className="px-3.5 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all"
+                            >
+                                View Policy →
                             </button>
                         </div>
                     </div>
@@ -1461,10 +1488,7 @@ const SettingsDrawer: React.FC = () => {
                                 <p className="text-xs text-gray-500">Read our data protection commitments</p>
                             </div>
                             <button
-                                onClick={() => {
-                                    navigate('/privacy');
-                                    dispatch(setSettingsOpen(false));
-                                }}
+                                onClick={handleViewPolicy}
                                 className="px-3.5 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all"
                             >
                                 View Policy →
