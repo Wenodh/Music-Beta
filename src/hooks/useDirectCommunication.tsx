@@ -396,30 +396,32 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         };
 
         pc.ontrack = (event) => {
-            if (event.streams && event.streams[0]) {
-                const stream = event.streams[0];
-                remoteStreamRef.current = stream;
-                setRemoteStream(stream);
+            const stream = (event.streams && event.streams[0])
+                ? event.streams[0]
+                : new MediaStream([event.track]);
 
-                // Handle audio routing
-                if (event.track.kind === 'audio') {
-                    persistentAudioManager.attachStream(stream);
-                }
+            remoteStreamRef.current = stream;
+            setRemoteStream(stream);
 
-                // Handle video track events
-                if (event.track.kind === 'video') {
-                    dispatch(setRemoteVideoEnabled(event.track.enabled && !event.track.muted));
+            // Handle audio routing
+            if (event.track.kind === 'audio') {
+                event.track.enabled = true;
+                persistentAudioManager.attachStream(stream);
+            }
 
-                    event.track.onmute = () => {
-                        dispatch(setRemoteVideoEnabled(false));
-                    };
-                    event.track.onunmute = () => {
-                        dispatch(setRemoteVideoEnabled(true));
-                    };
-                    event.track.onended = () => {
-                        dispatch(setRemoteVideoEnabled(false));
-                    };
-                }
+            // Handle video track events
+            if (event.track.kind === 'video') {
+                dispatch(setRemoteVideoEnabled(event.track.enabled && !event.track.muted));
+
+                event.track.onmute = () => {
+                    dispatch(setRemoteVideoEnabled(false));
+                };
+                event.track.onunmute = () => {
+                    dispatch(setRemoteVideoEnabled(true));
+                };
+                event.track.onended = () => {
+                    dispatch(setRemoteVideoEnabled(false));
+                };
             }
         };
 
@@ -1114,6 +1116,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             if (incomingCallType === 'video' && !hasVideo) {
                 dispatch(setCallVideoEnabled(false));
             }
+
+            // Pre-initialize RTCPeerConnection and attach local media tracks immediately upon accepting
+            getOrCreatePeerConnection(callerId, currentCallId);
 
             sendToUser(callerId, 'direct_signal', {
                 callId: currentCallId,
