@@ -73,6 +73,14 @@ export const FriendsModal: React.FC = () => {
     const [messageText, setMessageText] = useState('');
     const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
+    const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
+
+    // Auto-scroll to bottom on new messages or active friend switch
+    React.useEffect(() => {
+        if (activeFriendId && messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [activeFriendId, directMessages[activeFriendId || '']?.length]);
 
     // Register nested sub-views in FriendsModal (Notifications, Active Chat, Profile, Add Friend)
     useBackHandler(isFriendsModalOpen && isNotificationPanelOpen, {
@@ -202,16 +210,16 @@ export const FriendsModal: React.FC = () => {
     };
 
     return (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden">
             <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 30, scale: 0.98 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className="relative w-full h-[100dvh] sm:h-[88vh] sm:max-w-4xl sm:max-h-[760px] bg-gray-950 sm:bg-gray-900 border-0 sm:border border-white/10 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+                className="relative w-full h-[100dvh] sm:h-[88vh] sm:max-w-4xl sm:max-h-[760px] bg-gray-950 sm:bg-gray-900 border-0 sm:border border-white/10 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] will-change-transform"
             >
                 {/* Top Header */}
-                <div className="flex items-center justify-between px-4 py-3 sm:p-4 border-b border-white/10 bg-white/5 shrink-0">
+                <div className="flex items-center justify-between px-4 py-3 sm:p-4 border-b border-white/10 bg-white/5 shrink-0 z-20">
                     <div className="flex items-center gap-2.5 min-w-0">
                         {/* Mobile Back Button when in active chat or profile */}
                         {(activeFriend || activeProfileView) && (
@@ -519,13 +527,13 @@ export const FriendsModal: React.FC = () => {
                             </div>
 
                             {/* Chat Conversation Column */}
-                            <div className={`flex-1 flex flex-col min-w-0 bg-gray-900/60 backdrop-blur-md ${
+                            <div className={`flex-1 flex flex-col min-w-0 h-full bg-gray-950 sm:bg-gray-900/60 backdrop-blur-md overflow-hidden ${
                                 activeFriend ? 'flex' : 'hidden sm:flex'
                             }`}>
                                 {activeFriend ? (
-                                    <>
+                                    <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden">
                                         {/* Conversation Sub-Header */}
-                                        <div className="p-3 border-b border-white/10 flex items-center justify-between bg-white/5 shrink-0">
+                                        <div className="p-3 border-b border-white/10 flex items-center justify-between bg-white/5 shrink-0 z-10">
                                             <div className="flex items-center gap-2.5 min-w-0">
                                                 <div className="relative shrink-0">
                                                     <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-bold text-xs border border-white/10">
@@ -647,6 +655,7 @@ export const FriendsModal: React.FC = () => {
                                                     </p>
                                                 </div>
                                             )}
+                                            <div ref={messagesEndRef} />
                                         </div>
 
                                         {/* Message Input Box */}
@@ -667,7 +676,7 @@ export const FriendsModal: React.FC = () => {
                                                 <IoSend size={16} />
                                             </button>
                                         </form>
-                                    </>
+                                    </div>
                                 ) : (
                                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500">
                                         <IoChatbubblesOutline size={48} className="mb-3 opacity-20" />

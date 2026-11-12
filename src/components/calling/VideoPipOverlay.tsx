@@ -40,7 +40,7 @@ export const VideoPipOverlay: React.FC = () => {
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.8, opacity: 0 }}
                 onClick={() => dispatch(setIsCallScreenExpanded(true))}
-                className="fixed top-20 right-4 w-28 h-40 sm:w-36 sm:h-48 z-[360] rounded-2xl overflow-hidden shadow-2xl border-2 border-emerald-500/60 bg-gray-950 cursor-grab active:cursor-grabbing group select-none"
+                className="fixed top-20 right-4 w-28 h-40 sm:w-36 sm:h-48 z-[360] rounded-2xl overflow-hidden shadow-2xl border-2 border-emerald-500/60 bg-slate-900 dark:bg-gray-950 cursor-grab active:cursor-grabbing group select-none"
             >
                 {/* Remote video element */}
                 <video

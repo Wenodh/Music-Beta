@@ -279,6 +279,35 @@ describe('WebRTC Calling Engine Unit Tests (Task 1)', () => {
         expect(state.isCallActive).toBe(true);
     });
 
+    it('10b. Voice call dynamically upgrades to video and downgrades to audio cleanly', () => {
+        let state = friendsReducer(
+            initialState,
+            startDirectCall({
+                callId: 'call-upgrade-test',
+                friendId: 'peer-charlie',
+                friendName: 'Charlie',
+                callType: 'audio',
+                isIncoming: false,
+            })
+        );
+
+        expect(state.activeCall?.callType).toBe('audio');
+        expect(state.activeCall?.isVideoEnabled).toBe(false);
+
+        // User upgrades call to video
+        state = friendsReducer(state, { type: 'friends/setCallType', payload: 'video' });
+        state = friendsReducer(state, { type: 'friends/setCallVideoEnabled', payload: true });
+        expect(state.activeCall?.callType).toBe('video');
+        expect(state.activeCall?.isVideoEnabled).toBe(true);
+
+        // User downgrades call back to audio
+        state = friendsReducer(state, { type: 'friends/setCallVideoEnabled', payload: false });
+        state = friendsReducer(state, { type: 'friends/setCallType', payload: 'audio' });
+        expect(state.activeCall?.callType).toBe('audio');
+        expect(state.activeCall?.isVideoEnabled).toBe(false);
+        expect(state.isCallActive).toBe(true);
+    });
+
     it('11. Deterministic glare tie-breaking is strictly symmetric between any two user IDs', () => {
         const userIdA = 'user_alice_123';
         const userIdB = 'user_bob_456';

@@ -185,6 +185,11 @@ const friendsSlice = createSlice({
                 state.activeCall.facingMode = action.payload;
             }
         },
+        setCallType: (state, action: PayloadAction<CallType>) => {
+            if (state.activeCall) {
+                state.activeCall.callType = action.payload;
+            }
+        },
         setIsCallScreenExpanded: (state, action: PayloadAction<boolean>) => {
             state.isCallScreenExpanded = action.payload;
         },
@@ -225,6 +230,7 @@ export const {
     setRemoteVideoEnabled,
     setCallSpeakerOn,
     setCallFacingMode,
+    setCallType,
     setIsCallScreenExpanded,
     endDirectCall,
     setIsFriendsModalOpen,

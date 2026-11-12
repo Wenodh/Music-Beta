@@ -103,19 +103,19 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                        className="absolute top-0 right-0 bottom-0 w-full sm:w-96 max-w-full bg-gray-950/90 backdrop-blur-2xl border-l border-white/10 z-40 flex flex-col shadow-2xl overflow-hidden"
+                        className="absolute top-0 right-0 bottom-0 w-full sm:w-96 max-w-full bg-white/95 dark:bg-gray-950/90 backdrop-blur-2xl border-l border-slate-200/80 dark:border-white/10 z-40 flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-white"
                     >
                         {/* Drawer Header */}
-                        <div className="p-4 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-white/10 flex items-center justify-between bg-black/30">
+                        <div className="p-4 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between bg-slate-100/50 dark:bg-black/30">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-white text-sm shadow-md">
                                     {friendName[0]?.toUpperCase() || 'U'}
                                 </div>
                                 <div className="flex flex-col">
-                                    <h3 className="text-sm font-bold text-white leading-tight truncate max-w-[160px] sm:max-w-[180px]">
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[160px] sm:max-w-[180px]">
                                         {friendName}
                                     </h3>
-                                    <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
+                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
                                         <IoShieldCheckmarkOutline size={11} />
                                         End-to-End Encrypted
                                     </span>
@@ -124,7 +124,7 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
 
                             <button
                                 onClick={onClose}
-                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all active:scale-95"
+                                className="p-2 rounded-xl bg-slate-200/60 hover:bg-slate-200 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:hover:text-white transition-all active:scale-95"
                                 title="Close in-call chat"
                                 aria-label="Close chat drawer"
                             >
@@ -133,14 +133,14 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
                         </div>
 
                         {/* Message Transcript Area */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-white/10">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-white/10">
                             {directMessages.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
-                                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-emerald-400">
+                                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 dark:text-gray-400">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-white/5 border border-emerald-500/20 dark:border-white/10 flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-400">
                                         <IoShieldCheckmarkOutline size={24} />
                                     </div>
-                                    <p className="text-xs font-semibold text-gray-300 mb-1">In-Call Messaging</p>
-                                    <p className="text-[11px] text-gray-400 leading-relaxed max-w-[200px]">
+                                    <p className="text-xs font-semibold text-slate-800 dark:text-gray-300 mb-1">In-Call Messaging</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed max-w-[200px]">
                                         Messages sent during the call are end-to-end encrypted and saved to your chat history.
                                     </p>
                                 </div>
@@ -156,12 +156,12 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
                                                 className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed break-words shadow-md ${
                                                     isMine
                                                         ? 'bg-emerald-600 text-white rounded-tr-none'
-                                                        : 'bg-white/10 text-gray-100 rounded-tl-none border border-white/5'
+                                                        : 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-gray-100 rounded-tl-none border border-slate-200/80 dark:border-white/5'
                                                 }`}
                                             >
                                                 {msg.text}
                                             </div>
-                                            <div className="flex items-center gap-1 mt-1 text-[9px] text-gray-400 px-1 font-mono">
+                                            <div className="flex items-center gap-1 mt-1 text-[9px] text-slate-500 dark:text-gray-400 px-1 font-mono">
                                                 <span>{formatTimestamp(msg.timestamp)}</span>
                                                 {isMine && renderStatusIcon(msg.status)}
                                             </div>
@@ -175,7 +175,7 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
                         {/* Message Input Footer (Keyboard-avoidant) */}
                         <form
                             onSubmit={handleSendMessage}
-                            className="p-3.5 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-white/10 bg-black/40 flex items-center gap-2"
+                            className="p-3.5 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-slate-200/80 dark:border-white/10 bg-slate-50 dark:bg-black/40 flex items-center gap-2"
                         >
                             <input
                                 ref={inputRef}
@@ -183,7 +183,7 @@ export const InCallChatDrawer: React.FC<InCallChatDrawerProps> = ({
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 placeholder={`Message ${friendName}...`}
-                                className="flex-1 px-4 py-2.5 rounded-2xl bg-white/10 text-white placeholder-gray-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/50 border border-white/10 transition-all"
+                                className="flex-1 px-4 py-2.5 rounded-2xl bg-white dark:bg-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/50 border border-slate-200 dark:border-white/10 transition-all"
                             />
                             <button
                                 type="button"
