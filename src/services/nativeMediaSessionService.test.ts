@@ -27,8 +27,8 @@ vi.mock('@capgo/capacitor-media-session', () => ({
 
 describe('NativeMediaSessionBridge', () => {
     beforeEach(async () => {
-        vi.clearAllMocks();
         await nativeMediaSession.cleanup();
+        vi.clearAllMocks();
     });
 
     it('registers media action handlers and audio focus listeners', async () => {
