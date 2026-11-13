@@ -513,7 +513,6 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
             iceRestartAttemptsRef.current += 1;
             dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
-            makingOfferRef.current = true;
             try {
                 const freshConfig = await iceServerService.getIceServers();
                 if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
@@ -526,6 +525,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     iceServers: freshConfig.iceServers,
                     iceTransportPolicy: freshConfig.iceTransportPolicy,
                 });
+                makingOfferRef.current = true;
                 const offer = await pc.createOffer({ iceRestart: true });
                 if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
                 if (pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
