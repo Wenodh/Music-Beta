@@ -71,6 +71,12 @@ const friendsSlice = createSlice({
         setDirectMessages: (state, action: PayloadAction<{ friendId: string; messages: DirectMessage[] }>) => {
             state.directMessages[action.payload.friendId] = action.payload.messages;
         },
+        removeDirectMessage: (state, action: PayloadAction<{ friendId: string; messageId: string }>) => {
+            const { friendId, messageId } = action.payload;
+            if (state.directMessages[friendId]) {
+                state.directMessages[friendId] = state.directMessages[friendId].filter((message) => message.id !== messageId);
+            }
+        },
         addDirectMessage: (state, action: PayloadAction<DirectMessage>) => {
             const fid = action.payload.friendId;
             if (!state.directMessages[fid]) {
