@@ -4,7 +4,7 @@ import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { Song } from '../types/music';
 
 interface VibeOnMediaPluginInterface {
-    requestAudioFocus(): Promise<{ granted: boolean }>;
+    requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
     abandonAudioFocus(): Promise<void>;
     checkPermissions?(): Promise<{ notifications: string }>;
     requestPermissions?(): Promise<{ notifications: string }>;
@@ -157,17 +157,26 @@ class NativeMediaSessionBridge {
         }
     }
 
-    public async updatePlaybackState(isPlaying: boolean) {
+    public async updatePlaybackState(isPlaying: boolean): Promise<boolean> {
         const state = isPlaying ? 'playing' : 'paused';
 
         if (this.isNative) {
             try {
-                if (isPlaying) {
-                    await VibeOnMedia.requestAudioFocus().catch(() => {});
-                }
+                // Set the playing state first: on Android this starts the plugin's mediaPlayback
+                // foreground service. Requesting focus first creates a window where a fast screen
+                // lock can happen before Android has promoted the app to a foreground service.
                 await MediaSession.setPlaybackState({ playbackState: state });
+
+                if (isPlaying) {
+                    const focus = await VibeOnMedia.requestAudioFocus({ forCall: false });
+                    if (!focus?.granted) {
+                        await MediaSession.setPlaybackState({ playbackState: 'paused' });
+                        return false;
+                    }
+                }
             } catch (err) {
                 console.warn('[NativeMediaSession] Failed to set native playback state:', err);
+                if (isPlaying) return false;
             }
         }
 
@@ -178,6 +187,7 @@ class NativeMediaSessionBridge {
                 // Ignore
             }
         }
+        return true;
     }
 
     public async updatePositionState(duration: number, position: number, playbackRate = 1.0) {
