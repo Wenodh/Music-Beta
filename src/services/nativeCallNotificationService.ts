@@ -47,12 +47,14 @@ class NativeCallNotificationService {
         }
     }
 
-    public async startForegroundCall(options: { friendName: string; callType: string }): Promise<void> {
-        if (!this.isNative) return;
+    public async startForegroundCall(options: { friendName: string; callType: string }): Promise<boolean> {
+        if (!this.isNative) return true;
         try {
             await VibeOnMedia.startCallForegroundService(options);
+            return true;
         } catch (error) {
             console.warn('[NativeCallNotification] Foreground call service could not start:', error);
+            return false;
         }
     }
 
