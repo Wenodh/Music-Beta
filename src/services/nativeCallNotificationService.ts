@@ -1,7 +1,7 @@
 import { registerPlugin, PluginListenerHandle } from '@capacitor/core';
 
 interface VibeOnMediaPluginInterface {
-    requestAudioFocus(): Promise<{ granted: boolean }>;
+    requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
     startCallForegroundService(options: { friendName: string; callType: string }): Promise<void>;
     stopCallForegroundService(): Promise<void>;
     abandonAudioFocus(): Promise<void>;
@@ -70,7 +70,7 @@ class NativeCallNotificationService {
     public async requestAudioFocus(): Promise<boolean> {
         if (!this.isNative) return true;
         try {
-            const result = await VibeOnMedia.requestAudioFocus();
+            const result = await VibeOnMedia.requestAudioFocus({ forCall: true });
             return Boolean(result?.granted);
         } catch (error) {
             console.warn('[NativeCallNotification] Audio focus request failed:', error);
