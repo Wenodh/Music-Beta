@@ -38,8 +38,8 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         int result;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AudioAttributes playbackAttributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build();
 
             audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -57,6 +57,26 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
     }
 
+    public void setSpeakerphoneOn(boolean enabled) {
+        if (audioManager == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            android.media.AudioDeviceInfo target = null;
+            for (android.media.AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+                if (enabled && device.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                    target = device;
+                    break;
+                }
+                if (!enabled && device.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) {
+                    target = device;
+                }
+            }
+            if (target != null) audioManager.setCommunicationDevice(target);
+        } else {
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            audioManager.setSpeakerphoneOn(enabled);
+        }
+    }
+
     public void abandonAudioFocus() {
         unregisterNoisyReceiver();
         if (audioManager == null) return;
@@ -66,6 +86,12 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
             audioFocusRequest = null;
         } else {
             audioManager.abandonAudioFocus(this);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.clearCommunicationDevice();
+        } else {
+            audioManager.setSpeakerphoneOn(false);
+            audioManager.setMode(AudioManager.MODE_NORMAL);
         }
     }
 
