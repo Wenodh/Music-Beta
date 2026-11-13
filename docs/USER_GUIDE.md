@@ -47,7 +47,7 @@ Experience a complete social layer inside Vibe On via the Friends Hub:
 * **Direct P2P Voice & Video Calling**: WebRTC-powered voice and video calls with camera flip, mute, speaker toggles, and Android back button minimization.
 * **Call Waiting**: One additional caller can wait while you're on a call. Finish the active call to receive the waiting call; additional simultaneous callers are shown as busy.
 * **Connection Recovery & Quality**: Calls attempt ICE recovery after network changes and app resume. The call screen shows live connection quality, including latency when available.
-* **Android Background Calls**: Incoming calls can show lock-screen notifications with Answer/Decline actions; active calls use an ongoing notification with mute/end actions, a foreground service, and a partial wake lock. Android may still terminate calls if the operating system kills the app process or the app is force-stopped; keep Vibe On updated and grant microphone/camera permissions.
+* **Android Background Calls**: Incoming calls can show lock-screen notifications with Answer/Decline actions; active calls use an ongoing notification with mute/end actions, a foreground service, and a partial wake lock. Incoming-call notifications require Vibe On's process and Realtime connection to still be alive; a force-stopped app cannot receive a new call notification. Android may still terminate active calls if the operating system kills the app process or the app is force-stopped; keep Vibe On updated and grant microphone/camera permissions.
 
 ### 5. High-Fidelity Audio Visualizers
 Bring your music to life visually with five custom canvas-based visualizers:
