@@ -1450,6 +1450,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             onFocusLost: () => persistentAudioManager.setVolume(0.35),
             onFocusGained: () => persistentAudioManager.setVolume(1),
             onBecomingNoisy: () => {
+                nativeCallNotificationService.setSpeakerphoneOn(false);
                 persistentAudioManager.setSinkId('default');
                 dispatch(setCallSpeakerOn(false));
             },
