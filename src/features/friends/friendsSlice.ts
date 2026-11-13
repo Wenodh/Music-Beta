@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Friend, DirectMessage, MessageStatus } from '../../utils/friendsDb';
-import { CallType, CallStatus, ActiveCallState } from '../../types/call';
+import { CallType, CallStatus, ActiveCallState, CallQualityState } from '../../types/call';
 
 export interface IncomingCallInfo {
     callId: string;
@@ -26,6 +26,8 @@ interface FriendsState {
     activeFriendId: string | null;
     directMessages: Record<string, DirectMessage[]>;
     incomingCall: IncomingCallInfo | null;
+    waitingCall: IncomingCallInfo | null;
+    callQuality: CallQualityState | null;
     isCallActive: boolean;
     activeCallFriend: Friend | null;
     activeCall: ActiveCallState | null;
@@ -39,6 +41,8 @@ const initialState: FriendsState = {
     activeFriendId: null,
     directMessages: {},
     incomingCall: null,
+    waitingCall: null,
+    callQuality: null,
     isCallActive: false,
     activeCallFriend: null,
     activeCall: null,
@@ -112,6 +116,18 @@ const friendsSlice = createSlice({
         },
         setIncomingCall: (state, action: PayloadAction<IncomingCallInfo | null>) => {
             state.incomingCall = action.payload;
+        },
+        setWaitingCall: (state, action: PayloadAction<IncomingCallInfo | null>) => {
+            state.waitingCall = action.payload;
+        },
+        promoteWaitingCall: (state) => {
+            if (!state.isCallActive && !state.incomingCall && state.waitingCall) {
+                state.incomingCall = state.waitingCall;
+                state.waitingCall = null;
+            }
+        },
+        setCallQuality: (state, action: PayloadAction<CallQualityState | null>) => {
+            state.callQuality = action.payload;
         },
         startDirectCall: (state, action: PayloadAction<StartCallPayload | Friend>) => {
             const isPayloadObj = 'callType' in action.payload;
@@ -209,6 +225,8 @@ const friendsSlice = createSlice({
             state.activeCallFriend = null;
             state.activeCall = null;
             state.incomingCall = null;
+            state.waitingCall = null;
+            state.callQuality = null;
             state.isMuted = false;
             state.isCallScreenExpanded = false;
         },
@@ -229,6 +247,9 @@ export const {
     updateMessageStatus,
     markFriendMessagesSeen,
     setIncomingCall,
+    setWaitingCall,
+    promoteWaitingCall,
+    setCallQuality,
     startDirectCall,
     updateCallStatus,
     setCallMuted,
