@@ -870,6 +870,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const incomingId = incomingCallRef.current?.callId;
 
                 if (signalType === 'call-cancelled') {
+                    if (waitingCallRef.current?.callId === callId) {
+                        dispatch(setWaitingCall(null));
+                        dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the waiting call`, type: 'info' }));
+                        return;
+                    }
                     soundService.stopIncomingCallRingtone();
                     if (incomingRingingTimeoutRef.current) {
                         clearTimeout(incomingRingingTimeoutRef.current);
@@ -880,6 +885,13 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         if (cancelledIncoming) logIncomingCall(cancelledIncoming, 'cancelled');
                         dispatch(setIncomingCall(null));
                         dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
+                    }
+                    return;
+                }
+
+                if (signalType === 'call-waiting') {
+                    if (activeId === callId) {
+                        dispatch(showToast({ message: `${senderName || 'Contact'} will be waiting while you finish another call.`, type: 'info' }));
                     }
                     return;
                 }
@@ -1069,6 +1081,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             channel.unsubscribe();
         };
     }, [userId, userName, dispatch, getOrCreatePeerConnection, sendToUser, cleanupCallResources, clearTimers, logIncomingCall]);
+
+    // Calls promoted from the waiting queue use the same ringing timeout and missed-call history path.
+    useEffect(() => {
+        if (!incomingCall || incomingRingingTimeoutRef.current) return;
+        soundService.startIncomingCallRingtone(incomingCall.callType);
+        incomingRingingTimeoutRef.current = setTimeout(() => {
+            const expiredCall = incomingCallRef.current;
+            if (expiredCall?.callId === incomingCall.callId) {
+                logIncomingCall(expiredCall, 'missed');
+                soundService.stopIncomingCallRingtone();
+                dispatch(setIncomingCall(null));
+                dispatch(showToast({ message: `Missed call from ${expiredCall.callerName}`, type: 'info' }));
+            }
+            incomingRingingTimeoutRef.current = null;
+        }, 45000);
+        return () => {
+            // Do not clear a ringing timer on unrelated renders; only clear when the call identity changes.
+        };
+    }, [incomingCall?.callId, dispatch, logIncomingCall]);
 
     // Send 1-on-1 direct message with E2EE encryption and sequence counter
     const sendDirectMessage = useCallback(async (friendId: string, text: string) => {
