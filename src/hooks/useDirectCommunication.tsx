@@ -906,9 +906,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                             soundService.stopIncomingCallRingtone();
                             incomingCallRef.current = null;
                             dispatch(setIncomingCall(null));
-                            incomingRingingTimeoutRef.current = null;
                             dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
                         }
+                        // Always release the timer handle, even if this timeout belongs to a stale call.
+                        incomingRingingTimeoutRef.current = null;
                     }, 45000);
                     return;
                 }
