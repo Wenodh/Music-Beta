@@ -179,6 +179,10 @@ class NativeMediaSessionBridge {
                         await MediaSession.setPlaybackState({ playbackState: 'paused' });
                         return false;
                     }
+                } else if (!this.resumeAfterTransientFocusLoss) {
+                    // Release focus on a user/permanent pause, but retain it during a transient
+                    // interruption so Android can notify us when focus is returned.
+                    await VibeOnMedia.abandonAudioFocus().catch(() => {});
                 }
             } catch (err) {
                 console.warn('[NativeMediaSession] Failed to set native playback state:', err);
@@ -194,6 +198,10 @@ class NativeMediaSessionBridge {
             }
         }
         return true;
+    }
+
+    public cancelTransientResume() {
+        this.resumeAfterTransientFocusLoss = false;
     }
 
     public async updatePositionState(duration: number, position: number, playbackRate = 1.0) {
