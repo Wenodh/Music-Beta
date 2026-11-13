@@ -32,7 +32,7 @@
             android:name=".VibeOnCallForegroundService"
             android:exported="false"
             android:stopWithTask="false"
-            android:foregroundServiceType="microphone|camera|mediaPlayback" />
+            android:foregroundServiceType="microphone|camera" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
