@@ -902,6 +902,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                             soundService.stopIncomingCallRingtone();
                             incomingCallRef.current = null;
                             dispatch(setIncomingCall(null));
+                            incomingRingingTimeoutRef.current = null;
                             dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
                         }
                     }, 45000);
