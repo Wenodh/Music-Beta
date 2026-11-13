@@ -8,6 +8,9 @@ import {
     updateMessageStatus,
     markFriendMessagesSeen,
     setIncomingCall,
+    setWaitingCall,
+    promoteWaitingCall,
+    setCallQuality,
     startDirectCall,
     updateCallStatus,
     setCallMuted,
@@ -19,6 +22,7 @@ import {
     endDirectCall,
 } from '../features/friends/friendsSlice';
 import { CallType } from '../types/call';
+import { classifyCallQuality, getIceRestartDelay, getMediaAccessErrorMessage, MAX_ICE_RESTART_ATTEMPTS } from '../services/webrtc/callReliability';
 import { persistentAudioManager } from '../services/webrtc/persistentAudioManager';
 import { iceServerService } from '../services/webrtc/iceServerService';
 import { showToast } from '../features/ui/uiSlice';
@@ -65,7 +69,7 @@ const DirectCommunicationContext = createContext<DirectCommunicationContextValue
 export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.auth);
-    const { friendsList, activeFriendId, isCallActive, activeCallFriend, activeCall, incomingCall, isMuted } = useAppSelector(
+    const { friendsList, activeFriendId, isCallActive, activeCallFriend, activeCall, incomingCall, waitingCall, isMuted } = useAppSelector(
         (state) => state.friends
     );
     const { onlinePresenceMap } = useAppSelector((state) => state.social);
@@ -119,6 +123,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const incomingCallRef = useRef(incomingCall);
     incomingCallRef.current = incomingCall;
 
+    const waitingCallRef = useRef(waitingCall);
+    waitingCallRef.current = waitingCall;
+
     const isCallActiveRef = useRef(isCallActive);
     isCallActiveRef.current = isCallActive;
 
@@ -128,6 +135,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const incomingRingingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const iceRestartAttemptsRef = useRef(0);
+    const qualityIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const lastOutboundBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
 
     // Cryptographically collision-resistant callId generator
     const generateCallId = (): string => {
@@ -150,6 +160,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             clearTimeout(reconnectTimeoutRef.current);
             reconnectTimeoutRef.current = null;
         }
+        iceRestartAttemptsRef.current = 0;
         soundService.stopIncomingCallRingtone();
         soundService.stopOutgoingCallRingback();
     }, []);
@@ -315,6 +326,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             saveCallLogLocal(logEntry).catch((err) => console.warn('Error saving call log:', err));
         }
 
+        if (qualityIntervalRef.current) {
+            clearInterval(qualityIntervalRef.current);
+            qualityIntervalRef.current = null;
+        }
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach((t) => {
                 try {
@@ -336,6 +351,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 peerConnectionRef.current.onicecandidate = null;
                 peerConnectionRef.current.ontrack = null;
                 peerConnectionRef.current.oniceconnectionstatechange = null;
+                peerConnectionRef.current.onconnectionstatechange = null;
                 peerConnectionRef.current.onnegotiationneeded = null;
                 peerConnectionRef.current.close();
             } catch (e) {
@@ -345,6 +361,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
 
         dispatch(endDirectCall(targetCallId ? { callId: targetCallId } : undefined));
+        dispatch(setCallQuality(null));
+        dispatch(promoteWaitingCall());
         nativeCallNotificationService.clearCallNotification();
     }, [clearTimers, dispatch]);
 
@@ -447,55 +465,129 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
         };
 
-        pc.oniceconnectionstatechange = async () => {
+        const attemptIceRestart = async () => {
+            if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc ||
+                iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) return;
+
+            iceRestartAttemptsRef.current += 1;
+            dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+            try {
+                const freshConfig = await iceServerService.getIceServers();
+                if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+                pc.setConfiguration({
+                    iceServers: freshConfig.iceServers,
+                    iceTransportPolicy: freshConfig.iceTransportPolicy,
+                });
+                const offer = await pc.createOffer({ iceRestart: true });
+                if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+                await pc.setLocalDescription(offer);
+                await sendToUser(targetId, 'direct_signal', {
+                    callId: currentCallId,
+                    senderId: userId,
+                    senderName: userName,
+                    signalType: 'offer',
+                    sdp: pc.localDescription,
+                });
+            } catch (error) {
+                console.warn('[WebRTC] ICE restart attempt failed:', error);
+                if (iceRestartAttemptsRef.current < MAX_ICE_RESTART_ATTEMPTS && !reconnectTimeoutRef.current) {
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        reconnectTimeoutRef.current = null;
+                        void attemptIceRestart();
+                    }, getIceRestartDelay(iceRestartAttemptsRef.current));
+                } else if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
+                    dispatch(showToast({ message: 'Unable to restore the call connection. End the call and try again.', type: 'error' }));
+                }
+            }
+        };
+
+        const scheduleIceRestart = (immediate = false) => {
+            if (reconnectTimeoutRef.current || iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) return;
+            reconnectTimeoutRef.current = setTimeout(() => {
+                reconnectTimeoutRef.current = null;
+                void attemptIceRestart();
+            }, immediate ? 0 : getIceRestartDelay(iceRestartAttemptsRef.current + 1));
+        };
+
+        pc.oniceconnectionstatechange = () => {
             const state = pc.iceConnectionState;
             if (state === 'connected' || state === 'completed') {
-                if (reconnectTimeoutRef.current) {
-                    clearTimeout(reconnectTimeoutRef.current);
-                    reconnectTimeoutRef.current = null;
-                }
+                if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
+                iceRestartAttemptsRef.current = 0;
                 dispatch(updateCallStatus({ status: 'connected', callId: currentCallId }));
             } else if (state === 'disconnected') {
                 dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
-                // Attempt ICE restart if disconnected persists
-                if (!reconnectTimeoutRef.current) {
-                    reconnectTimeoutRef.current = setTimeout(async () => {
-                        if (pc.iceConnectionState === 'disconnected') {
-                            try {
-                                // Refresh TURN/STUN credentials before attempting ICE restart
-                                const freshConfig = await iceServerService.getIceServers();
-                                if (pc.setConfiguration && pc.signalingState !== 'closed') {
-                                    pc.setConfiguration({
-                                        iceServers: freshConfig.iceServers,
-                                        iceTransportPolicy: freshConfig.iceTransportPolicy,
-                                    });
-                                }
-
-                                if ('restartIce' in pc && typeof (pc as any).restartIce === 'function') {
-                                    (pc as any).restartIce();
-                                }
-                                const offer = await pc.createOffer({ iceRestart: true });
-                                await pc.setLocalDescription(offer);
-                                sendToUser(targetId, 'direct_signal', {
-                                    callId: currentCallId,
-                                    senderId: userId,
-                                    senderName: userName,
-                                    signalType: 'offer',
-                                    sdp: pc.localDescription,
-                                });
-                            } catch (e) {
-                                console.warn('ICE restart attempt error:', e);
-                            }
-                        }
-                    }, 5000);
-                }
+                scheduleIceRestart();
             } else if (state === 'failed') {
-                dispatch(showToast({ message: 'Call disconnected due to network failure', type: 'error' }));
-                cleanupCallResources(currentCallId);
-            } else if (state === 'closed') {
-                cleanupCallResources(currentCallId);
+                dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+                scheduleIceRestart(true);
             }
         };
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'connected') {
+                iceRestartAttemptsRef.current = 0;
+                dispatch(updateCallStatus({ status: 'connected', callId: currentCallId }));
+            } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+                scheduleIceRestart(pc.connectionState === 'failed');
+            }
+        };
+
+        const handleNetworkOnline = () => scheduleIceRestart(true);
+        if (typeof window !== 'undefined') {
+            window.addEventListener('online', handleNetworkOnline);
+            window.addEventListener('offline', () => dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId })), { once: true });
+        }
+
+        if (qualityIntervalRef.current) clearInterval(qualityIntervalRef.current);
+        qualityIntervalRef.current = setInterval(async () => {
+            if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+            try {
+                const stats = await pc.getStats();
+                let rttMs: number | null = null;
+                let jitterMs: number | null = null;
+                let packetsLost = 0;
+                let packetsReceived = 0;
+                let bitrateKbps: number | null = null;
+                let outboundBytes: number | null = null;
+                let outboundTimestamp: number | null = null;
+
+                stats.forEach((stat: any) => {
+                    if (stat.type === 'candidate-pair' && (stat.selected || (stat.nominated && stat.state === 'succeeded'))) {
+                        if (typeof stat.currentRoundTripTime === 'number') rttMs = stat.currentRoundTripTime * 1000;
+                    }
+                    if (stat.type === 'remote-inbound-rtp' && typeof stat.roundTripTime === 'number') {
+                        rttMs = stat.roundTripTime * 1000;
+                    }
+                    if (stat.type === 'inbound-rtp' && !stat.isRemote) {
+                        if (typeof stat.jitter === 'number') jitterMs = stat.jitter * 1000;
+                        packetsLost += Math.max(0, stat.packetsLost || 0);
+                        packetsReceived += Math.max(0, stat.packetsReceived || 0);
+                    }
+                    if (stat.type === 'outbound-rtp' && !stat.isRemote && typeof stat.bytesSent === 'number') {
+                        outboundBytes = (outboundBytes || 0) + stat.bytesSent;
+                        outboundTimestamp = stat.timestamp;
+                    }
+                });
+
+                if (outboundBytes !== null && outboundTimestamp !== null) {
+                    const previous = lastOutboundBytesRef.current;
+                    if (previous && outboundTimestamp > previous.timestamp && outboundBytes >= previous.bytes) {
+                        bitrateKbps = ((outboundBytes - previous.bytes) * 8) /
+                            (outboundTimestamp - previous.timestamp);
+                    }
+                    lastOutboundBytesRef.current = { bytes: outboundBytes, timestamp: outboundTimestamp };
+                }
+                const packetLossPercent = packetsLost + packetsReceived > 0
+                    ? (packetsLost / (packetsLost + packetsReceived)) * 100
+                    : null;
+                dispatch(setCallQuality(classifyCallQuality({ rttMs, jitterMs, packetLossPercent, bitrateKbps })));
+            } catch (error) {
+                console.debug('[WebRTC] getStats quality sample unavailable:', error);
+            }
+        }, 3000);
 
         peerConnectionRef.current = pc;
         return pc;
