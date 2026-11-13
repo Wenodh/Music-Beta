@@ -138,6 +138,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const iceRestartAttemptsRef = useRef(0);
     const qualityIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const lastOutboundBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
+    const networkHandlersRef = useRef<{ online: () => void; offline: () => void } | null>(null);
 
     // Cryptographically collision-resistant callId generator
     const generateCallId = (): string => {
@@ -330,6 +331,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             clearInterval(qualityIntervalRef.current);
             qualityIntervalRef.current = null;
         }
+        if (networkHandlersRef.current && typeof window !== 'undefined') {
+            window.removeEventListener('online', networkHandlersRef.current.online);
+            window.removeEventListener('offline', networkHandlersRef.current.offline);
+            networkHandlersRef.current = null;
+        }
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach((t) => {
                 try {
@@ -363,7 +369,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         dispatch(endDirectCall(targetCallId ? { callId: targetCallId } : undefined));
         dispatch(setCallQuality(null));
         dispatch(promoteWaitingCall());
-        nativeCallNotificationService.clearCallNotification();
+        nativeCallNotificationService.stopForegroundCall();
     }, [clearTimers, dispatch]);
 
     // Setup RTCPeerConnection instance helper with Perfect Negotiation support
@@ -536,9 +542,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         };
 
         const handleNetworkOnline = () => scheduleIceRestart(true);
+        const handleNetworkOffline = () => dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
         if (typeof window !== 'undefined') {
+            networkHandlersRef.current = { online: handleNetworkOnline, offline: handleNetworkOffline };
             window.addEventListener('online', handleNetworkOnline);
-            window.addEventListener('offline', () => dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId })), { once: true });
+            window.addEventListener('offline', handleNetworkOffline);
         }
 
         if (qualityIntervalRef.current) clearInterval(qualityIntervalRef.current);
@@ -1368,9 +1376,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Synchronize ongoing call state to native Android notification and listen for native notification action buttons
     useEffect(() => {
         if (!isCallActive || !activeCall) {
-            nativeCallNotificationService.clearCallNotification();
+            nativeCallNotificationService.stopForegroundCall();
+            nativeCallNotificationService.abandonAudioFocus();
+            nativeCallNotificationService.removeAudioLifecycleListeners();
             return;
         }
+
+        nativeCallNotificationService.startForegroundCall({
+            friendName: activeCall.friendName,
+            callType: activeCall.callType,
+        });
+        nativeCallNotificationService.requestAudioFocus();
+        nativeCallNotificationService.setupAudioLifecycleListeners({
+            onFocusLost: () => persistentAudioManager.setVolume(0.35),
+            onFocusGained: () => persistentAudioManager.setVolume(1),
+            onBecomingNoisy: () => {
+                persistentAudioManager.setSinkId('default');
+                dispatch(setCallSpeakerOn(false));
+            },
+        });
 
         const formatDuration = (connectedAt: number | null) => {
             if (!connectedAt) return activeCall.status;
@@ -1403,8 +1427,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         return () => {
             clearInterval(interval);
             nativeCallNotificationService.removeActionListener();
+            nativeCallNotificationService.removeAudioLifecycleListeners();
         };
-    }, [isCallActive, activeCall, toggleMute, endCall]);
+    }, [isCallActive, activeCall, toggleMute, endCall, dispatch]);
 
     // Toggle Video Camera with reusable RTCRtpSender
     const toggleVideo = useCallback(async () => {
