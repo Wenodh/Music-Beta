@@ -77,7 +77,8 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     @PluginMethod
     public void requestAudioFocus(PluginCall call) {
         if (audioService != null) {
-            boolean granted = audioService.requestAudioFocus();
+            boolean forCall = Boolean.TRUE.equals(call.getBoolean("forCall", false));
+            boolean granted = audioService.requestAudioFocus(forCall);
             JSObject ret = new JSObject();
             ret.put("granted", granted);
             call.resolve(ret);
