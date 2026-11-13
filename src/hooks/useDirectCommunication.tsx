@@ -1464,7 +1464,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             friendName: activeCall.friendName,
             callType: activeCall.isVideoEnabled && Boolean(localStreamRef.current?.getVideoTracks().some((track) => track.readyState === 'live')) ? 'video' : 'audio',
         }).then((started) => {
-            if (!started && foregroundWarningCallRef.current !== activeCall.callId) {
+            if (!started && activeCallRef.current?.callId === activeCall.callId && foregroundWarningCallRef.current !== activeCall.callId) {
                 foregroundWarningCallRef.current = activeCall.callId;
                 dispatch(showToast({
                     message: 'Android could not enable background call protection. Keep Vibe On open during this call.',
