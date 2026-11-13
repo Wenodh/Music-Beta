@@ -45,6 +45,9 @@ Experience a complete social layer inside Vibe On via the Friends Hub:
 * **Friend Profiles**: View friends' custom bios, avatars, and favorite tracks while respecting private profile settings.
 * **Social Notifications**: Bell icon with live unread badge count for friend requests and missed calls.
 * **Direct P2P Voice & Video Calling**: WebRTC-powered voice and video calls with camera flip, mute, speaker toggles, and Android back button minimization.
+* **Call Waiting**: One additional caller can wait while you're on a call. Finish the active call to receive the waiting call; additional simultaneous callers are shown as busy.
+* **Connection Recovery & Quality**: Calls attempt ICE recovery after network changes and app resume. The call screen shows live connection quality, including latency when available.
+* **Android Background Calls**: Active calls use an ongoing Android notification with mute/end actions and a foreground service. Android may still terminate calls if the operating system kills the app process; keep Vibe On updated and grant microphone/camera permissions.
 
 ### 5. High-Fidelity Audio Visualizers
 Bring your music to life visually with five custom canvas-based visualizers:
