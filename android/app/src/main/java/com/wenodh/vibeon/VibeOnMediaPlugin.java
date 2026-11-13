@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Looper;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -30,6 +31,7 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     private VibeOnAudioService audioService;
     private VibeOnCallNotificationManager callNotificationManager;
     private BroadcastReceiver callActionReceiver;
+    private boolean callServiceActive = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -87,6 +89,31 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     }
 
     @PluginMethod
+    public void startCallForegroundService(PluginCall call) {
+        String friendName = call.getString("friendName", "Friend");
+        String callType = call.getString("callType", "audio");
+        Intent serviceIntent = new Intent(getContext(), VibeOnCallForegroundService.class);
+        serviceIntent.putExtra(VibeOnCallForegroundService.EXTRA_FRIEND_NAME, friendName);
+        serviceIntent.putExtra(VibeOnCallForegroundService.EXTRA_CALL_TYPE, callType);
+        try {
+            ContextCompat.startForegroundService(getContext(), serviceIntent);
+            callServiceActive = true;
+            call.resolve();
+        } catch (Exception error) {
+            Log.e(TAG, "Unable to start foreground call service", error);
+            call.reject("Unable to keep the call active in the background", error);
+        }
+    }
+
+    @PluginMethod
+    public void stopCallForegroundService(PluginCall call) {
+        getContext().stopService(new Intent(getContext(), VibeOnCallForegroundService.class));
+        callServiceActive = false;
+        if (callNotificationManager != null) callNotificationManager.clearCallNotification();
+        call.resolve();
+    }
+
+    @PluginMethod
     public void showCallNotification(PluginCall call) {
         String friendName = call.getString("friendName", "Friend");
         String callType = call.getString("callType", "audio");
@@ -140,10 +167,10 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
 
     @Override
     protected void handleOnDestroy() {
-        if (audioService != null) {
+        if (audioService != null && !callServiceActive) {
             audioService.abandonAudioFocus();
         }
-        if (callNotificationManager != null) {
+        if (callNotificationManager != null && !callServiceActive) {
             callNotificationManager.clearCallNotification();
         }
         if (callActionReceiver != null) {
