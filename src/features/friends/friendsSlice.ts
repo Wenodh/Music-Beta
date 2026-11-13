@@ -225,7 +225,6 @@ const friendsSlice = createSlice({
             state.activeCallFriend = null;
             state.activeCall = null;
             state.incomingCall = null;
-            state.waitingCall = null;
             state.callQuality = null;
             state.isMuted = false;
             state.isCallScreenExpanded = false;
