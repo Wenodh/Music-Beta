@@ -1461,7 +1461,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
         nativeCallNotificationService.startForegroundCall({
             friendName: activeCall.friendName,
-            callType: activeCall.isVideoEnabled ? 'video' : 'audio',
+            callType: activeCall.isVideoEnabled && Boolean(localStreamRef.current?.getVideoTracks().some((track) => track.readyState === 'live')) ? 'video' : 'audio',
         });
     }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.isVideoEnabled]);
 
