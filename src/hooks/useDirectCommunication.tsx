@@ -495,6 +495,18 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     signalType: 'offer',
                     sdp: pc.localDescription,
                 });
+                if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    reconnectTimeoutRef.current = null;
+                    if (peerConnectionRef.current === pc &&
+                        !['connected', 'completed'].includes(pc.iceConnectionState)) {
+                        if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
+                            dispatch(showToast({ message: 'The network is still unstable. Try switching networks or ending the call.', type: 'error' }));
+                        } else {
+                            scheduleIceRestart(true);
+                        }
+                    }
+                }, 9000);
             } catch (error) {
                 console.warn('[WebRTC] ICE restart attempt failed:', error);
                 if (iceRestartAttemptsRef.current < MAX_ICE_RESTART_ATTEMPTS && !reconnectTimeoutRef.current) {
