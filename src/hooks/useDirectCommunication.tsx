@@ -313,6 +313,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Idempotent resource cleanup with Call History logging
     const cleanupCallResources = useCallback((targetCallId?: string, outcomeOverride?: 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled') => {
+        // Ignore late signals/timeouts for a call that is no longer active or incoming.
+        // A stale call ID must never tear down a newer call's peer connection.
+        if (targetCallId && activeCallRef.current?.callId !== targetCallId && incomingCallRef.current?.callId !== targetCallId) return;
         clearTimers();
         const pendingIncoming = incomingCallRef.current;
         if (pendingIncoming && (!targetCallId || pendingIncoming.callId === targetCallId)) {
@@ -917,51 +920,51 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     if (waitingCallRef.current?.callId === callId) {
                         waitingCallRef.current = null;
                         dispatch(setWaitingCall(null));
-                        dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the waiting call`, type: 'info' }));
+                        dispatch(showToast({ message: (senderName || 'Caller') + ' cancelled the waiting call', type: 'info' }));
                         return;
                     }
+                    // Ignore delayed cancellation signals for calls that are no longer ringing.
+                    if (incomingId !== callId) return;
                     soundService.stopIncomingCallRingtone();
                     if (incomingRingingTimeoutRef.current) {
                         clearTimeout(incomingRingingTimeoutRef.current);
                         incomingRingingTimeoutRef.current = null;
                     }
-                    if (incomingId === callId || (!incomingId && !activeId)) {
-                        const cancelledIncoming = incomingId === callId ? incomingCallRef.current : null;
-                        if (cancelledIncoming) logIncomingCall(cancelledIncoming, 'cancelled');
-                        incomingCallRef.current = null;
-                        dispatch(setIncomingCall(null));
-                        dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
-                    }
+                    const cancelledIncoming = incomingCallRef.current;
+                    if (cancelledIncoming) logIncomingCall(cancelledIncoming, 'cancelled');
+                    incomingCallRef.current = null;
+                    dispatch(setIncomingCall(null));
+                    dispatch(showToast({ message: (senderName || 'Caller') + ' cancelled the call' }));
                     return;
                 }
 
                 if (signalType === 'call-waiting') {
                     if (activeId === callId) {
-                        dispatch(showToast({ message: `${senderName || 'Contact'} will be waiting while you finish another call.`, type: 'info' }));
+                        dispatch(showToast({ message: (senderName || 'Contact') + ' will be waiting while you finish another call.', type: 'info' }));
                     }
                     return;
                 }
 
                 if (signalType === 'call-busy') {
                     if (activeId === callId) {
-                        dispatch(showToast({ message: `${senderName || 'Contact'} is busy on another call`, type: 'info' }));
+                        dispatch(showToast({ message: (senderName || 'Contact') + ' is busy on another call', type: 'info' }));
                         cleanupCallResources(callId, 'busy');
                     }
                     return;
                 }
 
                 if (signalType === 'call-declined') {
-                    soundService.stopIncomingCallRingtone();
                     if (activeId === callId) {
-                        dispatch(showToast({ message: `${senderName || 'Contact'} declined the call` }));
+                        soundService.stopIncomingCallRingtone();
+                        dispatch(showToast({ message: (senderName || 'Contact') + ' declined the call' }));
                         cleanupCallResources(callId, 'declined');
                     }
                     return;
                 }
 
                 if (signalType === 'call-ended') {
-                    soundService.stopIncomingCallRingtone();
                     if (activeId === callId || incomingId === callId) {
+                        soundService.stopIncomingCallRingtone();
                         dispatch(showToast({ message: 'Call ended' }));
                         cleanupCallResources(callId);
                     }
