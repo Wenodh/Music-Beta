@@ -1461,9 +1461,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
         nativeCallNotificationService.startForegroundCall({
             friendName: activeCall.friendName,
-            callType: activeCall.callType,
+            callType: activeCall.isVideoEnabled ? 'video' : 'audio',
         });
-    }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.callType]);
+    }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.isVideoEnabled]);
 
     // Audio focus and route listeners are registered once per call, not on mute/status renders.
     useEffect(() => {
