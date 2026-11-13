@@ -9,10 +9,12 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
 
 public class VibeOnCallForegroundService extends Service {
+    private PowerManager.WakeLock callWakeLock;
     private static final String CHANNEL_ID = "vibeon_active_call_channel";
     private static final int NOTIFICATION_ID = VibeOnCallNotificationManager.NOTIFICATION_ID;
     public static final String EXTRA_CALL_TYPE = "callType";
@@ -34,6 +36,12 @@ public class VibeOnCallForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (powerManager != null && (callWakeLock == null || !callWakeLock.isHeld())) {
+            callWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VibeOn:ActiveCall");
+            callWakeLock.setReferenceCounted(false);
+            callWakeLock.acquire();
+        }
         String friendName = intent != null ? intent.getStringExtra(EXTRA_FRIEND_NAME) : "Friend";
         String callType = intent != null ? intent.getStringExtra(EXTRA_CALL_TYPE) : "audio";
         Intent openApp = new Intent(this, MainActivity.class)
@@ -47,6 +55,7 @@ public class VibeOnCallForegroundService extends Service {
             .setContentTitle("Vibe On call")
             .setContentText("Call with " + (friendName != null ? friendName : "Friend"))
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -77,6 +86,8 @@ public class VibeOnCallForegroundService extends Service {
 
     @Override
     public void onDestroy() {
+        if (callWakeLock != null && callWakeLock.isHeld()) callWakeLock.release();
+        callWakeLock = null;
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
     }
