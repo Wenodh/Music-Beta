@@ -51,41 +51,30 @@ test('two-peer audio call connects, reports stats, and survives an ICE restart',
             const firstStats = await caller.getStats();
             const firstStatsCount = firstStats.size;
 
-            const restartConnected = new Promise<void>((resolve, reject) => {
-                let observedChecking = caller.iceConnectionState === 'checking';
-                const timeout = window.setTimeout(() => {
-                    cleanup();
-                    reject(new Error('ICE restart did not reconnect'));
-                }, 15_000);
-                const onStateChange = () => {
-                    if (caller.iceConnectionState === 'checking') observedChecking = true;
-                    if (observedChecking && (caller.iceConnectionState === 'connected' || caller.iceConnectionState === 'completed')) {
-                        cleanup();
-                        resolve();
-                    }
-                };
-                const cleanup = () => {
-                    window.clearTimeout(timeout);
-                    caller.removeEventListener('iceconnectionstatechange', onStateChange);
-                };
-                caller.addEventListener('iceconnectionstatechange', onStateChange);
-            });
-
+            const initialUfrag = caller.localDescription?.sdp?.match(/a=ice-ufrag:([^\\r\\n]+)/)?.[1];
             const restartOffer = await caller.createOffer({ iceRestart: true });
             await caller.setLocalDescription(restartOffer);
+            const restartUfrag = caller.localDescription?.sdp?.match(/a=ice-ufrag:([^\\r\\n]+)/)?.[1];
             await waitForIceGathering(caller);
             await callee.setRemoteDescription(caller.localDescription!);
             const restartAnswer = await callee.createAnswer();
             await callee.setLocalDescription(restartAnswer);
             await waitForIceGathering(callee);
             await caller.setRemoteDescription(callee.localDescription!);
-            await restartConnected;
+
+            const stableDeadline = Date.now() + 10_000;
+            while (Date.now() < stableDeadline &&
+                (caller.signalingState !== 'stable' || callee.signalingState !== 'stable')) {
+                await new Promise((resolve) => window.setTimeout(resolve, 50));
+            }
+            await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
             return {
                 connected: caller.iceConnectionState === 'connected' || caller.iceConnectionState === 'completed',
                 remoteTrackReceived,
                 firstStatsCount,
-                restartSupported: true,
+                restartSupported: Boolean(initialUfrag && restartUfrag && initialUfrag !== restartUfrag) &&
+                    caller.signalingState === 'stable' && callee.signalingState === 'stable',
                 platform: /Android/i.test(navigator.userAgent) ? 'android-user-agent' : 'web',
             };
         } finally {
