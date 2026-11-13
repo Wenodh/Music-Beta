@@ -128,6 +128,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     const isCallActiveRef = useRef(isCallActive);
     isCallActiveRef.current = isCallActive;
+    const callAudioFocusHeldRef = useRef(false);
 
     const onlinePresenceMapRef = useRef(onlinePresenceMap);
     onlinePresenceMapRef.current = onlinePresenceMap;
@@ -1511,14 +1512,29 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Audio focus and route listeners are registered once per call, not on mute/status renders.
     useEffect(() => {
         if (!isCallActive || !activeCall) {
-            nativeCallNotificationService.abandonAudioFocus();
-            nativeCallNotificationService.removeAudioLifecycleListeners();
+            // Do not abandon global audio focus on initial mount: music playback owns media focus.
+            if (callAudioFocusHeldRef.current) {
+                callAudioFocusHeldRef.current = false;
+                void nativeCallNotificationService.abandonAudioFocus();
+            }
+            void nativeCallNotificationService.removeAudioLifecycleListeners();
             persistentAudioManager.setVolume(1);
             return;
         }
 
-        nativeCallNotificationService.requestAudioFocus();
-        nativeCallNotificationService.setupAudioLifecycleListeners({
+        let disposed = false;
+        nativeCallNotificationService.requestAudioFocus().then((granted) => {
+            if (disposed) {
+                // A call can end while the native focus request is still pending.
+                if (granted && !isCallActiveRef.current) {
+                    void nativeCallNotificationService.abandonAudioFocus();
+                }
+                return;
+            }
+            callAudioFocusHeldRef.current = granted;
+        });
+
+        void nativeCallNotificationService.setupAudioLifecycleListeners({
             onFocusLost: () => persistentAudioManager.setVolume(0.35),
             onFocusGained: () => persistentAudioManager.setVolume(1),
             onBecomingNoisy: () => {
@@ -1529,7 +1545,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         });
 
         return () => {
-            nativeCallNotificationService.removeAudioLifecycleListeners();
+            disposed = true;
+            void nativeCallNotificationService.removeAudioLifecycleListeners();
         };
     }, [isCallActive, activeCall?.callId, dispatch]);
 
