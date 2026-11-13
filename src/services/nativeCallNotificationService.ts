@@ -5,6 +5,7 @@ interface VibeOnMediaPluginInterface {
     startCallForegroundService(options: { friendName: string; callType: string }): Promise<void>;
     stopCallForegroundService(): Promise<void>;
     abandonAudioFocus(): Promise<void>;
+    setSpeakerphoneOn(options: { enabled: boolean }): Promise<void>;
     showCallNotification(options: {
         friendName: string;
         callType: string;
@@ -69,6 +70,17 @@ class NativeCallNotificationService {
             return Boolean(result?.granted);
         } catch (error) {
             console.warn('[NativeCallNotification] Audio focus request failed:', error);
+            return false;
+        }
+    }
+
+    public async setSpeakerphoneOn(enabled: boolean): Promise<boolean> {
+        if (!this.isNative) return false;
+        try {
+            await VibeOnMedia.setSpeakerphoneOn({ enabled });
+            return true;
+        } catch (error) {
+            console.warn('[NativeCallNotification] Speaker routing failed:', error);
             return false;
         }
     }
