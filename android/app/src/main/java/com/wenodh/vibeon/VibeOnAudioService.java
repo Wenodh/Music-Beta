@@ -18,6 +18,8 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
     private AudioFocusRequest audioFocusRequest;
     private BroadcastReceiver noisyReceiver;
     private boolean isReceiverRegistered = false;
+    private boolean legacyFocusRequested = false;
+    private boolean isCallAudioMode = false;
     private AudioFocusListener focusListener;
 
     public interface AudioFocusListener {
@@ -32,30 +34,51 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         this.focusListener = listener;
     }
 
-    public boolean requestAudioFocus() {
+    /**
+     * Request focus for either media playback or a voice/video call.
+     * Music must use USAGE_MEDIA and must never switch the device into communication mode.
+     * Calls use USAGE_VOICE_COMMUNICATION and explicitly select communication routing.
+     */
+    public boolean requestAudioFocus(boolean forCall) {
         if (audioManager == null) return false;
+
+        // The app has one active audio owner at a time. Release the previous request before
+        // replacing it so the old AudioFocusRequest cannot be orphaned.
+        abandonCurrentFocusRequest();
 
         int result;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            AudioAttributes playbackAttributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setUsage(forCall ? AudioAttributes.USAGE_VOICE_COMMUNICATION : AudioAttributes.USAGE_MEDIA)
+                    .setContentType(forCall ? AudioAttributes.CONTENT_TYPE_SPEECH : AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build();
 
             audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(playbackAttributes)
+                    .setAudioAttributes(attributes)
                     .setAcceptsDelayedFocusGain(false)
                     .setOnAudioFocusChangeListener(this)
                     .build();
 
             result = audioManager.requestAudioFocus(audioFocusRequest);
         } else {
-            result = audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+            int streamType = forCall ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC;
+            result = audioManager.requestAudioFocus(this, streamType, AudioManager.AUDIOFOCUS_GAIN);
+            legacyFocusRequested = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
         }
 
         boolean granted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
-        if (granted) audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        registerNoisyReceiver();
+        if (granted) {
+            isCallAudioMode = forCall;
+            if (forCall) {
+                audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            } else if (audioManager.getMode() == AudioManager.MODE_IN_COMMUNICATION) {
+                audioManager.setMode(AudioManager.MODE_NORMAL);
+            }
+            registerNoisyReceiver();
+        } else {
+            isCallAudioMode = false;
+            unregisterNoisyReceiver();
+        }
         return granted;
     }
 
@@ -83,18 +106,39 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         unregisterNoisyReceiver();
         if (audioManager == null) return;
 
+        boolean wasCallAudioMode = isCallAudioMode;
+        abandonCurrentFocusRequest();
+
+        if (wasCallAudioMode) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice();
+            } else {
+                audioManager.setSpeakerphoneOn(false);
+                audioManager.setMode(AudioManager.MODE_NORMAL);
+            }
+        }
+    }
+
+    private void abandonCurrentFocusRequest() {
+        if (audioManager == null) return;
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
             audioManager.abandonAudioFocusRequest(audioFocusRequest);
             audioFocusRequest = null;
-        } else {
+        } else if (legacyFocusRequested) {
             audioManager.abandonAudioFocus(this);
+            legacyFocusRequested = false;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            audioManager.clearCommunicationDevice();
-        } else {
-            audioManager.setSpeakerphoneOn(false);
-            audioManager.setMode(AudioManager.MODE_NORMAL);
+
+        if (isCallAudioMode) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice();
+            } else {
+                audioManager.setSpeakerphoneOn(false);
+                audioManager.setMode(AudioManager.MODE_NORMAL);
+            }
         }
+        isCallAudioMode = false;
     }
 
     private void registerNoisyReceiver() {
@@ -128,6 +172,7 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
                 Log.w(TAG, "Failed to unregister noisy receiver", e);
             }
             isReceiverRegistered = false;
+            noisyReceiver = null;
         }
     }
 
@@ -139,14 +184,11 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 focusListener.onAudioFocusLost();
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
                 focusListener.onAudioFocusGained();
-                break;
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // For music streaming apps, pausing or ducking can be handled
-                focusListener.onAudioFocusLost();
                 break;
         }
     }
