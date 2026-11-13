@@ -385,7 +385,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         dispatch(setCallQuality(null));
         promoteQueuedCall();
         nativeCallNotificationService.stopForegroundCall();
-    }, [clearTimers, dispatch, promoteQueuedCall]);
+    }, [clearTimers, dispatch, promoteQueuedCall, logIncomingCall]);
 
     // Setup RTCPeerConnection instance helper with Perfect Negotiation support
     const getOrCreatePeerConnection = useCallback((targetId: string, currentCallId: string) => {
