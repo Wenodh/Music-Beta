@@ -8,7 +8,7 @@ interface VibeOnMediaPluginInterface {
     abandonAudioFocus(): Promise<void>;
     checkPermissions?(): Promise<{ notifications: string }>;
     requestPermissions?(): Promise<{ notifications: string }>;
-    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
+    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string; canResume?: boolean }) => void): Promise<{ remove: () => void }>;
     addListener(eventName: 'becomingNoisy', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
 }
 
@@ -22,6 +22,7 @@ export interface MediaControlsCallbacks {
     onSeek: (seconds: number) => void;
     onHeadphonesDisconnected?: () => void;
     onAudioFocusLost?: () => void;
+    onAudioFocusGained?: () => void;
 }
 
 class NativeMediaSessionBridge {
@@ -30,6 +31,7 @@ class NativeMediaSessionBridge {
     private listenersRegistered = false;
     private removeFocusListener: (() => void) | null = null;
     private removeNoisyListener: (() => void) | null = null;
+    private resumeAfterTransientFocusLoss = false;
 
     public async checkAndRequestNotificationPermissions(): Promise<boolean> {
         if (!this.isNative) return true;
@@ -77,11 +79,15 @@ class NativeMediaSessionBridge {
                 if (!this.listenersRegistered) {
                     const focusHandle = await VibeOnMedia.addListener('audioFocusChanged', (data) => {
                         if (data.event === 'audioFocusLost') {
+                            this.resumeAfterTransientFocusLoss = Boolean(data.canResume);
                             if (this.activeHandlers?.onAudioFocusLost) {
                                 this.activeHandlers.onAudioFocusLost();
                             } else {
                                 this.activeHandlers?.onPause();
                             }
+                        } else if (data.event === 'audioFocusGained' && this.resumeAfterTransientFocusLoss) {
+                            this.resumeAfterTransientFocusLoss = false;
+                            this.activeHandlers?.onAudioFocusGained?.();
                         }
                     });
                     this.removeFocusListener = focusHandle.remove;
@@ -234,6 +240,7 @@ class NativeMediaSessionBridge {
             this.removeNoisyListener = null;
         }
         this.listenersRegistered = false;
+        this.resumeAfterTransientFocusLoss = false;
         this.activeHandlers = null;
     }
 }
