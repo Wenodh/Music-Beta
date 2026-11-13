@@ -313,6 +313,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Idempotent resource cleanup with Call History logging
     const cleanupCallResources = useCallback((targetCallId?: string, outcomeOverride?: 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled') => {
         clearTimers();
+        const pendingIncoming = incomingCallRef.current;
+        if (pendingIncoming && (!targetCallId || pendingIncoming.callId === targetCallId)) {
+            logIncomingCall(pendingIncoming, 'cancelled');
+            incomingCallRef.current = null;
+        }
         iceRestartAttemptsRef.current = 0;
         lastOutboundBytesRef.current = null;
 
@@ -1384,7 +1389,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         } catch (err) {
             console.error('Failed to accept call media stream:', err);
             dispatch(showToast({ message: 'Could not access audio hardware', type: 'error' }));
+            incomingCallRef.current = null;
             dispatch(setIncomingCall(null));
+            promoteQueuedCall();
             sendToUser(callerId, 'direct_signal', {
                 callId: currentCallId,
                 senderId: userId,
@@ -1392,7 +1399,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 signalType: 'call-declined',
             });
         }
-    }, [userId, userName, dispatch, sendToUser]);
+    }, [userId, userName, dispatch, sendToUser, promoteQueuedCall]);
 
     // Decline incoming call
     const declineIncomingCall = useCallback((callerId: string) => {
