@@ -789,12 +789,32 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                             cleanupCallResources(activeCallRef.current.callId);
                         }
                     } else if (isBusy) {
-                        sendToUser(senderId, 'direct_signal', {
-                            callId,
-                            senderId: userId,
-                            senderName: userName,
-                            signalType: 'call-busy',
-                        });
+                        const canWait = Boolean(activeCallRef.current && !incomingCallRef.current && !waitingCallRef.current);
+                        if (canWait) {
+                            const waitingPayload = {
+                                callId: callId || `call-${Date.now()}`,
+                                callerId: senderId,
+                                callerName: senderName || 'Caller',
+                                channelName: `user:${userId}`,
+                                callType,
+                                receivedAt: Date.now(),
+                            };
+                            dispatch(setWaitingCall(waitingPayload));
+                            sendToUser(senderId, 'direct_signal', {
+                                callId,
+                                senderId: userId,
+                                senderName: userName,
+                                signalType: 'call-waiting',
+                            });
+                            dispatch(showToast({ message: `Call waiting: ${waitingPayload.callerName}`, type: 'info' }));
+                        } else {
+                            sendToUser(senderId, 'direct_signal', {
+                                callId,
+                                senderId: userId,
+                                senderName: userName,
+                                signalType: 'call-busy',
+                            });
+                        }
                         return;
                     }
 
@@ -1098,22 +1118,35 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Acquire media stream with camera fallback
     const acquireMediaStream = async (requestedCallType: CallType): Promise<{ stream: MediaStream; hasVideo: boolean }> => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('MEDIA_DEVICES_UNAVAILABLE');
+        }
         if (requestedCallType === 'video') {
+            let audioStream: MediaStream;
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (error) {
+                dispatch(showToast({ message: getMediaAccessErrorMessage(error, 'microphone'), type: 'error' }));
+                throw error;
+            }
+            try {
+                const videoStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
                     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                 });
-                return { stream, hasVideo: true };
-            } catch (err) {
-                console.warn('Video access denied/failed, falling back to audio only:', err);
-                dispatch(showToast({ message: 'Camera unavailable. Proceeding with voice only.', type: 'info' }));
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const videoTrack = videoStream.getVideoTracks()[0];
+                if (videoTrack) audioStream.addTrack(videoTrack);
+                return { stream: audioStream, hasVideo: Boolean(videoTrack) };
+            } catch (error) {
+                dispatch(showToast({ message: `${getMediaAccessErrorMessage(error, 'camera')} Continuing with voice only.`, type: 'info' }));
                 return { stream: audioStream, hasVideo: false };
             }
-        } else {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            return { stream, hasVideo: false };
+        }
+        try {
+            return { stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: false }), hasVideo: false };
+        } catch (error) {
+            dispatch(showToast({ message: getMediaAccessErrorMessage(error, 'microphone'), type: 'error' }));
+            throw error;
         }
     };
 
@@ -1155,6 +1188,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Start 1-click call to a friend (supports audio and video)
     // Signaling-First implementation: Presence is informational, NOT an unconditional gate.
     const callFriend = useCallback(async (friend: Friend, requestedCallType: CallType = 'audio') => {
+        if (isCallActiveRef.current || incomingCallRef.current) {
+            dispatch(showToast({ message: 'Finish or decline the current call before starting another.', type: 'info' }));
+            return;
+        }
         // Presence is evaluated for informational awareness only (e.g. logging)
         const isOnline = checkRecipientOnline(friend.id);
         if (!isOnline) {
@@ -1221,6 +1258,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
 
         const incoming = incomingCallRef.current;
+        if (isCallActiveRef.current) {
+            dispatch(showToast({ message: 'End the active call before answering the waiting call.', type: 'info' }));
+            return;
+        }
         const currentCallId = incoming?.callId || generateCallId();
         const incomingCallType = incoming?.callType || 'audio';
 
@@ -1284,6 +1325,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         if (incoming) logIncomingCall(incoming, 'declined');
 
         dispatch(setIncomingCall(null));
+        dispatch(promoteWaitingCall());
         sendToUser(callerId, 'direct_signal', {
             callId: currentCallId,
             senderId: userId,
