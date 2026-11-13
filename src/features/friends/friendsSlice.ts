@@ -224,6 +224,7 @@ export const {
     removeFriend,
     setActiveFriendId,
     setDirectMessages,
+    removeDirectMessage,
     addDirectMessage,
     updateMessageStatus,
     markFriendMessagesSeen,
