@@ -148,6 +148,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         return `call-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
     };
 
+    const promoteQueuedCall = useCallback(() => {
+        const queued = waitingCallRef.current;
+        if (!queued || incomingCallRef.current) return;
+        dispatch(promoteWaitingCall());
+        waitingCallRef.current = null;
+        incomingCallRef.current = queued;
+    }, [dispatch]);
+
     const clearTimers = useCallback(() => {
         if (ringingTimeoutRef.current) {
             clearTimeout(ringingTimeoutRef.current);
@@ -370,9 +378,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         dispatch(endDirectCall(targetCallId ? { callId: targetCallId } : undefined));
         dispatch(setCallQuality(null));
-        dispatch(promoteWaitingCall());
+        promoteQueuedCall();
         nativeCallNotificationService.stopForegroundCall();
-    }, [clearTimers, dispatch]);
+    }, [clearTimers, dispatch, promoteQueuedCall]);
 
     // Setup RTCPeerConnection instance helper with Perfect Negotiation support
     const getOrCreatePeerConnection = useCallback((targetId: string, currentCallId: string) => {
@@ -833,6 +841,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                                 callType,
                                 receivedAt: Date.now(),
                             };
+                            waitingCallRef.current = waitingPayload;
                             dispatch(setWaitingCall(waitingPayload));
                             sendToUser(senderId, 'direct_signal', {
                                 callId,
@@ -873,6 +882,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         receivedAt: Date.now(),
                     };
 
+                    incomingCallRef.current = incomingCallPayload;
                     dispatch(setIncomingCall(incomingCallPayload));
 
                     // Start continuous ringtone
@@ -885,6 +895,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         if (expiredCall?.callId === incomingCallPayload.callId) {
                             logIncomingCall(expiredCall, 'missed');
                             soundService.stopIncomingCallRingtone();
+                            incomingCallRef.current = null;
                             dispatch(setIncomingCall(null));
                             dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
                         }
@@ -897,6 +908,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
                 if (signalType === 'call-cancelled') {
                     if (waitingCallRef.current?.callId === callId) {
+                        waitingCallRef.current = null;
                         dispatch(setWaitingCall(null));
                         dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the waiting call`, type: 'info' }));
                         return;
@@ -909,6 +921,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     if (incomingId === callId || (!incomingId && !activeId)) {
                         const cancelledIncoming = incomingId === callId ? incomingCallRef.current : null;
                         if (cancelledIncoming) logIncomingCall(cancelledIncoming, 'cancelled');
+                        incomingCallRef.current = null;
                         dispatch(setIncomingCall(null));
                         dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
                     }
@@ -1117,6 +1130,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             if (expiredCall?.callId === incomingCall.callId) {
                 logIncomingCall(expiredCall, 'missed');
                 soundService.stopIncomingCallRingtone();
+                incomingCallRef.current = null;
                 dispatch(setIncomingCall(null));
                 dispatch(showToast({ message: `Missed call from ${expiredCall.callerName}`, type: 'info' }));
             }
@@ -1345,6 +1359,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
             await saveFriendLocal(friendObj);
 
+            incomingCallRef.current = null;
             dispatch(startDirectCall({
                 callId: currentCallId,
                 friendId: callerId,
@@ -1391,15 +1406,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         const currentCallId = incoming?.callId;
         if (incoming) logIncomingCall(incoming, 'declined');
 
+        incomingCallRef.current = null;
         dispatch(setIncomingCall(null));
-        dispatch(promoteWaitingCall());
+        promoteQueuedCall();
         sendToUser(callerId, 'direct_signal', {
             callId: currentCallId,
             senderId: userId,
             senderName: userName,
             signalType: 'call-declined',
         });
-    }, [userId, userName, dispatch, sendToUser, logIncomingCall]);
+    }, [userId, userName, dispatch, sendToUser, logIncomingCall, promoteQueuedCall]);
 
     // End / Cancel current call
     const endCall = useCallback(() => {
