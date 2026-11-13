@@ -9,44 +9,36 @@ describe('Batch 1: Signaling-First Calling & Guest Identity Verification Matrix'
         vi.clearAllMocks();
     });
 
-    describe('Cross-identity call signaling matrix', () => {
-        it.each([
-            { sender: 'authenticated', recipient: 'authenticated' },
-            { sender: 'authenticated', recipient: 'guest' },
-            { sender: 'guest', recipient: 'authenticated' },
-            { sender: 'guest', recipient: 'guest' },
-        ])('$sender -> $recipient: preserves the expected guest-signature contract', async ({ sender, recipient }) => {
-            const senderId = sender === 'guest'
-                ? (await guestSessionService.getOrCreateGuestIdentityKey()).guestId
-                : 'auth-sender-identity';
-            const recipientId = recipient === 'guest' ? 'anon-recipient-identity' : 'auth-recipient-identity';
-            const callId = `matrix-${sender}-${recipient}`;
-            const signalType = 'call-request';
-            const callType = 'video';
-
-            const signedEnvelope = sender === 'guest'
-                ? await guestSessionService.signSignalingEnvelope({
-                    callId,
+    describe('Guest signaling envelope recipient binding', () => {
+        it.each(['authenticated-recipient', 'guest-recipient'])(
+            'verifies a guest call request for a %s and rejects a different recipient',
+            async (recipientId) => {
+                const signedEnvelope = await guestSessionService.signSignalingEnvelope({
+                    callId: `guest-call-${recipientId}`,
                     recipientId,
-                    signalType,
-                    callType,
+                    signalType: 'call-request',
+                    callType: 'video',
                     data: null,
-                })
-                : undefined;
+                });
 
-            if (sender === 'guest') {
-                expect(signedEnvelope).toBeDefined();
-                const verified = await guestSessionService.verifySignalingEnvelope(
-                    signedEnvelope!,
+                const valid = await guestSessionService.verifySignalingEnvelope(
+                    signedEnvelope,
                     recipientId,
-                    signalType,
+                    'call-request',
                     null
                 );
-                expect(verified.isValid).toBe(true);
-            } else {
-                expect(signedEnvelope).toBeUndefined();
+                expect(valid.isValid).toBe(true);
+
+                const wrongRecipient = await guestSessionService.verifySignalingEnvelope(
+                    signedEnvelope,
+                    `${recipientId}-other`,
+                    'call-request',
+                    null
+                );
+                expect(wrongRecipient.isValid).toBe(false);
+                expect(wrongRecipient.reason).toContain('Recipient mismatch');
             }
-        });
+        );
     });
 
     describe('Calling Matrix Scenarios', () => {
