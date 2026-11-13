@@ -184,8 +184,11 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 focusListener.onAudioFocusLost();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                // Do not pause music for a duck request; Android can lower the media stream.
+                // Voice-call UI handles its own ducking policy separately.
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
                 focusListener.onAudioFocusGained();
