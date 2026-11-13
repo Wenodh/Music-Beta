@@ -51,6 +51,26 @@ test('two-peer audio call connects, reports stats, and survives an ICE restart',
             const firstStats = await caller.getStats();
             const firstStatsCount = firstStats.size;
 
+            const restartConnected = new Promise<void>((resolve, reject) => {
+                let observedChecking = caller.iceConnectionState === 'checking';
+                const timeout = window.setTimeout(() => {
+                    cleanup();
+                    reject(new Error('ICE restart did not reconnect'));
+                }, 15_000);
+                const onStateChange = () => {
+                    if (caller.iceConnectionState === 'checking') observedChecking = true;
+                    if (observedChecking && (caller.iceConnectionState === 'connected' || caller.iceConnectionState === 'completed')) {
+                        cleanup();
+                        resolve();
+                    }
+                };
+                const cleanup = () => {
+                    window.clearTimeout(timeout);
+                    caller.removeEventListener('iceconnectionstatechange', onStateChange);
+                };
+                caller.addEventListener('iceconnectionstatechange', onStateChange);
+            });
+
             const restartOffer = await caller.createOffer({ iceRestart: true });
             await caller.setLocalDescription(restartOffer);
             await waitForIceGathering(caller);
@@ -59,7 +79,7 @@ test('two-peer audio call connects, reports stats, and survives an ICE restart',
             await callee.setLocalDescription(restartAnswer);
             await waitForIceGathering(callee);
             await caller.setRemoteDescription(callee.localDescription!);
-            await waitForConnected();
+            await restartConnected;
 
             return {
                 connected: caller.iceConnectionState === 'connected' || caller.iceConnectionState === 'completed',
