@@ -79,6 +79,17 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     }
 
     @PluginMethod
+    public void setSpeakerphoneOn(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        if (audioService != null) {
+            audioService.setSpeakerphoneOn(enabled);
+            call.resolve();
+        } else {
+            call.reject("Audio service not initialized");
+        }
+    }
+
+    @PluginMethod
     public void abandonAudioFocus(PluginCall call) {
         if (audioService != null) {
             audioService.abandonAudioFocus();
