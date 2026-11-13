@@ -64,8 +64,7 @@ public class VibeOnCallForegroundService extends Service {
 
         int serviceTypes = 0;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            serviceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE |
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+            serviceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
             if ("video".equals(callType)) {
                 serviceTypes |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
             }
