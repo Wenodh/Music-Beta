@@ -9,6 +9,46 @@ describe('Batch 1: Signaling-First Calling & Guest Identity Verification Matrix'
         vi.clearAllMocks();
     });
 
+    describe('Cross-identity call signaling matrix', () => {
+        it.each([
+            { sender: 'authenticated', recipient: 'authenticated' },
+            { sender: 'authenticated', recipient: 'guest' },
+            { sender: 'guest', recipient: 'authenticated' },
+            { sender: 'guest', recipient: 'guest' },
+        ])('$sender -> $recipient: preserves the expected guest-signature contract', async ({ sender, recipient }) => {
+            const senderId = sender === 'guest'
+                ? (await guestSessionService.getOrCreateGuestIdentityKey()).guestId
+                : 'auth-sender-identity';
+            const recipientId = recipient === 'guest' ? 'anon-recipient-identity' : 'auth-recipient-identity';
+            const callId = `matrix-${sender}-${recipient}`;
+            const signalType = 'call-request';
+            const callType = 'video';
+
+            const signedEnvelope = sender === 'guest'
+                ? await guestSessionService.signSignalingEnvelope({
+                    callId,
+                    recipientId,
+                    signalType,
+                    callType,
+                    data: null,
+                })
+                : undefined;
+
+            if (sender === 'guest') {
+                expect(signedEnvelope).toBeDefined();
+                const verified = await guestSessionService.verifySignalingEnvelope(
+                    signedEnvelope!,
+                    recipientId,
+                    signalType,
+                    null
+                );
+                expect(verified.isValid).toBe(true);
+            } else {
+                expect(signedEnvelope).toBeUndefined();
+            }
+        });
+    });
+
     describe('Calling Matrix Scenarios', () => {
         it('Auth -> Auth: signals directly without requiring signedEnvelope', async () => {
             const senderId = 'auth-user-1';
