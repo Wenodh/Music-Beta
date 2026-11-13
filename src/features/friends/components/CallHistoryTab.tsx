@@ -152,8 +152,12 @@ export const CallHistoryTab: React.FC = () => {
         if (!window.confirm('Delete this call record from this device?')) return;
 
         try {
-            await deleteCallLogLocal(logId);
-            setCallLogs((prev) => prev.filter((item) => item.id !== logId));
+            const selectedLog = callLogs.find((item) => item.id === logId);
+            const duplicateIds = callLogs
+                .filter((item) => selectedLog?.callId ? item.callId === selectedLog.callId : item.id === logId)
+                .map((item) => item.id);
+            await Promise.all(duplicateIds.map((id) => deleteCallLogLocal(id)));
+            setCallLogs((prev) => prev.filter((item) => !duplicateIds.includes(item.id)));
             dispatch(showToast({ message: 'Call log removed from this device' }));
         } catch (error) {
             console.warn('Failed to delete call log:', error);
