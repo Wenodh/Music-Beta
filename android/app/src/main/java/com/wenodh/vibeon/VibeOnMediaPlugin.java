@@ -182,9 +182,19 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
 
     @Override
     public void onAudioFocusLost() {
+        notifyAudioFocusLost(false);
+    }
+
+    @Override
+    public void onAudioFocusLostTransient() {
+        notifyAudioFocusLost(true);
+    }
+
+    private void notifyAudioFocusLost(boolean canResume) {
         mainHandler.post(() -> {
             JSObject ret = new JSObject();
             ret.put("event", "audioFocusLost");
+            ret.put("canResume", canResume);
             notifyListeners("audioFocusChanged", ret);
         });
     }
