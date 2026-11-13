@@ -404,19 +404,36 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
 
-    // Sync Playback State with MediaSession & Native Service
+    // Sync playback state and ensure Android promotes the app to its mediaPlayback
+    // foreground service before the user can lock the screen.
     useEffect(() => {
-        nativeMediaSession.updatePlaybackState(isPlaying);
+        let cancelled = false;
 
+        nativeMediaSession.updatePlaybackState(isPlaying).then((accepted) => {
+            if (!accepted && isPlaying && !cancelled) {
+                console.warn('[Player] Native playback could not acquire media audio focus; pausing playback.');
+                dispatch(pauseMusic());
+            }
+        }).catch((error) => {
+            console.warn('[Player] Failed to synchronize native playback state:', error);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isPlaying, dispatch]);
+
+    // Refresh the system seek position when the active buffer or track changes.
+    useEffect(() => {
         const activeAudio = getActiveAudio();
-        if (activeAudio && !isNaN(activeAudio.duration)) {
+        if (activeAudio && Number.isFinite(activeAudio.duration)) {
             nativeMediaSession.updatePositionState(
                 activeAudio.duration || 0,
                 activeAudio.currentTime || 0,
                 activeAudio.playbackRate || 1
             );
         }
-    }, [isPlaying, activeBuffer]);
+    }, [activeBuffer, currentSong?.id]);
 
     // Audio focus management during Voice & Video Calls:
     // When an incoming call arrives or a direct call is active, pause music cleanly.
