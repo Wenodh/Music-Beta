@@ -53,7 +53,7 @@ public class VibeOnCallNotificationManager {
         );
 
         // Mute Action Intent
-        Intent muteIntent = new Intent(ACTION_TOGGLE_MUTE);
+        Intent muteIntent = new Intent(ACTION_TOGGLE_MUTE).setPackage(context.getPackageName());
         PendingIntent mutePendingIntent = PendingIntent.getBroadcast(
                 context,
                 1,
@@ -62,7 +62,7 @@ public class VibeOnCallNotificationManager {
         );
 
         // End Call Action Intent
-        Intent endIntent = new Intent(ACTION_END_CALL);
+        Intent endIntent = new Intent(ACTION_END_CALL).setPackage(context.getPackageName());
         PendingIntent endPendingIntent = PendingIntent.getBroadcast(
                 context,
                 2,
