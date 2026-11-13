@@ -52,6 +52,12 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
                 } else if (VibeOnCallNotificationManager.ACTION_END_CALL.equals(action)) {
                     ret.put("action", "endCall");
                     notifyListeners("callNotificationAction", ret);
+                } else if (VibeOnCallNotificationManager.ACTION_ACCEPT_CALL.equals(action)) {
+                    ret.put("action", "acceptCall");
+                    notifyListeners("callNotificationAction", ret);
+                } else if (VibeOnCallNotificationManager.ACTION_DECLINE_CALL.equals(action)) {
+                    ret.put("action", "declineCall");
+                    notifyListeners("callNotificationAction", ret);
                 }
             }
         };
@@ -59,6 +65,8 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
         IntentFilter filter = new IntentFilter();
         filter.addAction(VibeOnCallNotificationManager.ACTION_TOGGLE_MUTE);
         filter.addAction(VibeOnCallNotificationManager.ACTION_END_CALL);
+        filter.addAction(VibeOnCallNotificationManager.ACTION_ACCEPT_CALL);
+        filter.addAction(VibeOnCallNotificationManager.ACTION_DECLINE_CALL);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             getContext().registerReceiver(callActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -122,6 +130,28 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
         callServiceActive = false;
         if (callNotificationManager != null) callNotificationManager.clearCallNotification();
         call.resolve();
+    }
+
+    @PluginMethod
+    public void showIncomingCallNotification(PluginCall call) {
+        String callerName = call.getString("callerName", "Friend");
+        String callType = call.getString("callType", "audio");
+        if (callNotificationManager != null) {
+            callNotificationManager.showIncomingCallNotification(callerName, callType);
+            call.resolve();
+        } else {
+            call.reject("Call notification manager not initialized");
+        }
+    }
+
+    @PluginMethod
+    public void clearIncomingCallNotification(PluginCall call) {
+        if (callNotificationManager != null) {
+            callNotificationManager.clearIncomingCallNotification();
+            call.resolve();
+        } else {
+            call.reject("Call notification manager not initialized");
+        }
     }
 
     @PluginMethod
