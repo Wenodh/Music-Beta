@@ -397,17 +397,26 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             nativeMediaSession.updateMetadata(currentSong, imageUrl);
             nativeMediaSession.registerCallbacks({
                 onPlay: () => {
+                    nativeMediaSession.cancelTransientResume();
                     wasPlayingBeforeAudioFocusLossRef.current = false;
                     dispatch(playMusic({ ...currentSong, forcePlay: true }));
                 },
                 onPause: () => {
+                    nativeMediaSession.cancelTransientResume();
                     wasPlayingBeforeAudioFocusLossRef.current = false;
                     dispatch(pauseMusic());
                 },
-                onNext: () => playNextInQueue(true),
-                onPrevious: prevSong,
+                onNext: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    playNextInQueue(true);
+                },
+                onPrevious: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    prevSong();
+                },
                 onSeek: (seconds) => handleSeek(seconds),
                 onHeadphonesDisconnected: () => {
+                    nativeMediaSession.cancelTransientResume();
                     wasPlayingBeforeAudioFocusLossRef.current = false;
                     dispatch(pauseMusic());
                 },
@@ -862,6 +871,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     };
 
     const handlePlayPause = () => {
+        nativeMediaSession.cancelTransientResume();
         wasPlayingBeforeAudioFocusLossRef.current = false;
         dispatch(playMusic(currentSong));
     };
