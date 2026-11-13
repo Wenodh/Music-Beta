@@ -70,6 +70,11 @@ To assist developers, we separate features currently implemented in the codebase
 * **Java Development Kit (JDK)**: JDK 21 (required for Capacitor Android builds).
 * **Android Studio**: Installed with SDK platforms and virtual emulators (for Android development).
 
+### Calling Reliability Checks
+- Run `npm test` for unit and integration coverage.
+- Run `npm run test:e2e` for desktop Chromium and mobile Chromium-emulation WebRTC negotiation, stats, and ICE-restart coverage.
+- Run the Android build workflow to compile the Capacitor foreground-call service and notification action bridge; validate lock-screen behavior on a physical Android device or emulator before release.
+
 ### Setup Steps
 1. **Clone and Install Dependencies**:
    ```bash
