@@ -555,10 +555,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
         };
 
-        const handleNetworkOnline = () => scheduleIceRestart(true);
+        const handleNetworkOnline = () => {
+            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+            scheduleIceRestart(true);
+        };
         const handleNetworkOffline = () => dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && !['connected', 'completed'].includes(pc.iceConnectionState)) {
+                if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
                 scheduleIceRestart(true);
             }
         };
