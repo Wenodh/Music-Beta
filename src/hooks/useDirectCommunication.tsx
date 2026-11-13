@@ -1141,9 +1141,6 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
             incomingRingingTimeoutRef.current = null;
         }, 45000);
-        return () => {
-            // Do not clear a ringing timer on unrelated renders; only clear when the call identity changes.
-        };
     }, [incomingCall?.callId, dispatch, logIncomingCall]);
 
     // Send 1-on-1 direct message with E2EE encryption and sequence counter
