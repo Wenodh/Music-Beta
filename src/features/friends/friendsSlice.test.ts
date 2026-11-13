@@ -6,8 +6,37 @@ import friendsReducer, {
     setCallVideoEnabled,
     setCallSpeakerOn,
     endDirectCall,
+    setDirectMessages,
+    removeDirectMessage,
 } from './friendsSlice';
 import uiReducer, { setMobileNavItems, resetMobileNavItems } from '../ui/uiSlice';
+
+describe('friendsSlice Conversation History', () => {
+    it('removes one message without changing other conversations', () => {
+        const initialState = friendsReducer(undefined, { type: 'unknown' });
+        const withMessages = friendsReducer(initialState, setDirectMessages({
+            friendId: 'friend-a',
+            messages: [
+                { id: 'message-1', friendId: 'friend-a', senderId: 'me', senderName: 'Me', text: 'Keep', timestamp: 1 },
+                { id: 'message-2', friendId: 'friend-a', senderId: 'friend-a', senderName: 'Friend', text: 'Delete', timestamp: 2 },
+            ],
+        }));
+        const withOtherConversation = friendsReducer(withMessages, setDirectMessages({
+            friendId: 'friend-b',
+            messages: [
+                { id: 'message-3', friendId: 'friend-b', senderId: 'friend-b', senderName: 'Other', text: 'Untouched', timestamp: 3 },
+            ],
+        }));
+
+        const updated = friendsReducer(withOtherConversation, removeDirectMessage({
+            friendId: 'friend-a',
+            messageId: 'message-2',
+        }));
+
+        expect(updated.directMessages['friend-a'].map((message) => message.id)).toEqual(['message-1']);
+        expect(updated.directMessages['friend-b'].map((message) => message.id)).toEqual(['message-3']);
+    });
+});
 
 describe('friendsSlice Call State Machine', () => {
     const initial = friendsReducer(undefined, { type: 'unknown' });
