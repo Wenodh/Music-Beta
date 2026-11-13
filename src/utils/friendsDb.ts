@@ -20,6 +20,11 @@ export interface DirectMessage {
     status?: MessageStatus;
 }
 
+interface MessageSequenceRecord {
+    friendId: string;
+    maxSeq: number;
+}
+
 export type CallDirection = 'incoming' | 'outgoing';
 export type CallOutcome = 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled';
 
@@ -63,6 +68,10 @@ interface FriendsDBSchema extends DBSchema {
         value: DirectMessage;
         indexes: { 'by-friend': string };
     };
+    message_sequences: {
+        key: string;
+        value: MessageSequenceRecord;
+    };
     call_history: {
         key: string;
         value: CallLogEntry;
@@ -79,7 +88,7 @@ interface FriendsDBSchema extends DBSchema {
 }
 
 const DB_NAME = 'vibeon_friends';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<FriendsDBSchema>> | null = null;
 
@@ -93,6 +102,9 @@ const getDB = () => {
                 if (!db.objectStoreNames.contains('direct_messages')) {
                     const store = db.createObjectStore('direct_messages', { keyPath: 'id' });
                     store.createIndex('by-friend', 'friendId');
+                }
+                if (!db.objectStoreNames.contains('message_sequences')) {
+                    db.createObjectStore('message_sequences', { keyPath: 'friendId' });
                 }
                 if (!db.objectStoreNames.contains('call_history')) {
                     const callStore = db.createObjectStore('call_history', { keyPath: 'id' });
@@ -128,7 +140,32 @@ export const removeFriendLocal = async (id: string) => {
 
 export const saveDirectMessageLocal = async (msg: DirectMessage) => {
     const db = await getDB();
-    await db.put('direct_messages', msg);
+    const tx = db.transaction(['direct_messages', 'message_sequences'], 'readwrite');
+    await tx.objectStore('direct_messages').put(msg);
+
+    if (typeof msg.seq === 'number' && msg.seq > 0) {
+        const sequenceStore = tx.objectStore('message_sequences');
+        const existing = await sequenceStore.get(msg.friendId);
+        await sequenceStore.put({
+            friendId: msg.friendId,
+            maxSeq: Math.max(existing?.maxSeq || 0, msg.seq),
+        });
+    }
+
+    await tx.done;
+};
+
+export const deleteDirectMessageLocal = async (messageId: string): Promise<void> => {
+    const db = await getDB();
+    await db.delete('direct_messages', messageId);
+};
+
+export const clearDirectMessagesForFriendLocal = async (friendId: string): Promise<void> => {
+    const db = await getDB();
+    const tx = db.transaction('direct_messages', 'readwrite');
+    const keys = await tx.store.index('by-friend').getAllKeys(friendId);
+    await Promise.all(keys.map((key) => tx.store.delete(key)));
+    await tx.done;
 };
 
 export const updateDirectMessageStatusLocal = async (msgId: string, status: MessageStatus) => {
@@ -162,14 +199,35 @@ export const getDirectMessagesLocal = async (friendId: string): Promise<DirectMe
 };
 
 export const getMaxRecordedSequenceLocal = async (friendId: string): Promise<number> => {
-    const messages = await getDirectMessagesLocal(friendId);
-    if (messages.length === 0) return 0;
-    return messages.reduce((max, m) => Math.max(max, m.seq || 0), 0);
+    const db = await getDB();
+    const savedSequence = await db.get('message_sequences', friendId);
+    if (savedSequence) return savedSequence.maxSeq;
+
+    // Backfill sequence metadata for conversations created before DB version 4.
+    const messages = await db.getAllFromIndex('direct_messages', 'by-friend', friendId);
+    const maxSeq = messages.reduce((max, message) => Math.max(max, message.seq || 0), 0);
+    if (maxSeq > 0) {
+        await db.put('message_sequences', { friendId, maxSeq });
+    }
+    return maxSeq;
 };
 
 export const getNextMessageSequenceLocal = async (friendId: string): Promise<number> => {
-    const maxSeq = await getMaxRecordedSequenceLocal(friendId);
-    return maxSeq + 1;
+    const db = await getDB();
+    const tx = db.transaction(['direct_messages', 'message_sequences'], 'readwrite');
+    const sequenceStore = tx.objectStore('message_sequences');
+    const savedSequence = await sequenceStore.get(friendId);
+    let maxSeq = savedSequence?.maxSeq || 0;
+
+    if (!savedSequence) {
+        const messages = await tx.objectStore('direct_messages').index('by-friend').getAll(friendId);
+        maxSeq = messages.reduce((max, message) => Math.max(max, message.seq || 0), 0);
+    }
+
+    const nextSequence = maxSeq + 1;
+    await sequenceStore.put({ friendId, maxSeq: nextSequence });
+    await tx.done;
+    return nextSequence;
 };
 
 export const isMessageReplayOrDuplicateLocal = async (
