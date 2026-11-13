@@ -80,6 +80,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { favorites } = useAppSelector((state) => state.library);
     const { isCallActive, incomingCall } = useAppSelector((state) => state.friends);
     const wasPlayingBeforeCallRef = useRef<boolean>(false);
+    const wasPlayingBeforeAudioFocusLossRef = useRef<boolean>(false);
 
     const pillRef = useRef<HTMLDivElement>(null);
     const [pillDimensions, setPillDimensions] = useState({ width: 0, height: 0 });
@@ -112,6 +113,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const lastProcessedSongId = useRef<string | null>(null);
     const currentSongRef = useRef(currentSong);
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+    const isPlayingRef = useRef(isPlaying);
+    isPlayingRef.current = isPlaying;
 
     const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
@@ -393,13 +396,33 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         if (currentSong) {
             nativeMediaSession.updateMetadata(currentSong, imageUrl);
             nativeMediaSession.registerCallbacks({
-                onPlay: () => dispatch(playMusic({ ...currentSong, forcePlay: true })),
-                onPause: () => dispatch(pauseMusic()),
+                onPlay: () => {
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(playMusic({ ...currentSong, forcePlay: true }));
+                },
+                onPause: () => {
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(pauseMusic());
+                },
                 onNext: () => playNextInQueue(true),
                 onPrevious: prevSong,
                 onSeek: (seconds) => handleSeek(seconds),
-                onHeadphonesDisconnected: () => dispatch(pauseMusic()),
-                onAudioFocusLost: () => dispatch(pauseMusic()),
+                onHeadphonesDisconnected: () => {
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(pauseMusic());
+                },
+                onAudioFocusLost: () => {
+                    if (isPlayingRef.current) {
+                        wasPlayingBeforeAudioFocusLossRef.current = true;
+                        dispatch(pauseMusic());
+                    }
+                },
+                onAudioFocusGained: () => {
+                    if (wasPlayingBeforeAudioFocusLossRef.current && currentSongRef.current) {
+                        wasPlayingBeforeAudioFocusLossRef.current = false;
+                        dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+                    }
+                },
             });
         }
     }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
@@ -839,6 +862,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     };
 
     const handlePlayPause = () => {
+        wasPlayingBeforeAudioFocusLossRef.current = false;
         dispatch(playMusic(currentSong));
     };
 
