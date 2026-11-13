@@ -138,7 +138,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const iceRestartAttemptsRef = useRef(0);
     const qualityIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const lastOutboundBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
-    const networkHandlersRef = useRef<{ online: () => void; offline: () => void } | null>(null);
+    const networkHandlersRef = useRef<{ online: () => void; offline: () => void; visible: () => void } | null>(null);
 
     // Cryptographically collision-resistant callId generator
     const generateCallId = (): string => {
@@ -334,6 +334,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         if (networkHandlersRef.current && typeof window !== 'undefined') {
             window.removeEventListener('online', networkHandlersRef.current.online);
             window.removeEventListener('offline', networkHandlersRef.current.offline);
+            document.removeEventListener('visibilitychange', networkHandlersRef.current.visible);
             networkHandlersRef.current = null;
         }
         if (localStreamRef.current) {
@@ -543,10 +544,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         const handleNetworkOnline = () => scheduleIceRestart(true);
         const handleNetworkOffline = () => dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && !['connected', 'completed'].includes(pc.iceConnectionState)) {
+                scheduleIceRestart(true);
+            }
+        };
         if (typeof window !== 'undefined') {
-            networkHandlersRef.current = { online: handleNetworkOnline, offline: handleNetworkOffline };
+            networkHandlersRef.current = { online: handleNetworkOnline, offline: handleNetworkOffline, visible: handleVisibilityChange };
             window.addEventListener('online', handleNetworkOnline);
             window.addEventListener('offline', handleNetworkOffline);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
         }
 
         if (qualityIntervalRef.current) clearInterval(qualityIntervalRef.current);
@@ -1284,7 +1291,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }, 45000);
         } catch (err) {
             console.error('Failed to get media stream:', err);
-            dispatch(showToast({ message: 'Microphone permission denied or device unavailable', type: 'error' }));
+            if (err instanceof Error && err.message === 'MEDIA_DEVICES_UNAVAILABLE') {
+                dispatch(showToast({ message: 'This browser or device does not support microphone access.', type: 'error' }));
+            }
         }
     }, [checkRecipientOnline, userId, userName, dispatch, sendToUser, clearTimers, cleanupCallResources]);
 
@@ -1514,7 +1523,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 });
             } catch (err) {
                 console.warn('Failed to enable camera track:', err);
-                dispatch(showToast({ message: 'Could not access camera', type: 'error' }));
+                dispatch(showToast({ message: getMediaAccessErrorMessage(err, 'camera'), type: 'error' }));
             }
         } else {
             // VIBE-BUG-006: Explicitly stop camera hardware sensor and release sender track
@@ -1615,7 +1624,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 dispatch(setCallFacingMode(nextFacing));
             } catch (e2) {
                 console.warn('Fallback camera flip failed:', e2);
-                dispatch(showToast({ message: 'Secondary camera not found on device', type: 'info' }));
+                dispatch(showToast({ message: getMediaAccessErrorMessage(e2, 'camera'), type: 'info' }));
             }
         }
     }, [dispatch]);
