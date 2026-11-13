@@ -53,8 +53,10 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
             result = audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
         }
 
+        boolean granted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        if (granted) audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         registerNoisyReceiver();
-        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        return granted;
     }
 
     public void setSpeakerphoneOn(boolean enabled) {
