@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { nativeMediaSession, MediaControlsCallbacks } from './nativeMediaSessionService';
 
+const { requestAudioFocusMock } = vi.hoisted(() => ({
+    requestAudioFocusMock: vi.fn().mockResolvedValue({ granted: true }),
+}));
+
 vi.mock('@capacitor/core', () => ({
     Capacitor: {
         isNativePlatform: vi.fn(() => true),
     },
     registerPlugin: vi.fn(() => ({
-        requestAudioFocus: vi.fn().mockResolvedValue({ granted: true }),
+        requestAudioFocus: requestAudioFocusMock,
         abandonAudioFocus: vi.fn().mockResolvedValue(undefined),
         addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
     })),
@@ -62,13 +66,29 @@ describe('NativeMediaSessionBridge', () => {
         });
     });
 
-    it('updates playback state and requests audio focus on play', async () => {
+    it('starts the media foreground service before requesting media audio focus', async () => {
         const { MediaSession } = await import('@capgo/capacitor-media-session');
-        await nativeMediaSession.updatePlaybackState(true);
+        const accepted = await nativeMediaSession.updatePlaybackState(true);
+
+        expect(accepted).toBe(true);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'playing' });
+        expect(requestAudioFocusMock).toHaveBeenCalledWith({ forCall: false });
+        expect(MediaSession.setPlaybackState.mock.invocationCallOrder[0])
+            .toBeLessThan(requestAudioFocusMock.mock.invocationCallOrder[0]);
 
         await nativeMediaSession.updatePlaybackState(false);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'paused' });
+    });
+
+    it('reports denied media focus and rolls the native session back to paused', async () => {
+        const { MediaSession } = await import('@capgo/capacitor-media-session');
+        requestAudioFocusMock.mockResolvedValueOnce({ granted: false });
+
+        const accepted = await nativeMediaSession.updatePlaybackState(true);
+
+        expect(accepted).toBe(false);
+        expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(1, { playbackState: 'playing' });
+        expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(2, { playbackState: 'paused' });
     });
 
     it('updates position state correctly', async () => {
