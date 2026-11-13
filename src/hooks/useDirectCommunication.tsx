@@ -1511,6 +1511,31 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         };
     }, [isCallActive, activeCall, toggleMute, endCall, dispatch]);
 
+    // Surface incoming calls above the lock screen and route native Answer / Decline actions back into the same call flow.
+    useEffect(() => {
+        if (!incomingCall) {
+            nativeCallNotificationService.clearIncomingCallNotification();
+            return;
+        }
+
+        nativeCallNotificationService.showIncomingCallNotification({
+            callerName: incomingCall.callerName,
+            callType: incomingCall.callType,
+        });
+        nativeCallNotificationService.setupActionListener((action) => {
+            if (action === 'acceptCall') {
+                acceptIncomingCall(incomingCall.callerId, incomingCall.callerName);
+            } else if (action === 'declineCall') {
+                declineIncomingCall(incomingCall.callerId);
+            }
+        });
+
+        return () => {
+            nativeCallNotificationService.clearIncomingCallNotification();
+            nativeCallNotificationService.removeActionListener();
+        };
+    }, [incomingCall?.callId, acceptIncomingCall, declineIncomingCall]);
+
     // Toggle Video Camera with reusable RTCRtpSender
     const toggleVideo = useCallback(async () => {
         const active = activeCallRef.current;
