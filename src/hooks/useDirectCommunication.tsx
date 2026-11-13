@@ -36,6 +36,7 @@ import {
     Friend,
     DirectMessage,
     CallLogEntry,
+    CallOutcome,
 } from '../utils/friendsDb';
 import { e2eeService, EncryptedPayload } from '../services/e2eeService';
 import { aggregateUserPresenceSessions } from '../utils/presenceUtils';
@@ -270,6 +271,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             });
         }
     }, [activeFriendId, dispatch, sendToUser, userId]);
+
+    // Persist incoming calls that never become an active WebRTC call.
+    const logIncomingCall = useCallback((
+        call: { callId: string; callerId: string; callerName: string; callType: CallType; receivedAt?: number },
+        outcome: CallOutcome
+    ) => {
+        const logEntry: CallLogEntry = {
+            id: `log-${call.callId}`,
+            callId: call.callId,
+            peerId: call.callerId,
+            peerName: call.callerName,
+            direction: 'incoming',
+            outcome,
+            callType: call.callType,
+            startedAt: call.receivedAt || Date.now(),
+            durationSeconds: 0,
+        };
+        saveCallLogLocal(logEntry).catch((err) => console.warn('Error saving incoming call log:', err));
+    }, []);
 
     // Idempotent resource cleanup with Call History logging
     const cleanupCallResources = useCallback((targetCallId?: string, outcomeOverride?: 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled') => {
@@ -716,6 +736,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     if (incomingRingingTimeoutRef.current) clearTimeout(incomingRingingTimeoutRef.current);
                     incomingRingingTimeoutRef.current = setTimeout(() => {
                         if (incomingCallRef.current?.callId === incomingCallPayload.callId) {
+                            logIncomingCall(incomingCallRef.current, 'missed');
                             soundService.stopIncomingCallRingtone();
                             dispatch(setIncomingCall(null));
                             dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
@@ -734,6 +755,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         incomingRingingTimeoutRef.current = null;
                     }
                     if (incomingId === callId || (!incomingId && !activeId)) {
+                        if (incomingId === callId && incomingCallRef.current) {
+                            logIncomingCall(incomingCallRef.current, 'cancelled');
+                        }
                         dispatch(setIncomingCall(null));
                         dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
                     }
@@ -743,7 +767,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 if (signalType === 'call-busy') {
                     if (activeId === callId) {
                         dispatch(showToast({ message: `${senderName || 'Contact'} is busy on another call`, type: 'info' }));
-                        cleanupCallResources(callId);
+                        cleanupCallResources(callId, 'busy');
                     }
                     return;
                 }
@@ -752,7 +776,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     soundService.stopIncomingCallRingtone();
                     if (activeId === callId) {
                         dispatch(showToast({ message: `${senderName || 'Contact'} declined the call` }));
-                        cleanupCallResources(callId);
+                        cleanupCallResources(callId, 'declined');
                     }
                     return;
                 }
@@ -1165,6 +1189,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         const incoming = incomingCallRef.current;
         const currentCallId = incoming?.callId;
+        if (incoming) logIncomingCall(incoming, 'declined');
 
         dispatch(setIncomingCall(null));
         sendToUser(callerId, 'direct_signal', {
@@ -1173,7 +1198,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             senderName: userName,
             signalType: 'call-declined',
         });
-    }, [userId, userName, dispatch, sendToUser]);
+    }, [userId, userName, dispatch, sendToUser, logIncomingCall]);
 
     // End / Cancel current call
     const endCall = useCallback(() => {
