@@ -735,8 +735,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     // Callee-side 45-second auto-expiration (VIBE-BUG-004)
                     if (incomingRingingTimeoutRef.current) clearTimeout(incomingRingingTimeoutRef.current);
                     incomingRingingTimeoutRef.current = setTimeout(() => {
-                        if (incomingCallRef.current?.callId === incomingCallPayload.callId) {
-                            logIncomingCall(incomingCallRef.current, 'missed');
+                        const expiredCall = incomingCallRef.current;
+                        if (expiredCall?.callId === incomingCallPayload.callId) {
+                            logIncomingCall(expiredCall, 'missed');
                             soundService.stopIncomingCallRingtone();
                             dispatch(setIncomingCall(null));
                             dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
@@ -755,9 +756,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         incomingRingingTimeoutRef.current = null;
                     }
                     if (incomingId === callId || (!incomingId && !activeId)) {
-                        if (incomingId === callId && incomingCallRef.current) {
-                            logIncomingCall(incomingCallRef.current, 'cancelled');
-                        }
+                        const cancelledIncoming = incomingId === callId ? incomingCallRef.current : null;
+                        if (cancelledIncoming) logIncomingCall(cancelledIncoming, 'cancelled');
                         dispatch(setIncomingCall(null));
                         dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
                     }
@@ -948,7 +948,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         return () => {
             channel.unsubscribe();
         };
-    }, [userId, userName, dispatch, getOrCreatePeerConnection, sendToUser, cleanupCallResources, clearTimers]);
+    }, [userId, userName, dispatch, getOrCreatePeerConnection, sendToUser, cleanupCallResources, clearTimers, logIncomingCall]);
 
     // Send 1-on-1 direct message with E2EE encryption and sequence counter
     const sendDirectMessage = useCallback(async (friendId: string, text: string) => {
