@@ -38,12 +38,16 @@ Listen to music in sync with friends, no matter where they are:
 ### 4.1 Social Hub & Direct Friends Communication
 Experience a complete social layer inside Vibe On via the Friends Hub:
 * **Top Tab Navigation**: Easily switch between **Chats**, **Calls**, **Discover**, and **Activity**.
-* **Call History**: Track all incoming, outgoing, and missed voice/video calls with duration, outcomes, and one-tap callback.
+* **Call History**: Track incoming, outgoing, and missed voice/video calls with duration, outcomes, one-tap callback, individual record deletion, and clear-all controls. Call history is stored on this device.
+* **Chat History Controls**: Delete individual messages or clear an entire conversation from this device. These actions do not remove messages from the other participant's device.
 * **Discover Friends**: Search for friends by username or display name, manage incoming and outgoing friend requests, and preview profiles.
 * **Live Listening Activity**: See what your friends are currently listening to with live equalizer animations, and jump straight into their tracks with one tap while preserving your queue.
 * **Friend Profiles**: View friends' custom bios, avatars, and favorite tracks while respecting private profile settings.
 * **Social Notifications**: Bell icon with live unread badge count for friend requests and missed calls.
 * **Direct P2P Voice & Video Calling**: WebRTC-powered voice and video calls with camera flip, mute, speaker toggles, and Android back button minimization.
+* **Call Waiting**: One additional caller can wait while you're on a call. Finish the active call to receive the waiting call; additional simultaneous callers are shown as busy.
+* **Connection Recovery & Quality**: Calls attempt ICE recovery after network changes and app resume. The call screen shows live connection quality, including latency when available.
+* **Android Background Calls**: Incoming calls can show lock-screen notifications with Answer/Decline actions; active calls use an ongoing notification with mute/end actions, a foreground service, and a partial wake lock. Incoming-call notifications require Vibe On's process and Realtime connection to still be alive; a force-stopped app cannot receive a new call notification. Android may still terminate active calls if the operating system kills the app process or the app is force-stopped; keep Vibe On updated and grant microphone/camera permissions.
 
 ### 5. High-Fidelity Audio Visualizers
 Bring your music to life visually with five custom canvas-based visualizers:

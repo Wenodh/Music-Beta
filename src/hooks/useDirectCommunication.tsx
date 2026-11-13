@@ -8,6 +8,9 @@ import {
     updateMessageStatus,
     markFriendMessagesSeen,
     setIncomingCall,
+    setWaitingCall,
+    promoteWaitingCall,
+    setCallQuality,
     startDirectCall,
     updateCallStatus,
     setCallMuted,
@@ -19,6 +22,7 @@ import {
     endDirectCall,
 } from '../features/friends/friendsSlice';
 import { CallType } from '../types/call';
+import { classifyCallQuality, getIceRestartDelay, getMediaAccessErrorMessage, MAX_ICE_RESTART_ATTEMPTS } from '../services/webrtc/callReliability';
 import { persistentAudioManager } from '../services/webrtc/persistentAudioManager';
 import { iceServerService } from '../services/webrtc/iceServerService';
 import { showToast } from '../features/ui/uiSlice';
@@ -36,6 +40,7 @@ import {
     Friend,
     DirectMessage,
     CallLogEntry,
+    CallOutcome,
 } from '../utils/friendsDb';
 import { e2eeService, EncryptedPayload } from '../services/e2eeService';
 import { aggregateUserPresenceSessions } from '../utils/presenceUtils';
@@ -64,7 +69,7 @@ const DirectCommunicationContext = createContext<DirectCommunicationContextValue
 export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.auth);
-    const { friendsList, activeFriendId, isCallActive, activeCallFriend, activeCall, incomingCall, isMuted } = useAppSelector(
+    const { friendsList, activeFriendId, isCallActive, activeCallFriend, activeCall, incomingCall, waitingCall, isMuted } = useAppSelector(
         (state) => state.friends
     );
     const { onlinePresenceMap } = useAppSelector((state) => state.social);
@@ -118,8 +123,12 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const incomingCallRef = useRef(incomingCall);
     incomingCallRef.current = incomingCall;
 
+    const waitingCallRef = useRef(waitingCall);
+    waitingCallRef.current = waitingCall;
+
     const isCallActiveRef = useRef(isCallActive);
     isCallActiveRef.current = isCallActive;
+    const callAudioFocusHeldRef = useRef(false);
 
     const onlinePresenceMapRef = useRef(onlinePresenceMap);
     onlinePresenceMapRef.current = onlinePresenceMap;
@@ -127,6 +136,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const incomingRingingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const iceRestartAttemptsRef = useRef(0);
+    const qualityIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const lastOutboundBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
+    const networkHandlersRef = useRef<{ online: () => void; offline: () => void; visible: () => void } | null>(null);
+    const foregroundWarningCallRef = useRef<string | null>(null);
 
     // Cryptographically collision-resistant callId generator
     const generateCallId = (): string => {
@@ -135,6 +149,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
         return `call-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
     };
+
+    const promoteQueuedCall = useCallback(() => {
+        const queued = waitingCallRef.current;
+        if (!queued || incomingCallRef.current) return;
+        dispatch(promoteWaitingCall());
+        waitingCallRef.current = null;
+        incomingCallRef.current = queued;
+    }, [dispatch]);
 
     const clearTimers = useCallback(() => {
         if (ringingTimeoutRef.current) {
@@ -197,27 +219,37 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             outboundChannelsRef.current.set(targetUserId, entry);
         }
 
-        if (targetChannel.state !== 'joined') {
-            await new Promise<void>((resolve) => {
-                targetChannel!.subscribe((status) => {
-                    if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                        resolve();
-                    }
-                });
-            });
-        }
-
         try {
+            if (targetChannel.state !== 'joined') {
+                const subscriptionStatus = await new Promise<string>((resolve) => {
+                    const timeout = setTimeout(() => resolve('TIMED_OUT'), 10000);
+                    targetChannel!.subscribe((status) => {
+                        if (['SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+                            clearTimeout(timeout);
+                            resolve(status);
+                        }
+                    });
+                });
+
+                if (subscriptionStatus !== 'SUBSCRIBED') {
+                    throw new Error(`Realtime channel ${targetChannelName} did not subscribe: ${subscriptionStatus}`);
+                }
+            }
+
             const enrichedPayload = await enrichPayloadWithGuestEnvelope(targetUserId, event, payload);
-            await targetChannel.send({
+            const sendStatus = await targetChannel.send({
                 type: 'broadcast',
                 event,
                 payload: enrichedPayload,
             });
-        } catch (e) {
-            console.warn(`Error sending ${event} to ${targetUserId}:`, e);
+
+            if (sendStatus !== 'ok') {
+                throw new Error(`Realtime broadcast ${event} to ${targetUserId} returned ${sendStatus}`);
+            }
+        } catch (error) {
+            console.warn(`[Realtime] Failed to send ${event} to ${targetUserId}:`, error);
         } finally {
-            // Schedule 30-second idle channel cleanup
+            // Schedule 30-second idle channel cleanup after both successful and failed attempts.
             if (entry) {
                 entry.idleTimer = setTimeout(() => {
                     try {
@@ -271,9 +303,38 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
     }, [activeFriendId, dispatch, sendToUser, userId]);
 
+    // Persist incoming calls that never become an active WebRTC call.
+    const logIncomingCall = useCallback((
+        call: { callId: string; callerId: string; callerName: string; callType: CallType; receivedAt?: number },
+        outcome: CallOutcome
+    ) => {
+        const logEntry: CallLogEntry = {
+            id: `log-${call.callId}`,
+            callId: call.callId,
+            peerId: call.callerId,
+            peerName: call.callerName,
+            direction: 'incoming',
+            outcome,
+            callType: call.callType,
+            startedAt: call.receivedAt || Date.now(),
+            durationSeconds: 0,
+        };
+        saveCallLogLocal(logEntry).catch((err) => console.warn('Error saving incoming call log:', err));
+    }, []);
+
     // Idempotent resource cleanup with Call History logging
     const cleanupCallResources = useCallback((targetCallId?: string, outcomeOverride?: 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled') => {
+        // Ignore late signals/timeouts for a call that is no longer active or incoming.
+        // A stale call ID must never tear down a newer call's peer connection.
+        if (targetCallId && activeCallRef.current?.callId !== targetCallId && incomingCallRef.current?.callId !== targetCallId) return;
         clearTimers();
+        const pendingIncoming = incomingCallRef.current;
+        if (pendingIncoming && (!targetCallId || pendingIncoming.callId === targetCallId)) {
+            logIncomingCall(pendingIncoming, 'cancelled');
+            incomingCallRef.current = null;
+        }
+        iceRestartAttemptsRef.current = 0;
+        lastOutboundBytesRef.current = null;
 
         const active = activeCallRef.current;
         if (active && (!targetCallId || active.callId === targetCallId)) {
@@ -295,6 +356,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             saveCallLogLocal(logEntry).catch((err) => console.warn('Error saving call log:', err));
         }
 
+        if (qualityIntervalRef.current) {
+            clearInterval(qualityIntervalRef.current);
+            qualityIntervalRef.current = null;
+        }
+        if (networkHandlersRef.current && typeof window !== 'undefined') {
+            window.removeEventListener('online', networkHandlersRef.current.online);
+            window.removeEventListener('offline', networkHandlersRef.current.offline);
+            document.removeEventListener('visibilitychange', networkHandlersRef.current.visible);
+            networkHandlersRef.current = null;
+        }
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach((t) => {
                 try {
@@ -316,6 +387,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 peerConnectionRef.current.onicecandidate = null;
                 peerConnectionRef.current.ontrack = null;
                 peerConnectionRef.current.oniceconnectionstatechange = null;
+                peerConnectionRef.current.onconnectionstatechange = null;
                 peerConnectionRef.current.onnegotiationneeded = null;
                 peerConnectionRef.current.close();
             } catch (e) {
@@ -325,8 +397,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
 
         dispatch(endDirectCall(targetCallId ? { callId: targetCallId } : undefined));
-        nativeCallNotificationService.clearCallNotification();
-    }, [clearTimers, dispatch]);
+        dispatch(setCallQuality(null));
+        promoteQueuedCall();
+        nativeCallNotificationService.stopForegroundCall();
+    }, [clearTimers, dispatch, promoteQueuedCall, logIncomingCall]);
 
     // Setup RTCPeerConnection instance helper with Perfect Negotiation support
     const getOrCreatePeerConnection = useCallback((targetId: string, currentCallId: string) => {
@@ -427,55 +501,175 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
         };
 
-        pc.oniceconnectionstatechange = async () => {
+        const attemptIceRestart = async () => {
+            if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc ||
+                iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) return;
+
+            // ICE restart is another offer. Serialize it with Perfect Negotiation so a network
+            // change cannot race an in-flight local/remote offer and corrupt signaling state.
+            if (makingOfferRef.current || isSettingRemoteAnswerPendingRef.current || pc.signalingState !== 'stable') {
+                scheduleIceRestart();
+                return;
+            }
+
+            iceRestartAttemptsRef.current += 1;
+            dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+            try {
+                const freshConfig = await iceServerService.getIceServers();
+                if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+                if (pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
+                    scheduleIceRestart();
+                    return;
+                }
+
+                pc.setConfiguration({
+                    iceServers: freshConfig.iceServers,
+                    iceTransportPolicy: freshConfig.iceTransportPolicy,
+                });
+                makingOfferRef.current = true;
+                const offer = await pc.createOffer({ iceRestart: true });
+                if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+                if (pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
+                    scheduleIceRestart();
+                    return;
+                }
+
+                await pc.setLocalDescription(offer);
+                await sendToUser(targetId, 'direct_signal', {
+                    callId: currentCallId,
+                    senderId: userId,
+                    senderName: userName,
+                    signalType: 'offer',
+                    sdp: pc.localDescription,
+                });
+                if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    reconnectTimeoutRef.current = null;
+                    if (peerConnectionRef.current === pc &&
+                        !['connected', 'completed'].includes(pc.iceConnectionState)) {
+                        if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
+                            dispatch(showToast({ message: 'The network is still unstable. Try switching networks or ending the call.', type: 'error' }));
+                        } else {
+                            scheduleIceRestart(true);
+                        }
+                    }
+                }, 9000);
+            } catch (error) {
+                console.warn('[WebRTC] ICE restart attempt failed:', error);
+                if (iceRestartAttemptsRef.current < MAX_ICE_RESTART_ATTEMPTS && !reconnectTimeoutRef.current) {
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        reconnectTimeoutRef.current = null;
+                        void attemptIceRestart();
+                    }, getIceRestartDelay(iceRestartAttemptsRef.current));
+                } else if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
+                    dispatch(showToast({ message: 'Unable to restore the call connection. End the call and try again.', type: 'error' }));
+                }
+            } finally {
+                makingOfferRef.current = false;
+            }
+        };
+
+        const scheduleIceRestart = (immediate = false) => {
+            if (reconnectTimeoutRef.current || iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) return;
+            reconnectTimeoutRef.current = setTimeout(() => {
+                reconnectTimeoutRef.current = null;
+                void attemptIceRestart();
+            }, immediate ? 0 : getIceRestartDelay(iceRestartAttemptsRef.current + 1));
+        };
+
+        pc.oniceconnectionstatechange = () => {
             const state = pc.iceConnectionState;
             if (state === 'connected' || state === 'completed') {
-                if (reconnectTimeoutRef.current) {
-                    clearTimeout(reconnectTimeoutRef.current);
-                    reconnectTimeoutRef.current = null;
-                }
+                if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
+                iceRestartAttemptsRef.current = 0;
                 dispatch(updateCallStatus({ status: 'connected', callId: currentCallId }));
             } else if (state === 'disconnected') {
                 dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
-                // Attempt ICE restart if disconnected persists
-                if (!reconnectTimeoutRef.current) {
-                    reconnectTimeoutRef.current = setTimeout(async () => {
-                        if (pc.iceConnectionState === 'disconnected') {
-                            try {
-                                // Refresh TURN/STUN credentials before attempting ICE restart
-                                const freshConfig = await iceServerService.getIceServers();
-                                if (pc.setConfiguration && pc.signalingState !== 'closed') {
-                                    pc.setConfiguration({
-                                        iceServers: freshConfig.iceServers,
-                                        iceTransportPolicy: freshConfig.iceTransportPolicy,
-                                    });
-                                }
-
-                                if ('restartIce' in pc && typeof (pc as any).restartIce === 'function') {
-                                    (pc as any).restartIce();
-                                }
-                                const offer = await pc.createOffer({ iceRestart: true });
-                                await pc.setLocalDescription(offer);
-                                sendToUser(targetId, 'direct_signal', {
-                                    callId: currentCallId,
-                                    senderId: userId,
-                                    senderName: userName,
-                                    signalType: 'offer',
-                                    sdp: pc.localDescription,
-                                });
-                            } catch (e) {
-                                console.warn('ICE restart attempt error:', e);
-                            }
-                        }
-                    }, 5000);
-                }
+                scheduleIceRestart();
             } else if (state === 'failed') {
-                dispatch(showToast({ message: 'Call disconnected due to network failure', type: 'error' }));
-                cleanupCallResources(currentCallId);
-            } else if (state === 'closed') {
-                cleanupCallResources(currentCallId);
+                dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+                scheduleIceRestart(true);
             }
         };
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'connected') {
+                iceRestartAttemptsRef.current = 0;
+                dispatch(updateCallStatus({ status: 'connected', callId: currentCallId }));
+            } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+                scheduleIceRestart(pc.connectionState === 'failed');
+            }
+        };
+
+        const handleNetworkOnline = () => {
+            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+            scheduleIceRestart(true);
+        };
+        const handleNetworkOffline = () => dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && !['connected', 'completed'].includes(pc.iceConnectionState)) {
+                if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
+                scheduleIceRestart(true);
+            }
+        };
+        if (typeof window !== 'undefined') {
+            networkHandlersRef.current = { online: handleNetworkOnline, offline: handleNetworkOffline, visible: handleVisibilityChange };
+            window.addEventListener('online', handleNetworkOnline);
+            window.addEventListener('offline', handleNetworkOffline);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+        }
+
+        if (qualityIntervalRef.current) clearInterval(qualityIntervalRef.current);
+        qualityIntervalRef.current = setInterval(async () => {
+            if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+            try {
+                const stats = await pc.getStats();
+                let rttMs: number | null = null;
+                let jitterMs: number | null = null;
+                let packetsLost = 0;
+                let packetsReceived = 0;
+                let bitrateKbps: number | null = null;
+                let outboundBytes: number | null = null;
+                let outboundTimestamp: number | null = null;
+
+                stats.forEach((stat: any) => {
+                    if (stat.type === 'candidate-pair' && (stat.selected || (stat.nominated && stat.state === 'succeeded'))) {
+                        if (typeof stat.currentRoundTripTime === 'number') rttMs = stat.currentRoundTripTime * 1000;
+                    }
+                    if (stat.type === 'remote-inbound-rtp' && typeof stat.roundTripTime === 'number') {
+                        rttMs = stat.roundTripTime * 1000;
+                    }
+                    if (stat.type === 'inbound-rtp' && !stat.isRemote) {
+                        if (typeof stat.jitter === 'number') jitterMs = stat.jitter * 1000;
+                        packetsLost += Math.max(0, stat.packetsLost || 0);
+                        packetsReceived += Math.max(0, stat.packetsReceived || 0);
+                    }
+                    if (stat.type === 'outbound-rtp' && !stat.isRemote && typeof stat.bytesSent === 'number') {
+                        outboundBytes = (outboundBytes || 0) + stat.bytesSent;
+                        outboundTimestamp = stat.timestamp;
+                    }
+                });
+
+                if (outboundBytes !== null && outboundTimestamp !== null) {
+                    const previous = lastOutboundBytesRef.current;
+                    if (previous && outboundTimestamp > previous.timestamp && outboundBytes >= previous.bytes) {
+                        bitrateKbps = ((outboundBytes - previous.bytes) * 8) /
+                            (outboundTimestamp - previous.timestamp);
+                    }
+                    lastOutboundBytesRef.current = { bytes: outboundBytes, timestamp: outboundTimestamp };
+                }
+                const packetLossPercent = packetsLost + packetsReceived > 0
+                    ? (packetsLost / (packetsLost + packetsReceived)) * 100
+                    : null;
+                dispatch(setCallQuality(classifyCallQuality({ rttMs, jitterMs, packetLossPercent, bitrateKbps })));
+            } catch (error) {
+                console.debug('[WebRTC] getStats quality sample unavailable:', error);
+            }
+        }, 3000);
 
         peerConnectionRef.current = pc;
         return pc;
@@ -677,12 +871,33 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                             cleanupCallResources(activeCallRef.current.callId);
                         }
                     } else if (isBusy) {
-                        sendToUser(senderId, 'direct_signal', {
-                            callId,
-                            senderId: userId,
-                            senderName: userName,
-                            signalType: 'call-busy',
-                        });
+                        const canWait = Boolean(activeCallRef.current && !incomingCallRef.current && !waitingCallRef.current);
+                        if (canWait) {
+                            const waitingPayload = {
+                                callId: callId || `call-${Date.now()}`,
+                                callerId: senderId,
+                                callerName: senderName || 'Caller',
+                                channelName: `user:${userId}`,
+                                callType,
+                                receivedAt: Date.now(),
+                            };
+                            waitingCallRef.current = waitingPayload;
+                            dispatch(setWaitingCall(waitingPayload));
+                            sendToUser(senderId, 'direct_signal', {
+                                callId,
+                                senderId: userId,
+                                senderName: userName,
+                                signalType: 'call-waiting',
+                            });
+                            dispatch(showToast({ message: `Call waiting: ${waitingPayload.callerName}`, type: 'info' }));
+                        } else {
+                            sendToUser(senderId, 'direct_signal', {
+                                callId,
+                                senderId: userId,
+                                senderName: userName,
+                                signalType: 'call-busy',
+                            });
+                        }
                         return;
                     }
 
@@ -707,6 +922,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         receivedAt: Date.now(),
                     };
 
+                    incomingCallRef.current = incomingCallPayload;
                     dispatch(setIncomingCall(incomingCallPayload));
 
                     // Start continuous ringtone
@@ -715,11 +931,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     // Callee-side 45-second auto-expiration (VIBE-BUG-004)
                     if (incomingRingingTimeoutRef.current) clearTimeout(incomingRingingTimeoutRef.current);
                     incomingRingingTimeoutRef.current = setTimeout(() => {
-                        if (incomingCallRef.current?.callId === incomingCallPayload.callId) {
+                        const expiredCall = incomingCallRef.current;
+                        if (expiredCall?.callId === incomingCallPayload.callId) {
+                            logIncomingCall(expiredCall, 'missed');
                             soundService.stopIncomingCallRingtone();
+                            incomingCallRef.current = null;
                             dispatch(setIncomingCall(null));
                             dispatch(showToast({ message: `Missed call from ${senderName || 'Friend'}`, type: 'info' }));
                         }
+                        // Always release the timer handle, even if this timeout belongs to a stale call.
+                        incomingRingingTimeoutRef.current = null;
                     }, 45000);
                     return;
                 }
@@ -728,38 +949,54 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const incomingId = incomingCallRef.current?.callId;
 
                 if (signalType === 'call-cancelled') {
+                    if (waitingCallRef.current?.callId === callId) {
+                        waitingCallRef.current = null;
+                        dispatch(setWaitingCall(null));
+                        dispatch(showToast({ message: (senderName || 'Caller') + ' cancelled the waiting call', type: 'info' }));
+                        return;
+                    }
+                    // Ignore delayed cancellation signals for calls that are no longer ringing.
+                    if (incomingId !== callId) return;
                     soundService.stopIncomingCallRingtone();
                     if (incomingRingingTimeoutRef.current) {
                         clearTimeout(incomingRingingTimeoutRef.current);
                         incomingRingingTimeoutRef.current = null;
                     }
-                    if (incomingId === callId || (!incomingId && !activeId)) {
-                        dispatch(setIncomingCall(null));
-                        dispatch(showToast({ message: `${senderName || 'Caller'} cancelled the call` }));
+                    const cancelledIncoming = incomingCallRef.current;
+                    if (cancelledIncoming) logIncomingCall(cancelledIncoming, 'cancelled');
+                    incomingCallRef.current = null;
+                    dispatch(setIncomingCall(null));
+                    dispatch(showToast({ message: (senderName || 'Caller') + ' cancelled the call' }));
+                    return;
+                }
+
+                if (signalType === 'call-waiting') {
+                    if (activeId === callId) {
+                        dispatch(showToast({ message: (senderName || 'Contact') + ' will be waiting while you finish another call.', type: 'info' }));
                     }
                     return;
                 }
 
                 if (signalType === 'call-busy') {
                     if (activeId === callId) {
-                        dispatch(showToast({ message: `${senderName || 'Contact'} is busy on another call`, type: 'info' }));
-                        cleanupCallResources(callId);
+                        dispatch(showToast({ message: (senderName || 'Contact') + ' is busy on another call', type: 'info' }));
+                        cleanupCallResources(callId, 'busy');
                     }
                     return;
                 }
 
                 if (signalType === 'call-declined') {
-                    soundService.stopIncomingCallRingtone();
                     if (activeId === callId) {
-                        dispatch(showToast({ message: `${senderName || 'Contact'} declined the call` }));
-                        cleanupCallResources(callId);
+                        soundService.stopIncomingCallRingtone();
+                        dispatch(showToast({ message: (senderName || 'Contact') + ' declined the call' }));
+                        cleanupCallResources(callId, 'declined');
                     }
                     return;
                 }
 
                 if (signalType === 'call-ended') {
-                    soundService.stopIncomingCallRingtone();
                     if (activeId === callId || incomingId === callId) {
+                        soundService.stopIncomingCallRingtone();
                         dispatch(showToast({ message: 'Call ended' }));
                         cleanupCallResources(callId);
                     }
@@ -924,7 +1161,24 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         return () => {
             channel.unsubscribe();
         };
-    }, [userId, userName, dispatch, getOrCreatePeerConnection, sendToUser, cleanupCallResources, clearTimers]);
+    }, [userId, userName, dispatch, getOrCreatePeerConnection, sendToUser, cleanupCallResources, clearTimers, logIncomingCall]);
+
+    // Calls promoted from the waiting queue use the same ringing timeout and missed-call history path.
+    useEffect(() => {
+        if (!incomingCall || incomingRingingTimeoutRef.current) return;
+        soundService.startIncomingCallRingtone(incomingCall.callType);
+        incomingRingingTimeoutRef.current = setTimeout(() => {
+            const expiredCall = incomingCallRef.current;
+            if (expiredCall?.callId === incomingCall.callId) {
+                logIncomingCall(expiredCall, 'missed');
+                soundService.stopIncomingCallRingtone();
+                incomingCallRef.current = null;
+                dispatch(setIncomingCall(null));
+                dispatch(showToast({ message: `Missed call from ${expiredCall.callerName}`, type: 'info' }));
+            }
+            incomingRingingTimeoutRef.current = null;
+        }, 45000);
+    }, [incomingCall?.callId, dispatch, logIncomingCall]);
 
     // Send 1-on-1 direct message with E2EE encryption and sequence counter
     const sendDirectMessage = useCallback(async (friendId: string, text: string) => {
@@ -982,22 +1236,35 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Acquire media stream with camera fallback
     const acquireMediaStream = async (requestedCallType: CallType): Promise<{ stream: MediaStream; hasVideo: boolean }> => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('MEDIA_DEVICES_UNAVAILABLE');
+        }
         if (requestedCallType === 'video') {
+            let audioStream: MediaStream;
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (error) {
+                dispatch(showToast({ message: getMediaAccessErrorMessage(error, 'microphone'), type: 'error' }));
+                throw error;
+            }
+            try {
+                const videoStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
                     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                 });
-                return { stream, hasVideo: true };
-            } catch (err) {
-                console.warn('Video access denied/failed, falling back to audio only:', err);
-                dispatch(showToast({ message: 'Camera unavailable. Proceeding with voice only.', type: 'info' }));
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const videoTrack = videoStream.getVideoTracks()[0];
+                if (videoTrack) audioStream.addTrack(videoTrack);
+                return { stream: audioStream, hasVideo: Boolean(videoTrack) };
+            } catch (error) {
+                dispatch(showToast({ message: `${getMediaAccessErrorMessage(error, 'camera')} Continuing with voice only.`, type: 'info' }));
                 return { stream: audioStream, hasVideo: false };
             }
-        } else {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            return { stream, hasVideo: false };
+        }
+        try {
+            return { stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: false }), hasVideo: false };
+        } catch (error) {
+            dispatch(showToast({ message: getMediaAccessErrorMessage(error, 'microphone'), type: 'error' }));
+            throw error;
         }
     };
 
@@ -1039,6 +1306,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Start 1-click call to a friend (supports audio and video)
     // Signaling-First implementation: Presence is informational, NOT an unconditional gate.
     const callFriend = useCallback(async (friend: Friend, requestedCallType: CallType = 'audio') => {
+        if (isCallActiveRef.current || incomingCallRef.current) {
+            dispatch(showToast({ message: 'Finish or decline the current call before starting another.', type: 'info' }));
+            return;
+        }
         // Presence is evaluated for informational awareness only (e.g. logging)
         const isOnline = checkRecipientOnline(friend.id);
         if (!isOnline) {
@@ -1092,7 +1363,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }, 45000);
         } catch (err) {
             console.error('Failed to get media stream:', err);
-            dispatch(showToast({ message: 'Microphone permission denied or device unavailable', type: 'error' }));
+            if (err instanceof Error && err.message === 'MEDIA_DEVICES_UNAVAILABLE') {
+                dispatch(showToast({ message: 'This browser or device does not support microphone access.', type: 'error' }));
+            }
         }
     }, [checkRecipientOnline, userId, userName, dispatch, sendToUser, clearTimers, cleanupCallResources]);
 
@@ -1105,6 +1378,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
 
         const incoming = incomingCallRef.current;
+        if (isCallActiveRef.current) {
+            dispatch(showToast({ message: 'End the active call before answering the waiting call.', type: 'info' }));
+            return;
+        }
         const currentCallId = incoming?.callId || generateCallId();
         const incomingCallType = incoming?.callType || 'audio';
 
@@ -1121,6 +1398,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
             await saveFriendLocal(friendObj);
 
+            incomingCallRef.current = null;
             dispatch(startDirectCall({
                 callId: currentCallId,
                 friendId: callerId,
@@ -1145,7 +1423,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         } catch (err) {
             console.error('Failed to accept call media stream:', err);
             dispatch(showToast({ message: 'Could not access audio hardware', type: 'error' }));
+            incomingCallRef.current = null;
             dispatch(setIncomingCall(null));
+            promoteQueuedCall();
             sendToUser(callerId, 'direct_signal', {
                 callId: currentCallId,
                 senderId: userId,
@@ -1153,7 +1433,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 signalType: 'call-declined',
             });
         }
-    }, [userId, userName, dispatch, sendToUser]);
+    }, [userId, userName, dispatch, sendToUser, promoteQueuedCall]);
 
     // Decline incoming call
     const declineIncomingCall = useCallback((callerId: string) => {
@@ -1165,15 +1445,18 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         const incoming = incomingCallRef.current;
         const currentCallId = incoming?.callId;
+        if (incoming) logIncomingCall(incoming, 'declined');
 
+        incomingCallRef.current = null;
         dispatch(setIncomingCall(null));
+        promoteQueuedCall();
         sendToUser(callerId, 'direct_signal', {
             callId: currentCallId,
             senderId: userId,
             senderName: userName,
             signalType: 'call-declined',
         });
-    }, [userId, userName, dispatch, sendToUser]);
+    }, [userId, userName, dispatch, sendToUser, logIncomingCall, promoteQueuedCall]);
 
     // End / Cancel current call
     const endCall = useCallback(() => {
@@ -1206,12 +1489,70 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
     }, [isMuted, dispatch]);
 
-    // Synchronize ongoing call state to native Android notification and listen for native notification action buttons
+    // Keep the native foreground service alive for the lifetime of the active call.
     useEffect(() => {
         if (!isCallActive || !activeCall) {
-            nativeCallNotificationService.clearCallNotification();
+            nativeCallNotificationService.stopForegroundCall();
             return;
         }
+        nativeCallNotificationService.startForegroundCall({
+            friendName: activeCall.friendName,
+            callType: activeCall.isVideoEnabled && Boolean(localStreamRef.current?.getVideoTracks().some((track) => track.readyState === 'live')) ? 'video' : 'audio',
+        }).then((started) => {
+            if (!started && activeCallRef.current?.callId === activeCall.callId && foregroundWarningCallRef.current !== activeCall.callId) {
+                foregroundWarningCallRef.current = activeCall.callId;
+                dispatch(showToast({
+                    message: 'Android could not enable background call protection. Keep Vibe On open during this call.',
+                    type: 'info',
+                }));
+            }
+        });
+    }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.isVideoEnabled, dispatch]);
+
+    // Audio focus and route listeners are registered once per call, not on mute/status renders.
+    useEffect(() => {
+        if (!isCallActive || !activeCall) {
+            // Do not abandon global audio focus on initial mount: music playback owns media focus.
+            if (callAudioFocusHeldRef.current) {
+                callAudioFocusHeldRef.current = false;
+                void nativeCallNotificationService.abandonAudioFocus();
+            }
+            void nativeCallNotificationService.removeAudioLifecycleListeners();
+            persistentAudioManager.setVolume(1);
+            return;
+        }
+
+        let disposed = false;
+        nativeCallNotificationService.requestAudioFocus().then((granted) => {
+            if (disposed) {
+                // A call can end while the native focus request is still pending.
+                if (granted && !isCallActiveRef.current) {
+                    void nativeCallNotificationService.abandonAudioFocus();
+                }
+                return;
+            }
+            callAudioFocusHeldRef.current = granted;
+        });
+
+        void nativeCallNotificationService.setupAudioLifecycleListeners({
+            onFocusLost: () => persistentAudioManager.setVolume(0.35),
+            onFocusGained: () => persistentAudioManager.setVolume(1),
+            onBecomingNoisy: () => {
+                nativeCallNotificationService.setSpeakerphoneOn(false);
+                persistentAudioManager.setSinkId('default');
+                dispatch(setCallSpeakerOn(false));
+            },
+        });
+
+        return () => {
+            disposed = true;
+            void nativeCallNotificationService.removeAudioLifecycleListeners();
+        };
+    }, [isCallActive, activeCall?.callId, dispatch]);
+
+    // Keep the notification content current without re-requesting audio focus.
+    useEffect(() => {
+        if (!isCallActive || !activeCall) return;
 
         const formatDuration = (connectedAt: number | null) => {
             if (!connectedAt) return activeCall.status;
@@ -1232,20 +1573,56 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         updateNotification();
         const interval = setInterval(updateNotification, 1000);
+        return () => clearInterval(interval);
+    }, [
+        isCallActive,
+        activeCall?.callId,
+        activeCall?.friendName,
+        activeCall?.callType,
+        activeCall?.isMuted,
+        activeCall?.connectedAt,
+        activeCall?.status,
+    ]);
 
+    // Notification actions are bound to the current call and cleaned up when it ends.
+    useEffect(() => {
+        if (!isCallActive || !activeCall) {
+            nativeCallNotificationService.removeActionListener();
+            return;
+        }
         nativeCallNotificationService.setupActionListener((action) => {
-            if (action === 'toggleMute') {
-                toggleMute();
-            } else if (action === 'endCall') {
-                endCall();
+            if (action === 'toggleMute') toggleMute();
+            if (action === 'endCall') endCall();
+        });
+        return () => {
+            nativeCallNotificationService.removeActionListener();
+        };
+    }, [isCallActive, activeCall?.callId, toggleMute, endCall]);
+
+    // Surface incoming calls above the lock screen and route native Answer / Decline actions back into the same call flow.
+    useEffect(() => {
+        if (!incomingCall) {
+            nativeCallNotificationService.clearIncomingCallNotification();
+            return;
+        }
+
+        nativeCallNotificationService.showIncomingCallNotification({
+            callerName: incomingCall.callerName,
+            callType: incomingCall.callType,
+        });
+        nativeCallNotificationService.setupActionListener((action) => {
+            if (action === 'acceptCall') {
+                acceptIncomingCall(incomingCall.callerId, incomingCall.callerName);
+            } else if (action === 'declineCall') {
+                declineIncomingCall(incomingCall.callerId);
             }
         });
 
         return () => {
-            clearInterval(interval);
+            nativeCallNotificationService.clearIncomingCallNotification();
             nativeCallNotificationService.removeActionListener();
         };
-    }, [isCallActive, activeCall, toggleMute, endCall]);
+    }, [incomingCall?.callId, acceptIncomingCall, declineIncomingCall]);
 
     // Toggle Video Camera with reusable RTCRtpSender
     const toggleVideo = useCallback(async () => {
@@ -1299,7 +1676,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 });
             } catch (err) {
                 console.warn('Failed to enable camera track:', err);
-                dispatch(showToast({ message: 'Could not access camera', type: 'error' }));
+                dispatch(showToast({ message: getMediaAccessErrorMessage(err, 'camera'), type: 'error' }));
             }
         } else {
             // VIBE-BUG-006: Explicitly stop camera hardware sensor and release sender track
@@ -1400,7 +1777,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 dispatch(setCallFacingMode(nextFacing));
             } catch (e2) {
                 console.warn('Fallback camera flip failed:', e2);
-                dispatch(showToast({ message: 'Secondary camera not found on device', type: 'info' }));
+                dispatch(showToast({ message: getMediaAccessErrorMessage(e2, 'camera'), type: 'info' }));
             }
         }
     }, [dispatch]);
@@ -1410,19 +1787,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         const isSpeakerOn = activeCallRef.current?.isSpeakerOn ?? false;
         const nextState = !isSpeakerOn;
 
-        try {
-            if (typeof navigator !== 'undefined' && 'mediaDevices' in navigator && 'enumerateDevices' in navigator.mediaDevices) {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioOutputs = devices.filter((d) => d.kind === 'audiooutput');
-                if (audioOutputs.length > 1) {
-                    const targetDevice = nextState ? audioOutputs[audioOutputs.length - 1] : audioOutputs[0];
-                    await persistentAudioManager.setSinkId(targetDevice.deviceId);
+        const nativeHandled = await nativeCallNotificationService.setSpeakerphoneOn(nextState);
+        if (!nativeHandled) {
+            try {
+                if (typeof navigator !== 'undefined' && 'mediaDevices' in navigator && 'enumerateDevices' in navigator.mediaDevices) {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const outputs = devices.filter((device) => device.kind === 'audiooutput');
+                    const target = nextState
+                        ? outputs.find((device) => device.deviceId !== 'default')
+                        : outputs.find((device) => device.deviceId === 'default');
+                    if (target) {
+                        const routed = await persistentAudioManager.setSinkId(target.deviceId);
+                        if (!routed) dispatch(showToast({ message: 'This browser does not support audio output switching.', type: 'info' }));
+                    }
                 }
+            } catch (error) {
+                console.warn('[WebRTC] Audio output selection is unavailable:', error);
+                dispatch(showToast({ message: 'Audio output switching is unavailable on this device.', type: 'info' }));
             }
-        } catch (e) {
-            console.warn('Speaker device selection not fully supported by platform:', e);
         }
-
         dispatch(setCallSpeakerOn(nextState));
     }, [dispatch]);
 

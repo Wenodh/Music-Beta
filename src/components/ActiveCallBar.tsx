@@ -7,7 +7,7 @@ import { useDirectCommunication } from '../hooks/useDirectCommunication';
 
 export const ActiveCallBar: React.FC = () => {
     const dispatch = useAppDispatch();
-    const { isCallActive, activeCall, isCallScreenExpanded } = useAppSelector((state) => state.friends);
+    const { isCallActive, activeCall, isCallScreenExpanded, waitingCall, callQuality } = useAppSelector((state) => state.friends);
     const { endCall, toggleMute, toggleSpeaker } = useDirectCommunication();
 
     if (!isCallActive || !activeCall || isCallScreenExpanded) return null;
@@ -47,6 +47,13 @@ export const ActiveCallBar: React.FC = () => {
                                 ? 'Calling...'
                                 : activeCall.status}
                         </p>
+                        {waitingCall && <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold truncate">{waitingCall.callerName} waiting</span>}
+                        {callQuality && callQuality.level !== 'unknown' && (
+                            <span className={`text-[9px] font-bold capitalize ${
+                                callQuality.level === 'poor' ? 'text-red-500' :
+                                callQuality.level === 'fair' ? 'text-amber-500' : 'text-emerald-500'
+                            }`}>{callQuality.level} connection</span>
+                        )}
                     </div>
                 </div>
 

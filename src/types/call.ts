@@ -18,3 +18,14 @@ export interface ActiveCallState {
     isSpeakerOn: boolean;
     facingMode: 'user' | 'environment';
 }
+
+export type CallConnectionQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'unknown';
+
+export interface CallQualityState {
+    level: CallConnectionQuality;
+    rttMs: number | null;
+    jitterMs: number | null;
+    packetLossPercent: number | null;
+    bitrateKbps: number | null;
+    sampledAt: number;
+}

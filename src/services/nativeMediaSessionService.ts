@@ -4,11 +4,11 @@ import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { Song } from '../types/music';
 
 interface VibeOnMediaPluginInterface {
-    requestAudioFocus(): Promise<{ granted: boolean }>;
+    requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
     abandonAudioFocus(): Promise<void>;
     checkPermissions?(): Promise<{ notifications: string }>;
     requestPermissions?(): Promise<{ notifications: string }>;
-    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
+    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string; canResume?: boolean }) => void): Promise<{ remove: () => void }>;
     addListener(eventName: 'becomingNoisy', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
 }
 
@@ -22,6 +22,7 @@ export interface MediaControlsCallbacks {
     onSeek: (seconds: number) => void;
     onHeadphonesDisconnected?: () => void;
     onAudioFocusLost?: () => void;
+    onAudioFocusGained?: () => void;
 }
 
 class NativeMediaSessionBridge {
@@ -30,6 +31,7 @@ class NativeMediaSessionBridge {
     private listenersRegistered = false;
     private removeFocusListener: (() => void) | null = null;
     private removeNoisyListener: (() => void) | null = null;
+    private resumeAfterTransientFocusLoss = false;
 
     public async checkAndRequestNotificationPermissions(): Promise<boolean> {
         if (!this.isNative) return true;
@@ -77,11 +79,15 @@ class NativeMediaSessionBridge {
                 if (!this.listenersRegistered) {
                     const focusHandle = await VibeOnMedia.addListener('audioFocusChanged', (data) => {
                         if (data.event === 'audioFocusLost') {
+                            this.resumeAfterTransientFocusLoss = Boolean(data.canResume);
                             if (this.activeHandlers?.onAudioFocusLost) {
                                 this.activeHandlers.onAudioFocusLost();
                             } else {
                                 this.activeHandlers?.onPause();
                             }
+                        } else if (data.event === 'audioFocusGained' && this.resumeAfterTransientFocusLoss) {
+                            this.resumeAfterTransientFocusLoss = false;
+                            this.activeHandlers?.onAudioFocusGained?.();
                         }
                     });
                     this.removeFocusListener = focusHandle.remove;
@@ -157,17 +163,30 @@ class NativeMediaSessionBridge {
         }
     }
 
-    public async updatePlaybackState(isPlaying: boolean) {
+    public async updatePlaybackState(isPlaying: boolean): Promise<boolean> {
         const state = isPlaying ? 'playing' : 'paused';
 
         if (this.isNative) {
             try {
-                if (isPlaying) {
-                    await VibeOnMedia.requestAudioFocus().catch(() => {});
-                }
+                // Set the playing state first: on Android this starts the plugin's mediaPlayback
+                // foreground service. Requesting focus first creates a window where a fast screen
+                // lock can happen before Android has promoted the app to a foreground service.
                 await MediaSession.setPlaybackState({ playbackState: state });
+
+                if (isPlaying) {
+                    const focus = await VibeOnMedia.requestAudioFocus({ forCall: false });
+                    if (!focus?.granted) {
+                        await MediaSession.setPlaybackState({ playbackState: 'paused' });
+                        return false;
+                    }
+                } else if (!this.resumeAfterTransientFocusLoss) {
+                    // Release focus on a user/permanent pause, but retain it during a transient
+                    // interruption so Android can notify us when focus is returned.
+                    await VibeOnMedia.abandonAudioFocus().catch(() => {});
+                }
             } catch (err) {
                 console.warn('[NativeMediaSession] Failed to set native playback state:', err);
+                if (isPlaying) return false;
             }
         }
 
@@ -178,6 +197,11 @@ class NativeMediaSessionBridge {
                 // Ignore
             }
         }
+        return true;
+    }
+
+    public cancelTransientResume() {
+        this.resumeAfterTransientFocusLoss = false;
     }
 
     public async updatePositionState(duration: number, position: number, playbackRate = 1.0) {
@@ -224,6 +248,7 @@ class NativeMediaSessionBridge {
             this.removeNoisyListener = null;
         }
         this.listenersRegistered = false;
+        this.resumeAfterTransientFocusLoss = false;
         this.activeHandlers = null;
     }
 }

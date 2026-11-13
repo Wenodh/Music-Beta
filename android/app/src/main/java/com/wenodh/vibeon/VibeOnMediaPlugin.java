@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Looper;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -30,6 +31,7 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     private VibeOnAudioService audioService;
     private VibeOnCallNotificationManager callNotificationManager;
     private BroadcastReceiver callActionReceiver;
+    private boolean callServiceActive = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -50,6 +52,12 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
                 } else if (VibeOnCallNotificationManager.ACTION_END_CALL.equals(action)) {
                     ret.put("action", "endCall");
                     notifyListeners("callNotificationAction", ret);
+                } else if (VibeOnCallNotificationManager.ACTION_ACCEPT_CALL.equals(action)) {
+                    ret.put("action", "acceptCall");
+                    notifyListeners("callNotificationAction", ret);
+                } else if (VibeOnCallNotificationManager.ACTION_DECLINE_CALL.equals(action)) {
+                    ret.put("action", "declineCall");
+                    notifyListeners("callNotificationAction", ret);
                 }
             }
         };
@@ -57,6 +65,8 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
         IntentFilter filter = new IntentFilter();
         filter.addAction(VibeOnCallNotificationManager.ACTION_TOGGLE_MUTE);
         filter.addAction(VibeOnCallNotificationManager.ACTION_END_CALL);
+        filter.addAction(VibeOnCallNotificationManager.ACTION_ACCEPT_CALL);
+        filter.addAction(VibeOnCallNotificationManager.ACTION_DECLINE_CALL);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             getContext().registerReceiver(callActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -67,10 +77,22 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     @PluginMethod
     public void requestAudioFocus(PluginCall call) {
         if (audioService != null) {
-            boolean granted = audioService.requestAudioFocus();
+            boolean forCall = Boolean.TRUE.equals(call.getBoolean("forCall", false));
+            boolean granted = audioService.requestAudioFocus(forCall);
             JSObject ret = new JSObject();
             ret.put("granted", granted);
             call.resolve(ret);
+        } else {
+            call.reject("Audio service not initialized");
+        }
+    }
+
+    @PluginMethod
+    public void setSpeakerphoneOn(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        if (audioService != null) {
+            audioService.setSpeakerphoneOn(enabled);
+            call.resolve();
         } else {
             call.reject("Audio service not initialized");
         }
@@ -83,6 +105,53 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
             call.resolve();
         } else {
             call.reject("Audio service not initialized");
+        }
+    }
+
+    @PluginMethod
+    public void startCallForegroundService(PluginCall call) {
+        String friendName = call.getString("friendName", "Friend");
+        String callType = call.getString("callType", "audio");
+        Intent serviceIntent = new Intent(getContext(), VibeOnCallForegroundService.class);
+        serviceIntent.putExtra(VibeOnCallForegroundService.EXTRA_FRIEND_NAME, friendName);
+        serviceIntent.putExtra(VibeOnCallForegroundService.EXTRA_CALL_TYPE, callType);
+        try {
+            ContextCompat.startForegroundService(getContext(), serviceIntent);
+            callServiceActive = true;
+            call.resolve();
+        } catch (Exception error) {
+            Log.e(TAG, "Unable to start foreground call service", error);
+            call.reject("Unable to keep the call active in the background", error);
+        }
+    }
+
+    @PluginMethod
+    public void stopCallForegroundService(PluginCall call) {
+        getContext().stopService(new Intent(getContext(), VibeOnCallForegroundService.class));
+        callServiceActive = false;
+        if (callNotificationManager != null) callNotificationManager.clearCallNotification();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void showIncomingCallNotification(PluginCall call) {
+        String callerName = call.getString("callerName", "Friend");
+        String callType = call.getString("callType", "audio");
+        if (callNotificationManager != null) {
+            callNotificationManager.showIncomingCallNotification(callerName, callType);
+            call.resolve();
+        } else {
+            call.reject("Call notification manager not initialized");
+        }
+    }
+
+    @PluginMethod
+    public void clearIncomingCallNotification(PluginCall call) {
+        if (callNotificationManager != null) {
+            callNotificationManager.clearIncomingCallNotification();
+            call.resolve();
+        } else {
+            call.reject("Call notification manager not initialized");
         }
     }
 
@@ -113,9 +182,19 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
 
     @Override
     public void onAudioFocusLost() {
+        notifyAudioFocusLost(false);
+    }
+
+    @Override
+    public void onAudioFocusLostTransient() {
+        notifyAudioFocusLost(true);
+    }
+
+    private void notifyAudioFocusLost(boolean canResume) {
         mainHandler.post(() -> {
             JSObject ret = new JSObject();
             ret.put("event", "audioFocusLost");
+            ret.put("canResume", canResume);
             notifyListeners("audioFocusChanged", ret);
         });
     }
@@ -140,11 +219,14 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
 
     @Override
     protected void handleOnDestroy() {
-        if (audioService != null) {
+        if (audioService != null && !callServiceActive) {
             audioService.abandonAudioFocus();
         }
-        if (callNotificationManager != null) {
+        if (callNotificationManager != null && !callServiceActive) {
             callNotificationManager.clearCallNotification();
+        }
+        if (callNotificationManager != null) {
+            callNotificationManager.clearIncomingCallNotification();
         }
         if (callActionReceiver != null) {
             try {

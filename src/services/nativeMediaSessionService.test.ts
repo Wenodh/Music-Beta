@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { nativeMediaSession, MediaControlsCallbacks } from './nativeMediaSessionService';
 
+const { requestAudioFocusMock, abandonAudioFocusMock } = vi.hoisted(() => ({
+    requestAudioFocusMock: vi.fn().mockResolvedValue({ granted: true }),
+    abandonAudioFocusMock: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@capacitor/core', () => ({
     Capacitor: {
         isNativePlatform: vi.fn(() => true),
     },
     registerPlugin: vi.fn(() => ({
-        requestAudioFocus: vi.fn().mockResolvedValue({ granted: true }),
-        abandonAudioFocus: vi.fn().mockResolvedValue(undefined),
+        requestAudioFocus: requestAudioFocusMock,
+        abandonAudioFocus: abandonAudioFocusMock,
         addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
     })),
 }));
@@ -23,8 +28,8 @@ vi.mock('@capgo/capacitor-media-session', () => ({
 
 describe('NativeMediaSessionBridge', () => {
     beforeEach(async () => {
-        vi.clearAllMocks();
         await nativeMediaSession.cleanup();
+        vi.clearAllMocks();
     });
 
     it('registers media action handlers and audio focus listeners', async () => {
@@ -62,13 +67,34 @@ describe('NativeMediaSessionBridge', () => {
         });
     });
 
-    it('updates playback state and requests audio focus on play', async () => {
+    it('starts the media foreground service before requesting media audio focus', async () => {
         const { MediaSession } = await import('@capgo/capacitor-media-session');
-        await nativeMediaSession.updatePlaybackState(true);
+        const accepted = await nativeMediaSession.updatePlaybackState(true);
+
+        expect(accepted).toBe(true);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'playing' });
+        expect(requestAudioFocusMock).toHaveBeenCalledWith({ forCall: false });
+        expect(MediaSession.setPlaybackState.mock.invocationCallOrder[0])
+            .toBeLessThan(requestAudioFocusMock.mock.invocationCallOrder[0]);
 
         await nativeMediaSession.updatePlaybackState(false);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'paused' });
+    });
+
+    it('abandons media audio focus on a normal pause', async () => {
+        await nativeMediaSession.updatePlaybackState(false);
+        expect(abandonAudioFocusMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports denied media focus and rolls the native session back to paused', async () => {
+        const { MediaSession } = await import('@capgo/capacitor-media-session');
+        requestAudioFocusMock.mockResolvedValueOnce({ granted: false });
+
+        const accepted = await nativeMediaSession.updatePlaybackState(true);
+
+        expect(accepted).toBe(false);
+        expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(1, { playbackState: 'playing' });
+        expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(2, { playbackState: 'paused' });
     });
 
     it('updates position state correctly', async () => {

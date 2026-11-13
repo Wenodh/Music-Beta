@@ -149,16 +149,32 @@ export const CallHistoryTab: React.FC = () => {
 
     const handleDeleteLog = async (e: React.MouseEvent, logId: string) => {
         e.stopPropagation();
-        await deleteCallLogLocal(logId);
-        setCallLogs((prev) => prev.filter((item) => item.id !== logId));
-        dispatch(showToast({ message: 'Call log removed' }));
+        if (!window.confirm('Delete this call record from this device?')) return;
+
+        try {
+            const selectedLog = callLogs.find((item) => item.id === logId);
+            const duplicateIds = callLogs
+                .filter((item) => selectedLog?.callId ? item.callId === selectedLog.callId : item.id === logId)
+                .map((item) => item.id);
+            await Promise.all(duplicateIds.map((id) => deleteCallLogLocal(id)));
+            setCallLogs((prev) => prev.filter((item) => !duplicateIds.includes(item.id)));
+            dispatch(showToast({ message: 'Call log removed from this device' }));
+        } catch (error) {
+            console.warn('Failed to delete call log:', error);
+            dispatch(showToast({ message: 'Unable to delete call log', type: 'error' }));
+        }
     };
 
     const handleClearAll = async () => {
-        await clearCallHistoryLocal();
-        setCallLogs([]);
-        setShowConfirmClear(false);
-        dispatch(showToast({ message: 'Call history cleared' }));
+        try {
+            await clearCallHistoryLocal();
+            setCallLogs([]);
+            setShowConfirmClear(false);
+            dispatch(showToast({ message: 'Call history cleared from this device' }));
+        } catch (error) {
+            console.warn('Failed to clear call history:', error);
+            dispatch(showToast({ message: 'Unable to clear call history', type: 'error' }));
+        }
     };
 
     return (
@@ -182,6 +198,7 @@ export const CallHistoryTab: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                    <span className="hidden sm:inline text-[9px] text-gray-500">Stored on this device</span>
                     <button
                         onClick={loadHistory}
                         className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors"

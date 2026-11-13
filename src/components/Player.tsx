@@ -80,6 +80,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { favorites } = useAppSelector((state) => state.library);
     const { isCallActive, incomingCall } = useAppSelector((state) => state.friends);
     const wasPlayingBeforeCallRef = useRef<boolean>(false);
+    const wasPlayingBeforeAudioFocusLossRef = useRef<boolean>(false);
 
     const pillRef = useRef<HTMLDivElement>(null);
     const [pillDimensions, setPillDimensions] = useState({ width: 0, height: 0 });
@@ -112,6 +113,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const lastProcessedSongId = useRef<string | null>(null);
     const currentSongRef = useRef(currentSong);
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+    const isPlayingRef = useRef(isPlaying);
+    isPlayingRef.current = isPlaying;
 
     const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
@@ -393,30 +396,76 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         if (currentSong) {
             nativeMediaSession.updateMetadata(currentSong, imageUrl);
             nativeMediaSession.registerCallbacks({
-                onPlay: () => dispatch(playMusic({ ...currentSong, forcePlay: true })),
-                onPause: () => dispatch(pauseMusic()),
-                onNext: () => playNextInQueue(true),
-                onPrevious: prevSong,
+                onPlay: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(playMusic({ ...currentSong, forcePlay: true }));
+                },
+                onPause: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(pauseMusic());
+                },
+                onNext: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    playNextInQueue(true);
+                },
+                onPrevious: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    prevSong();
+                },
                 onSeek: (seconds) => handleSeek(seconds),
-                onHeadphonesDisconnected: () => dispatch(pauseMusic()),
-                onAudioFocusLost: () => dispatch(pauseMusic()),
+                onHeadphonesDisconnected: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(pauseMusic());
+                },
+                onAudioFocusLost: () => {
+                    if (isPlayingRef.current) {
+                        wasPlayingBeforeAudioFocusLossRef.current = true;
+                        dispatch(pauseMusic());
+                    }
+                },
+                onAudioFocusGained: () => {
+                    if (wasPlayingBeforeAudioFocusLossRef.current && currentSongRef.current) {
+                        wasPlayingBeforeAudioFocusLossRef.current = false;
+                        dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+                    }
+                },
             });
         }
     }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
 
-    // Sync Playback State with MediaSession & Native Service
+    // Sync playback state and ensure Android promotes the app to its mediaPlayback
+    // foreground service before the user can lock the screen.
     useEffect(() => {
-        nativeMediaSession.updatePlaybackState(isPlaying);
+        let cancelled = false;
 
+        nativeMediaSession.updatePlaybackState(isPlaying).then((accepted) => {
+            if (!accepted && isPlaying && !cancelled) {
+                console.warn('[Player] Native playback could not acquire media audio focus; pausing playback.');
+                dispatch(pauseMusic());
+            }
+        }).catch((error) => {
+            console.warn('[Player] Failed to synchronize native playback state:', error);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isPlaying, dispatch]);
+
+    // Refresh the system seek position when the active buffer or track changes.
+    useEffect(() => {
         const activeAudio = getActiveAudio();
-        if (activeAudio && !isNaN(activeAudio.duration)) {
+        if (activeAudio && Number.isFinite(activeAudio.duration)) {
             nativeMediaSession.updatePositionState(
                 activeAudio.duration || 0,
                 activeAudio.currentTime || 0,
                 activeAudio.playbackRate || 1
             );
         }
-    }, [isPlaying, activeBuffer]);
+    }, [activeBuffer, currentSong?.id]);
 
     // Audio focus management during Voice & Video Calls:
     // When an incoming call arrives or a direct call is active, pause music cleanly.
@@ -439,40 +488,56 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [isCallActive, incomingCall, isPlaying, dispatch]);
 
-    // Android background & screen-lock playback preservation:
-    // When the screen locks or app transitions to the background on Android,
-    // ensure HTMLAudioElement and AudioContext are kept active and not auto-paused by WebView lifecycle.
+    // Android background & screen-lock playback preservation.
+    // The Capgo MediaSession plugin starts the native mediaPlayback foreground service
+    // when playback becomes active. Keep the Web Audio graph and active media element
+    // synchronized with the native app lifecycle as the WebView backgrounds/foregrounds.
     useEffect(() => {
-        let appStateHandle: any = null;
+        let disposed = false;
+        let appStateHandle: { remove: () => Promise<void> } | null = null;
 
-        try {
-            CapApp.addListener('appStateChange', (state) => {
-                const activeAudio = getActiveAudio();
-                const audioEngine = AudioEngine.getInstance();
-                const ctx = audioEngine.getAudioContext();
+        const recoverPlayback = async (isActive: boolean) => {
+            if (!isPlaying) return;
 
-                if (state.isActive) {
-                    if (ctx && ctx.state === 'suspended' && isPlaying) {
-                        ctx.resume().catch(() => {});
-                    }
-                } else {
-                    // Screen locked / backgrounded: if playback is active, ensure audio playback continues uninterrupted
-                    if (isPlaying && activeAudio && activeAudio.paused) {
-                        activeAudio.play().catch((err) => {
-                            console.warn('[Player] Background audio play resumption failed:', err);
-                        });
-                    }
+            const activeAudio = getActiveAudio();
+            const context = audioEngine.getAudioContext();
+
+            try {
+                // A Web Audio context can be suspended independently of the HTML audio element.
+                // Resume it on both lifecycle transitions; the foreground service keeps the app
+                // process eligible to continue media while the WebView is backgrounded.
+                if (context && context.state === 'suspended') {
+                    await context.resume();
                 }
-            }).then((handle) => {
+
+                if (activeAudio && activeAudio.paused) {
+                    await activeAudio.play();
+                }
+            } catch (error) {
+                console.warn(
+                    `[Player] ${isActive ? 'Foreground' : 'Background'} playback recovery failed:`,
+                    error
+                );
+            }
+        };
+
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+            void recoverPlayback(isActive);
+        }).then((handle) => {
+            if (disposed) {
+                void handle.remove();
+            } else {
                 appStateHandle = handle;
-            }).catch(() => {});
-        } catch {
-            // CapApp not available
-        }
+            }
+        }).catch((error) => {
+            console.warn('[Player] Could not register app lifecycle listener:', error);
+        });
 
         return () => {
-            if (appStateHandle && typeof appStateHandle.remove === 'function') {
-                appStateHandle.remove();
+            disposed = true;
+            if (appStateHandle) {
+                void appStateHandle.remove();
+                appStateHandle = null;
             }
         };
     }, [isPlaying, activeBuffer]);
@@ -806,6 +871,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     };
 
     const handlePlayPause = () => {
+        nativeMediaSession.cancelTransientResume();
+        wasPlayingBeforeAudioFocusLossRef.current = false;
         dispatch(playMusic(currentSong));
     };
 
