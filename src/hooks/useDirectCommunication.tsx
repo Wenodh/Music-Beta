@@ -504,17 +504,35 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc ||
                 iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) return;
 
+            // ICE restart is another offer. Serialize it with Perfect Negotiation so a network
+            // change cannot race an in-flight local/remote offer and corrupt signaling state.
+            if (makingOfferRef.current || isSettingRemoteAnswerPendingRef.current || pc.signalingState !== 'stable') {
+                scheduleIceRestart();
+                return;
+            }
+
             iceRestartAttemptsRef.current += 1;
             dispatch(updateCallStatus({ status: 'reconnecting', callId: currentCallId }));
+            makingOfferRef.current = true;
             try {
                 const freshConfig = await iceServerService.getIceServers();
                 if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+                if (pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
+                    scheduleIceRestart();
+                    return;
+                }
+
                 pc.setConfiguration({
                     iceServers: freshConfig.iceServers,
                     iceTransportPolicy: freshConfig.iceTransportPolicy,
                 });
                 const offer = await pc.createOffer({ iceRestart: true });
                 if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
+                if (pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
+                    scheduleIceRestart();
+                    return;
+                }
+
                 await pc.setLocalDescription(offer);
                 await sendToUser(targetId, 'direct_signal', {
                     callId: currentCallId,
@@ -545,6 +563,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 } else if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
                     dispatch(showToast({ message: 'Unable to restore the call connection. End the call and try again.', type: 'error' }));
                 }
+            } finally {
+                makingOfferRef.current = false;
             }
         };
 
