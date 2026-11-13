@@ -161,7 +161,6 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             clearTimeout(reconnectTimeoutRef.current);
             reconnectTimeoutRef.current = null;
         }
-        iceRestartAttemptsRef.current = 0;
         soundService.stopIncomingCallRingtone();
         soundService.stopOutgoingCallRingback();
     }, []);
@@ -306,6 +305,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Idempotent resource cleanup with Call History logging
     const cleanupCallResources = useCallback((targetCallId?: string, outcomeOverride?: 'connected' | 'missed' | 'declined' | 'busy' | 'cancelled') => {
         clearTimers();
+        iceRestartAttemptsRef.current = 0;
+        lastOutboundBytesRef.current = null;
 
         const active = activeCallRef.current;
         if (active && (!targetCallId || active.callId === targetCallId)) {
