@@ -1625,19 +1625,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         const isSpeakerOn = activeCallRef.current?.isSpeakerOn ?? false;
         const nextState = !isSpeakerOn;
 
-        try {
-            if (typeof navigator !== 'undefined' && 'mediaDevices' in navigator && 'enumerateDevices' in navigator.mediaDevices) {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioOutputs = devices.filter((d) => d.kind === 'audiooutput');
-                if (audioOutputs.length > 1) {
-                    const targetDevice = nextState ? audioOutputs[audioOutputs.length - 1] : audioOutputs[0];
-                    await persistentAudioManager.setSinkId(targetDevice.deviceId);
+        const nativeHandled = await nativeCallNotificationService.setSpeakerphoneOn(nextState);
+        if (!nativeHandled) {
+            try {
+                if (typeof navigator !== 'undefined' && 'mediaDevices' in navigator && 'enumerateDevices' in navigator.mediaDevices) {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const outputs = devices.filter((device) => device.kind === 'audiooutput');
+                    const target = nextState
+                        ? outputs.find((device) => device.deviceId !== 'default')
+                        : outputs.find((device) => device.deviceId === 'default');
+                    if (target) {
+                        const routed = await persistentAudioManager.setSinkId(target.deviceId);
+                        if (!routed) dispatch(showToast({ message: 'This browser does not support audio output switching.', type: 'info' }));
+                    }
                 }
+            } catch (error) {
+                console.warn('[WebRTC] Audio output selection is unavailable:', error);
+                dispatch(showToast({ message: 'Audio output switching is unavailable on this device.', type: 'info' }));
             }
-        } catch (e) {
-            console.warn('Speaker device selection not fully supported by platform:', e);
         }
-
         dispatch(setCallSpeakerOn(nextState));
     }, [dispatch]);
 
