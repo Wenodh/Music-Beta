@@ -214,6 +214,9 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
         if (callNotificationManager != null && !callServiceActive) {
             callNotificationManager.clearCallNotification();
         }
+        if (callNotificationManager != null) {
+            callNotificationManager.clearIncomingCallNotification();
+        }
         if (callActionReceiver != null) {
             try {
                 getContext().unregisterReceiver(callActionReceiver);
