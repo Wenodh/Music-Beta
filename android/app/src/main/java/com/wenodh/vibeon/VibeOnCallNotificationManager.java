@@ -61,8 +61,10 @@ public class VibeOnCallNotificationManager {
                 PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        Intent acceptIntent = new Intent(ACTION_ACCEPT_CALL).setPackage(context.getPackageName());
-        PendingIntent acceptPendingIntent = PendingIntent.getBroadcast(
+        Intent acceptIntent = new Intent(context, MainActivity.class)
+                .setAction(ACTION_ACCEPT_CALL)
+                .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent acceptPendingIntent = PendingIntent.getActivity(
                 context, 6, acceptIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
