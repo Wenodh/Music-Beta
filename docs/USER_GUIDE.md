@@ -38,7 +38,8 @@ Listen to music in sync with friends, no matter where they are:
 ### 4.1 Social Hub & Direct Friends Communication
 Experience a complete social layer inside Vibe On via the Friends Hub:
 * **Top Tab Navigation**: Easily switch between **Chats**, **Calls**, **Discover**, and **Activity**.
-* **Call History**: Track all incoming, outgoing, and missed voice/video calls with duration, outcomes, and one-tap callback.
+* **Call History**: Track incoming, outgoing, and missed voice/video calls with duration, outcomes, one-tap callback, individual record deletion, and clear-all controls. Call history is stored on this device.
+* **Chat History Controls**: Delete individual messages or clear an entire conversation from this device. These actions do not remove messages from the other participant's device.
 * **Discover Friends**: Search for friends by username or display name, manage incoming and outgoing friend requests, and preview profiles.
 * **Live Listening Activity**: See what your friends are currently listening to with live equalizer animations, and jump straight into their tracks with one tap while preserving your queue.
 * **Friend Profiles**: View friends' custom bios, avatars, and favorite tracks while respecting private profile settings.
