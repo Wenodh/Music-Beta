@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { nativeMediaSession, MediaControlsCallbacks } from './nativeMediaSessionService';
 
-const { requestAudioFocusMock } = vi.hoisted(() => ({
+const { requestAudioFocusMock, abandonAudioFocusMock } = vi.hoisted(() => ({
     requestAudioFocusMock: vi.fn().mockResolvedValue({ granted: true }),
+    abandonAudioFocusMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@capacitor/core', () => ({
@@ -11,7 +12,7 @@ vi.mock('@capacitor/core', () => ({
     },
     registerPlugin: vi.fn(() => ({
         requestAudioFocus: requestAudioFocusMock,
-        abandonAudioFocus: vi.fn().mockResolvedValue(undefined),
+        abandonAudioFocus: abandonAudioFocusMock,
         addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
     })),
 }));
@@ -78,6 +79,11 @@ describe('NativeMediaSessionBridge', () => {
 
         await nativeMediaSession.updatePlaybackState(false);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'paused' });
+    });
+
+    it('abandons media audio focus on a normal pause', async () => {
+        await nativeMediaSession.updatePlaybackState(false);
+        expect(abandonAudioFocusMock).toHaveBeenCalledTimes(1);
     });
 
     it('reports denied media focus and rolls the native session back to paused', async () => {
