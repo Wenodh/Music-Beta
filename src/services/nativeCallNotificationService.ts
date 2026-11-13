@@ -13,9 +13,11 @@ interface VibeOnMediaPluginInterface {
         duration: string;
     }): Promise<void>;
     clearCallNotification(): Promise<void>;
+    showIncomingCallNotification(options: { callerName: string; callType: string }): Promise<void>;
+    clearIncomingCallNotification(): Promise<void>;
     addListener(
         eventName: 'callNotificationAction',
-        listenerFunc: (data: { action: 'toggleMute' | 'endCall' }) => void
+        listenerFunc: (data: { action: 'toggleMute' | 'endCall' | 'acceptCall' | 'declineCall' }) => void
     ): Promise<PluginListenerHandle>;
     addListener(
         eventName: 'audioFocusChanged',
@@ -117,6 +119,24 @@ class NativeCallNotificationService {
         this.lifecycleListenerHandles = [];
     }
 
+    public async showIncomingCallNotification(options: { callerName: string; callType: string }): Promise<void> {
+        if (!this.isNative) return;
+        try {
+            await VibeOnMedia.showIncomingCallNotification(options);
+        } catch (error) {
+            console.warn('[NativeCallNotification] Incoming call notification failed:', error);
+        }
+    }
+
+    public async clearIncomingCallNotification(): Promise<void> {
+        if (!this.isNative) return;
+        try {
+            await VibeOnMedia.clearIncomingCallNotification();
+        } catch (error) {
+            console.warn('[NativeCallNotification] Incoming call notification cleanup failed:', error);
+        }
+    }
+
     public async showCallNotification(options: {
         friendName: string;
         callType: string;
@@ -141,7 +161,7 @@ class NativeCallNotificationService {
     }
 
     public async setupActionListener(
-        onAction: (action: 'toggleMute' | 'endCall') => void
+        onAction: (action: 'toggleMute' | 'endCall' | 'acceptCall' | 'declineCall') => void
     ): Promise<void> {
         if (!this.isNative) return;
         if (this.listenerHandle) {
