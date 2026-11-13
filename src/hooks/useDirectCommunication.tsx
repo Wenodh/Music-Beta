@@ -218,27 +218,37 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             outboundChannelsRef.current.set(targetUserId, entry);
         }
 
-        if (targetChannel.state !== 'joined') {
-            await new Promise<void>((resolve) => {
-                targetChannel!.subscribe((status) => {
-                    if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                        resolve();
-                    }
-                });
-            });
-        }
-
         try {
+            if (targetChannel.state !== 'joined') {
+                const subscriptionStatus = await new Promise<string>((resolve) => {
+                    const timeout = setTimeout(() => resolve('TIMED_OUT'), 10000);
+                    targetChannel!.subscribe((status) => {
+                        if (['SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+                            clearTimeout(timeout);
+                            resolve(status);
+                        }
+                    });
+                });
+
+                if (subscriptionStatus !== 'SUBSCRIBED') {
+                    throw new Error(`Realtime channel ${targetChannelName} did not subscribe: ${subscriptionStatus}`);
+                }
+            }
+
             const enrichedPayload = await enrichPayloadWithGuestEnvelope(targetUserId, event, payload);
-            await targetChannel.send({
+            const sendStatus = await targetChannel.send({
                 type: 'broadcast',
                 event,
                 payload: enrichedPayload,
             });
-        } catch (e) {
-            console.warn(`Error sending ${event} to ${targetUserId}:`, e);
+
+            if (sendStatus !== 'ok') {
+                throw new Error(`Realtime broadcast ${event} to ${targetUserId} returned ${sendStatus}`);
+            }
+        } catch (error) {
+            console.warn(`[Realtime] Failed to send ${event} to ${targetUserId}:`, error);
         } finally {
-            // Schedule 30-second idle channel cleanup
+            // Schedule 30-second idle channel cleanup after both successful and failed attempts.
             if (entry) {
                 entry.idleTimer = setTimeout(() => {
                     try {
