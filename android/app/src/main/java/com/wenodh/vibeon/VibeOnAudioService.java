@@ -24,6 +24,7 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
 
     public interface AudioFocusListener {
         void onAudioFocusLost();
+        void onAudioFocusLostTransient();
         void onAudioFocusGained();
         void onHeadphonesDisconnected();
     }
@@ -183,8 +184,10 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
 
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
                 focusListener.onAudioFocusLost();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                focusListener.onAudioFocusLostTransient();
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 // Do not pause music for a duck request; Android can lower the media stream.
