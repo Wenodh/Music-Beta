@@ -8,6 +8,9 @@ import friendsReducer, {
     endDirectCall,
     setDirectMessages,
     removeDirectMessage,
+    setWaitingCall,
+    promoteWaitingCall,
+    setCallQuality,
 } from './friendsSlice';
 import uiReducer, { setMobileNavItems, resetMobileNavItems } from '../ui/uiSlice';
 
@@ -35,6 +38,51 @@ describe('friendsSlice Conversation History', () => {
 
         expect(updated.directMessages['friend-a'].map((message) => message.id)).toEqual(['message-1']);
         expect(updated.directMessages['friend-b'].map((message) => message.id)).toEqual(['message-3']);
+    });
+});
+
+describe('friendsSlice Call Waiting and Quality', () => {
+    it('queues one waiting call and promotes it after the active call ends', () => {
+        let state = friendsReducer(undefined, startDirectCall({
+            callId: 'active-call',
+            friendId: 'friend-a',
+            friendName: 'Alice',
+            callType: 'audio',
+            isIncoming: false,
+        }));
+        state = friendsReducer(state, setWaitingCall({
+            callId: 'waiting-call',
+            callerId: 'friend-b',
+            callerName: 'Bob',
+            channelName: 'user:me',
+            callType: 'video',
+            receivedAt: 10,
+        }));
+
+        expect(state.activeCall?.callId).toBe('active-call');
+        expect(state.waitingCall?.callId).toBe('waiting-call');
+        expect(state.incomingCall).toBeNull();
+
+        state = friendsReducer(state, endDirectCall({ callId: 'active-call' }));
+        state = friendsReducer(state, promoteWaitingCall());
+
+        expect(state.isCallActive).toBe(false);
+        expect(state.incomingCall?.callId).toBe('waiting-call');
+        expect(state.waitingCall).toBeNull();
+    });
+
+    it('stores and clears connection quality independently of call state', () => {
+        let state = friendsReducer(undefined, setCallQuality({
+            level: 'fair',
+            rttMs: 280,
+            jitterMs: 20,
+            packetLossPercent: 1.5,
+            bitrateKbps: 64,
+            sampledAt: 100,
+        }));
+        expect(state.callQuality?.level).toBe('fair');
+        state = friendsReducer(state, setCallQuality(null));
+        expect(state.callQuality).toBeNull();
     });
 });
 
