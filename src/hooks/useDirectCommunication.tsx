@@ -139,6 +139,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const qualityIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const lastOutboundBytesRef = useRef<{ bytes: number; timestamp: number } | null>(null);
     const networkHandlersRef = useRef<{ online: () => void; offline: () => void; visible: () => void } | null>(null);
+    const foregroundWarningCallRef = useRef<string | null>(null);
 
     // Cryptographically collision-resistant callId generator
     const generateCallId = (): string => {
@@ -1462,8 +1463,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         nativeCallNotificationService.startForegroundCall({
             friendName: activeCall.friendName,
             callType: activeCall.isVideoEnabled && Boolean(localStreamRef.current?.getVideoTracks().some((track) => track.readyState === 'live')) ? 'video' : 'audio',
+        }).then((started) => {
+            if (!started && foregroundWarningCallRef.current !== activeCall.callId) {
+                foregroundWarningCallRef.current = activeCall.callId;
+                dispatch(showToast({
+                    message: 'Android could not enable background call protection. Keep Vibe On open during this call.',
+                    type: 'info',
+                }));
+            }
         });
-    }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.isVideoEnabled]);
+    }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.isVideoEnabled, dispatch]);
 
     // Audio focus and route listeners are registered once per call, not on mute/status renders.
     useEffect(() => {
