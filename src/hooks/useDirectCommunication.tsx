@@ -1452,19 +1452,27 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
     }, [isMuted, dispatch]);
 
-    // Synchronize ongoing call state to native Android notification and listen for native notification action buttons
+    // Keep the native foreground service alive for the lifetime of the active call.
     useEffect(() => {
         if (!isCallActive || !activeCall) {
             nativeCallNotificationService.stopForegroundCall();
-            nativeCallNotificationService.abandonAudioFocus();
-            nativeCallNotificationService.removeAudioLifecycleListeners();
             return;
         }
-
         nativeCallNotificationService.startForegroundCall({
             friendName: activeCall.friendName,
             callType: activeCall.callType,
         });
+    }, [isCallActive, activeCall?.callId, activeCall?.friendName, activeCall?.callType]);
+
+    // Audio focus and route listeners are registered once per call, not on mute/status renders.
+    useEffect(() => {
+        if (!isCallActive || !activeCall) {
+            nativeCallNotificationService.abandonAudioFocus();
+            nativeCallNotificationService.removeAudioLifecycleListeners();
+            persistentAudioManager.setVolume(1);
+            return;
+        }
+
         nativeCallNotificationService.requestAudioFocus();
         nativeCallNotificationService.setupAudioLifecycleListeners({
             onFocusLost: () => persistentAudioManager.setVolume(0.35),
@@ -1475,6 +1483,15 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 dispatch(setCallSpeakerOn(false));
             },
         });
+
+        return () => {
+            nativeCallNotificationService.removeAudioLifecycleListeners();
+        };
+    }, [isCallActive, activeCall?.callId, dispatch]);
+
+    // Keep the notification content current without re-requesting audio focus.
+    useEffect(() => {
+        if (!isCallActive || !activeCall) return;
 
         const formatDuration = (connectedAt: number | null) => {
             if (!connectedAt) return activeCall.status;
@@ -1495,21 +1512,31 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
         updateNotification();
         const interval = setInterval(updateNotification, 1000);
+        return () => clearInterval(interval);
+    }, [
+        isCallActive,
+        activeCall?.callId,
+        activeCall?.friendName,
+        activeCall?.callType,
+        activeCall?.isMuted,
+        activeCall?.connectedAt,
+        activeCall?.status,
+    ]);
 
-        nativeCallNotificationService.setupActionListener((action) => {
-            if (action === 'toggleMute') {
-                toggleMute();
-            } else if (action === 'endCall') {
-                endCall();
-            }
-        });
-
-        return () => {
-            clearInterval(interval);
+    // Notification actions are bound to the current call and cleaned up when it ends.
+    useEffect(() => {
+        if (!isCallActive || !activeCall) {
             nativeCallNotificationService.removeActionListener();
-            nativeCallNotificationService.removeAudioLifecycleListeners();
+            return;
+        }
+        nativeCallNotificationService.setupActionListener((action) => {
+            if (action === 'toggleMute') toggleMute();
+            if (action === 'endCall') endCall();
+        });
+        return () => {
+            nativeCallNotificationService.removeActionListener();
         };
-    }, [isCallActive, activeCall, toggleMute, endCall, dispatch]);
+    }, [isCallActive, activeCall?.callId, toggleMute, endCall]);
 
     // Surface incoming calls above the lock screen and route native Answer / Decline actions back into the same call flow.
     useEffect(() => {
