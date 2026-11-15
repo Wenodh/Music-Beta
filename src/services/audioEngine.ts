@@ -97,10 +97,20 @@ class AudioEngine {
 
     public initContext(): AudioContext | null {
         if (this.isInitialized && this.context) {
-            if (this.context.state === 'suspended') {
-                this.context.resume().catch(() => {});
+            if (this.context.state !== 'running') {
+                void this.resume();
             }
             return this.context;
+        }
+
+        // If a previous initialization failed part-way through, dispose of its
+        // context before creating another one. This avoids leaking AudioContexts.
+        if (this.context && !this.isInitialized) {
+            const staleContext = this.context;
+            this.context = null;
+            if (staleContext.state !== 'closed') {
+                void staleContext.close().catch(() => {});
+            }
         }
 
         try {
@@ -156,6 +166,16 @@ class AudioEngine {
             return this.context;
         } catch (err) {
             console.warn('[AudioEngine] Web Audio initialization failed or not supported:', err);
+            const failedContext = this.context;
+            this.context = null;
+            this.boosterGainNode = null;
+            this.compressorNode = null;
+            this.analyserNode = null;
+            this.eqFilters = [];
+            this.isInitialized = false;
+            if (failedContext && failedContext.state !== 'closed') {
+                void failedContext.close().catch(() => {});
+            }
             return null;
         }
     }
@@ -204,9 +224,24 @@ class AudioEngine {
         });
     }
 
-    public resume() {
-        if (this.context && this.context.state === 'suspended') {
-            this.context.resume().catch(() => {});
+    /**
+     * Resume the shared graph after a browser lifecycle interruption.
+     * Returns false when Web Audio is unavailable or the browser rejects resume.
+     */
+    public async resume(): Promise<boolean> {
+        const context = this.context;
+        if (!context || context.state === 'closed') return false;
+
+        try {
+            if (context.state !== 'running') {
+                await context.resume();
+            }
+            return context.state === 'running';
+        } catch (err) {
+            // Resume can be rejected outside a user gesture; native HTMLAudio
+            // playback remains available when the element is not Web-Audio captured.
+            console.warn('[AudioEngine] AudioContext resume was deferred by the browser:', err);
+            return false;
         }
     }
 }
