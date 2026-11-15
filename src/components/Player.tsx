@@ -122,6 +122,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const playbackChannelRef = useRef<BroadcastChannel | null>(null);
     const playbackTabIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
     const streamRecoveryRef = useRef<{ songId: string; attempts: number }>({ songId: '', attempts: 0 });
+    const streamRecoveryInFlightRef = useRef(false);
     const pendingStreamRecoveryRef = useRef<{ songId: string; position: number } | null>(null);
 
     const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
@@ -696,7 +697,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 const pendingRecovery = pendingStreamRecoveryRef.current;
                 if (pendingRecovery?.songId === targetSongId) {
                     const restoreRecoveredPosition = () => {
-                        if (currentSongRef.current?.id !== targetSongId) return;
+                        if (currentSongRef.current?.id !== targetSongId) {
+                            pendingStreamRecoveryRef.current = null;
+                            return;
+                        }
                         const duration = resolvedAudio.duration;
                         const position = Number.isFinite(duration) && duration > 0
                             ? Math.min(pendingRecovery.position, duration)
@@ -767,31 +771,42 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 return;
             }
 
+            if (streamRecoveryInFlightRef.current) return;
+            streamRecoveryInFlightRef.current = true;
             streamRecoveryRef.current.attempts += 1;
             const failedUrl = audio.currentSrc || audio.src;
             const resumePosition = Number.isFinite(audio.currentTime) ? audio.currentTime : savedCurrentTime;
             recordPlaybackDiagnostic({ event: 'stream_recovery_started', songId: song.id, code: mediaError?.code });
 
-            const result = await fetchSongDetailsWithRetry(song.id, 1);
-            if (currentSongRef.current?.id !== song.id) return;
+            try {
+                const result = await fetchSongDetailsWithRetry(song.id, 1);
+                if (currentSongRef.current?.id !== song.id) return;
 
-            const refreshedSong = result.song;
-            const media = refreshedSong?.downloadUrl || refreshedSong?.music;
-            const refreshedUrl = Array.isArray(media)
-                ? (media.find((item: any) => item.quality === preferredQuality)?.url || media[media.length - 1]?.url || '')
-                : (media || '');
+                const refreshedSong = result.song;
+                const media = refreshedSong?.downloadUrl || refreshedSong?.music;
+                const refreshedUrl = Array.isArray(media)
+                    ? (media.find((item: any) => item.quality === preferredQuality)?.url || media[media.length - 1]?.url || '')
+                    : (media || '');
 
-            if (!refreshedSong || !refreshedUrl || refreshedUrl === failedUrl) {
+                if (!refreshedSong || !refreshedUrl || refreshedUrl === failedUrl) {
+                    recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
+                    dispatch(pauseMusic());
+                    dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
+                    return;
+                }
+
+                pendingStreamRecoveryRef.current = { songId: song.id, position: Math.max(0, resumePosition || 0) };
+                dispatch(setCurrentTime(Math.max(0, resumePosition || 0)));
+                recordPlaybackDiagnostic({ event: 'stream_recovery_succeeded', songId: song.id });
+                dispatch(playMusic({ ...refreshedSong, forcePlay: true }));
+            } catch (error) {
+                console.warn('[Player] Stream recovery request failed:', error);
                 recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
                 dispatch(pauseMusic());
                 dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
-                return;
+            } finally {
+                streamRecoveryInFlightRef.current = false;
             }
-
-            pendingStreamRecoveryRef.current = { songId: song.id, position: Math.max(0, resumePosition || 0) };
-            dispatch(setCurrentTime(Math.max(0, resumePosition || 0)));
-            recordPlaybackDiagnostic({ event: 'stream_recovery_succeeded', songId: song.id });
-            dispatch(playMusic({ ...refreshedSong, forcePlay: true }));
         };
 
         audio.addEventListener('error', handleMediaError);
