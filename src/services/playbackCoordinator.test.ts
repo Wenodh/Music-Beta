@@ -24,6 +24,37 @@ describe('acquirePlaybackOwnership', () => {
         expect(callbackFinished).toBe(true);
     });
 
+    it('waits for the current owner to release so the newly active tab can take over', async () => {
+        let held = false;
+        let secondAcquired = false;
+        const waiters: Array<() => void> = [];
+        let requestCount = 0;
+        const request = vi.fn(async (_name: string, _options: unknown, callback: (lock: object) => Promise<void>) => {
+            if (held) await new Promise<void>((resolve) => waiters.push(resolve));
+            held = true;
+            requestCount += 1;
+            if (requestCount === 2) secondAcquired = true;
+            try {
+                await callback({ name: 'vibeon-playback-owner' });
+            } finally {
+                held = false;
+                waiters.shift()?.();
+            }
+        });
+        vi.stubGlobal('navigator', { locks: { request } });
+
+        const releaseFirst = acquirePlaybackOwnership(vi.fn());
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const releaseSecond = acquirePlaybackOwnership(vi.fn());
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(secondAcquired).toBe(false);
+
+        releaseFirst();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(secondAcquired).toBe(true);
+        releaseSecond();
+    });
+
     it('notifies the tab when another tab owns playback', async () => {
         const request = vi.fn((_name: string, _options: unknown, callback: (lock: null) => Promise<void>) => callback(null));
         vi.stubGlobal('navigator', { locks: { request } });

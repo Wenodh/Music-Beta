@@ -17,7 +17,7 @@ export function acquirePlaybackOwnership(onDenied: () => void): () => void {
 
     void navigator.locks.request(
         'vibeon-playback-owner',
-        { mode: 'exclusive', ifAvailable: true },
+        { mode: 'exclusive' },
         async (lock) => {
             if (cancelled) return;
             if (!lock) {
