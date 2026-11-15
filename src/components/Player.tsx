@@ -170,13 +170,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [isPlaying, currentSong?.id]);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
+    const currentBlobSongIdRef = useRef<string | null>(null);
     const preloadBlobUrlRef = useRef<string | undefined>(undefined);
+    const preloadSongIdRef = useRef<string | null>(null);
     const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const revokeAudioBlob = useCallback(() => {
         if (currentBlobUrlsRef.current.audio) {
             URL.revokeObjectURL(currentBlobUrlsRef.current.audio);
             currentBlobUrlsRef.current.audio = undefined;
+            currentBlobSongIdRef.current = null;
         }
     }, []);
 
@@ -184,6 +187,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         if (preloadBlobUrlRef.current) {
             URL.revokeObjectURL(preloadBlobUrlRef.current);
             preloadBlobUrlRef.current = undefined;
+            preloadSongIdRef.current = null;
         }
     }, []);
 
@@ -197,6 +201,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         return () => {
             revokeAudioBlob();
+            revokePreloadBlob();
             revokeImageBlob();
         };
     }, [revokeAudioBlob, revokeImageBlob]);
@@ -322,18 +327,45 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const getSongUrl = useCallback(async (song: Song | null, isPreload = false) => {
         if (!song) return '';
 
-        // Check if song is offline
+        // Check if song is offline. Transfer a preloaded object URL to the active
+        // slot when its track becomes current; never revoke a URL still in use.
         const offlineSong = await getOfflineSong(song.id);
         if (offlineSong?.audioBlob) {
-            const url = URL.createObjectURL(offlineSong.audioBlob);
-            if (!isPreload) {
-                revokeAudioBlob();
-                currentBlobUrlsRef.current.audio = url;
-            } else {
+            if (isPreload) {
+                if (preloadSongIdRef.current === song.id && preloadBlobUrlRef.current) {
+                    return preloadBlobUrlRef.current;
+                }
                 revokePreloadBlob();
+                const url = URL.createObjectURL(offlineSong.audioBlob);
                 preloadBlobUrlRef.current = url;
+                preloadSongIdRef.current = song.id;
+                return url;
             }
+
+            if (preloadSongIdRef.current === song.id && preloadBlobUrlRef.current) {
+                revokeAudioBlob();
+                currentBlobUrlsRef.current.audio = preloadBlobUrlRef.current;
+                currentBlobSongIdRef.current = song.id;
+                preloadBlobUrlRef.current = undefined;
+                preloadSongIdRef.current = null;
+                return currentBlobUrlsRef.current.audio;
+            }
+
+            if (currentBlobSongIdRef.current === song.id && currentBlobUrlsRef.current.audio) {
+                return currentBlobUrlsRef.current.audio;
+            }
+
+            revokeAudioBlob();
+            const url = URL.createObjectURL(offlineSong.audioBlob);
+            currentBlobUrlsRef.current.audio = url;
+            currentBlobSongIdRef.current = song.id;
             return url;
+        }
+
+        if (isPreload) {
+            if (preloadSongIdRef.current !== song.id) revokePreloadBlob();
+        } else {
+            revokeAudioBlob();
         }
 
         const musicData = song.music || song.downloadUrl;
