@@ -165,20 +165,23 @@ class NativeMediaSessionBridge {
         const artist = decodeHtmlEntities(song.primaryArtists || '');
         const album = decodeHtmlEntities(typeof song.album === 'string' ? song.album : song.album?.name || '');
         const artworkType = (() => {
-            if (!imageUrl) return 'image/jpeg';
+            if (!imageUrl) return undefined;
             try {
                 const pathname = new URL(imageUrl, typeof window !== 'undefined' ? window.location.href : 'https://vibeon.invalid').pathname.toLowerCase();
                 if (pathname.endsWith('.png')) return 'image/png';
                 if (pathname.endsWith('.webp')) return 'image/webp';
                 if (pathname.endsWith('.avif')) return 'image/avif';
                 if (pathname.endsWith('.gif')) return 'image/gif';
+                if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) return 'image/jpeg';
             } catch {
-                // Use the broadly supported JPEG fallback for opaque/blob URLs.
+                // Opaque/blob/CDN URLs may not expose a reliable extension.
             }
-            return 'image/jpeg';
+            // Let the browser/native media service inspect opaque CDN URLs rather
+            // than falsely declaring every unknown image to be JPEG.
+            return undefined;
         })();
         const artwork = imageUrl
-            ? [{ src: imageUrl, sizes: '512x512', type: artworkType }]
+            ? [{ src: imageUrl, sizes: '512x512', ...(artworkType ? { type: artworkType } : {}) }]
             : [];
 
         if (this.isNative) {

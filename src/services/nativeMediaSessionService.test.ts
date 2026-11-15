@@ -67,6 +67,22 @@ describe('NativeMediaSessionBridge', () => {
         });
     });
 
+    it('does not guess the MIME type for opaque CDN artwork URLs', async () => {
+        const mockSong: any = {
+            id: 's2',
+            name: 'Opaque Artwork',
+            primaryArtists: 'Artist',
+            album: 'Album',
+        };
+
+        await nativeMediaSession.updateMetadata(mockSong, 'https://cdn.example/image?id=opaque');
+        const { MediaSession } = await import('@capgo/capacitor-media-session');
+        const metadata = (MediaSession.setMetadata as any).mock.calls[0][0];
+        expect(metadata.artwork).toEqual([
+            { src: 'https://cdn.example/image?id=opaque', sizes: '512x512' },
+        ]);
+    });
+
     it('starts the media foreground service before requesting media audio focus', async () => {
         const { MediaSession } = await import('@capgo/capacitor-media-session');
         const accepted = await nativeMediaSession.updatePlaybackState(true);
