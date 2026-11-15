@@ -690,7 +690,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         const savePosition = () => {
             const activeAudio = getActiveAudio();
-            if (activeAudio && activeAudio.currentTime > 0) {
+            if (activeAudio && Number.isFinite(activeAudio.currentTime) && activeAudio.currentTime > 0) {
                 dispatch(setCurrentTime(activeAudio.currentTime));
             }
         };
@@ -708,7 +708,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             window.removeEventListener('beforeunload', savePosition);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [dispatch]);
+    }, [dispatch, activeBuffer]);
 
     // Preload next song
     useEffect(() => {
