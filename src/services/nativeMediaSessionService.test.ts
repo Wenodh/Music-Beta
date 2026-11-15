@@ -99,18 +99,16 @@ describe('NativeMediaSessionBridge', () => {
 
     it('supports browser seek-forward and seek-backward actions using the latest position', async () => {
         const handlers = new Map<string, ((details?: any) => void) | null>();
-        const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaSession');
-        Object.defineProperty(navigator, 'mediaSession', {
-            configurable: true,
-            value: {
-                setActionHandler: vi.fn((action: string, handler: ((details?: any) => void) | null) => {
-                    handlers.set(action, handler);
-                }),
-                setPositionState: vi.fn(),
-                playbackState: 'none',
-                metadata: null,
-            },
-        });
+        const mediaSession = {
+            setActionHandler: vi.fn((action: string, handler: ((details?: any) => void) | null) => {
+                handlers.set(action, handler);
+            }),
+            setPositionState: vi.fn(),
+            playbackState: 'none',
+            metadata: null,
+        };
+        vi.stubGlobal('window', {});
+        vi.stubGlobal('navigator', { mediaSession });
 
         try {
             const callbacks: MediaControlsCallbacks = {
@@ -131,11 +129,7 @@ describe('NativeMediaSessionBridge', () => {
             expect(callbacks.onSeek).toHaveBeenNthCalledWith(2, 50);
             expect(handlers.has('stop')).toBe(true);
         } finally {
-            if (originalDescriptor) {
-                Object.defineProperty(navigator, 'mediaSession', originalDescriptor);
-            } else {
-                delete (navigator as any).mediaSession;
-            }
+            vi.unstubAllGlobals();
         }
     });
 
