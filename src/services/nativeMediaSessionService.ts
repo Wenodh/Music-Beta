@@ -32,6 +32,7 @@ class NativeMediaSessionBridge {
     private removeFocusListener: (() => void) | null = null;
     private removeNoisyListener: (() => void) | null = null;
     private resumeAfterTransientFocusLoss = false;
+    private lastKnownPosition = 0;
 
     public async checkAndRequestNotificationPermissions(): Promise<boolean> {
         if (!this.isNative) return true;
@@ -133,7 +134,7 @@ class NativeMediaSessionBridge {
             setHandler('seekbackward', (details) => {
                 const current = Number.isFinite(details.seekTime)
                     ? details.seekTime!
-                    : 0;
+                    : this.lastKnownPosition;
                 const offset = Number.isFinite(details.seekOffset) && details.seekOffset! > 0
                     ? details.seekOffset!
                     : 10;
@@ -142,7 +143,7 @@ class NativeMediaSessionBridge {
             setHandler('seekforward', (details) => {
                 const current = Number.isFinite(details.seekTime)
                     ? details.seekTime!
-                    : 0;
+                    : this.lastKnownPosition;
                 const offset = Number.isFinite(details.seekOffset) && details.seekOffset! > 0
                     ? details.seekOffset!
                     : 10;
@@ -253,6 +254,7 @@ class NativeMediaSessionBridge {
         const safeDuration = duration;
         const safePosition = Math.min(safeDuration, Math.max(0, position));
         const safePlaybackRate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1.0;
+        this.lastKnownPosition = safePosition;
         const positionState = {
             duration: safeDuration,
             position: safePosition,
