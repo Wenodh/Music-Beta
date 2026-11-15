@@ -684,14 +684,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
             if (songUrl && resolvedAudio.src !== songUrl) {
                 resolvedAudio.src = songUrl;
-                if (songUrl.startsWith('blob:')) {
-                    pendingAudioBlobRevokeRef.current.forEach((url) => {
-                        if (url !== songUrl) URL.revokeObjectURL(url);
-                    });
-                    pendingAudioBlobRevokeRef.current = [];
-                } else {
-                    revokeAudioBlob();
-                }
                 setIsCrossfading(false);
 
                 const pendingRecovery = pendingStreamRecoveryRef.current;
@@ -729,6 +721,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     };
                     resolvedAudio.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
                     isInitialPositionRestoredRef.current = true;
+                }
+            }
+
+            // Flush deferred Blob URL revocations even when the inactive buffer was
+            // already preloaded with this source before it became the active buffer.
+            if (songUrl) {
+                if (songUrl.startsWith('blob:')) {
+                    pendingAudioBlobRevokeRef.current.forEach((url) => {
+                        if (url !== songUrl) URL.revokeObjectURL(url);
+                    });
+                    pendingAudioBlobRevokeRef.current = [];
+                } else {
+                    revokeAudioBlob();
                 }
             }
 
