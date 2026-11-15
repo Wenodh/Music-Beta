@@ -115,9 +115,46 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
     const isPlayingRef = useRef(isPlaying);
     isPlayingRef.current = isPlaying;
+    const playbackChannelRef = useRef<BroadcastChannel | null>(null);
+    const playbackTabIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
     const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
+
+    // Coordinate playback between browser tabs. A newly-started session takes
+    // ownership and asks other Vibe On tabs to pause, preventing doubled audio.
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+
+        const channel = new BroadcastChannel('vibeon-playback-v1');
+        playbackChannelRef.current = channel;
+        const handlePlaybackMessage = (event: MessageEvent<{ type?: string; sender?: string }>) => {
+            if (
+                event.data?.type === 'PLAYBACK_STARTED' &&
+                event.data.sender !== playbackTabIdRef.current &&
+                isPlayingRef.current
+            ) {
+                nativeMediaSession.cancelTransientResume();
+                dispatch(pauseMusic());
+            }
+        };
+
+        channel.addEventListener('message', handlePlaybackMessage);
+        return () => {
+            channel.removeEventListener('message', handlePlaybackMessage);
+            channel.close();
+            if (playbackChannelRef.current === channel) playbackChannelRef.current = null;
+        };
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (!isPlaying || !currentSong) return;
+        playbackChannelRef.current?.postMessage({
+            type: 'PLAYBACK_STARTED',
+            sender: playbackTabIdRef.current,
+            songId: currentSong.id,
+        });
+    }, [isPlaying, currentSong?.id]);
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
     const preloadBlobUrlRef = useRef<string | undefined>(undefined);
@@ -506,8 +543,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 // A Web Audio context can be suspended independently of the HTML audio element.
                 // Resume it on both lifecycle transitions; the foreground service keeps the app
                 // process eligible to continue media while the WebView is backgrounded.
-                if (context && context.state === 'suspended') {
-                    await context.resume();
+                if (context && context.state !== 'running') {
+                    await audioEngine.resume();
                 }
 
                 if (activeAudio && activeAudio.paused) {
@@ -616,13 +653,23 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
 
             if (isPlaying) {
-                resolvedAudio.play().catch(e => console.warn("Playback failed", e));
+                resolvedAudio.play().catch((error: DOMException) => {
+                    if (error?.name === 'NotAllowedError' && currentSongRef.current?.id === targetSongId) {
+                        dispatch(pauseMusic());
+                    } else if (error?.name !== 'AbortError') {
+                        console.warn('[Player] Playback start failed:', error);
+                    }
+                });
             } else {
                 resolvedAudio.pause();
                 getInactiveAudio().pause();
             }
+        }).catch((error) => {
+            if (activePlaybackRequestIdRef.current !== currentRequestId) return;
+            console.warn('[Player] Could not resolve the current audio source:', error);
+            dispatch(pauseMusic());
         });
-    }, [currentSong?.id, activeBuffer, getSongUrl, prepareAudioForSource]);
+    }, [currentSong?.id, activeBuffer, getSongUrl, prepareAudioForSource, dispatch]);
 
     useEffect(() => {
         const activeAudio = getActiveAudio();
@@ -634,8 +681,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [isPlaying]);
 
-    // Throttled Redux update and persistence for current playback position
+    // Throttle both persistence and Media Session bridge updates. Browsers only
+    // need periodic position snapshots; sending one on every timeupdate is noisy.
     const lastDispatchedTimeRef = useRef<number>(0);
+    const lastPositionStateUpdateRef = useRef<number>(0);
 
     // Save playback position on pause, unload, and backgrounding
     useEffect(() => {
@@ -646,15 +695,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         };
 
-        window.addEventListener('beforeunload', savePosition);
-        document.addEventListener('visibilitychange', () => {
+        const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
                 savePosition();
             }
-        });
+        };
+
+        window.addEventListener('beforeunload', savePosition);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             window.removeEventListener('beforeunload', savePosition);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [dispatch]);
 
@@ -692,12 +744,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 lastDispatchedTimeRef.current = now;
             }
 
-            // Update MediaSession and native position state
-            nativeMediaSession.updatePositionState(
-                duration || 0,
-                currentTime || 0,
-                activeAudio.playbackRate || 1
-            );
+            // Keep browser/OS seek controls current without flooding the
+            // Capacitor bridge or Media Session API with every timeupdate event.
+            if (now - lastPositionStateUpdateRef.current >= 1000) {
+                nativeMediaSession.updatePositionState(
+                    duration || 0,
+                    currentTime || 0,
+                    activeAudio.playbackRate || 1
+                );
+                lastPositionStateUpdateRef.current = now;
+            }
 
             // Update Progress Bar
             const progressVal = (currentTime / (duration || 1)) * 100;
@@ -855,8 +911,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const handleSeek = (time: number) => {
         const activeAudio = getActiveAudio();
-        if (time >= 0) {
+        if (Number.isFinite(time) && time >= 0) {
             activeAudio.currentTime = time;
+            if (Number.isFinite(activeAudio.duration) && activeAudio.duration > 0) {
+                nativeMediaSession.updatePositionState(
+                    activeAudio.duration,
+                    Math.min(time, activeAudio.duration),
+                    activeAudio.playbackRate || 1
+                );
+                lastPositionStateUpdateRef.current = Date.now();
+            }
             if (isHost && isJoined && !isInternalAction.current) {
                 broadcast('seek', { time });
             }
