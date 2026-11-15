@@ -171,6 +171,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
     const currentBlobSongIdRef = useRef<string | null>(null);
+    const pendingAudioBlobRevokeRef = useRef<string[]>([]);
     const preloadBlobUrlRef = useRef<string | undefined>(undefined);
     const preloadSongIdRef = useRef<string | null>(null);
     const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -181,6 +182,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             currentBlobUrlsRef.current.audio = undefined;
             currentBlobSongIdRef.current = null;
         }
+        pendingAudioBlobRevokeRef.current.forEach((url) => URL.revokeObjectURL(url));
+        pendingAudioBlobRevokeRef.current = [];
     }, []);
 
     const revokePreloadBlob = useCallback(() => {
@@ -343,7 +346,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
 
             if (preloadSongIdRef.current === song.id && preloadBlobUrlRef.current) {
-                revokeAudioBlob();
+                const previousUrl = currentBlobUrlsRef.current.audio;
+                if (previousUrl && previousUrl !== preloadBlobUrlRef.current) {
+                    pendingAudioBlobRevokeRef.current.push(previousUrl);
+                }
                 currentBlobUrlsRef.current.audio = preloadBlobUrlRef.current;
                 currentBlobSongIdRef.current = song.id;
                 preloadBlobUrlRef.current = undefined;
@@ -355,8 +361,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 return currentBlobUrlsRef.current.audio;
             }
 
-            revokeAudioBlob();
+            const previousUrl = currentBlobUrlsRef.current.audio;
             const url = URL.createObjectURL(offlineSong.audioBlob);
+            if (previousUrl && previousUrl !== url) pendingAudioBlobRevokeRef.current.push(previousUrl);
             currentBlobUrlsRef.current.audio = url;
             currentBlobSongIdRef.current = song.id;
             return url;
@@ -364,8 +371,6 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         if (isPreload) {
             if (preloadSongIdRef.current !== song.id) revokePreloadBlob();
-        } else {
-            revokeAudioBlob();
         }
 
         const musicData = song.music || song.downloadUrl;
@@ -678,6 +683,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
             if (songUrl && resolvedAudio.src !== songUrl) {
                 resolvedAudio.src = songUrl;
+                if (songUrl.startsWith('blob:')) {
+                    pendingAudioBlobRevokeRef.current.forEach((url) => {
+                        if (url !== songUrl) URL.revokeObjectURL(url);
+                    });
+                    pendingAudioBlobRevokeRef.current = [];
+                } else {
+                    revokeAudioBlob();
+                }
                 setIsCrossfading(false);
 
                 const pendingRecovery = pendingStreamRecoveryRef.current;
@@ -732,7 +745,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             console.warn('[Player] Could not resolve the current audio source:', error);
             dispatch(pauseMusic());
         });
-    }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, dispatch]);
+    }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, dispatch]);
 
     // Recover an expired or failed online stream using fresh provider song details.
     useEffect(() => {
