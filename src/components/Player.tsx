@@ -52,6 +52,10 @@ import { backNavigationService } from '../services/backNavigationService';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { getNextSong } from '../utils/playlist';
+import { fetchSongDetailsWithRetry } from '../services/favoriteRecoveryService';
+import { classifyMediaError, recordPlaybackDiagnostic } from '../services/playbackDiagnostics';
+import { acquirePlaybackOwnership } from '../services/playbackCoordinator';
+import { showToast } from '../features/ui/uiSlice';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const dispatch = useAppDispatch();
@@ -117,6 +121,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     isPlayingRef.current = isPlaying;
     const playbackChannelRef = useRef<BroadcastChannel | null>(null);
     const playbackTabIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const streamRecoveryRef = useRef<{ songId: string; attempts: number }>({ songId: '', attempts: 0 });
+    const pendingStreamRecoveryRef = useRef<{ songId: string; position: number } | null>(null);
 
     const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
@@ -146,6 +152,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (playbackChannelRef.current === channel) playbackChannelRef.current = null;
         };
     }, [dispatch]);
+
+    // Web Locks provides atomic playback ownership when supported. BroadcastChannel
+    // remains the fallback and keeps non-owner tabs informed.
+    useEffect(() => {
+        if (!isPlaying || typeof navigator === 'undefined' || !('locks' in navigator)) return;
+        return acquirePlaybackOwnership(() => dispatch(pauseMusic()));
+    }, [isPlaying, dispatch]);
 
     useEffect(() => {
         if (!isPlaying || !currentSong) return;
@@ -635,6 +648,24 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 resolvedAudio.src = songUrl;
                 setIsCrossfading(false);
 
+                const pendingRecovery = pendingStreamRecoveryRef.current;
+                if (pendingRecovery?.songId === targetSongId) {
+                    const restoreRecoveredPosition = () => {
+                        if (currentSongRef.current?.id !== targetSongId) return;
+                        const duration = resolvedAudio.duration;
+                        const position = Number.isFinite(duration) && duration > 0
+                            ? Math.min(pendingRecovery.position, duration)
+                            : pendingRecovery.position;
+                        try {
+                            resolvedAudio.currentTime = Math.max(0, position);
+                        } catch {
+                            // Some streaming sources reject seeks until they become seekable.
+                        }
+                        pendingStreamRecoveryRef.current = null;
+                    };
+                    resolvedAudio.addEventListener('loadedmetadata', restoreRecoveredPosition, { once: true });
+                }
+
                 // Restore position only once for the re-hydrated initial song
                 if (!isInitialPositionRestoredRef.current && savedCurrentTime > 0 && targetSongId) {
                     restoredSongIdRef.current = targetSongId;
@@ -669,7 +700,58 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             console.warn('[Player] Could not resolve the current audio source:', error);
             dispatch(pauseMusic());
         });
-    }, [currentSong?.id, activeBuffer, getSongUrl, prepareAudioForSource, dispatch]);
+    }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, dispatch]);
+
+    // Recover an expired or failed online stream using fresh provider song details.
+    useEffect(() => {
+        const audio = getActiveAudio();
+        const handleMediaError = async () => {
+            const song = currentSongRef.current;
+            if (!isPlaying || !song || !audio.src || audio.src.startsWith('blob:')) return;
+            const mediaError = audio.error;
+            const failureKind = classifyMediaError(mediaError);
+            if (!failureKind || failureKind === 'aborted') return;
+
+            if (streamRecoveryRef.current.songId !== song.id) {
+                streamRecoveryRef.current = { songId: song.id, attempts: 0 };
+            }
+            if (streamRecoveryRef.current.attempts >= 2) {
+                recordPlaybackDiagnostic({ event: 'stream_recovery_exhausted', songId: song.id, code: mediaError?.code });
+                dispatch(pauseMusic());
+                dispatch(showToast({ message: 'This stream is unavailable. Please try another track.', type: 'error' }));
+                return;
+            }
+
+            streamRecoveryRef.current.attempts += 1;
+            const failedUrl = audio.currentSrc || audio.src;
+            const resumePosition = Number.isFinite(audio.currentTime) ? audio.currentTime : savedCurrentTime;
+            recordPlaybackDiagnostic({ event: 'stream_recovery_started', songId: song.id, code: mediaError?.code });
+
+            const result = await fetchSongDetailsWithRetry(song.id, 1);
+            if (currentSongRef.current?.id !== song.id) return;
+
+            const refreshedSong = result.song;
+            const media = refreshedSong?.downloadUrl || refreshedSong?.music;
+            const refreshedUrl = Array.isArray(media)
+                ? (media.find((item: any) => item.quality === preferredQuality)?.url || media[media.length - 1]?.url || '')
+                : (media || '');
+
+            if (!refreshedSong || !refreshedUrl || refreshedUrl === failedUrl) {
+                recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
+                dispatch(pauseMusic());
+                dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
+                return;
+            }
+
+            pendingStreamRecoveryRef.current = { songId: song.id, position: Math.max(0, resumePosition || 0) };
+            dispatch(setCurrentTime(Math.max(0, resumePosition || 0)));
+            recordPlaybackDiagnostic({ event: 'stream_recovery_succeeded', songId: song.id });
+            dispatch(playMusic({ ...refreshedSong, forcePlay: true }));
+        };
+
+        audio.addEventListener('error', handleMediaError);
+        return () => audio.removeEventListener('error', handleMediaError);
+    }, [activeBuffer, currentSong?.id, currentSong?.music, isPlaying, preferredQuality, savedCurrentTime, dispatch]);
 
     useEffect(() => {
         const activeAudio = getActiveAudio();
