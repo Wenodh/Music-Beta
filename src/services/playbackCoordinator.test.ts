@@ -5,15 +5,23 @@ describe('acquirePlaybackOwnership', () => {
     afterEach(() => vi.unstubAllGlobals());
 
     it('holds an acquired lock until playback stops', async () => {
-        const request = vi.fn((_name: string, _options: unknown, callback: (lock: object) => Promise<void>) => callback({ name: 'vibeon-playback-owner' }));
+        let callbackFinished = false;
+        const request = vi.fn((_name: string, _options: unknown, callback: (lock: object) => Promise<void>) => {
+            const pending = callback({ name: 'vibeon-playback-owner' });
+            void pending.then(() => { callbackFinished = true; });
+            return pending;
+        });
         vi.stubGlobal('navigator', { locks: { request } });
         const onDenied = vi.fn();
         const dispose = acquirePlaybackOwnership(onDenied);
         await Promise.resolve();
         expect(request).toHaveBeenCalledOnce();
         expect(onDenied).not.toHaveBeenCalled();
+        expect(callbackFinished).toBe(false);
         dispose();
         await Promise.resolve();
+        await Promise.resolve();
+        expect(callbackFinished).toBe(true);
     });
 
     it('notifies the tab when another tab owns playback', async () => {
@@ -36,5 +44,10 @@ describe('acquirePlaybackOwnership', () => {
         dispose();
         await runCallback?.();
         expect(request).toHaveBeenCalledOnce();
+    });
+
+    it('falls back without throwing when Web Locks are unavailable', () => {
+        vi.stubGlobal('navigator', {});
+        expect(() => acquirePlaybackOwnership(vi.fn())).not.toThrow();
     });
 });
