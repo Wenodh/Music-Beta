@@ -3,7 +3,7 @@
  * available. The returned disposer releases the lock when playback stops.
  * BroadcastChannel remains the fallback on browsers without Web Locks.
  */
-export function acquirePlaybackOwnership(onDenied: () => void): () => void {
+export function acquirePlaybackOwnership(onDenied: () => void, onAcquired?: () => void): () => void {
     if (typeof navigator === 'undefined' || !('locks' in navigator) || !navigator.locks?.request) {
         return () => undefined;
     }
@@ -24,6 +24,7 @@ export function acquirePlaybackOwnership(onDenied: () => void): () => void {
                 onDenied();
                 return;
             }
+            onAcquired?.();
             await holdLock;
         }
     ).catch((error) => {
