@@ -204,7 +204,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             revokePreloadBlob();
             revokeImageBlob();
         };
-    }, [revokeAudioBlob, revokeImageBlob]);
+    }, [revokeAudioBlob, revokePreloadBlob, revokeImageBlob]);
 
     // Dual buffer system
     const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
@@ -373,7 +373,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
         }
         return musicData || '';
-    }, [preferredQuality, revokeAudioBlob]);
+    }, [preferredQuality, revokeAudioBlob, revokePreloadBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
         if (!isManual && repeatMode === 'one') {
