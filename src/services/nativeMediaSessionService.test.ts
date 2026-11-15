@@ -63,7 +63,7 @@ describe('NativeMediaSessionBridge', () => {
             title: 'Song & Melody',
             artist: 'Artist 1 & 2',
             album: 'Great Album',
-            artwork: [{ src: 'https://example.com/cover.jpg', sizes: '512x512', type: 'image/png' }],
+            artwork: [{ src: 'https://example.com/cover.jpg', sizes: '512x512', type: 'image/jpeg' }],
         });
     });
 
@@ -95,6 +95,48 @@ describe('NativeMediaSessionBridge', () => {
         expect(accepted).toBe(false);
         expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(1, { playbackState: 'playing' });
         expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(2, { playbackState: 'paused' });
+    });
+
+    it('supports browser seek-forward and seek-backward actions using the latest position', async () => {
+        const handlers = new Map<string, ((details?: any) => void) | null>();
+        const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaSession');
+        Object.defineProperty(navigator, 'mediaSession', {
+            configurable: true,
+            value: {
+                setActionHandler: vi.fn((action: string, handler: ((details?: any) => void) | null) => {
+                    handlers.set(action, handler);
+                }),
+                setPositionState: vi.fn(),
+                playbackState: 'none',
+                metadata: null,
+            },
+        });
+
+        try {
+            const callbacks: MediaControlsCallbacks = {
+                onPlay: vi.fn(),
+                onPause: vi.fn(),
+                onNext: vi.fn(),
+                onPrevious: vi.fn(),
+                onSeek: vi.fn(),
+            };
+
+            await nativeMediaSession.registerCallbacks(callbacks);
+            await nativeMediaSession.updatePositionState(120, 30, 1);
+
+            handlers.get('seekbackward')?.({ seekOffset: 10 });
+            handlers.get('seekforward')?.({ seekOffset: 20 });
+
+            expect(callbacks.onSeek).toHaveBeenNthCalledWith(1, 20);
+            expect(callbacks.onSeek).toHaveBeenNthCalledWith(2, 50);
+            expect(handlers.has('stop')).toBe(true);
+        } finally {
+            if (originalDescriptor) {
+                Object.defineProperty(navigator, 'mediaSession', originalDescriptor);
+            } else {
+                delete (navigator as any).mediaSession;
+            }
+        }
     });
 
     it('updates position state correctly', async () => {
