@@ -108,32 +108,75 @@ class NativeMediaSessionBridge {
             }
         }
 
-        // Web MediaSession fallback
+        // Browser Media Session API. Register each action independently because
+        // browser support differs (especially for seek and stop actions).
         if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
-            try {
-                navigator.mediaSession.setActionHandler('play', () => this.activeHandlers?.onPlay());
-                navigator.mediaSession.setActionHandler('pause', () => this.activeHandlers?.onPause());
-                navigator.mediaSession.setActionHandler('nexttrack', () => this.activeHandlers?.onNext());
-                navigator.mediaSession.setActionHandler('previoustrack', () => this.activeHandlers?.onPrevious());
-                navigator.mediaSession.setActionHandler('seekto', (details) => {
-                    if (details.seekTime !== undefined && details.seekTime !== null) {
-                        this.activeHandlers?.onSeek(details.seekTime);
-                    }
-                });
-            } catch {
-                // Ignore unsupported action handler errors
-            }
+            const mediaSession = navigator.mediaSession;
+            const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler) => {
+                try {
+                    mediaSession.setActionHandler(action, handler);
+                } catch {
+                    // An unsupported action must not prevent the other controls registering.
+                }
+            };
+
+            setHandler('play', () => this.activeHandlers?.onPlay());
+            setHandler('pause', () => this.activeHandlers?.onPause());
+            setHandler('stop', () => this.activeHandlers?.onPause());
+            setHandler('nexttrack', () => this.activeHandlers?.onNext());
+            setHandler('previoustrack', () => this.activeHandlers?.onPrevious());
+            setHandler('seekto', (details) => {
+                if (Number.isFinite(details.seekTime)) {
+                    this.activeHandlers?.onSeek(details.seekTime!);
+                }
+            });
+            setHandler('seekbackward', (details) => {
+                const current = Number.isFinite(details.seekTime)
+                    ? details.seekTime!
+                    : 0;
+                const offset = Number.isFinite(details.seekOffset) && details.seekOffset! > 0
+                    ? details.seekOffset!
+                    : 10;
+                this.activeHandlers?.onSeek(Math.max(0, current - offset));
+            });
+            setHandler('seekforward', (details) => {
+                const current = Number.isFinite(details.seekTime)
+                    ? details.seekTime!
+                    : 0;
+                const offset = Number.isFinite(details.seekOffset) && details.seekOffset! > 0
+                    ? details.seekOffset!
+                    : 10;
+                this.activeHandlers?.onSeek(current + offset);
+            });
         }
     }
 
     public async updateMetadata(song: Song | null, imageUrl: string | null) {
-        if (!song) return;
+        if (!song) {
+            if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+                navigator.mediaSession.metadata = null;
+            }
+            return;
+        }
 
         const title = decodeHtmlEntities(song.name);
         const artist = decodeHtmlEntities(song.primaryArtists || '');
         const album = decodeHtmlEntities(typeof song.album === 'string' ? song.album : song.album?.name || '');
+        const artworkType = (() => {
+            if (!imageUrl) return 'image/jpeg';
+            try {
+                const pathname = new URL(imageUrl, typeof window !== 'undefined' ? window.location.href : 'https://vibeon.invalid').pathname.toLowerCase();
+                if (pathname.endsWith('.png')) return 'image/png';
+                if (pathname.endsWith('.webp')) return 'image/webp';
+                if (pathname.endsWith('.avif')) return 'image/avif';
+                if (pathname.endsWith('.gif')) return 'image/gif';
+            } catch {
+                // Use the broadly supported JPEG fallback for opaque/blob URLs.
+            }
+            return 'image/jpeg';
+        })();
         const artwork = imageUrl
-            ? [{ src: imageUrl, sizes: '512x512', type: 'image/png' }]
+            ? [{ src: imageUrl, sizes: '512x512', type: artworkType }]
             : [];
 
         if (this.isNative) {
@@ -205,27 +248,30 @@ class NativeMediaSessionBridge {
     }
 
     public async updatePositionState(duration: number, position: number, playbackRate = 1.0) {
+        if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(position)) return;
+
+        const safeDuration = duration;
+        const safePosition = Math.min(safeDuration, Math.max(0, position));
+        const safePlaybackRate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1.0;
+        const positionState = {
+            duration: safeDuration,
+            position: safePosition,
+            playbackRate: safePlaybackRate,
+        };
+
         if (this.isNative) {
             try {
-                await MediaSession.setPositionState({
-                    duration: duration > 0 ? duration : 0,
-                    position: position > 0 ? position : 0,
-                    playbackRate: playbackRate > 0 ? playbackRate : 1.0,
-                });
+                await MediaSession.setPositionState(positionState);
             } catch {
-                // Ignore position updates if service is busy
+                // Ignore position updates if service is busy or the duration is not yet accepted.
             }
         }
 
         if (typeof window !== 'undefined' && 'mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
             try {
-                navigator.mediaSession.setPositionState({
-                    duration: duration > 0 ? duration : 0,
-                    position: position > 0 ? position : 0,
-                    playbackRate: playbackRate > 0 ? playbackRate : 1.0,
-                });
+                navigator.mediaSession.setPositionState(positionState);
             } catch {
-                // Ignore
+                // Browsers reject invalid or stale position updates; playback itself should continue.
             }
         }
     }
