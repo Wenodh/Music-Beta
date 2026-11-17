@@ -223,7 +223,8 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     @Override
     protected void handleOnDestroy() {
         if (audioService != null && !callServiceActive) {
-            audioService.abandonAudioFocus();
+            audioService.abandonAudioFocus(false);
+            audioService.abandonAudioFocus(true);
         }
         if (callNotificationManager != null && !callServiceActive) {
             callNotificationManager.clearCallNotification();
