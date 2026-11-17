@@ -562,8 +562,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const inCallOrRinging = isCallActive || Boolean(incomingCall);
 
         if (inCallOrRinging) {
-            if (isPlaying) {
+            // Audio-focus loss can pause music before this effect observes the incoming call.
+            // Transfer that intent to the call lifecycle so music resumes after the call ends.
+            if (isPlaying || wasPlayingBeforeAudioFocusLossRef.current) {
                 wasPlayingBeforeCallRef.current = true;
+                wasPlayingBeforeAudioFocusLossRef.current = false;
+                nativeMediaSession.cancelTransientResume();
+            }
+            if (isPlaying) {
                 dispatch(pauseMusic());
             }
         } else {
