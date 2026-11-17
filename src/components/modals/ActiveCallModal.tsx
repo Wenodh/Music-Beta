@@ -28,6 +28,7 @@ export const ActiveCallModal: React.FC = () => {
     const prevMsgCountRef = useRef(activeCall?.friendId ? directMessages[activeCall.friendId]?.length || 0 : 0);
     const {
         endCall,
+        declineWaitingCall,
         toggleMute,
         toggleVideo,
         toggleSpeaker,
@@ -197,9 +198,19 @@ export const ActiveCallModal: React.FC = () => {
                             </span>
                         )}
                         {waitingCall && (
-                            <span className="mt-1 text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                                {waitingCall.callerName} is waiting · End this call to answer
-                            </span>
+                            <div className="mt-1 flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                    {waitingCall.callerName} is waiting · End this call to answer
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={declineWaitingCall}
+                                    className="px-2 py-0.5 rounded-md text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                    aria-label="Decline waiting call"
+                                >
+                                    Decline
+                                </button>
+                            </div>
                         )}
                     </div>
 
