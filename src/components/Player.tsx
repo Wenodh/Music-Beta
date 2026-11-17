@@ -591,17 +591,19 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         let appStateHandle: { remove: () => Promise<void> } | null = null;
 
         const recoverPlayback = async (isActive: boolean) => {
-            if (!isPlaying) return;
+            if (!isPlayingRef.current) return;
 
             const activeAudio = getActiveAudio();
             const context = audioEngine.getAudioContext();
 
             try {
-                // A Web Audio context can be suspended independently of the HTML audio element.
-                // Resume it on both lifecycle transitions; the foreground service keeps the app
-                // process eligible to continue media while the WebView is backgrounded.
+                // Android can suspend Web Audio after the initial background transition.
+                // Retry on app resume, document visibility changes, and AudioContext state changes.
                 if (context && context.state !== 'running') {
-                    await audioEngine.resume();
+                    const resumed = await audioEngine.resume();
+                    if (!resumed && audioEngine.isElementCaptured(activeAudio)) {
+                        console.warn('[Player] Captured Web Audio element remains suspended; background audio may be unavailable until the app is resumed.');
+                    }
                 }
 
                 if (activeAudio && activeAudio.paused) {
@@ -614,6 +616,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 );
             }
         };
+
+        const context = audioEngine.getAudioContext();
+        const handleAudioContextStateChange = () => {
+            if (isPlayingRef.current && context?.state === 'suspended') {
+                void recoverPlayback(false);
+            }
+        };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') void recoverPlayback(true);
+        };
+        context?.addEventListener('statechange', handleAudioContextStateChange);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         CapApp.addListener('appStateChange', ({ isActive }) => {
             void recoverPlayback(isActive);
@@ -629,6 +643,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         return () => {
             disposed = true;
+            context?.removeEventListener('statechange', handleAudioContextStateChange);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (appStateHandle) {
                 void appStateHandle.remove();
                 appStateHandle = null;
