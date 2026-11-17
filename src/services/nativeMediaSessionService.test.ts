@@ -99,7 +99,7 @@ describe('NativeMediaSessionBridge', () => {
 
     it('abandons media audio focus on a normal pause', async () => {
         await nativeMediaSession.updatePlaybackState(false);
-        expect(abandonAudioFocusMock).toHaveBeenCalledTimes(1);
+        expect(abandonAudioFocusMock).toHaveBeenCalledWith({ forCall: false });
     });
 
     it('reports denied media focus and rolls the native session back to paused', async () => {
