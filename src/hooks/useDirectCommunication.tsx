@@ -1076,9 +1076,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                                 signalType: 'answer',
                                 sdp: answer,
                             });
+                            if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== callId) return;
 
-                            // Flush buffered early ICE candidates
-                            while (pendingIceCandidatesRef.current.length > 0) {
+                            // Flush buffered early ICE candidates for this still-active call.
+                            while (pendingIceCandidatesRef.current.length > 0 &&
+                                peerConnectionRef.current === pc && activeCallRef.current?.callId === callId) {
                                 const cand = pendingIceCandidatesRef.current.shift();
                                 if (cand) {
                                     await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
@@ -1121,9 +1123,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         try {
                             isSettingRemoteAnswerPendingRef.current = true;
                             await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                            if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== callId) return;
 
                             // Flush buffered early ICE candidates
-                            while (pendingIceCandidatesRef.current.length > 0) {
+                            while (pendingIceCandidatesRef.current.length > 0 &&
+                                peerConnectionRef.current === pc && activeCallRef.current?.callId === callId) {
                                 const cand = pendingIceCandidatesRef.current.shift();
                                 if (cand) {
                                     await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
