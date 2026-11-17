@@ -95,17 +95,21 @@ public class VibeOnAudioService {
     public void setSpeakerphoneOn(boolean enabled) {
         if (audioManager == null) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            android.media.AudioDeviceInfo target = null;
+            if (!enabled) {
+                // Restore Android's preferred communication route (Bluetooth/wired headset
+                // when connected), rather than forcing the built-in earpiece.
+                audioManager.clearCommunicationDevice();
+                return;
+            }
+
+            android.media.AudioDeviceInfo speaker = null;
             for (android.media.AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
-                if (enabled && device.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
-                    target = device;
+                if (device.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                    speaker = device;
                     break;
                 }
-                if (!enabled && device.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) {
-                    target = device;
-                }
             }
-            if (target != null) audioManager.setCommunicationDevice(target);
+            if (speaker != null) audioManager.setCommunicationDevice(speaker);
         } else {
             audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
             audioManager.setSpeakerphoneOn(enabled);
