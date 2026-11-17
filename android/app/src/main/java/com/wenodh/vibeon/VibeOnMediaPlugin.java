@@ -101,7 +101,8 @@ public class VibeOnMediaPlugin extends Plugin implements VibeOnAudioService.Audi
     @PluginMethod
     public void abandonAudioFocus(PluginCall call) {
         if (audioService != null) {
-            audioService.abandonAudioFocus();
+            boolean forCall = Boolean.TRUE.equals(call.getBoolean("forCall", false));
+            audioService.abandonAudioFocus(forCall);
             call.resolve();
         } else {
             call.reject("Audio service not initialized");
