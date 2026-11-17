@@ -1132,7 +1132,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         } catch (err) {
                             console.warn('Error setting remote answer:', err);
                         } finally {
-                            isSettingRemoteAnswerPendingRef.current = false;
+                            if (peerConnectionRef.current === pc) {
+                                isSettingRemoteAnswerPendingRef.current = false;
+                            }
                         }
                     }
                     return;
