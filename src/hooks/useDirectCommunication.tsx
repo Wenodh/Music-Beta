@@ -630,6 +630,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
             try {
                 const stats = await pc.getStats();
+                // A getStats promise can settle after the call was ended or replaced.
+                if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
                 let rttMs: number | null = null;
                 let jitterMs: number | null = null;
                 let packetsLost = 0;
