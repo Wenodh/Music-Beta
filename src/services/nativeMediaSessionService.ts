@@ -5,7 +5,7 @@ import { Song } from '../types/music';
 
 interface VibeOnMediaPluginInterface {
     requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
-    abandonAudioFocus(): Promise<void>;
+    abandonAudioFocus(options?: { forCall?: boolean }): Promise<void>;
     checkPermissions?(): Promise<{ notifications: string }>;
     requestPermissions?(): Promise<{ notifications: string }>;
     addListener(eventName: 'audioFocusChanged', listener: (data: { event: string; canResume?: boolean }) => void): Promise<{ remove: () => void }>;
@@ -230,7 +230,7 @@ class NativeMediaSessionBridge {
                 } else if (!this.resumeAfterTransientFocusLoss) {
                     // Release focus on a user/permanent pause, but retain it during a transient
                     // interruption so Android can notify us when focus is returned.
-                    await VibeOnMedia.abandonAudioFocus().catch(() => {});
+                    await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch(() => {});
                 }
             } catch (err) {
                 console.warn('[NativeMediaSession] Failed to set native playback state:', err);
