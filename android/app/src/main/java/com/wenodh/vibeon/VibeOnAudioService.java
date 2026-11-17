@@ -10,13 +10,17 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.util.Log;
 
-public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListener {
+public class VibeOnAudioService {
 
     private static final String TAG = "VibeOnAudioService";
     private final Context context;
     private final AudioManager audioManager;
     private AudioFocusRequest mediaAudioFocusRequest;
     private AudioFocusRequest callAudioFocusRequest;
+    private final AudioManager.OnAudioFocusChangeListener mediaFocusListener =
+            focusChange -> onAudioFocusChange(focusChange, false);
+    private final AudioManager.OnAudioFocusChangeListener callFocusListener =
+            focusChange -> onAudioFocusChange(focusChange, true);
     private BroadcastReceiver noisyReceiver;
     private boolean isReceiverRegistered = false;
     private boolean legacyFocusRequested = false;
@@ -25,9 +29,9 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
     private AudioFocusListener focusListener;
 
     public interface AudioFocusListener {
-        void onAudioFocusLost();
-        void onAudioFocusLostTransient();
-        void onAudioFocusGained();
+        void onAudioFocusLost(boolean forCall);
+        void onAudioFocusLostTransient(boolean forCall);
+        void onAudioFocusGained(boolean forCall);
         void onHeadphonesDisconnected();
     }
 
@@ -59,7 +63,7 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
             AudioFocusRequest request = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                     .setAudioAttributes(attributes)
                     .setAcceptsDelayedFocusGain(false)
-                    .setOnAudioFocusChangeListener(this)
+                    .setOnAudioFocusChangeListener(forCall ? callFocusListener : mediaFocusListener)
                     .build();
 
             result = audioManager.requestAudioFocus(request);
@@ -69,7 +73,7 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
             }
         } else {
             int streamType = forCall ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC;
-            result = audioManager.requestAudioFocus(this, streamType, AudioManager.AUDIOFOCUS_GAIN);
+            result = audioManager.requestAudioFocus(forCall ? callFocusListener : mediaFocusListener, streamType, AudioManager.AUDIOFOCUS_GAIN);
             legacyFocusRequested = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
             legacyFocusForCall = forCall;
         }
@@ -119,7 +123,7 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
                 else mediaAudioFocusRequest = null;
             }
         } else if (legacyFocusRequested && legacyFocusForCall == forCall) {
-            audioManager.abandonAudioFocus(this);
+            audioManager.abandonAudioFocus(forCall ? callFocusListener : mediaFocusListener);
             legacyFocusRequested = false;
         }
 
@@ -181,24 +185,22 @@ public class VibeOnAudioService implements AudioManager.OnAudioFocusChangeListen
         }
     }
 
-    @Override
-    public void onAudioFocusChange(int focusChange) {
-        Log.i(TAG, "Audio focus changed: " + focusChange);
+    private void onAudioFocusChange(int focusChange, boolean forCall) {
+        Log.i(TAG, "Audio focus changed: " + focusChange + " (forCall=" + forCall + ")");
         if (focusListener == null) return;
 
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
-                focusListener.onAudioFocusLost();
+                focusListener.onAudioFocusLost(forCall);
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                focusListener.onAudioFocusLostTransient();
+                focusListener.onAudioFocusLostTransient(forCall);
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 // Do not pause music for a duck request; Android can lower the media stream.
-                // Voice-call UI handles its own ducking policy separately.
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
-                focusListener.onAudioFocusGained();
+                focusListener.onAudioFocusGained(forCall);
                 break;
         }
     }
