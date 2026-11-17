@@ -50,10 +50,14 @@ test('two-peer audio call connects, reports stats, and survives an ICE restart',
 
             const firstStats = await caller.getStats();
             const firstStatsCount = firstStats.size;
+            const initialIceUfrag = caller.localDescription?.sdp?.match(/^a=ice-ufrag:(.+)$/m)?.[1];
 
             const restartOffer = await caller.createOffer({ iceRestart: true });
             await caller.setLocalDescription(restartOffer);
-            const restartOfferHasIceCredentials = Boolean(caller.localDescription?.sdp?.includes('a=ice-ufrag:'));
+            const restartIceUfrag = caller.localDescription?.sdp?.match(/^a=ice-ufrag:(.+)$/m)?.[1];
+            const restartOfferHasIceCredentials = Boolean(
+                initialIceUfrag && restartIceUfrag && restartIceUfrag !== initialIceUfrag
+            );
             await waitForIceGathering(caller);
             await callee.setRemoteDescription(caller.localDescription!);
             const restartAnswer = await callee.createAnswer();
