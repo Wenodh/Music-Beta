@@ -287,7 +287,7 @@ class NativeMediaSessionBridge {
         if (this.isNative) {
             try {
                 await MediaSession.setPlaybackState({ playbackState: 'none' });
-                await VibeOnMedia.abandonAudioFocus().catch(() => {});
+                await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch(() => {});
             } catch {
                 // Ignore
             }
