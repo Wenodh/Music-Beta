@@ -23,7 +23,7 @@ export async function recoverPlaybackAfterLifecycle(
         return { attempted: false, audioContextResumed: true };
     }
 
-    let audioContextResumed = true;
+    let audioContextResumed = audioContextState !== 'closed';
     if (audioContextState && audioContextState !== 'running' && audioContextState !== 'closed') {
         audioContextResumed = await resumeAudioContext();
     }
