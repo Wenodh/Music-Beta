@@ -712,7 +712,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const replayCheck = await isMessageReplayOrDuplicateLocal(
                     incomingPayload.senderId,
                     incomingPayload.id,
-                    incomingPayload.seq
+                    incomingPayload.seq,
+                    incomingPayload.senderId
                 );
 
                 if (replayCheck.isDuplicate) {
@@ -1187,7 +1188,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         if (!text.trim()) return;
 
         const cleanText = text.trim();
-        const nextSeq = await getNextMessageSequenceLocal(friendId);
+        const nextSeq = await getNextMessageSequenceLocal(friendId, userId);
         const messageId = Date.now().toString() + Math.random().toString(36).substring(7);
 
         const msg: DirectMessage = {
