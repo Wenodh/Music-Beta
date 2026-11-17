@@ -55,6 +55,7 @@ import { getNextSong } from '../utils/playlist';
 import { fetchSongDetailsWithRetry } from '../services/favoriteRecoveryService';
 import { classifyMediaError, recordPlaybackDiagnostic } from '../services/playbackDiagnostics';
 import { acquirePlaybackOwnership } from '../services/playbackCoordinator';
+import { recoverPlaybackAfterLifecycle } from '../services/playbackLifecycle';
 import { showToast } from '../features/ui/uiSlice';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
@@ -599,15 +600,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             try {
                 // Android can suspend Web Audio after the initial background transition.
                 // Retry on app resume, document visibility changes, and AudioContext state changes.
-                if (context && context.state !== 'running') {
-                    const resumed = await audioEngine.resume();
-                    if (!resumed && audioEngine.isElementCaptured(activeAudio)) {
-                        console.warn('[Player] Captured Web Audio element remains suspended; background audio may be unavailable until the app is resumed.');
-                    }
-                }
-
-                if (activeAudio && activeAudio.paused) {
-                    await activeAudio.play();
+                const recovery = await recoverPlaybackAfterLifecycle({
+                    isPlaying: isPlayingRef.current,
+                    audio: activeAudio,
+                    audioContextState: context?.state,
+                    resumeAudioContext: () => audioEngine.resume(),
+                });
+                if (!recovery.audioContextResumed && audioEngine.isElementCaptured(activeAudio)) {
+                    console.warn('[Player] Captured Web Audio element remains suspended; background audio may be unavailable until the app is resumed.');
                 }
             } catch (error) {
                 console.warn(
