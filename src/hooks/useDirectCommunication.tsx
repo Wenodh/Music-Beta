@@ -517,7 +517,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             try {
                 const freshConfig = await iceServerService.getIceServers();
                 if (pc.signalingState === 'closed' || peerConnectionRef.current !== pc) return;
-                if (pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
+                // Re-check after the async TURN refresh: an ordinary negotiation may have
+                // started while credentials were loading.
+                if (makingOfferRef.current || pc.signalingState !== 'stable' || isSettingRemoteAnswerPendingRef.current) {
                     scheduleIceRestart();
                     return;
                 }
