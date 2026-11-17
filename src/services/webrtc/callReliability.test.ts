@@ -21,6 +21,10 @@ describe('callReliability', () => {
         expect(classifyCallQuality({}).level).toBe('unknown');
     });
 
+    it('does not classify NaN or negative stats as excellent quality', () => {
+        expect(classifyCallQuality({ rttMs: Number.NaN, jitterMs: -1, packetLossPercent: Number.POSITIVE_INFINITY }).level).toBe('unknown');
+    });
+
     it('explains permission denial separately from missing hardware', () => {
         expect(getMediaAccessErrorMessage(new DOMException('denied', 'NotAllowedError'), 'microphone')).toContain('permission was denied');
         expect(getMediaAccessErrorMessage(new DOMException('missing', 'NotFoundError'), 'camera')).toContain('No camera was found');
