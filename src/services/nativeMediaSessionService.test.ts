@@ -74,12 +74,13 @@ describe('NativeMediaSessionBridge', () => {
 
         listenerCallbacks.audioFocusChanged({ event: 'audioFocusLost', canResume: false, forCall: false });
         listenerCallbacks.audioFocusChanged({ event: 'audioFocusGained', forCall: false });
+        expect(callbacks.onAudioFocusLost).toHaveBeenCalledTimes(2);
         expect(callbacks.onAudioFocusGained).toHaveBeenCalledOnce();
 
         // Call focus events must never trigger media-player pause/resume callbacks.
         listenerCallbacks.audioFocusChanged({ event: 'audioFocusLost', canResume: true, forCall: true });
         listenerCallbacks.audioFocusChanged({ event: 'audioFocusGained', forCall: true });
-        expect(callbacks.onAudioFocusLost).toHaveBeenCalledOnce();
+        expect(callbacks.onAudioFocusLost).toHaveBeenCalledTimes(2);
         expect(callbacks.onAudioFocusGained).toHaveBeenCalledOnce();
     });
 
