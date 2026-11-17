@@ -21,7 +21,7 @@ interface VibeOnMediaPluginInterface {
     ): Promise<PluginListenerHandle>;
     addListener(
         eventName: 'audioFocusChanged',
-        listenerFunc: (data: { event: string }) => void
+        listenerFunc: (data: { event: string; forCall?: boolean }) => void
     ): Promise<PluginListenerHandle>;
     addListener(
         eventName: 'becomingNoisy',
@@ -105,7 +105,8 @@ class NativeCallNotificationService {
         await Promise.all(this.lifecycleListenerHandles.map((handle) => handle.remove()));
         this.lifecycleListenerHandles = [];
         try {
-            const focus = await VibeOnMedia.addListener('audioFocusChanged', ({ event }) => {
+            const focus = await VibeOnMedia.addListener('audioFocusChanged', ({ event, forCall }) => {
+                if (!forCall) return;
                 if (event === 'audioFocusLost') handlers.onFocusLost();
                 if (event === 'audioFocusGained') handlers.onFocusGained();
             });
