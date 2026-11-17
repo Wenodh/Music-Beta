@@ -4,7 +4,7 @@ interface VibeOnMediaPluginInterface {
     requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
     startCallForegroundService(options: { friendName: string; callType: string }): Promise<void>;
     stopCallForegroundService(): Promise<void>;
-    abandonAudioFocus(): Promise<void>;
+    abandonAudioFocus(options?: { forCall?: boolean }): Promise<void>;
     setSpeakerphoneOn(options: { enabled: boolean }): Promise<void>;
     showCallNotification(options: {
         friendName: string;
@@ -91,7 +91,7 @@ class NativeCallNotificationService {
 
     public async abandonAudioFocus(): Promise<void> {
         if (!this.isNative) return;
-        try { await VibeOnMedia.abandonAudioFocus(); } catch (error) {
+        try { await VibeOnMedia.abandonAudioFocus({ forCall: true }); } catch (error) {
             console.warn('[NativeCallNotification] Audio focus release failed:', error);
         }
     }
