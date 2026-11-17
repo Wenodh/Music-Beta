@@ -8,7 +8,7 @@ interface VibeOnMediaPluginInterface {
     abandonAudioFocus(options?: { forCall?: boolean }): Promise<void>;
     checkPermissions?(): Promise<{ notifications: string }>;
     requestPermissions?(): Promise<{ notifications: string }>;
-    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string; canResume?: boolean }) => void): Promise<{ remove: () => void }>;
+    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string; canResume?: boolean; forCall?: boolean }) => void): Promise<{ remove: () => void }>;
     addListener(eventName: 'becomingNoisy', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
 }
 
@@ -80,6 +80,7 @@ class NativeMediaSessionBridge {
 
                 if (!this.listenersRegistered) {
                     const focusHandle = await VibeOnMedia.addListener('audioFocusChanged', (data) => {
+                        if (data.forCall) return;
                         if (data.event === 'audioFocusLost') {
                             this.resumeAfterTransientFocusLoss = Boolean(data.canResume);
                             if (this.activeHandlers?.onAudioFocusLost) {
