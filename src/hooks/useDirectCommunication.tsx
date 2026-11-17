@@ -53,6 +53,7 @@ export interface DirectCommunicationContextValue {
     callFriend: (friend: Friend, requestedCallType?: CallType) => Promise<void>;
     acceptIncomingCall: (callerId: string, callerName: string) => Promise<void>;
     declineIncomingCall: (callerId: string) => void;
+    declineWaitingCall: () => void;
     endCall: () => void;
     toggleMute: () => void;
     toggleVideo: () => Promise<void>;
@@ -1488,6 +1489,21 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         });
     }, [userId, userName, dispatch, sendToUser, logIncomingCall, promoteQueuedCall]);
 
+    const declineWaitingCall = useCallback(() => {
+        const waiting = waitingCallRef.current;
+        if (!waiting) return;
+
+        waitingCallRef.current = null;
+        dispatch(setWaitingCall(null));
+        logIncomingCall(waiting, 'declined');
+        void sendToUser(waiting.callerId, 'direct_signal', {
+            callId: waiting.callId,
+            senderId: userId,
+            senderName: userName,
+            signalType: 'call-declined',
+        });
+    }, [dispatch, logIncomingCall, sendToUser, userId, userName]);
+
     // End / Cancel current call
     const endCall = useCallback(() => {
         const active = activeCallRef.current;
@@ -1852,6 +1868,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         callFriend,
         acceptIncomingCall,
         declineIncomingCall,
+        declineWaitingCall,
         endCall,
         toggleMute,
         toggleVideo,
