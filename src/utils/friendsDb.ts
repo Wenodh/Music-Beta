@@ -89,6 +89,15 @@ interface FriendsDBSchema extends DBSchema {
     };
 }
 
+/** Return the high-water mark for one sender, never the whole conversation. */
+export const getMaxSequenceForSender = (
+    messages: Pick<DirectMessage, 'senderId' | 'seq'>[],
+    senderId: string
+): number => messages.reduce(
+    (max, message) => message.senderId === senderId ? Math.max(max, message.seq || 0) : max,
+    0
+);
+
 const DB_NAME = 'vibeon_friends';
 const DB_VERSION = 4;
 
@@ -211,10 +220,7 @@ export const getMaxRecordedSequenceLocal = async (friendId: string, senderId: st
     // Backfill only this sender's sequence. Outgoing and incoming messages must
     // never share a high-water mark or valid peer messages can be rejected.
     const messages = await db.getAllFromIndex('direct_messages', 'by-friend', friendId);
-    const maxSeq = messages.reduce(
-        (max, message) => message.senderId === senderId ? Math.max(max, message.seq || 0) : max,
-        0
-    );
+    const maxSeq = getMaxSequenceForSender(messages, senderId);
     if (maxSeq > 0) {
         await db.put('message_sequences', { friendId: sequenceKey, senderId, maxSeq });
     }
@@ -231,10 +237,7 @@ export const getNextMessageSequenceLocal = async (friendId: string, senderId: st
 
     if (!savedSequence) {
         const messages = await tx.objectStore('direct_messages').index('by-friend').getAll(friendId);
-        maxSeq = messages.reduce(
-            (max, message) => message.senderId === senderId ? Math.max(max, message.seq || 0) : max,
-            0
-        );
+        maxSeq = getMaxSequenceForSender(messages, senderId);
     }
 
     const nextSequence = maxSeq + 1;
