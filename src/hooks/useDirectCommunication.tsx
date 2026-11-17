@@ -113,6 +113,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     const ignoreOfferRef = useRef<boolean>(false);
     const isSettingRemoteAnswerPendingRef = useRef<boolean>(false);
     const isProcessingOfferRef = useRef<boolean>(false);
+    const processingOfferCallIdRef = useRef<string | null>(null);
     const pendingOffersQueueRef = useRef<Array<() => Promise<void>>>([]);
     const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
@@ -335,6 +336,13 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }
         iceRestartAttemptsRef.current = 0;
         lastOutboundBytesRef.current = null;
+        pendingOffersQueueRef.current = [];
+        pendingIceCandidatesRef.current = [];
+        isProcessingOfferRef.current = false;
+        processingOfferCallIdRef.current = null;
+        makingOfferRef.current = false;
+        isSettingRemoteAnswerPendingRef.current = false;
+        ignoreOfferRef.current = false;
 
         const active = activeCallRef.current;
         if (active && (!targetCallId || active.callId === targetCallId)) {
@@ -440,12 +448,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         // WebRTC Perfect Negotiation onnegotiationneeded handler
         pc.onnegotiationneeded = async () => {
             try {
+                if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== currentCallId) return;
                 makingOfferRef.current = true;
                 const offer = await pc.createOffer();
-                if (pc.signalingState !== 'stable') return;
+                if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== currentCallId || pc.signalingState !== 'stable') return;
                 await pc.setLocalDescription(offer);
+                if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== currentCallId) return;
 
-                sendToUser(targetId, 'direct_signal', {
+                await sendToUser(targetId, 'direct_signal', {
                     callId: currentCallId,
                     senderId: userId,
                     senderName: userName,
@@ -455,12 +465,12 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             } catch (err) {
                 console.warn('onnegotiationneeded error:', err);
             } finally {
-                makingOfferRef.current = false;
+                if (peerConnectionRef.current === pc) makingOfferRef.current = false;
             }
         };
 
         pc.onicecandidate = (event) => {
-            if (event.candidate) {
+            if (event.candidate && peerConnectionRef.current === pc && activeCallRef.current?.callId === currentCallId) {
                 sendToUser(targetId, 'direct_signal', {
                     callId: currentCallId,
                     senderId: userId,
@@ -472,6 +482,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         };
 
         pc.ontrack = (event) => {
+            if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== currentCallId) return;
             const stream = (event.streams && event.streams[0])
                 ? event.streams[0]
                 : new MediaStream([event.track]);
@@ -567,7 +578,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     dispatch(showToast({ message: 'Unable to restore the call connection. End the call and try again.', type: 'error' }));
                 }
             } finally {
-                makingOfferRef.current = false;
+                if (peerConnectionRef.current === pc) makingOfferRef.current = false;
             }
         };
 
@@ -1027,7 +1038,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     clearTimers();
 
                     const executeOffer = async () => {
+                        if (activeCallRef.current?.callId !== callId) return;
                         const pc = getOrCreatePeerConnection(senderId, callId);
+                        if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== callId) return;
 
                         const readyForOffer = !makingOfferRef.current &&
                             (pc.signalingState === 'stable' || isSettingRemoteAnswerPendingRef.current);
@@ -1050,10 +1063,13 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
                         try {
                             await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                            if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== callId) return;
                             const answer = await pc.createAnswer();
+                            if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== callId) return;
                             await pc.setLocalDescription(answer);
+                            if (peerConnectionRef.current !== pc || activeCallRef.current?.callId !== callId) return;
 
-                            sendToUser(senderId, 'direct_signal', {
+                            await sendToUser(senderId, 'direct_signal', {
                                 callId,
                                 senderId: userId,
                                 senderName: userName,
@@ -1073,22 +1089,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         }
                     };
 
-                    if (isProcessingOfferRef.current) {
+                    if (isProcessingOfferRef.current && processingOfferCallIdRef.current === callId) {
                         pendingOffersQueueRef.current.push(executeOffer);
                         return;
                     }
+                    if (isProcessingOfferRef.current) return;
 
                     isProcessingOfferRef.current = true;
+                    processingOfferCallIdRef.current = callId;
                     try {
                         await executeOffer();
-                        while (pendingOffersQueueRef.current.length > 0) {
+                        while (pendingOffersQueueRef.current.length > 0 && activeCallRef.current?.callId === callId) {
                             const nextOffer = pendingOffersQueueRef.current.shift();
-                            if (nextOffer) {
-                                await nextOffer();
-                            }
+                            if (nextOffer) await nextOffer();
                         }
                     } finally {
-                        isProcessingOfferRef.current = false;
+                        if (processingOfferCallIdRef.current === callId) {
+                            isProcessingOfferRef.current = false;
+                            processingOfferCallIdRef.current = null;
+                        }
                     }
                     return;
                 }
