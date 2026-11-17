@@ -21,7 +21,9 @@ export interface DirectMessage {
 }
 
 interface MessageSequenceRecord {
+    /** Composite conversation + sender key; each direction has an independent sequence. */
     friendId: string;
+    senderId: string;
     maxSeq: number;
 }
 
@@ -145,9 +147,11 @@ export const saveDirectMessageLocal = async (msg: DirectMessage) => {
 
     if (typeof msg.seq === 'number' && msg.seq > 0) {
         const sequenceStore = tx.objectStore('message_sequences');
-        const existing = await sequenceStore.get(msg.friendId);
+        const sequenceKey = `${msg.friendId}::${msg.senderId}`;
+        const existing = await sequenceStore.get(sequenceKey);
         await sequenceStore.put({
-            friendId: msg.friendId,
+            friendId: sequenceKey,
+            senderId: msg.senderId,
             maxSeq: Math.max(existing?.maxSeq || 0, msg.seq),
         });
     }
@@ -198,34 +202,43 @@ export const getDirectMessagesLocal = async (friendId: string): Promise<DirectMe
     return messages.sort((a, b) => a.timestamp - b.timestamp);
 };
 
-export const getMaxRecordedSequenceLocal = async (friendId: string): Promise<number> => {
+export const getMaxRecordedSequenceLocal = async (friendId: string, senderId: string): Promise<number> => {
     const db = await getDB();
-    const savedSequence = await db.get('message_sequences', friendId);
+    const sequenceKey = `${friendId}::${senderId}`;
+    const savedSequence = await db.get('message_sequences', sequenceKey);
     if (savedSequence) return savedSequence.maxSeq;
 
-    // Backfill sequence metadata for conversations created before DB version 4.
+    // Backfill only this sender's sequence. Outgoing and incoming messages must
+    // never share a high-water mark or valid peer messages can be rejected.
     const messages = await db.getAllFromIndex('direct_messages', 'by-friend', friendId);
-    const maxSeq = messages.reduce((max, message) => Math.max(max, message.seq || 0), 0);
+    const maxSeq = messages.reduce(
+        (max, message) => message.senderId === senderId ? Math.max(max, message.seq || 0) : max,
+        0
+    );
     if (maxSeq > 0) {
-        await db.put('message_sequences', { friendId, maxSeq });
+        await db.put('message_sequences', { friendId: sequenceKey, senderId, maxSeq });
     }
     return maxSeq;
 };
 
-export const getNextMessageSequenceLocal = async (friendId: string): Promise<number> => {
+export const getNextMessageSequenceLocal = async (friendId: string, senderId: string): Promise<number> => {
     const db = await getDB();
     const tx = db.transaction(['direct_messages', 'message_sequences'], 'readwrite');
     const sequenceStore = tx.objectStore('message_sequences');
-    const savedSequence = await sequenceStore.get(friendId);
+    const sequenceKey = `${friendId}::${senderId}`;
+    const savedSequence = await sequenceStore.get(sequenceKey);
     let maxSeq = savedSequence?.maxSeq || 0;
 
     if (!savedSequence) {
         const messages = await tx.objectStore('direct_messages').index('by-friend').getAll(friendId);
-        maxSeq = messages.reduce((max, message) => Math.max(max, message.seq || 0), 0);
+        maxSeq = messages.reduce(
+            (max, message) => message.senderId === senderId ? Math.max(max, message.seq || 0) : max,
+            0
+        );
     }
 
     const nextSequence = maxSeq + 1;
-    await sequenceStore.put({ friendId, maxSeq: nextSequence });
+    await sequenceStore.put({ friendId: sequenceKey, senderId, maxSeq: nextSequence });
     await tx.done;
     return nextSequence;
 };
@@ -233,7 +246,8 @@ export const getNextMessageSequenceLocal = async (friendId: string): Promise<num
 export const isMessageReplayOrDuplicateLocal = async (
     friendId: string,
     messageId: string,
-    seq?: number
+    seq: number | undefined,
+    senderId: string
 ): Promise<{ isDuplicate: boolean; isReplay: boolean; maxSeq: number }> => {
     const db = await getDB();
     const existingById = await db.get('direct_messages', messageId);
@@ -242,9 +256,8 @@ export const isMessageReplayOrDuplicateLocal = async (
     }
 
     if (typeof seq === 'number' && seq > 0) {
-        const maxSeq = await getMaxRecordedSequenceLocal(friendId);
+        const maxSeq = await getMaxRecordedSequenceLocal(friendId, senderId);
         if (maxSeq > 0 && seq <= maxSeq) {
-            // Sequence regression or replayed sequence number
             return { isDuplicate: false, isReplay: true, maxSeq };
         }
         return { isDuplicate: false, isReplay: false, maxSeq };
