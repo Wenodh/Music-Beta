@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { nativeMediaSession, MediaControlsCallbacks } from './nativeMediaSessionService';
 
-const { requestAudioFocusMock, abandonAudioFocusMock } = vi.hoisted(() => ({
+const { requestAudioFocusMock, abandonAudioFocusMock, listenerCallbacks } = vi.hoisted(() => ({
     requestAudioFocusMock: vi.fn().mockResolvedValue({ granted: true }),
     abandonAudioFocusMock: vi.fn().mockResolvedValue(undefined),
+    listenerCallbacks: {} as Record<string, (data: any) => void>,
 }));
 
 vi.mock('@capacitor/core', () => ({
@@ -13,7 +14,10 @@ vi.mock('@capacitor/core', () => ({
     registerPlugin: vi.fn(() => ({
         requestAudioFocus: requestAudioFocusMock,
         abandonAudioFocus: abandonAudioFocusMock,
-        addListener: vi.fn().mockResolvedValue({ remove: vi.fn() }),
+        addListener: vi.fn((eventName: string, callback: (data: any) => void) => {
+            listenerCallbacks[eventName] = callback;
+            return Promise.resolve({ remove: vi.fn() });
+        }),
     })),
 }));
 
@@ -29,6 +33,7 @@ vi.mock('@capgo/capacitor-media-session', () => ({
 describe('NativeMediaSessionBridge', () => {
     beforeEach(async () => {
         await nativeMediaSession.cleanup();
+        Object.keys(listenerCallbacks).forEach((key) => delete listenerCallbacks[key]);
         vi.clearAllMocks();
     });
 
@@ -47,6 +52,29 @@ describe('NativeMediaSessionBridge', () => {
         expect(MediaSession.setActionHandler).toHaveBeenCalledWith({ action: 'pause' }, expect.any(Function));
         expect(MediaSession.setActionHandler).toHaveBeenCalledWith({ action: 'nexttrack' }, expect.any(Function));
         expect(MediaSession.setActionHandler).toHaveBeenCalledWith({ action: 'previoustrack' }, expect.any(Function));
+    });
+
+    it('resumes only after a transient audio-focus interruption is restored', async () => {
+        const callbacks: MediaControlsCallbacks = {
+            onPlay: vi.fn(),
+            onPause: vi.fn(),
+            onNext: vi.fn(),
+            onPrevious: vi.fn(),
+            onSeek: vi.fn(),
+            onAudioFocusLost: vi.fn(),
+            onAudioFocusGained: vi.fn(),
+        };
+
+        await nativeMediaSession.registerCallbacks(callbacks);
+        listenerCallbacks.audioFocusChanged({ event: 'audioFocusLost', canResume: true });
+        expect(callbacks.onAudioFocusLost).toHaveBeenCalledOnce();
+
+        listenerCallbacks.audioFocusChanged({ event: 'audioFocusGained' });
+        expect(callbacks.onAudioFocusGained).toHaveBeenCalledOnce();
+
+        listenerCallbacks.audioFocusChanged({ event: 'audioFocusLost', canResume: false });
+        listenerCallbacks.audioFocusChanged({ event: 'audioFocusGained' });
+        expect(callbacks.onAudioFocusGained).toHaveBeenCalledOnce();
     });
 
     it('updates metadata with decoded song attributes', async () => {
