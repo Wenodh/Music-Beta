@@ -28,10 +28,12 @@ export const classifyCallQuality = (
     metrics: RawCallQualityMetrics,
     sampledAt = Date.now()
 ): CallQualityMetrics => {
-    const rttMs = metrics.rttMs ?? null;
-    const jitterMs = metrics.jitterMs ?? null;
-    const packetLossPercent = metrics.packetLossPercent ?? null;
-    const bitrateKbps = metrics.bitrateKbps ?? null;
+    const finiteNonNegative = (value: number | null | undefined): number | null =>
+        typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+    const rttMs = finiteNonNegative(metrics.rttMs);
+    const jitterMs = finiteNonNegative(metrics.jitterMs);
+    const packetLossPercent = finiteNonNegative(metrics.packetLossPercent);
+    const bitrateKbps = finiteNonNegative(metrics.bitrateKbps);
 
     if (rttMs === null && jitterMs === null && packetLossPercent === null) {
         return { level: 'unknown', rttMs, jitterMs, packetLossPercent, bitrateKbps, sampledAt };
