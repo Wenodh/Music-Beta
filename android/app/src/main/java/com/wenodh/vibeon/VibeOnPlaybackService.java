@@ -1,6 +1,7 @@
 package com.wenodh.vibeon;
 
-import androidx.media3.common.MediaItem;
+import androidx.media3.common.C;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
@@ -18,6 +19,13 @@ public final class VibeOnPlaybackService extends MediaSessionService {
     public void onCreate() {
         super.onCreate();
         player = new ExoPlayer.Builder(this).build();
+        AudioAttributes mediaAttributes = new AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build();
+        player.setAudioAttributes(mediaAttributes, true);
+        player.setHandleAudioBecomingNoisy(true);
+        player.setWakeMode(C.WAKE_MODE_LOCAL);
         mediaSession = new MediaSession.Builder(this, player).build();
     }
 
