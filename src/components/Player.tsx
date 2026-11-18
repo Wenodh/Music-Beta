@@ -36,6 +36,7 @@ import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { App as CapApp } from '@capacitor/app';
 import { nativeMediaSession } from '../services/nativeMediaSessionService';
+import { nativePlaybackService } from '../services/nativePlaybackService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
@@ -482,7 +483,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         }
 
-        if (currentSong) {
+        if (currentSong && !nativePlaybackService.isAvailable) {
             nativeMediaSession.updateMetadata(currentSong, imageUrl);
             nativeMediaSession.registerCallbacks({
                 onPlay: () => {
@@ -530,6 +531,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         let cancelled = false;
 
+        if (nativePlaybackService.isAvailable) return;
         nativeMediaSession.updatePlaybackState(isPlaying).then((accepted) => {
             if (!accepted && isPlaying && !cancelled) {
                 console.warn('[Player] Native playback could not acquire media audio focus; pausing playback.');
@@ -546,6 +548,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Refresh the system seek position when the active buffer or track changes.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         const activeAudio = getActiveAudio();
         if (activeAudio && Number.isFinite(activeAudio.duration)) {
             nativeMediaSession.updatePositionState(
@@ -588,6 +591,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // when playback becomes active. Keep the Web Audio graph and active media element
     // synchronized with the native app lifecycle as the WebView backgrounds/foregrounds.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         let disposed = false;
         let appStateHandle: { remove: () => Promise<void> } | null = null;
 
@@ -695,6 +699,27 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             // Check generation token and current song ID before mutating state
             if (activePlaybackRequestIdRef.current !== currentRequestId) return;
             if (currentSongRef.current?.id !== targetSongId) return;
+
+            if (nativePlaybackService.isAvailable) {
+                if (!songUrl) {
+                    dispatch(pauseMusic());
+                    return;
+                }
+                nativePlaybackService.setMediaItem({
+                    uri: songUrl,
+                    mediaId: targetSongId || songUrl,
+                    title: targetSong?.name || 'Vibe On',
+                    artist: targetSong?.primaryArtists || '',
+                    artworkUri: typeof targetSong?.image === 'string' ? targetSong.image : undefined,
+                }).then(() => {
+                    if (currentSongRef.current?.id !== targetSongId) return;
+                    return isPlayingRef.current ? nativePlaybackService.play() : nativePlaybackService.pause();
+                }).catch((error) => {
+                    console.warn('[Player] Media3 could not load the selected track:', error);
+                    dispatch(pauseMusic());
+                });
+                return;
+            }
 
             const isEligible = isWebAudioEligibleSource(songUrl);
             setIsSourceWebAudioEligible(isEligible);
@@ -841,6 +866,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [activeBuffer, currentSong?.id, currentSong?.music, isPlaying, preferredQuality, savedCurrentTime, dispatch]);
 
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) {
+            (isPlaying ? nativePlaybackService.play() : nativePlaybackService.pause())
+                .catch((error) => console.warn('[Player] Media3 playback state update failed:', error));
+            return;
+        }
         const activeAudio = getActiveAudio();
         if (isPlaying) {
             activeAudio.play().catch(e => console.warn("Playback failed", e));
@@ -879,8 +909,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         };
     }, [dispatch, activeBuffer]);
 
-    // Preload next song
+    // Preload next song (Media3 currently owns one active item).
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         if (isGaplessEnabled && currentSong && songs.length > 0) {
             const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
 
@@ -896,8 +927,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl, shuffle, repeatMode]);
 
-    // Crossfade Logic
+    // Crossfade remains on the Web Audio backend; Media3 is single-item in this migration.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         const activeAudio = getActiveAudio();
         const inactiveAudio = getInactiveAudio();
 
@@ -1050,8 +1082,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         };
     }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, effectiveVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations, sleepTimerMode, bindAudioListeners, unbindAudioListeners]);
 
-    // Update individual audio volumes and Web Audio booster gain based on user global volume
+    // Update native or Web Audio output volume.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) {
+            void nativePlaybackService.setVolume(effectiveVolume);
+            return;
+        }
         const hardwareVolume = Math.min(1.0, Math.max(0, effectiveVolume));
         // If current source is ineligible for Web Audio, cap gain to 1.0
         const softwareGain = isSourceWebAudioEligible && effectiveVolume > 1.0 ? effectiveVolume : 1.0;
@@ -1079,6 +1115,13 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [isMoreMenuOpen]);
 
     const handleSeek = (time: number) => {
+        if (nativePlaybackService.isAvailable) {
+            if (Number.isFinite(time) && time >= 0) {
+                void nativePlaybackService.seekTo(time);
+                if (isHost && isJoined && !isInternalAction.current) broadcast('seek', { time });
+            }
+            return;
+        }
         const activeAudio = getActiveAudio();
         if (Number.isFinite(time) && time >= 0) {
             activeAudio.currentTime = time;
