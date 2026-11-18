@@ -38,16 +38,17 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                     @Override public void onPlaybackStateChanged(int state) {
                         if (state == Player.STATE_ENDED) notifyListeners("playbackEnded", new JSObject());
                     }
-                    @Override public void onIsPlayingChanged(boolean isPlaying) {
-                        JSObject data = new JSObject();
-                        data.put("isPlaying", isPlaying);
-                        notifyListeners("playbackChanged", data);
-                    }
                     @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
-                        JSObject data = new JSObject();
-                        data.put("playWhenReady", playWhenReady);
-                        data.put("audioFocusLoss", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-                        notifyListeners("playbackIntentChanged", data);
+                        // Redux mirrors the user's/system's play intent, not ExoPlayer's
+                        // transient buffering state (isPlaying=false while loading is normal).
+                        JSObject state = new JSObject();
+                        state.put("isPlaying", playWhenReady);
+                        notifyListeners("playbackChanged", state);
+
+                        JSObject intent = new JSObject();
+                        intent.put("playWhenReady", playWhenReady);
+                        intent.put("audioFocusLoss", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
+                        notifyListeners("playbackIntentChanged", intent);
                     }
                 };
                 controller.addListener(playerListener);
