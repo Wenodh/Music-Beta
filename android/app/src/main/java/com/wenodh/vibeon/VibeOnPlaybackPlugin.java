@@ -47,7 +47,6 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                         JSObject data = new JSObject();
                         data.put("playWhenReady", playWhenReady);
                         data.put("audioFocusLoss", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-                        data.put("audioFocusGain", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_GAIN);
                         notifyListeners("playbackIntentChanged", data);
                     }
                 };
