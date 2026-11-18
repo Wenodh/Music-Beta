@@ -62,7 +62,7 @@ class NativePlaybackService {
         if (!this.isAvailable) return null;
         return this.invoke(() => Media3.getPlaybackState());
     }
-    addEndedListener(listener: () => void) {
+    async addEndedListener(listener: () => void): Promise<PluginListenerHandle | null> {
         if (!this.isAvailable) return null;
         return Media3.addListener('playbackEnded', listener);
     }
