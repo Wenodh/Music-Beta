@@ -66,6 +66,10 @@ class NativePlaybackService {
         if (!this.isAvailable) return null;
         return Media3.addListener('playbackEnded', listener);
     }
+    async addPlaybackChangedListener(listener: (data: { isPlaying: boolean }) => void): Promise<PluginListenerHandle | null> {
+        if (!this.isAvailable) return null;
+        return Media3.addListener('playbackChanged', listener);
+    }
 }
 
 export const nativePlaybackService = new NativePlaybackService();
