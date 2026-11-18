@@ -1,6 +1,10 @@
 package com.wenodh.vibeon;
 
 import android.net.Uri;
+import android.util.Base64;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.UUID;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -60,9 +64,20 @@ public final class VibeOnPlaybackPlugin extends Plugin {
         MediaController player = requireController(call);
         if (player == null) return;
         String uri = call.getString("uri");
-        if (uri == null || uri.trim().isEmpty()) {
-            call.reject("A playable media URI is required");
+        String base64 = call.getString("base64");
+        if ((uri == null || uri.trim().isEmpty()) && (base64 == null || base64.isEmpty())) {
+            call.reject("A playable media URI or offline audio payload is required");
             return;
+        }
+        if (base64 != null && !base64.isEmpty()) {
+            File cachedAudio = new File(getContext().getCacheDir(), "media3-" + UUID.randomUUID() + ".audio");
+            try (FileOutputStream output = new FileOutputStream(cachedAudio)) {
+                output.write(Base64.decode(base64, Base64.DEFAULT));
+                uri = Uri.fromFile(cachedAudio).toString();
+            } catch (Exception error) {
+                call.reject("Unable to cache offline audio for native playback", error);
+                return;
+            }
         }
         MediaMetadata metadata = new MediaMetadata.Builder()
                 .setTitle(call.getString("title", "Vibe On"))
@@ -70,7 +85,7 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                 .setArtworkUri(call.getString("artworkUri") == null ? null : Uri.parse(call.getString("artworkUri")))
                 .build();
         MediaItem item = new MediaItem.Builder()
-                .setMediaId(call.getString("mediaId", uri))
+                .setMediaId(call.getString("mediaId", uri == null ? "offline" : uri))
                 .setUri(Uri.parse(uri))
                 .setMediaMetadata(metadata)
                 .build();
