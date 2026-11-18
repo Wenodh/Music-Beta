@@ -985,7 +985,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         dispatch(pauseMusic());
                     }
                 } else {
-                    playNextInQueue(false);
+                    // Do not use the Web Audio gapless guard on the Media3 backend.
+                    dispatch(nextSong({ isManual: false }));
                 }
             }
         }).then((handle) => {
@@ -998,7 +999,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             window.clearInterval(timer);
             if (endedHandle) void endedHandle.remove();
         };
-    }, [currentSong?.id, dispatch, playNextInQueue, repeatMode, sleepTimerMode, songs, isSongRadioEnabled, recommendations]);
+    }, [currentSong?.id, dispatch, repeatMode, sleepTimerMode, songs, isSongRadioEnabled, recommendations]);
 
     // Throttle both persistence and Media Session bridge updates. Browsers only
     // need periodic position snapshots; sending one on every timeupdate is noisy.
