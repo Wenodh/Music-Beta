@@ -742,8 +742,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     title: targetSong?.name || 'Vibe On',
                     artist: targetSong?.primaryArtists || '',
                     artworkUri: typeof targetSong?.image === 'string' ? targetSong.image : undefined,
-                }).then(() => {
+                }).then(async () => {
                     if (currentSongRef.current?.id !== targetSongId) return;
+                    const pendingRecovery = pendingStreamRecoveryRef.current;
+                    const resumeAt = pendingRecovery?.songId === targetSongId
+                        ? pendingRecovery.position
+                        : (!isInitialPositionRestoredRef.current ? savedCurrentTime : 0);
+                    if (resumeAt > 0) {
+                        await nativePlaybackService.seekTo(resumeAt);
+                        isInitialPositionRestoredRef.current = true;
+                        restoredSongIdRef.current = targetSongId || null;
+                        if (pendingRecovery?.songId === targetSongId) pendingStreamRecoveryRef.current = null;
+                    }
                     return isPlayingRef.current ? nativePlaybackService.play() : nativePlaybackService.pause();
                 }).catch((error) => {
                     console.warn('[Player] Media3 could not load the selected track:', error);
@@ -832,7 +842,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             console.warn('[Player] Could not resolve the current audio source:', error);
             dispatch(pauseMusic());
         });
-    }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, dispatch]);
+    }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, savedCurrentTime, dispatch]);
 
     // Recover an expired or failed online stream using fresh provider song details.
     useEffect(() => {
