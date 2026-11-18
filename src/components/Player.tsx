@@ -533,6 +533,30 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
 
+    // Reflect lock-screen/headset/system playback changes back into Redux so the
+    // React controls remain consistent with the native ExoPlayer session.
+    useEffect(() => {
+        if (!nativePlaybackService.isAvailable) return;
+        let disposed = false;
+        let listener: { remove: () => Promise<void> } | null = null;
+        nativePlaybackService.addPlaybackChangedListener(({ isPlaying: nativeIsPlaying }) => {
+            if (disposed || nativeIsPlaying === isPlayingRef.current) return;
+            if (nativeIsPlaying && currentSongRef.current) {
+                dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+            } else {
+                dispatch(pauseMusic());
+            }
+        }).then((handle) => {
+            if (!handle) return;
+            if (disposed) void handle.remove();
+            else listener = handle;
+        }).catch((error) => console.warn('[Player] Media3 state listener unavailable:', error));
+        return () => {
+            disposed = true;
+            if (listener) void listener.remove();
+        };
+    }, [dispatch]);
+
     // Sync playback state and ensure Android promotes the app to its mediaPlayback
     // foreground service before the user can lock the screen.
     useEffect(() => {
