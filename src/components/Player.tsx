@@ -116,6 +116,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const [imageUrl, setImageUrl] = useState<string>('');
     const [progress, setProgress] = useState(0);
+    const nativePositionRef = useRef(0);
+    const nativeDurationRef = useRef(0);
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const lastProcessedSongId = useRef<string | null>(null);
     const currentSongRef = useRef(currentSong);
@@ -900,6 +902,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 if (!state || disposed || state.mediaId !== currentSongRef.current?.id) return;
                 const duration = Math.max(0, state.durationMs / 1000);
                 const position = Math.max(0, state.positionMs / 1000);
+                nativeDurationRef.current = duration;
+                nativePositionRef.current = position;
                 if (duration > 0) setProgress(Math.min(100, (position / duration) * 100));
                 if (Date.now() - lastSavedAt >= 2000) {
                     dispatch(setCurrentTime(position));
@@ -924,6 +928,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 playNextInQueue(false);
             }
         }).then((handle) => {
+            if (!handle) return;
             if (disposed) void handle.remove();
             else endedHandle = handle;
         }).catch((error) => console.warn('[Player] Media3 end listener unavailable:', error));
@@ -1171,6 +1176,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const handleSeek = (time: number) => {
         if (nativePlaybackService.isAvailable) {
             if (Number.isFinite(time) && time >= 0) {
+                nativePositionRef.current = time;
                 void nativePlaybackService.seekTo(time);
                 if (isHost && isJoined && !isInternalAction.current) broadcast('seek', { time });
             }
@@ -1194,8 +1200,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     };
 
     const handleProgressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const activeAudio = getActiveAudio();
         const newPercentage = parseFloat(event.target.value);
+        if (nativePlaybackService.isAvailable) {
+            handleSeek((newPercentage / 100) * nativeDurationRef.current);
+            return;
+        }
+        const activeAudio = getActiveAudio();
         const newTime = (newPercentage / 100) * (activeAudio.duration || 0);
         handleSeek(newTime);
     };
@@ -1209,7 +1219,11 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const handleDoubleTap = (side: 'left' | 'right') => {
         const activeAudio = getActiveAudio();
         const seekAmount = side === 'left' ? -10 : 10;
-        activeAudio.currentTime = Math.max(0, Math.min(activeAudio.duration, activeAudio.currentTime + seekAmount));
+        if (nativePlaybackService.isAvailable) {
+            handleSeek(Math.max(0, Math.min(nativeDurationRef.current, nativePositionRef.current + seekAmount)));
+        } else {
+            activeAudio.currentTime = Math.max(0, Math.min(activeAudio.duration, activeAudio.currentTime + seekAmount));
+        }
         setSeekAnimation(side === 'left' ? 'backward' : 'forward');
         setTimeout(() => setSeekAnimation(null), 500);
     };
