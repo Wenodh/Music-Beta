@@ -18,6 +18,17 @@ Run these checks on physical devices before releasing a playback/calling reliabi
 | Play a downloaded song in airplane mode | Offline audio plays from local storage | |
 | Force-stop the app | Document that active WebView playback/calls end; no false promise of recovery | |
 
+## Native Android playback backend
+
+Android app playback is now routed through AndroidX Media3:
+
+- `VibeOnPlaybackService` owns ExoPlayer and a MediaSessionService. The WebView sends commands through the Capacitor `VibeOnPlayback` bridge; the decoder and media session live in the Android service.
+- Media3 owns Android media audio focus, noisy-route handling, playback notification, lock-screen play/pause/seek, playback speed, and output volume.
+- HLS playback is enabled. Offline IndexedDB Blob tracks are transferred to an app-cache file before ExoPlayer loads them.
+- Web builds continue to use the existing dual HTMLAudio/Web Audio engine.
+
+**Known native parity work still outstanding:** Web Audio equalizer, software volume boost, live waveform visualizer, gapless preloading/crossfade, and queue-aware next/previous actions in the Android media notification have not yet been ported to Media3. Native queue advancement is coordinated by the React app while its process is alive. Treat this as an engine migration in progress, not full feature parity.
+
 ## Device coverage
 
 - At least one Android 12/13 device and one Android 14/15/16 device.
