@@ -37,6 +37,7 @@ import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { App as CapApp } from '@capacitor/app';
 import { nativeMediaSession } from '../services/nativeMediaSessionService';
 import { nativePlaybackService } from '../services/nativePlaybackService';
+import { nativePlaybackService } from '../services/nativePlaybackService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
@@ -304,6 +305,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Synchronize playback speed across both audio buffers (accounting for temporary session drift correction)
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) {
+            void nativePlaybackService.setPlaybackSpeed(playbackSpeed);
+            return;
+        }
         [audioRefA.current, audioRefB.current].forEach(audio => {
             if (audio) {
                 audio.playbackRate = playbackSpeed;
@@ -805,6 +810,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Recover an expired or failed online stream using fresh provider song details.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         const audio = getActiveAudio();
         const handleMediaError = async () => {
             const song = currentSongRef.current;
@@ -879,6 +885,54 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             getInactiveAudio().pause();
         }
     }, [isPlaying]);
+
+    // Media3 position is sampled from the native decoder, not from the WebView's audio tags.
+    useEffect(() => {
+        if (!nativePlaybackService.isAvailable || !currentSong) return;
+        let disposed = false;
+        let inFlight = false;
+        let lastSavedAt = 0;
+        const syncPosition = async () => {
+            if (disposed || inFlight) return;
+            inFlight = true;
+            try {
+                const state = await nativePlaybackService.getPlaybackState();
+                if (!state || disposed || state.mediaId !== currentSongRef.current?.id) return;
+                const duration = Math.max(0, state.durationMs / 1000);
+                const position = Math.max(0, state.positionMs / 1000);
+                if (duration > 0) setProgress(Math.min(100, (position / duration) * 100));
+                if (Date.now() - lastSavedAt >= 2000) {
+                    dispatch(setCurrentTime(position));
+                    lastSavedAt = Date.now();
+                }
+            } catch (error) {
+                console.warn('[Player] Could not read Media3 playback position:', error);
+            } finally {
+                inFlight = false;
+            }
+        };
+        void syncPosition();
+        const timer = window.setInterval(() => { void syncPosition(); }, 500);
+        let endedHandle: { remove: () => Promise<void> } | null = null;
+        nativePlaybackService.addEndedListener(() => {
+            if (sleepTimerMode === 'endOfTrack') {
+                dispatch(pauseMusic());
+                dispatch(setSleepTimer(null));
+            } else if (repeatMode === 'one') {
+                void nativePlaybackService.seekTo(0).then(() => nativePlaybackService.play());
+            } else {
+                playNextInQueue(false);
+            }
+        }).then((handle) => {
+            if (disposed) void handle.remove();
+            else endedHandle = handle;
+        }).catch((error) => console.warn('[Player] Media3 end listener unavailable:', error));
+        return () => {
+            disposed = true;
+            window.clearInterval(timer);
+            if (endedHandle) void endedHandle.remove();
+        };
+    }, [currentSong?.id, dispatch, playNextInQueue, repeatMode, sleepTimerMode]);
 
     // Throttle both persistence and Media Session bridge updates. Browsers only
     // need periodic position snapshots; sending one on every timeupdate is noisy.
