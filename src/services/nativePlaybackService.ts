@@ -10,6 +10,7 @@ interface Media3Plugin {
     getPlaybackState(): Promise<{ isPlaying: boolean; positionMs: number; durationMs: number; playbackState: number; mediaId: string }>;
     addListener(event: 'playbackEnded', listener: () => void): Promise<PluginListenerHandle>;
     addListener(event: 'playbackChanged', listener: (data: { isPlaying: boolean }) => void): Promise<PluginListenerHandle>;
+    addListener(event: 'playbackIntentChanged', listener: (data: { playWhenReady: boolean; audioFocusLoss: boolean }) => void): Promise<PluginListenerHandle>;
 }
 
 const Media3 = registerPlugin<Media3Plugin>('VibeOnPlayback');
@@ -69,6 +70,10 @@ class NativePlaybackService {
     async addPlaybackChangedListener(listener: (data: { isPlaying: boolean }) => void): Promise<PluginListenerHandle | null> {
         if (!this.isAvailable) return null;
         return Media3.addListener('playbackChanged', listener);
+    }
+    async addPlaybackIntentListener(listener: (data: { playWhenReady: boolean; audioFocusLoss: boolean }) => void): Promise<PluginListenerHandle | null> {
+        if (!this.isAvailable) return null;
+        return Media3.addListener('playbackIntentChanged', listener);
     }
 }
 
