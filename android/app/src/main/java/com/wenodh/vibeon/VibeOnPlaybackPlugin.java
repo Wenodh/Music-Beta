@@ -43,6 +43,13 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                         data.put("isPlaying", isPlaying);
                         notifyListeners("playbackChanged", data);
                     }
+                    @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+                        JSObject data = new JSObject();
+                        data.put("playWhenReady", playWhenReady);
+                        data.put("audioFocusLoss", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
+                        data.put("audioFocusGain", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_GAIN);
+                        notifyListeners("playbackIntentChanged", data);
+                    }
                 };
                 controller.addListener(playerListener);
             } catch (Exception error) {
