@@ -37,7 +37,6 @@ import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { App as CapApp } from '@capacitor/app';
 import { nativeMediaSession } from '../services/nativeMediaSessionService';
 import { nativePlaybackService } from '../services/nativePlaybackService';
-import { nativePlaybackService } from '../services/nativePlaybackService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
