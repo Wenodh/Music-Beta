@@ -323,6 +323,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const handleRateAdjustment = (e: any) => {
             const effectiveSpeed = e.detail?.effectiveSpeed;
             if (effectiveSpeed && !isNaN(effectiveSpeed)) {
+                if (nativePlaybackService.isAvailable) {
+                    void nativePlaybackService.setPlaybackSpeed(effectiveSpeed);
+                    return;
+                }
                 [audioRefA.current, audioRefB.current].forEach(audio => {
                     if (audio) {
                         audio.playbackRate = effectiveSpeed;
