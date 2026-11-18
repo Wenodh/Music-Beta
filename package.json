@@ -11,7 +11,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "vitest run --exclude '**/*.spec.ts'",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

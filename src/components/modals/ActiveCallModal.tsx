@@ -22,12 +22,13 @@ import { backNavigationService } from '../../services/backNavigationService';
 
 export const ActiveCallModal: React.FC = () => {
     const dispatch = useAppDispatch();
-    const { isCallActive, activeCall, isCallScreenExpanded, directMessages } = useAppSelector((state) => state.friends);
+    const { isCallActive, activeCall, isCallScreenExpanded, directMessages, waitingCall, callQuality } = useAppSelector((state) => state.friends);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const prevMsgCountRef = useRef(activeCall?.friendId ? directMessages[activeCall.friendId]?.length || 0 : 0);
     const {
         endCall,
+        declineWaitingCall,
         toggleMute,
         toggleVideo,
         toggleSpeaker,
@@ -184,6 +185,33 @@ export const ActiveCallModal: React.FC = () => {
                         <p className="text-xs font-mono text-slate-600 dark:text-gray-300 mt-0.5">
                             {isConnected ? formatDuration(durationSeconds) : activeCall.status}
                         </p>
+                        {callQuality && callQuality.level !== 'unknown' && (
+                            <span
+                                className={`mt-1 text-[9px] font-bold uppercase tracking-wider ${
+                                    callQuality.level === 'poor' ? 'text-red-500' :
+                                    callQuality.level === 'fair' ? 'text-amber-500' :
+                                    callQuality.level === 'good' ? 'text-emerald-500' : 'text-green-500'
+                                }`}
+                                title={`RTT: ${callQuality.rttMs === null ? '—' : Math.round(callQuality.rttMs) + ' ms'} · Jitter: ${callQuality.jitterMs === null ? '—' : Math.round(callQuality.jitterMs) + ' ms'} · Packet loss: ${callQuality.packetLossPercent === null ? '—' : callQuality.packetLossPercent.toFixed(1) + '%'}`}
+                            >
+                                {callQuality.level} connection{callQuality.rttMs !== null ? ` · ${Math.round(callQuality.rttMs)} ms` : ''}
+                            </span>
+                        )}
+                        {waitingCall && (
+                            <div className="mt-1 flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                    {waitingCall.callerName} is waiting · End this call to answer
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={declineWaitingCall}
+                                    className="px-2 py-0.5 rounded-md text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                    aria-label="Decline waiting call"
+                                >
+                                    Decline
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="w-10" />

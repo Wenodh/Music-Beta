@@ -24,14 +24,20 @@ import {
 } from 'react-icons/io5';
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { setIsFriendsModalOpen, setActiveFriendId } from '../../features/friends/friendsSlice';
+import { setIsFriendsModalOpen, setActiveFriendId, setDirectMessages, removeDirectMessage } from '../../features/friends/friendsSlice';
 import { setActiveProfileView, setIsNotificationPanelOpen, setCloudFriends, setNotifications, setSocialActiveTab } from '../../features/social/socialSlice';
 import { useDirectCommunication } from '../../hooks/useDirectCommunication';
 import { useBackHandler } from '../../hooks/useBackHandler';
 import { backNavigationService } from '../../services/backNavigationService';
 import { socialService } from '../../services/socialService';
 import { socialNotificationService } from '../../services/socialNotificationService';
-import { removeFriendLocal, getFriendsLocal, saveFriendLocal } from '../../utils/friendsDb';
+import {
+    removeFriendLocal,
+    getFriendsLocal,
+    saveFriendLocal,
+    deleteDirectMessageLocal,
+    clearDirectMessagesForFriendLocal,
+} from '../../utils/friendsDb';
 import { setFriendsList } from '../../features/friends/friendsSlice';
 import { Friend } from '../../types/friends';
 import { showToast } from '../../features/ui/uiSlice';
@@ -192,6 +198,33 @@ export const FriendsModal: React.FC = () => {
         const list = await getFriendsLocal();
         dispatch(setFriendsList(list));
         dispatch(showToast({ message: 'Friend removed' }));
+    };
+
+    const handleDeleteConversation = async (friendId: string) => {
+        const friendName = combinedFriends.find((friend) => friend.id === friendId)?.name || 'this contact';
+        if (!window.confirm(`Delete the chat with ${friendName} from this device? This will not delete messages from their device.`)) return;
+
+        try {
+            await clearDirectMessagesForFriendLocal(friendId);
+            dispatch(setDirectMessages({ friendId, messages: [] }));
+            dispatch(showToast({ message: 'Chat deleted from this device' }));
+        } catch (error) {
+            console.warn('[FriendsModal] Failed to delete chat history:', error);
+            dispatch(showToast({ message: 'Unable to delete chat history', type: 'error' }));
+        }
+    };
+
+    const handleDeleteMessage = async (friendId: string, messageId: string) => {
+        if (!window.confirm('Delete this message from your device?')) return;
+
+        try {
+            await deleteDirectMessageLocal(messageId);
+            dispatch(removeDirectMessage({ friendId, messageId }));
+            dispatch(showToast({ message: 'Message deleted from this device' }));
+        } catch (error) {
+            console.warn('[FriendsModal] Failed to delete direct message:', error);
+            dispatch(showToast({ message: 'Unable to delete message', type: 'error' }));
+        }
     };
 
     const handleSendMessage = (e: React.FormEvent) => {
@@ -595,6 +628,14 @@ export const FriendsModal: React.FC = () => {
                                                     <IoVideocamOutline size={14} />
                                                     <span className="hidden xs:inline">Video</span>
                                                 </button>
+                                                <button
+                                                    onClick={() => handleDeleteConversation(activeFriend.id)}
+                                                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors active:scale-95"
+                                                    title="Delete chat history from this device"
+                                                    aria-label={`Delete chat with ${activeFriend.name}`}
+                                                >
+                                                    <IoTrashOutline size={16} />
+                                                </button>
                                             </div>
                                         </div>
 
@@ -604,7 +645,7 @@ export const FriendsModal: React.FC = () => {
                                                 activeMessages.map((msg) => {
                                                     const isSelf = msg.senderId === userId;
                                                     return (
-                                                        <div key={msg.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
+                                                        <div key={msg.id} className={`group/message flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
                                                             <div className="flex items-center gap-1.5 mb-1 px-1">
                                                                 <span className="text-[9px] font-semibold text-gray-400">
                                                                     {isSelf ? 'You' : (msg.senderName || activeFriend.name)}
@@ -618,6 +659,15 @@ export const FriendsModal: React.FC = () => {
                                                                     ? 'bg-primary text-white rounded-br-none shadow-primary/20'
                                                                     : 'bg-white/10 text-gray-100 rounded-bl-none border border-white/5'
                                                             }`}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteMessage(activeFriend.id, msg.id)}
+                                                                    className="absolute -top-2 -right-2 z-10 p-1 rounded-full bg-gray-800 text-gray-300 hover:text-red-400 border border-white/10 shadow opacity-100 sm:opacity-0 sm:group-hover/message:opacity-100 transition-opacity"
+                                                                    title="Delete message from this device"
+                                                                    aria-label="Delete message from this device"
+                                                                >
+                                                                    <IoTrashOutline size={11} />
+                                                                </button>
                                                                 <span>{msg.text}</span>
                                                                 {isSelf && (
                                                                     <div className="self-end flex items-center gap-1 mt-0.5 -mb-0.5 text-[10px] text-white/80">
