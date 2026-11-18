@@ -538,24 +538,41 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         if (!nativePlaybackService.isAvailable) return;
         let disposed = false;
-        let listener: { remove: () => Promise<void> } | null = null;
-        nativePlaybackService.addPlaybackChangedListener(({ isPlaying: nativeIsPlaying }) => {
+        const listeners: Array<{ remove: () => Promise<void> }> = [];
+        const register = (promise: Promise<{ remove: () => Promise<void> } | null>) => {
+            promise.then((handle) => {
+                if (!handle) return;
+                if (disposed) void handle.remove();
+                else listeners.push(handle);
+            }).catch((error) => console.warn('[Player] Media3 listener unavailable:', error));
+        };
+        register(nativePlaybackService.addPlaybackIntentListener(({ playWhenReady, audioFocusLoss }) => {
+            if (!playWhenReady && audioFocusLoss && isPlayingRef.current) {
+                wasPlayingBeforeAudioFocusLossRef.current = true;
+            }
+        }));
+        register(nativePlaybackService.addPlaybackChangedListener(({ isPlaying: nativeIsPlaying }) => {
             if (disposed || nativeIsPlaying === isPlayingRef.current) return;
+            if (nativeIsPlaying && wasPlayingBeforeAudioFocusLossRef.current) {
+                wasPlayingBeforeAudioFocusLossRef.current = false;
+                if (isCallActive || incomingCall) {
+                    wasPlayingBeforeCallRef.current = true;
+                } else if (currentSongRef.current) {
+                    dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+                }
+                return;
+            }
             if (nativeIsPlaying && currentSongRef.current) {
                 dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
             } else {
                 dispatch(pauseMusic());
             }
-        }).then((handle) => {
-            if (!handle) return;
-            if (disposed) void handle.remove();
-            else listener = handle;
-        }).catch((error) => console.warn('[Player] Media3 state listener unavailable:', error));
+        }));
         return () => {
             disposed = true;
-            if (listener) void listener.remove();
+            listeners.forEach((handle) => { void handle.remove(); });
         };
-    }, [dispatch]);
+    }, [dispatch, isCallActive, incomingCall]);
 
     // Sync playback state and ensure Android promotes the app to its mediaPlayback
     // foreground service before the user can lock the screen.
