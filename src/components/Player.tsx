@@ -949,7 +949,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             } else if (repeatMode === 'one') {
                 void nativePlaybackService.seekTo(0).then(() => nativePlaybackService.play());
             } else {
-                playNextInQueue(false);
+                const index = songs.findIndex((song) => song.id === currentSongRef.current?.id);
+                const isLastSong = index === songs.length - 1;
+                if (isLastSong && repeatMode === 'none') {
+                    if (isSongRadioEnabled && recommendations.length > 0) {
+                        const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
+                        dispatch(playMusic(randomSong));
+                    } else {
+                        dispatch(pauseMusic());
+                    }
+                } else {
+                    playNextInQueue(false);
+                }
             }
         }).then((handle) => {
             if (!handle) return;
@@ -961,7 +972,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             window.clearInterval(timer);
             if (endedHandle) void endedHandle.remove();
         };
-    }, [currentSong?.id, dispatch, playNextInQueue, repeatMode, sleepTimerMode]);
+    }, [currentSong?.id, dispatch, playNextInQueue, repeatMode, sleepTimerMode, songs, isSongRadioEnabled, recommendations]);
 
     // Throttle both persistence and Media Session bridge updates. Browsers only
     // need periodic position snapshots; sending one on every timeupdate is noisy.
