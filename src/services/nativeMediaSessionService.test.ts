@@ -137,15 +137,17 @@ describe('NativeMediaSessionBridge', () => {
         expect(abandonAudioFocusMock).toHaveBeenCalledWith({ forCall: false });
     });
 
-    it('reports denied media focus and rolls the native session back to paused', async () => {
+    it('does not cancel HTML media playback when the supplementary Android focus request is denied', async () => {
         const { MediaSession } = await import('@capgo/capacitor-media-session');
         requestAudioFocusMock.mockResolvedValueOnce({ granted: false });
 
         const accepted = await nativeMediaSession.updatePlaybackState(true);
 
-        expect(accepted).toBe(false);
-        expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(1, { playbackState: 'playing' });
-        expect(MediaSession.setPlaybackState).toHaveBeenNthCalledWith(2, { playbackState: 'paused' });
+        // The HTMLMediaElement/WebView owns audio output. Failure to acquire a
+        // second focus request must not roll the already-started playback back.
+        expect(accepted).toBe(true);
+        expect(MediaSession.setPlaybackState).toHaveBeenCalledTimes(1);
+        expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'playing' });
     });
 
     it('supports browser seek-forward and seek-backward actions using the latest position', async () => {
