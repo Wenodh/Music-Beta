@@ -266,7 +266,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Helper to configure audio element
     const configureAudioElement = useCallback((audio: HTMLAudioElement) => {
-        audio.crossOrigin = 'anonymous';
+        // Android uses direct HTMLMediaElement output, not Web Audio capture.
+        // Forcing CORS mode can reject otherwise playable CDN streams that do
+        // not expose Access-Control-Allow-Origin.
+        if (Capacitor.getPlatform() === 'android') {
+            audio.removeAttribute('crossorigin');
+        } else {
+            audio.crossOrigin = 'anonymous';
+        }
         audio.preload = 'auto';
         audio.preservesPitch = true;
         audio.playbackRate = playbackSpeed;
