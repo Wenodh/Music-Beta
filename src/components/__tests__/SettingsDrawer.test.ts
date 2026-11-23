@@ -13,6 +13,7 @@ describe('SettingsDrawer Categories & Search Metadata', () => {
             'privacy',
             'data',
             'about',
+            'diagnostics',
         ];
         const categoryIds = SETTINGS_CATEGORIES.map((c) => c.id);
         expect(categoryIds).toEqual(expectedIds);
