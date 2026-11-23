@@ -303,7 +303,7 @@ export const useFriendPresence = () => {
 
             // Clean up existing channel if any
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                safeUnsubscribe(channelRef.current);
                 channelRef.current = null;
             }
             isChannelJoinedRef.current = false;
@@ -429,7 +429,7 @@ export const useFriendPresence = () => {
             stopHeartbeat();
             stopReconnect();
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                safeUnsubscribe(channelRef.current);
                 channelRef.current = null;
             }
             isChannelJoinedRef.current = false;
