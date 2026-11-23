@@ -247,8 +247,15 @@ class NativeMediaSessionBridge {
                     }
 
                     if (!focus?.granted) {
-                        await MediaSession.setPlaybackState({ playbackState: 'paused' }).catch(() => {});
-                        return false;
+                        // HTMLMediaElement is the actual Android playback owner on this
+                        // backend. A separate AudioManager focus request can be denied
+                        // while the WebView's own media session is still valid; rolling
+                        // the media session back here races the successful audio start
+                        // and dispatches pauseMusic() from Player.tsx.
+                        console.warn(
+                            '[NativeMediaSession] Android denied the supplementary media-focus request; ' +
+                            'leaving user-initiated HTML media playback under WebView control.'
+                        );
                     }
                 } catch (err) {
                     // A bridge failure is not the same as Android explicitly denying
