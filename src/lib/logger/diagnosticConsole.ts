@@ -9,7 +9,7 @@ let installed = false;
 const listeners = new Set<() => void>();
 
 const clean = (value: string) => value
-    .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/gi, '$1[REDACTED]')
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, '$1[REDACTED]')
     .replace(/((?:access_token|refresh_token|password|authorization|apikey|api_key)\s*[:=]\s*)["']?[^\s,"'}]+/gi, '$1[REDACTED]')
     .replace(/([?&](?:token|access_token|api_key|apikey)=)[^&\s]+/gi, '$1[REDACTED]')
     .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '[REDACTED_JWT]');
