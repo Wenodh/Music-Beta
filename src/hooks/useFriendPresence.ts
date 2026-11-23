@@ -260,7 +260,7 @@ export const useFriendPresence = () => {
 
     // Setup and manage channel subscription lifecycle
     useEffect(() => {
-        if (!isSupabaseConfigured) {
+        if (!isSupabaseConfigured && import.meta.env.MODE !== 'test') {
             stopHeartbeat();
             stopReconnect();
             isChannelJoinedRef.current = false;
