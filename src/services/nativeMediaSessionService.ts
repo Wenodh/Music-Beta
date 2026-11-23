@@ -1,18 +1,8 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
+import { VibeOnMedia } from './vibeOnMediaPlugin';
 import { MediaSession } from '@capgo/capacitor-media-session';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { Song } from '../types/music';
-
-interface VibeOnMediaPluginInterface {
-    requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
-    abandonAudioFocus(options?: { forCall?: boolean }): Promise<void>;
-    checkPermissions?(): Promise<{ notifications: string }>;
-    requestPermissions?(): Promise<{ notifications: string }>;
-    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string; canResume?: boolean; forCall?: boolean }) => void): Promise<{ remove: () => void }>;
-    addListener(eventName: 'becomingNoisy', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
-}
-
-const VibeOnMedia = registerPlugin<VibeOnMediaPluginInterface>('VibeOnMedia');
 
 export interface MediaControlsCallbacks {
     onPlay: () => void;
