@@ -178,6 +178,20 @@ describe('MusicApiService Comprehensive Resilience Tests (Sprint 1.2)', () => {
         }
     });
 
+    it('12. Does not reset both provider circuit breakers and hammer failed APIs', async () => {
+        (axios.get as any).mockRejectedValue(new Error('Provider unavailable'));
+
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            await expect(service.fetchWithFallback('/api/circuit-breaker-test')).rejects.toThrow();
+        }
+
+        const callsAfterTrip = (axios.get as any).mock.calls.length;
+        expect(callsAfterTrip).toBe(12);
+
+        await expect(service.fetchWithFallback('/api/circuit-breaker-test')).rejects.toThrow(/temporarily unavailable/);
+        expect((axios.get as any).mock.calls.length).toBe(callsAfterTrip);
+    });
+
     it('11. Loading state termination for all outcomes: resolves or rejects cleanly', async () => {
         (axios.get as any).mockResolvedValueOnce({
             data: { data: { results: [] } },
