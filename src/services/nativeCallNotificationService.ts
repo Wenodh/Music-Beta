@@ -1,35 +1,5 @@
-import { registerPlugin, PluginListenerHandle } from '@capacitor/core';
-
-interface VibeOnMediaPluginInterface {
-    requestAudioFocus(options?: { forCall?: boolean }): Promise<{ granted: boolean }>;
-    startCallForegroundService(options: { friendName: string; callType: string }): Promise<void>;
-    stopCallForegroundService(): Promise<void>;
-    abandonAudioFocus(options?: { forCall?: boolean }): Promise<void>;
-    setSpeakerphoneOn(options: { enabled: boolean }): Promise<void>;
-    showCallNotification(options: {
-        friendName: string;
-        callType: string;
-        isMuted: boolean;
-        duration: string;
-    }): Promise<void>;
-    clearCallNotification(): Promise<void>;
-    showIncomingCallNotification(options: { callerName: string; callType: string }): Promise<void>;
-    clearIncomingCallNotification(): Promise<void>;
-    addListener(
-        eventName: 'callNotificationAction',
-        listenerFunc: (data: { action: 'toggleMute' | 'endCall' | 'acceptCall' | 'declineCall' }) => void
-    ): Promise<PluginListenerHandle>;
-    addListener(
-        eventName: 'audioFocusChanged',
-        listenerFunc: (data: { event: string; forCall?: boolean }) => void
-    ): Promise<PluginListenerHandle>;
-    addListener(
-        eventName: 'becomingNoisy',
-        listenerFunc: (data: { event: string }) => void
-    ): Promise<PluginListenerHandle>;
-}
-
-const VibeOnMedia = registerPlugin<VibeOnMediaPluginInterface>('VibeOnMedia');
+import { PluginListenerHandle } from '@capacitor/core';
+import { VibeOnMedia } from './vibeOnMediaPlugin';
 
 class NativeCallNotificationService {
     private listenerHandle: PluginListenerHandle | null = null;
