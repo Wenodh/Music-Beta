@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { useAppDispatch, useAppSelector } from './redux';
 import { setPresenceMap, updateUserPresence } from '../features/social/socialSlice';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -260,6 +260,15 @@ export const useFriendPresence = () => {
 
     // Setup and manage channel subscription lifecycle
     useEffect(() => {
+        if (!isSupabaseConfigured) {
+            stopHeartbeat();
+            stopReconnect();
+            isChannelJoinedRef.current = false;
+            isSubscribedProcessingRef.current = false;
+            trackingQueueRef.current = Promise.resolve();
+            return;
+        }
+
         if (!activeUserId) {
             stopHeartbeat();
             stopReconnect();
@@ -380,11 +389,12 @@ export const useFriendPresence = () => {
                         if (channelRef.current === channel) {
                             channelRef.current = null;
                         }
-                        try {
-                            channel.unsubscribe();
-                        } catch {
-                            // Handled silently
-                        }
+                        // Do not unsubscribe synchronously inside the Realtime status callback.
+                        // Supabase can emit leave/status callbacks while unsubscribe is running,
+                        // causing re-entrant leave() recursion and a stack overflow.
+                        void Promise.resolve().then(() => channel.unsubscribe()).catch((error) => {
+                            console.warn('[useFriendPresence] Deferred channel cleanup failed:', error);
+                        });
 
                         // Reset serialized queue for this channel
                         trackingQueueRef.current = Promise.resolve();
