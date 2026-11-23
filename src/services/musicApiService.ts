@@ -146,13 +146,13 @@ export class MusicApiService {
     }
 
     private recordProviderFailure(providerName: string) {
+        const wasCoolingDown = this.isProviderCoolingDown(providerName);
         this.providerFailureCount[providerName] = (this.providerFailureCount[providerName] || 0) + 1;
-        if (this.providerFailureCount[providerName] >= this.MAX_CONSECUTIVE_FAILURES) {
+        if (this.providerFailureCount[providerName] >= this.MAX_CONSECUTIVE_FAILURES && !wasCoolingDown) {
             this.providerCooldownUntil[providerName] = Date.now() + this.COOLDOWN_MS;
             console.warn(`[MusicApiService] Circuit breaker tripped for ${providerName}. Cooldown until ${new Date(this.providerCooldownUntil[providerName]).toLocaleTimeString()}`);
         }
     }
-
     /**
      * Strict validation: checks if payload is truly valid music data and not an error response
      */
@@ -241,12 +241,22 @@ export class MusicApiService {
                 { name: 'secondary', base: SECONDARY_API_BASE },
             ];
 
-            // If both providers are in cooldown, reset cooldown so we don't lock out the user
-            if (this.isProviderCoolingDown('primary') && this.isProviderCoolingDown('secondary')) {
-                this.providerCooldownUntil.primary = 0;
-                this.providerCooldownUntil.secondary = 0;
-            } else if (this.isProviderCoolingDown('primary') && !this.isProviderCoolingDown('secondary')) {
-                // Prioritize secondary if primary is cooling down
+            const primaryCooling = this.isProviderCoolingDown('primary');
+            const secondaryCooling = this.isProviderCoolingDown('secondary');
+
+            // Do not reset both breakers immediately: that defeats cooldown,
+            // floods failing providers with requests, and repeatedly trips breakers.
+            if (primaryCooling && secondaryCooling) {
+                if (cached?.data) {
+                    console.warn(`[MusicApiService] Both providers are cooling down. Serving stale cache for ${pathAndQuery}.`);
+                    return { data: cached.data as T, isCached: true, provider: 'cache' };
+                }
+                const retryAt = Math.max(this.providerCooldownUntil.primary, this.providerCooldownUntil.secondary);
+                throw new Error(`All music providers are temporarily unavailable. Retry after ${new Date(retryAt).toISOString()}.`);
+            }
+
+            if (primaryCooling && !secondaryCooling) {
+                // Prioritize secondary if primary is cooling down.
                 providers.reverse();
             }
 
