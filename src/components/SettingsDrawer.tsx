@@ -74,6 +74,7 @@ import { getDownloadStorageInfo, deleteAllDownloads } from '../utils/db';
 import { setDownloadedIds } from '../features/library/librarySlice';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { backNavigationService } from '../services/backNavigationService';
+import ConsoleLogsPanel from './ConsoleLogsPanel';
 
 export type SettingsCategoryId =
     | 'account'
@@ -83,7 +84,8 @@ export type SettingsCategoryId =
     | 'sounds'
     | 'privacy'
     | 'data'
-    | 'about';
+    | 'about'
+    | 'diagnostics';
 
 interface CategoryDef {
     id: SettingsCategoryId;
@@ -149,6 +151,12 @@ export const SETTINGS_CATEGORIES: CategoryDef[] = [
         title: 'About',
         description: 'Version, developer info, privacy policy',
         icon: IoInformationCircleOutline,
+    },
+    {
+        id: 'diagnostics',
+        title: 'Console & Diagnostics',
+        description: 'View app logs, playback errors, and copy diagnostics for support',
+        icon: IoServerOutline,
     },
 ];
 
@@ -313,6 +321,13 @@ const SEARCHABLE_SETTINGS: SearchableItem[] = [
         title: 'About Vibe On & Privacy Policy',
         description: 'Application version, developer credits, and external privacy policy',
         keywords: ['about', 'version', 'developer', 'wenodh', 'privacy policy'],
+    },
+    {
+        id: 'diagnostics-console',
+        categoryId: 'diagnostics',
+        title: 'Console Logs & Debugging',
+        description: 'View, filter, and copy app logs, playback events, and JavaScript errors',
+        keywords: ['console', 'logs', 'debug', 'diagnostics', 'error', 'playback', 'crash'],
     },
 ];
 
@@ -1461,6 +1476,17 @@ const SettingsDrawer: React.FC = () => {
                                 </div>
                                 <span className="text-xs font-bold text-primary px-3 py-1 bg-primary/10 rounded-xl">Open →</span>
                             </button>
+                        </div>
+                    </div>
+                );
+
+            case 'diagnostics':
+                return (
+                    <div className="space-y-4">
+                        <div id="diagnostics-console">
+                            <h3 className="mb-2 text-sm font-bold text-gray-900 dark:text-white">Device Console</h3>
+                            <p className="mb-4 text-xs text-gray-500">Capture logs while reproducing playback problems, then copy the report and paste it into support chat.</p>
+                            <ConsoleLogsPanel />
                         </div>
                     </div>
                 );
