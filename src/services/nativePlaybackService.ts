@@ -16,7 +16,9 @@ interface Media3Plugin {
 const Media3 = registerPlugin<Media3Plugin>('VibeOnPlayback');
 
 class NativePlaybackService {
-    readonly isAvailable = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+    // Temporarily keep Android on the proven Web Audio/HTMLMediaElement path while
+    // isolating the native Media3 launch regression. Re-enable after native smoke tests.
+    readonly isAvailable = false;
 
     private async invoke<T>(operation: () => Promise<T>, attempts = 8): Promise<T> {
         let lastError: unknown;
