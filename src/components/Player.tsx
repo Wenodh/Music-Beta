@@ -810,6 +810,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (activePlaybackRequestIdRef.current !== currentRequestId) return;
             if (currentSongRef.current?.id !== targetSongId) return;
 
+            // Never leave the previous track attached when the selected track has
+            // no usable URL. Otherwise the playback-state effect can replay stale audio.
+            if (targetSong && !songUrl) {
+                activeAudio.pause();
+                activeAudio.removeAttribute('src');
+                activeAudio.load();
+                dispatch(pauseMusic());
+                dispatch(showToast({ message: 'This track has no playable audio source. Please try another track.', type: 'error' }));
+                return;
+            }
+
             if (nativePlaybackService.isAvailable) {
                 if (!songUrl) {
                     dispatch(pauseMusic());
