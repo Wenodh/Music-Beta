@@ -35,6 +35,7 @@ import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icon
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { nativeMediaSession } from '../services/nativeMediaSessionService';
 import { nativePlaybackService } from '../services/nativePlaybackService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
@@ -272,6 +273,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const prepareAudioForSource = useCallback((buffer: 'A' | 'B', songUrl: string): HTMLAudioElement => {
         const audioRef = buffer === 'A' ? audioRefA : audioRefB;
         const currentAudio = audioRef.current;
+
+        // Android WebView may suspend AudioContext when the app is backgrounded
+        // or the screen is locked. A captured MediaElementAudioSourceNode cannot
+        // reliably fall back to hardware HTML media output while suspended.
+        // Keep Android on the direct HTMLMediaElement output path until Media3
+        // owns playback and its queue natively.
+        if (Capacitor.getPlatform() === 'android') {
+            currentAudio.playbackRate = playbackSpeed;
+            currentAudio.preservesPitch = true;
+            return currentAudio;
+        }
+
         const isEligible = isWebAudioEligibleSource(songUrl);
 
         if (isEligible) {
