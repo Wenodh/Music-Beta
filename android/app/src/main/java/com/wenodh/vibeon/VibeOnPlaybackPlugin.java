@@ -27,7 +27,14 @@ public final class VibeOnPlaybackPlugin extends Plugin {
 
     @Override
     public void load() {
+        // Do not bind/start the playback service during app launch. Media3 is
+        // initialized on first playback command to keep startup independent of
+        // native audio/service initialization.
         super.load();
+    }
+
+    private void connectController() {
+        if (controllerFuture != null) return;
         SessionToken token = new SessionToken(getContext(),
                 new android.content.ComponentName(getContext(), VibeOnPlaybackService.class));
         controllerFuture = new MediaController.Builder(getContext(), token).buildAsync();
@@ -39,13 +46,10 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                         if (state == Player.STATE_ENDED) notifyListeners("playbackEnded", new JSObject());
                     }
                     @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
-                        // Redux mirrors the user's/system's play intent, not ExoPlayer's
-                        // transient buffering state (isPlaying=false while loading is normal).
                         JSObject intent = new JSObject();
                         intent.put("playWhenReady", playWhenReady);
                         intent.put("audioFocusLoss", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
                         notifyListeners("playbackIntentChanged", intent);
-
                         JSObject state = new JSObject();
                         state.put("isPlaying", playWhenReady);
                         notifyListeners("playbackChanged", state);
@@ -54,11 +58,13 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                 controller.addListener(playerListener);
             } catch (Exception error) {
                 android.util.Log.e("VibeOnPlayback", "Media3 controller connection failed", error);
+                controllerFuture = null;
             }
         }, ContextCompat.getMainExecutor(getContext()));
     }
 
     private MediaController requireController(PluginCall call) {
+        if (controller == null) connectController();
         if (controller == null) {
             call.reject("Native playback service is not connected yet");
             return null;
