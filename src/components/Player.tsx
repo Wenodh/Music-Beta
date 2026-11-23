@@ -413,11 +413,41 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (preloadSongIdRef.current !== song.id) revokePreloadBlob();
         }
 
-        const musicData = song.music || song.downloadUrl;
-        if (Array.isArray(musicData)) {
-            return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
+        const resolveCandidate = (value: Song['music'] | Song['downloadUrl']): string => {
+            if (typeof value === 'string') return value.trim();
+            if (!Array.isArray(value) || value.length === 0) return '';
+            const preferred = value.find((item) => item?.quality === preferredQuality && typeof item.url === 'string' && item.url.trim());
+            const fallback = value.find((item) => typeof item?.url === 'string' && item.url.trim());
+            return (preferred || fallback)?.url?.trim() || '';
+        };
+
+        // Some API responses contain an empty/partial music array but a valid
+        // downloadUrl. Do not let a truthy empty array hide the fallback source.
+        const songUrl = resolveCandidate(song.music) || resolveCandidate(song.downloadUrl);
+        if (!songUrl) {
+            console.warn('[Player] No playable audio URL found for song:', {
+                songId: song.id,
+                preferredQuality,
+                musicFormat: Array.isArray(song.music) ? song.music.map((item) => item?.quality) : typeof song.music,
+                downloadFormat: Array.isArray(song.downloadUrl) ? song.downloadUrl.map((item) => item?.quality) : typeof song.downloadUrl,
+            });
+            return '';
         }
-        return musicData || '';
+
+        try {
+            const parsed = new URL(songUrl, window.location.href);
+            console.info('[Player] Audio source resolved:', {
+                songId: song.id,
+                source: song.music ? 'music' : 'downloadUrl',
+                protocol: parsed.protocol,
+                host: parsed.host || 'local',
+                preferredQuality,
+            });
+        } catch {
+            console.warn('[Player] Audio source URL is malformed:', { songId: song.id });
+            return '';
+        }
+        return songUrl;
     }, [preferredQuality, revokeAudioBlob, revokePreloadBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
@@ -962,6 +992,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
         const activeAudio = getActiveAudio();
         if (isPlaying) {
+            if (!activeAudio.currentSrc && !activeAudio.src) {
+                console.warn('[Player] Play requested before an audio source was assigned:', {
+                    songId: currentSongRef.current?.id,
+                    readyState: activeAudio.readyState,
+                    networkState: activeAudio.networkState,
+                });
+                return;
+            }
             activeAudio.play().catch(e => console.warn("Playback failed", e));
         } else {
             activeAudio.pause();
