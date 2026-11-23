@@ -34,6 +34,9 @@ class NativeMediaSessionBridge {
     private resumeAfterTransientFocusLoss = false;
     private lastKnownPosition = 0;
     private lastKnownDuration = 0;
+    // Ignore out-of-order async state syncs. A stale initial `paused` update must
+    // never abandon focus after a newer user-initiated `playing` request.
+    private playbackStateRevision = 0;
 
     public async checkAndRequestNotificationPermissions(): Promise<boolean> {
         if (!this.isNative) return true;
@@ -213,33 +216,55 @@ class NativeMediaSessionBridge {
     }
 
     public async updatePlaybackState(isPlaying: boolean): Promise<boolean> {
+        const revision = ++this.playbackStateRevision;
         const state = isPlaying ? 'playing' : 'paused';
+        const isCurrentRequest = () => revision === this.playbackStateRevision;
 
         if (this.isNative) {
+            // Media-session UI/foreground-service synchronization is supplementary to
+            // HTML audio. A plugin failure here must not cancel a user-requested play.
             try {
-                // Set the playing state first: on Android this starts the plugin's mediaPlayback
-                // foreground service. Requesting focus first creates a window where a fast screen
-                // lock can happen before Android has promoted the app to a foreground service.
                 await MediaSession.setPlaybackState({ playbackState: state });
+            } catch (err) {
+                console.warn('[NativeMediaSession] Failed to synchronize native playback state:', err);
+            }
 
-                if (isPlaying) {
+            // An older paused update can finish after a newer play request. Do not let
+            // that stale update abandon the focus acquired by the newer request.
+            if (!isCurrentRequest()) return true;
+
+            if (isPlaying) {
+                try {
                     const focus = await VibeOnMedia.requestAudioFocus({ forCall: false });
+
+                    // The user may have paused or started another track while focus was
+                    // being requested. Release any focus granted to this stale request.
+                    if (!isCurrentRequest()) {
+                        if (focus?.granted) {
+                            await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch(() => {});
+                        }
+                        return true;
+                    }
+
                     if (!focus?.granted) {
-                        await MediaSession.setPlaybackState({ playbackState: 'paused' });
+                        await MediaSession.setPlaybackState({ playbackState: 'paused' }).catch(() => {});
                         return false;
                     }
-                } else if (!this.resumeAfterTransientFocusLoss) {
-                    // Release focus on a user/permanent pause, but retain it during a transient
-                    // interruption so Android can notify us when focus is returned.
-                    await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch(() => {});
+                } catch (err) {
+                    // A bridge failure is not the same as Android explicitly denying
+                    // focus. Keep foreground HTML playback usable and report the failure.
+                    console.warn('[NativeMediaSession] Audio-focus bridge unavailable; allowing HTML audio playback:', err);
                 }
-            } catch (err) {
-                console.warn('[NativeMediaSession] Failed to set native playback state:', err);
-                if (isPlaying) return false;
+            } else if (!this.resumeAfterTransientFocusLoss && isCurrentRequest()) {
+                // Release focus on a user/permanent pause, but retain it during a transient
+                // interruption so Android can notify us when focus is returned.
+                await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch((err) => {
+                    console.warn('[NativeMediaSession] Failed to abandon audio focus:', err);
+                });
             }
         }
 
-        if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+        if (isCurrentRequest() && typeof window !== 'undefined' && 'mediaSession' in navigator) {
             try {
                 navigator.mediaSession.playbackState = state;
             } catch {
