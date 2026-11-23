@@ -136,6 +136,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Coordinate playback between browser tabs. A newly-started session takes
     // ownership and asks other Vibe On tabs to pause, preventing doubled audio.
     useEffect(() => {
+        // Native Android playback belongs to this app's WebView. Cross-tab
+        // coordination can receive unrelated browser/PWA messages and must not
+        // pause the native app's active audio session.
+        if (Capacitor.isNativePlatform()) return;
         if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
 
         const channel = new BroadcastChannel('vibeon-playback-v1');
@@ -162,6 +166,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     // Web Locks provides atomic playback ownership when supported. BroadcastChannel
     // remains the fallback and keeps non-owner tabs informed.
     useEffect(() => {
+        // Web Locks only coordinate browser tabs. Android's native WebView must
+        // not auto-pause because another browsing context owns this origin lock.
+        if (Capacitor.isNativePlatform()) return;
         if (!isPlaying || typeof navigator === 'undefined' || !('locks' in navigator)) return;
         return acquirePlaybackOwnership(() => dispatch(pauseMusic()));
     }, [isPlaying, dispatch]);
