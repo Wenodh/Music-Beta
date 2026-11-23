@@ -423,7 +423,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
         // Some API responses contain an empty/partial music array but a valid
         // downloadUrl. Do not let a truthy empty array hide the fallback source.
-        const songUrl = resolveCandidate(song.music) || resolveCandidate(song.downloadUrl);
+        const musicUrl = resolveCandidate(song.music);
+        const downloadUrl = resolveCandidate(song.downloadUrl);
+        const songUrl = musicUrl || downloadUrl;
         if (!songUrl) {
             console.warn('[Player] No playable audio URL found for song:', {
                 songId: song.id,
@@ -438,7 +440,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const parsed = new URL(songUrl, window.location.href);
             console.info('[Player] Audio source resolved:', {
                 songId: song.id,
-                source: song.music ? 'music' : 'downloadUrl',
+                source: musicUrl ? 'music' : 'downloadUrl',
                 protocol: parsed.protocol,
                 host: parsed.host || 'local',
                 preferredQuality,
@@ -929,6 +931,17 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             const song = currentSongRef.current;
             if (!isPlaying || !song || !audio.src || audio.src.startsWith('blob:')) return;
             const mediaError = audio.error;
+            const failedSource = audio.currentSrc || audio.src;
+            let failedSourceHost = 'unavailable';
+            try { failedSourceHost = new URL(failedSource, window.location.href).host || 'local'; } catch { /* Keep host unavailable. */ }
+            console.error('[Player] HTML media element error:', {
+                songId: song.id,
+                mediaErrorCode: mediaError?.code ?? null,
+                mediaErrorMessage: mediaError?.message || 'Unknown media error',
+                sourceHost: failedSourceHost,
+                readyState: audio.readyState,
+                networkState: audio.networkState,
+            });
             const failureKind = classifyMediaError(mediaError);
             if (!failureKind || failureKind === 'aborted') return;
 
