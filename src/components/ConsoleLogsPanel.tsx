@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { diagnosticConsole, LogEntry } from '../lib/logger';
+import { diagnosticConsole, LogEntry } from '../lib/logger/diagnosticConsole';
 import { IoCopyOutline, IoTrashOutline, IoRefreshOutline } from 'react-icons/io5';
 
 const LEVEL_STYLES: Record<LogEntry['level'], string> = {
