@@ -18,8 +18,6 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(VibeOnMediaPlugin.class);
-        registerPlugin(VibeOnPlaybackPlugin.class);
         super.onCreate(savedInstanceState);
         getWindow().getDecorView().post(() -> dispatchCallNotificationAction(getIntent()));
     }
