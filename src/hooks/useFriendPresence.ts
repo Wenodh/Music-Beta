@@ -52,6 +52,20 @@ export const useFriendPresence = () => {
     const isSubscribedProcessingRef = useRef<boolean>(false);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // A Realtime channel can emit another terminal status while unsubscribe() is
+    // running. Guard by channel identity so recursive/repeated callbacks cannot
+    // call unsubscribe() on the same channel more than once.
+    const unsubscribingChannelsRef = useRef(new WeakSet<RealtimeChannel>());
+    const safeUnsubscribe = useCallback((channel: RealtimeChannel) => {
+        if (unsubscribingChannelsRef.current.has(channel)) return;
+        unsubscribingChannelsRef.current.add(channel);
+        void Promise.resolve()
+            .then(() => channel.unsubscribe())
+            .catch((error) => {
+                console.warn('[useFriendPresence] Channel unsubscribe failed:', error);
+            });
+    }, []);
+
     // Serialized Promise Queue:
     // Ensures all asynchronous presence tracking operations execute sequentially on the active channel.
     // Chained with .catch(() => undefined) so rejected promises never stall the queue.
@@ -273,7 +287,7 @@ export const useFriendPresence = () => {
             stopHeartbeat();
             stopReconnect();
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                safeUnsubscribe(channelRef.current);
                 channelRef.current = null;
             }
             isChannelJoinedRef.current = false;
@@ -389,12 +403,8 @@ export const useFriendPresence = () => {
                         if (channelRef.current === channel) {
                             channelRef.current = null;
                         }
-                        // Do not unsubscribe synchronously inside the Realtime status callback.
-                        // Supabase can emit leave/status callbacks while unsubscribe is running,
-                        // causing re-entrant leave() recursion and a stack overflow.
-                        void Promise.resolve().then(() => channel.unsubscribe()).catch((error) => {
-                            console.warn('[useFriendPresence] Deferred channel cleanup failed:', error);
-                        });
+                        // Idempotent cleanup: terminal callbacks may repeat while leaving.
+                        safeUnsubscribe(channel);
 
                         // Reset serialized queue for this channel
                         trackingQueueRef.current = Promise.resolve();
@@ -434,6 +444,7 @@ export const useFriendPresence = () => {
         stopHeartbeat,
         stopReconnect,
         syncPresenceRoster,
+        safeUnsubscribe,
     ]);
 
     // App foreground / background and visibility lifecycle handling
