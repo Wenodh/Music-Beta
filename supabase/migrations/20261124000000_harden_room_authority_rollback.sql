@@ -10,6 +10,41 @@ DROP FUNCTION IF EXISTS public.moderate_room_participant(TEXT, UUID, TEXT);
 
 GRANT INSERT ON public.room_participants TO anon, authenticated;
 
+DROP FUNCTION IF EXISTS public.can_access_listening_room(UUID, UUID);
+DROP FUNCTION IF EXISTS public.is_room_host(TEXT, UUID);
+DROP FUNCTION IF EXISTS public.is_room_member(TEXT, UUID);
+
+DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
+CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
+    FOR SELECT USING (
+        (is_public = true AND status IN ('active', 'reconnecting', 'paused'))
+        OR host_id = auth.uid()
+        OR auth.uid() = ANY(co_host_ids)
+        OR EXISTS (
+            SELECT 1 FROM public.room_participants rp
+            WHERE rp.room_id = listening_rooms.id
+              AND rp.user_id = auth.uid()
+              AND rp.status <> 'kicked'
+        )
+    );
+
+DROP POLICY IF EXISTS "Participants can view room roster" ON public.room_participants;
+CREATE POLICY "Participants can view room roster" ON public.room_participants
+    FOR SELECT USING (
+        auth.uid() = user_id
+        OR EXISTS (
+            SELECT 1 FROM public.listening_rooms r
+            WHERE r.id = room_participants.room_id
+              AND ((r.is_public = true AND r.status <> 'closed') OR r.host_id = auth.uid() OR auth.uid() = ANY(r.co_host_ids))
+        )
+        OR EXISTS (
+            SELECT 1 FROM public.room_participants peer
+            WHERE peer.room_id = room_participants.room_id
+              AND peer.user_id = auth.uid()
+              AND peer.status <> 'kicked'
+        )
+    );
+
 -- Restore the previous participant policies. These intentionally restore the
 -- prior behavior and therefore also restore its role-escalation/rejoin weakness.
 DROP POLICY IF EXISTS "Users can join room" ON public.room_participants;
