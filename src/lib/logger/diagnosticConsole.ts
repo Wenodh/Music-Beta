@@ -58,8 +58,8 @@ const append = (level: LogLevel, args: unknown[]) => {
         if (!settings.enabled) return;
         if (message.includes('[PlaybackTrace]')) {
             if (!settings.playbackTracing) return;
-        } else if (!settings.verboseLogging || level === 'debug' || level === 'log' || level === 'info') {
-            if (!settings.verboseLogging) return;
+        } else if (!settings.verboseLogging) {
+            return;
         }
     }
     entries.push({ id: id++, timestamp: formatIstTimestamp(new Date()), level, message });
