@@ -669,10 +669,23 @@ export const useSession = () => {
                 }
 
                 if (payload.action === 'kick' && payload.targetUserId === userId) {
-                    dispatch(leaveSession());
-                    dispatch(setSessionError('You have been removed from this party by the host.'));
+                    // Never trust the broadcast alone: verify the kick against the
+                    // participant row written by the authenticated moderation RPC.
+                    void supabase.rpc('get_room_participant_status', {
+                        target_room_code: roomCode
+                    }).then(({ data, error }) => {
+                        if (error) {
+                            console.warn('[useSession] Could not verify room kick status:', error.message);
+                            return;
+                        }
+                        if (data === 'kicked') {
+                            dispatch(leaveSession());
+                            dispatch(setSessionError('You have been removed from this party by the host.'));
+                        }
+                    });
                 } else if (payload.action === 'mute_chat') {
-                    dispatch(setChatMutedByHost(Boolean(payload.isMuted)));
+                    // Read the persisted setting rather than trusting the broadcast value.
+                    void refreshRoomAuthority();
                 }
             })
             .on('broadcast', { event: 'sync' }, ({ payload }) => {
