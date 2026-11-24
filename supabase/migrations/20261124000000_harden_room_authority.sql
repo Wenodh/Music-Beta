@@ -12,18 +12,10 @@ AS $is_member$
     SELECT target_user_id IS NOT NULL AND EXISTS (
         SELECT 1
         FROM public.listening_rooms r
+        JOIN public.room_participants rp ON rp.room_id = r.id
         WHERE r.room_code = target_room_code
-          AND (
-                r.host_id = target_user_id
-                OR target_user_id = ANY(r.co_host_ids)
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.room_participants rp
-                    WHERE rp.room_id = r.id
-                      AND rp.user_id = target_user_id
-                      AND rp.status IN ('joined', 'reconnecting', 'muted')
-                )
-          )
+          AND rp.user_id = target_user_id
+          AND rp.status IN ('joined', 'reconnecting', 'muted')
     );
 $is_member$;
 
@@ -35,8 +27,13 @@ SECURITY DEFINER
 SET search_path = public, auth
 AS $is_host$
     SELECT target_user_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.listening_rooms r
-        WHERE r.room_code = target_room_code AND r.host_id = target_user_id
+        SELECT 1
+        FROM public.listening_rooms r
+        JOIN public.room_participants rp ON rp.room_id = r.id
+        WHERE r.room_code = target_room_code
+          AND r.host_id = target_user_id
+          AND rp.user_id = target_user_id
+          AND rp.status IN ('joined', 'reconnecting', 'muted')
     );
 $is_host$;
 
@@ -90,7 +87,7 @@ CREATE POLICY "Users or host can update participant state" ON public.room_partic
         OR EXISTS (
             SELECT 1 FROM public.listening_rooms r
             WHERE r.id = room_participants.room_id
-              AND (r.host_id = auth.uid() OR auth.uid() = ANY(r.co_host_ids))
+              AND r.host_id = auth.uid()
         )
     )
     WITH CHECK (
@@ -112,7 +109,7 @@ CREATE POLICY "Users or host can update participant state" ON public.room_partic
         OR EXISTS (
             SELECT 1 FROM public.listening_rooms r
             WHERE r.id = room_participants.room_id
-              AND (r.host_id = auth.uid() OR auth.uid() = ANY(r.co_host_ids))
+              AND r.host_id = auth.uid()
         )
     );
 
@@ -267,6 +264,35 @@ $join_room$;
 
 REVOKE ALL ON FUNCTION public.join_listening_room(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.join_listening_room(TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.leave_listening_room(target_room_code TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $leave_room$
+DECLARE
+    caller_id UUID := auth.uid();
+BEGIN
+    IF caller_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    UPDATE public.room_participants rp
+    SET status = 'left',
+        last_ping = NOW()
+    FROM public.listening_rooms r
+    WHERE r.room_code = target_room_code
+      AND rp.room_id = r.id
+      AND rp.user_id = caller_id
+      AND rp.status <> 'kicked';
+
+    RETURN FOUND;
+END;
+$leave_room$;
+
+REVOKE ALL ON FUNCTION public.leave_listening_room(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.leave_listening_room(TEXT) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.get_room_participant_status(target_room_code TEXT)
 RETURNS TEXT
