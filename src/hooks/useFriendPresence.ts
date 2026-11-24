@@ -21,7 +21,7 @@ export interface ExplicitPlaybackEvent {
 
 export const useFriendPresence = () => {
     const dispatch = useAppDispatch();
-    const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+    const { user } = useAppSelector((state) => state.auth);
     const { currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
     const [guestId, setGuestId] = useState<string>(() => {
         try {
