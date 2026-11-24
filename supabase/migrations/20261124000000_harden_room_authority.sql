@@ -320,6 +320,13 @@ BEGIN
 
     GET DIAGNOSTICS affected_rows = ROW_COUNT;
 
+    IF affected_rows > 0 THEN
+        UPDATE public.listening_rooms
+        SET co_host_ids = array_remove(co_host_ids, target_user_id),
+            updated_at = NOW()
+        WHERE id = room_row.id;
+    END IF;
+
     IF affected_rows = 0 THEN
         RETURN jsonb_build_object(
             'success', false,
