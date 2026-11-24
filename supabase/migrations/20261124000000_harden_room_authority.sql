@@ -23,6 +23,16 @@ CREATE POLICY "Users can join room" ON public.room_participants
               AND rp.user_id = auth.uid()
               AND rp.status = 'kicked'
         )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM public.listening_rooms r
+            JOIN public.friendships f
+              ON f.status = 'blocked'
+             AND f.blocked_by = r.host_id
+            WHERE r.id = room_participants.room_id
+              AND f.user_id_1 = LEAST(r.host_id, auth.uid())
+              AND f.user_id_2 = GREATEST(r.host_id, auth.uid())
+        )
     );
 
 DROP POLICY IF EXISTS "Users or host can update participant state" ON public.room_participants;
