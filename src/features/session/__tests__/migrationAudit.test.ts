@@ -69,7 +69,8 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
         expect(content).toContain('FOR UPDATE');
         expect(content).toContain('Caller is not an active participant of this room');
         expect(content).toContain('grace_period_expires_at');
- 
+    });
+
     it('should secure room moderation, kicked membership, and private Realtime broadcasts', () => {
         const content = fs.readFileSync(authorityMigrationPath, 'utf8');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.join_listening_room');
@@ -82,6 +83,5 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
         expect(content).toContain('payload ->> \'type\' IN (\'requestSync\', \'reaction\')');
         expect(content).toContain('GRANT EXECUTE ON FUNCTION public.moderate_room_participant');
         expect(fs.existsSync(authorityRollbackPath)).toBe(true);
-    });
     });
 });
