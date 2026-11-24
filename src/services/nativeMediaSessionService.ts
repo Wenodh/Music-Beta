@@ -223,42 +223,13 @@ class NativeMediaSessionBridge {
             // that stale update abandon the focus acquired by the newer request.
             if (!isCurrentRequest()) return true;
 
-            if (isPlaying) {
-                try {
-                    const focus = await VibeOnMedia.requestAudioFocus({ forCall: false });
-
-                    // The user may have paused or started another track while focus was
-                    // being requested. Release any focus granted to this stale request.
-                    if (!isCurrentRequest()) {
-                        if (focus?.granted) {
-                            await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch(() => {});
-                        }
-                        return true;
-                    }
-
-                    if (!focus?.granted) {
-                        // HTMLMediaElement is the actual Android playback owner on this
-                        // backend. A separate AudioManager focus request can be denied
-                        // while the WebView's own media session is still valid; rolling
-                        // the media session back here races the successful audio start
-                        // and dispatches pauseMusic() from Player.tsx.
-                        console.warn(
-                            '[NativeMediaSession] Android denied the supplementary media-focus request; ' +
-                            'leaving user-initiated HTML media playback under WebView control.'
-                        );
-                    }
-                } catch (err) {
-                    // A bridge failure is not the same as Android explicitly denying
-                    // focus. Keep foreground HTML playback usable and report the failure.
-                    console.warn('[NativeMediaSession] Audio-focus bridge unavailable; allowing HTML audio playback:', err);
-                }
-            } else if (!this.resumeAfterTransientFocusLoss && isCurrentRequest()) {
-                // Release focus on a user/permanent pause, but retain it during a transient
-                // interruption so Android can notify us when focus is returned.
-                await VibeOnMedia.abandonAudioFocus({ forCall: false }).catch((err) => {
-                    console.warn('[NativeMediaSession] Failed to abandon audio focus:', err);
-                });
-            }
+            // Android currently uses HTMLMediaElement as the playback owner. WebView
+            // requests and manages AudioManager focus for that media element itself.
+            // Requesting a second app-owned focus lease here creates two competing
+            // focus owners; WebView can take focus after this request and deliver
+            // AUDIOFOCUS_LOSS to our listener, which incorrectly dispatches pauseMusic().
+            // Keep explicit VibeOnMedia focus requests exclusively for voice calls.
+            // Media3 will own music focus when the native playback backend is enabled.
         }
 
         if (isCurrentRequest() && typeof window !== 'undefined' && 'mediaSession' in navigator) {
