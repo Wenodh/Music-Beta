@@ -357,7 +357,7 @@ BEGIN
 
     SELECT * INTO room_row
     FROM public.listening_rooms
-    WHERE room_code = target_room_code
+    WHERE room_code = target_room_code OR id::text = target_room_code
     FOR UPDATE;
 
     IF NOT FOUND THEN
