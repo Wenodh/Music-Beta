@@ -47,8 +47,6 @@ export const useSession = () => {
         partyCategory,
         isPublic,
         isHost,
-        hostId,
-        coHostIds,
         isJoined,
         isCallActive,
         isMuted,
@@ -75,22 +73,18 @@ export const useSession = () => {
     const currentTimeRef = useRef(currentTime);
     const songsRef = useRef(songs);
     const isHostRef = useRef(isHost);
-    const hostIdRef = useRef(hostId);
     // Only the persisted room row is authoritative for host-only actions.
     const authoritativeHostIdRef = useRef<string | null>(null);
     const stateVersionRef = useRef(stateVersion);
     const basePlaybackSpeedRef = useRef(playbackSpeed);
-    const participantsRef = useRef(participants);
 
     useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
     useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
     useEffect(() => { songsRef.current = songs; }, [songs]);
     useEffect(() => { isHostRef.current = isHost; }, [isHost]);
-    useEffect(() => { hostIdRef.current = hostId; }, [hostId]);
     useEffect(() => { stateVersionRef.current = stateVersion; }, [stateVersion]);
     useEffect(() => { basePlaybackSpeedRef.current = playbackSpeed; }, [playbackSpeed]);
-    useEffect(() => { participantsRef.current = participants; }, [participants]);
 
     // Timer & Grace Period Refs
     const graceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -585,13 +579,10 @@ export const useSession = () => {
 
         const topicPrefix = `realtime:room:${roomCode}`;
         const staleChannels = supabase.getChannels().filter(c => c.topic.startsWith(topicPrefix));
-        staleChannels.forEach(c => {
-            try {
-                c.unsubscribe();
-                supabase.removeChannel(c);
-            } catch (e) {
-                console.warn('Error removing stale channel:', e);
-            }
+        staleChannels.forEach((staleChannel) => {
+            void supabase.removeChannel(staleChannel).catch((error) => {
+                console.warn('[useSession] Error removing stale channel:', error);
+            });
         });
 
         authoritativeHostIdRef.current = null;
