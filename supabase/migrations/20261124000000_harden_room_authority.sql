@@ -117,6 +117,8 @@ CREATE POLICY "Users or host can update participant state" ON public.room_partic
             SELECT 1 FROM public.listening_rooms r
             WHERE r.id = room_participants.room_id
               AND r.host_id = auth.uid()
+              AND (room_participants.role <> 'host' OR room_participants.user_id = r.host_id)
+              AND (room_participants.role <> 'co-host' OR room_participants.user_id = ANY(r.co_host_ids))
         )
     );
 
