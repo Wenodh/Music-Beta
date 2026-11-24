@@ -868,11 +868,10 @@ export const useSession = () => {
                 }, 100);
             })
             .on('broadcast', { event: 'host_elected' }, () => {
-                // Broadcast payloads are hints only. Confirm the elected host against the DB row.
+                // Broadcast payloads are hints only. refreshRoomAuthority() applies the
+                // verified host/demoted role from the database row.
                 void refreshRoomAuthority().then((roomRow) => {
-                    if (!roomRow) return;
-                    cancelHostGracePeriod();
-                    if (roomRow.host_id === userId) dispatch(promoteToHost());
+                    if (roomRow) cancelHostGracePeriod();
                 });
             })
             .on('broadcast', { event: 'chat' }, ({ payload }) => {
