@@ -966,14 +966,12 @@ export const useSession = () => {
             });
             peerConnectionsRef.current.clear();
 
-            try {
-                if (isHost && isPublic) {
-                    partyService.broadcastPartyEnded(roomCode);
-                }
-                supabase.removeChannel(channel);
-            } catch (e) {
-                console.warn('Error removing channel on unmount:', e);
+            if (isHost && isPublic) {
+                void partyService.broadcastPartyEnded(roomCode);
             }
+            void supabase.removeChannel(channel).catch((error) => {
+                console.warn('[useSession] Error removing channel on unmount:', error);
+            });
         };
     }, [
         roomCode,
