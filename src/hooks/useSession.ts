@@ -895,7 +895,7 @@ export const useSession = () => {
                     if (isCancelled) return;
                     dispatch(setConnectionStatus('connected'));
                     try {
-                        const roomRow = await refreshRoomAuthority();
+                        await refreshRoomAuthority();
                         await channel.track({
                             id: userId,
                             name: user?.user_metadata?.full_name || (isHost ? 'Host' : 'Guest'),
@@ -905,22 +905,6 @@ export const useSession = () => {
                             joinedAt: new Date().toISOString()
                         });
 
-                        // Maintain the authenticated participant row only after the room is verified.
-                        if (user?.id && roomRow?.id) {
-                            const role = roomRow.host_id === user.id
-                                ? 'host'
-                                : (Array.isArray(roomRow.co_host_ids) && roomRow.co_host_ids.includes(user.id) ? 'co-host' : 'listener');
-                            const { error: participantError } = await supabase.from('room_participants').upsert({
-                                room_id: roomRow.id,
-                                user_id: user.id,
-                                role,
-                                status: 'joined',
-                                last_ping: new Date().toISOString()
-                            }, { onConflict: 'room_id,user_id' });
-                            if (participantError) {
-                                console.warn('[useSession] Could not refresh room participant row:', participantError.message);
-                            }
-                        }
                     } catch (trackError) {
                         console.warn('Presence track error:', trackError);
                     }
