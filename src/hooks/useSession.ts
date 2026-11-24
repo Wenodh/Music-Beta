@@ -380,8 +380,18 @@ export const useSession = () => {
     }, [roomCode, userId]);
 
     // Moderation Action: Mute / Unmute room chat (Signed with host userId)
-    const toggleRoomChatMute = useCallback((muted: boolean) => {
+    const toggleRoomChatMute = useCallback(async (muted: boolean) => {
         if (authoritativeHostIdRef.current !== userId) return;
+
+        const { data, error } = await supabase.rpc('set_room_chat_muted', {
+            target_room_code: roomCode,
+            is_muted: muted
+        });
+        if (error || !data?.success) {
+            console.warn('[useSession] Server rejected chat mute update:', error?.message || data?.message || 'Unknown error');
+            return;
+        }
+
         dispatch(setChatMutedByHost(muted));
         if (channelRef.current) {
             channelRef.current.send({
@@ -642,7 +652,7 @@ export const useSession = () => {
                     const hostPresent = Boolean(verifiedHostId && uniqueParticipants.some(p => p.id === verifiedHostId));
                     if (hostPresent) {
                         cancelHostGracePeriod();
-                    } else if (verifiedHostId !== userId) {
+                    } else if (verifiedHostId && verifiedHostId !== userId) {
                         // Host missing - trigger 30s grace countdown before election
                         initiateHostGracePeriod();
                     }
@@ -832,7 +842,9 @@ export const useSession = () => {
 
                         // Maintain the authenticated participant row only after the room is verified.
                         if (user?.id && roomRow?.id) {
-                            const role = roomRow.host_id === user.id ? 'host' : 'listener';
+                            const role = roomRow.host_id === user.id
+                                ? 'host'
+                                : (Array.isArray(roomRow.co_host_ids) && roomRow.co_host_ids.includes(user.id) ? 'co-host' : 'listener');
                             const { error: participantError } = await supabase.from('room_participants').upsert({
                                 room_id: roomRow.id,
                                 user_id: user.id,
