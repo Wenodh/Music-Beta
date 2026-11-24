@@ -150,42 +150,12 @@ CREATE POLICY "VibeOn only room members can access room topics"
     USING (
         topic NOT LIKE 'room:%'
         OR topic = 'room:lobby'
-        OR EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            WHERE topic = 'room:' || r.room_code
-              AND (
-                    r.host_id = auth.uid()
-                    OR auth.uid() = ANY(r.co_host_ids)
-                    OR EXISTS (
-                        SELECT 1
-                        FROM public.room_participants rp
-                        WHERE rp.room_id = r.id
-                          AND rp.user_id = auth.uid()
-                          AND rp.status IN ('joined', 'reconnecting', 'muted')
-                    )
-              )
-        )
+        OR public.is_room_member(split_part(topic, ':', 2), auth.uid())
     )
     WITH CHECK (
         topic NOT LIKE 'room:%'
         OR topic = 'room:lobby'
-        OR EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            WHERE topic = 'room:' || r.room_code
-              AND (
-                    r.host_id = auth.uid()
-                    OR auth.uid() = ANY(r.co_host_ids)
-                    OR EXISTS (
-                        SELECT 1
-                        FROM public.room_participants rp
-                        WHERE rp.room_id = r.id
-                          AND rp.user_id = auth.uid()
-                          AND rp.status IN ('joined', 'reconnecting', 'muted')
-                    )
-              )
-        )
+        OR public.is_room_member(split_part(topic, ':', 2), auth.uid())
     );
 
 DROP POLICY IF EXISTS "VibeOn only room host can send authoritative events" ON realtime.messages;
