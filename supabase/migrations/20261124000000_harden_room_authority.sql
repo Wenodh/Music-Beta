@@ -1,7 +1,82 @@
 -- Harden room membership and moderation authority.
 -- Client broadcasts are hints; database rows and RPCs remain authoritative.
 
+-- SECURITY DEFINER helpers avoid cross-table RLS recursion while checking room membership.
+CREATE OR REPLACE FUNCTION public.is_room_member(target_room_code TEXT, target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth
+AS $is_member$
+    SELECT target_user_id IS NOT NULL AND EXISTS (
+        SELECT 1
+        FROM public.listening_rooms r
+        WHERE r.room_code = target_room_code
+          AND (
+                r.host_id = target_user_id
+                OR target_user_id = ANY(r.co_host_ids)
+                OR EXISTS (
+                    SELECT 1
+                    FROM public.room_participants rp
+                    WHERE rp.room_id = r.id
+                      AND rp.user_id = target_user_id
+                      AND rp.status IN ('joined', 'reconnecting', 'muted')
+                )
+          )
+    );
+$is_member$;
+
+CREATE OR REPLACE FUNCTION public.is_room_host(target_room_code TEXT, target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth
+AS $is_host$
+    SELECT target_user_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM public.listening_rooms r
+        WHERE r.room_code = target_room_code AND r.host_id = target_user_id
+    );
+$is_host$;
+
+CREATE OR REPLACE FUNCTION public.can_access_listening_room(target_room_id UUID, target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth
+AS $can_access$
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.listening_rooms r
+        WHERE r.id = target_room_id
+          AND (
+                (r.is_public = true AND r.status IN ('active', 'reconnecting', 'paused'))
+                OR public.is_room_member(r.room_code, target_user_id)
+          )
+    );
+$can_access$;
+
+REVOKE ALL ON FUNCTION public.is_room_member(TEXT, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_room_host(TEXT, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.can_access_listening_room(UUID, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_room_member(TEXT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_room_host(TEXT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_listening_room(UUID, UUID) TO anon, authenticated;
+
 -- A participant must not self-assign host/co-host/moderator roles or rejoin after a kick.
+DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
+CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
+    FOR SELECT USING (public.can_access_listening_room(id, auth.uid()));
+
+DROP POLICY IF EXISTS "Participants can view room roster" ON public.room_participants;
+CREATE POLICY "Participants can view room roster" ON public.room_participants
+    FOR SELECT USING (
+        auth.uid() = user_id
+        OR public.can_access_listening_room(room_id, auth.uid())
+    );
+
 DROP POLICY IF EXISTS "Users can join room" ON public.room_participants;
 -- All new joins and re-joins must pass through join_listening_room(), which
 -- checks bans, capacity, room status, and the caller's authoritative role.
@@ -52,22 +127,7 @@ CREATE POLICY "VibeOn room members can read private room messages"
     USING (
         topic LIKE 'room:%'
         AND extension IN ('broadcast', 'presence')
-        AND EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            WHERE topic = 'room:' || r.room_code
-              AND (
-                    r.host_id = auth.uid()
-                    OR auth.uid() = ANY(r.co_host_ids)
-                    OR EXISTS (
-                        SELECT 1
-                        FROM public.room_participants rp
-                        WHERE rp.room_id = r.id
-                          AND rp.user_id = auth.uid()
-                          AND rp.status IN ('joined', 'reconnecting', 'muted')
-                    )
-              )
-        )
+        AND public.is_room_member(split_part(topic, ':', 2), auth.uid())
     );
 
 DROP POLICY IF EXISTS "VibeOn room members can send private room messages" ON realtime.messages;
@@ -78,22 +138,7 @@ CREATE POLICY "VibeOn room members can send private room messages"
     WITH CHECK (
         topic LIKE 'room:%'
         AND extension IN ('broadcast', 'presence')
-        AND EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            WHERE topic = 'room:' || r.room_code
-              AND (
-                    r.host_id = auth.uid()
-                    OR auth.uid() = ANY(r.co_host_ids)
-                    OR EXISTS (
-                        SELECT 1
-                        FROM public.room_participants rp
-                        WHERE rp.room_id = r.id
-                          AND rp.user_id = auth.uid()
-                          AND rp.status IN ('joined', 'reconnecting', 'muted')
-                    )
-              )
-        )
+        AND public.is_room_member(split_part(topic, ':', 2), auth.uid())
     );
 
 DROP POLICY IF EXISTS "VibeOn only room members can access room topics" ON realtime.messages;
@@ -156,12 +201,7 @@ CREATE POLICY "VibeOn only room host can send authoritative events"
             event = 'sync'
             AND payload ->> 'type' IN ('requestSync', 'reaction')
         )
-        OR EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            WHERE topic = 'room:' || r.room_code
-              AND r.host_id = auth.uid()
-        )
+        OR public.is_room_host(split_part(topic, ':', 2), auth.uid())
     );
 
 CREATE OR REPLACE FUNCTION public.join_listening_room(target_room_code TEXT)
