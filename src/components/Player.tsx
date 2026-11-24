@@ -229,6 +229,37 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
     const [isCrossfading, setIsCrossfading] = useState(false);
 
+    // Temporary playback diagnostics for Android WebView lifecycle investigation.
+    useEffect(() => {
+        const elements = [audioRefA.current, audioRefB.current];
+        const eventNames = ['loadstart', 'loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'play', 'playing', 'pause', 'waiting', 'stalled', 'suspend', 'emptied', 'abort', 'error', 'ended', 'timeupdate'];
+        const listeners = elements.map((audio, index) => eventNames.map((eventName) => {
+            const handler = () => {
+                const error = audio.error;
+                console.info('[PlaybackTrace] media event', {
+                    buffer: index === 0 ? 'A' : 'B', event: eventName,
+                    songId: currentSongRef.current?.id, reduxIsPlaying: isPlayingRef.current,
+                    paused: audio.paused, currentTime: Number.isFinite(audio.currentTime) ? Number(audio.currentTime.toFixed(2)) : null,
+                    duration: Number.isFinite(audio.duration) ? Number(audio.duration.toFixed(2)) : null,
+                    readyState: audio.readyState, networkState: audio.networkState,
+                    errorCode: error?.code ?? null, errorMessage: error?.message || null,
+                    sourceHost: (() => { try { return new URL(audio.currentSrc || audio.src, window.location.href).host; } catch { return 'unknown'; } })(),
+                });
+            };
+            audio.addEventListener(eventName, handler);
+            return [eventName, handler] as const;
+        }));
+        console.info('[PlaybackTrace] media listeners attached', { platform: Capacitor.getPlatform(), songId: currentSongRef.current?.id });
+        return () => {
+            listeners.forEach((handlers, index) => handlers.forEach(([eventName, handler]) => elements[index].removeEventListener(eventName, handler)));
+            console.info('[PlaybackTrace] media listeners detached', { songId: currentSongRef.current?.id });
+        };
+    }, []);
+
+    useEffect(() => {
+        console.info('[PlaybackTrace] Redux playback state', { songId: currentSong?.id, isPlaying, activeBuffer, preferredQuality, currentTime: savedCurrentTime });
+    }, [currentSong?.id, isPlaying, activeBuffer, preferredQuality, savedCurrentTime]);
+
     const getActiveAudio = () => activeBuffer === 'A' ? audioRefA.current : audioRefB.current;
     const getInactiveAudio = () => activeBuffer === 'A' ? audioRefB.current : audioRefA.current;
 
@@ -456,7 +487,8 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         if (!isManual && repeatMode === 'one') {
             const activeAudio = getActiveAudio();
             activeAudio.currentTime = 0;
-            activeAudio.play().catch(e => console.warn("Playback failed", e));
+            console.info('[PlaybackTrace] play() invoked from isPlaying effect', { songId: currentSongRef.current?.id, buffer: activeBuffer, paused: activeAudio.paused, readyState: activeAudio.readyState, networkState: activeAudio.networkState });
+            activeAudio.play().then(() => console.info('[PlaybackTrace] state-effect play() resolved', { songId: currentSongRef.current?.id, paused: activeAudio.paused, currentTime: activeAudio.currentTime })).catch(e => console.error('[PlaybackTrace] state-effect play() rejected', { songId: currentSongRef.current?.id, name: e?.name, message: e?.message, paused: activeAudio.paused, readyState: activeAudio.readyState, networkState: activeAudio.networkState }));
             return;
         }
 
@@ -804,6 +836,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const targetSong = currentSong;
         const targetSongId = targetSong?.id;
         const currentRequestId = ++activePlaybackRequestIdRef.current;
+        console.info('[PlaybackTrace] source effect started', { requestId: currentRequestId, songId: targetSongId, isPlaying, activeBuffer, preferredQuality, musicPresent: Boolean(targetSong?.music), downloadUrlPresent: Boolean(targetSong?.downloadUrl) });
 
         getSongUrl(targetSong).then(songUrl => {
             // Check generation token and current song ID before mutating state
@@ -861,6 +894,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (activePlaybackRequestIdRef.current !== currentRequestId) return;
 
             if (songUrl && resolvedAudio.src !== songUrl) {
+                console.info('[PlaybackTrace] assigning source', { requestId: currentRequestId, songId: targetSongId, buffer: activeBuffer, host: (() => { try { return new URL(songUrl).host; } catch { return 'unknown'; } })() });
                 resolvedAudio.src = songUrl;
                 setIsCrossfading(false);
 
@@ -916,7 +950,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
 
             if (isPlaying) {
-                resolvedAudio.play().catch((error: DOMException) => {
+                console.info('[PlaybackTrace] play() invoked from source effect', { requestId: currentRequestId, songId: targetSongId, buffer: activeBuffer, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
+                resolvedAudio.play().then(() => console.info('[PlaybackTrace] source-effect play() resolved', { requestId: currentRequestId, songId: targetSongId, paused: resolvedAudio.paused, currentTime: resolvedAudio.currentTime, readyState: resolvedAudio.readyState })).catch((error: DOMException) => {
+                    console.error('[PlaybackTrace] source-effect play() rejected', { requestId: currentRequestId, songId: targetSongId, name: error?.name, message: error?.message, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
                     if (error?.name === 'NotAllowedError' && currentSongRef.current?.id === targetSongId) {
                         dispatch(pauseMusic());
                     } else if (error?.name !== 'AbortError') {
@@ -1026,6 +1062,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
             activeAudio.play().catch(e => console.warn("Playback failed", e));
         } else {
+            console.info('[PlaybackTrace] pause() invoked from isPlaying effect', { songId: currentSongRef.current?.id, buffer: activeBuffer, activePaused: activeAudio.paused, inactivePaused: getInactiveAudio().paused });
             activeAudio.pause();
             getInactiveAudio().pause();
         }
