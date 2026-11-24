@@ -52,18 +52,15 @@ export const useFriendPresence = () => {
     const isSubscribedProcessingRef = useRef<boolean>(false);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // A Realtime channel can emit another terminal status while unsubscribe() is
-    // running. Guard by channel identity so recursive/repeated callbacks cannot
-    // call unsubscribe() on the same channel more than once.
-    const unsubscribingChannelsRef = useRef(new WeakSet<RealtimeChannel>());
+    // removeChannel() also unsubscribes. Guard repeated terminal callbacks so
+    // channel teardown cannot recursively schedule removal of the same instance.
+    const removingChannelsRef = useRef(new WeakSet<RealtimeChannel>());
     const safeUnsubscribe = useCallback((channel: RealtimeChannel) => {
-        if (unsubscribingChannelsRef.current.has(channel)) return;
-        unsubscribingChannelsRef.current.add(channel);
-        void Promise.resolve()
-            .then(() => channel.unsubscribe())
-            .catch((error) => {
-                console.warn('[useFriendPresence] Channel unsubscribe failed:', error);
-            });
+        if (removingChannelsRef.current.has(channel)) return;
+        removingChannelsRef.current.add(channel);
+        void supabase.removeChannel(channel).catch((error) => {
+            console.warn('[useFriendPresence] Channel removal failed:', error);
+        });
     }, []);
 
     // Serialized Promise Queue:
