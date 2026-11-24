@@ -145,6 +145,100 @@ CREATE POLICY "VibeOn only room host can send authoritative events"
         )
     );
 
+CREATE OR REPLACE FUNCTION public.join_listening_room(target_room_code TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $
+DECLARE
+    caller_id UUID := auth.uid();
+    room_row public.listening_rooms%ROWTYPE;
+    existing_status TEXT;
+    active_count INTEGER;
+    participant_role TEXT;
+BEGIN
+    IF caller_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication is required to join a listening room';
+    END IF;
+
+    SELECT * INTO room_row
+    FROM public.listening_rooms
+    WHERE room_code = target_room_code
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Listening room not found';
+    END IF;
+
+    IF room_row.status NOT IN ('active', 'reconnecting', 'paused') THEN
+        RAISE EXCEPTION 'Listening room is not accepting participants';
+    END IF;
+
+    SELECT status INTO existing_status
+    FROM public.room_participants
+    WHERE room_id = room_row.id AND user_id = caller_id;
+
+    IF existing_status = 'kicked' THEN
+        RAISE EXCEPTION 'You have been removed from this listening room';
+    END IF;
+
+    IF caller_id <> room_row.host_id
+       AND NOT (caller_id = ANY(room_row.co_host_ids))
+       AND EXISTS (
+            SELECT 1
+            FROM public.friendships f
+            WHERE f.status = 'blocked'
+              AND f.blocked_by = room_row.host_id
+              AND f.user_id_1 = LEAST(room_row.host_id, caller_id)
+              AND f.user_id_2 = GREATEST(room_row.host_id, caller_id)
+       ) THEN
+        RAISE EXCEPTION 'You cannot join this listening room';
+    END IF;
+
+    SELECT COUNT(*) INTO active_count
+    FROM public.room_participants rp
+    WHERE rp.room_id = room_row.id
+      AND rp.status IN ('joined', 'reconnecting', 'muted')
+      AND rp.user_id <> caller_id;
+
+    IF caller_id <> room_row.host_id
+       AND NOT (caller_id = ANY(room_row.co_host_ids))
+       AND active_count >= room_row.max_participants THEN
+        RAISE EXCEPTION 'Listening room is full';
+    END IF;
+
+    participant_role := CASE
+        WHEN caller_id = room_row.host_id THEN 'host'
+        WHEN caller_id = ANY(room_row.co_host_ids) THEN 'co-host'
+        ELSE 'listener'
+    END;
+
+    INSERT INTO public.room_participants (room_id, user_id, role, status, last_ping)
+    VALUES (room_row.id, caller_id, participant_role, 'joined', NOW())
+    ON CONFLICT (room_id, user_id) DO UPDATE
+        SET role = EXCLUDED.role,
+            status = 'joined',
+            last_ping = NOW()
+        WHERE public.room_participants.status <> 'kicked';
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'You have been removed from this listening room';
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'room_id', room_row.id,
+        'host_id', room_row.host_id,
+        'co_host_ids', room_row.co_host_ids,
+        'settings', room_row.settings
+    );
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.join_listening_room(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.join_listening_room(TEXT) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.get_room_participant_status(target_room_code TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
