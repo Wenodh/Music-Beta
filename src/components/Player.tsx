@@ -958,7 +958,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 }
             }
 
-            if (isPlaying) {
+            // Source resolution is asynchronous; use the latest Redux intent rather
+            // than the isPlaying value captured when this effect first started.
+            const shouldPlay = isPlayingRef.current;
+            if (shouldPlay) {
                 console.info('[PlaybackTrace] play() invoked from source effect', { requestId: currentRequestId, songId: targetSongId, buffer: activeBuffer, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
                 resolvedAudio.play().then(() => console.info('[PlaybackTrace] source-effect play() resolved', { requestId: currentRequestId, songId: targetSongId, paused: resolvedAudio.paused, currentTime: resolvedAudio.currentTime, readyState: resolvedAudio.readyState })).catch((error: DOMException) => {
                     console.error('[PlaybackTrace] source-effect play() rejected', { requestId: currentRequestId, songId: targetSongId, name: error?.name, message: error?.message, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
@@ -977,7 +980,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             console.warn('[Player] Could not resolve the current audio source:', error);
             dispatchPauseWithTrace('Player pauseMusic dispatch site');
         });
-    }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, savedCurrentTime, dispatch]);
+    }, [currentSong?.id, currentSong?.music, currentSong?.downloadUrl, preferredQuality, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, savedCurrentTime, dispatch]);
 
     // Recover an expired or failed online stream using fresh provider song details.
     useEffect(() => {
