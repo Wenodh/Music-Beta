@@ -40,7 +40,7 @@ import { mapApiSongToSong } from '../services/favoriteRecoveryService';
 
 export const useSession = () => {
     const dispatch = useAppDispatch();
-    const [roomMembershipReady, setRoomMembershipReady] = useState(false);
+    const [roomMembershipKey, setRoomMembershipKey] = useState<string | null>(null);
     const {
         roomCode,
         partyName,
@@ -549,7 +549,7 @@ export const useSession = () => {
     useEffect(() => {
         let cancelled = false;
         authoritativeHostIdRef.current = null;
-        setRoomMembershipReady(false);
+        setRoomMembershipKey(null);
 
         if (!isJoined || !roomCode) return () => { cancelled = true; };
         if (!user?.id) {
@@ -584,7 +584,7 @@ export const useSession = () => {
                 if (data.settings && typeof data.settings.mute_chat === 'boolean') {
                     dispatch(setChatMutedByHost(data.settings.mute_chat));
                 }
-                setRoomMembershipReady(true);
+                setRoomMembershipKey(`${roomCode}:${user.id}`);
             } catch (error) {
                 if (cancelled) return;
                 authoritativeHostIdRef.current = null;
@@ -633,7 +633,7 @@ export const useSession = () => {
             return;
         }
 
-        if (!roomMembershipReady) return;
+        if (roomMembershipKey !== `${roomCode}:${user?.id || ''}`) return;
 
         let isCancelled = false;
 
@@ -1005,7 +1005,8 @@ export const useSession = () => {
         resolveAndPlayTrack,
         initiateHostGracePeriod,
         createPeerConnection,
-        roomMembershipReady
+        roomMembershipKey,
+        user?.id
     ]);
 
     // Periodically sync host position for continuous drift evaluation
