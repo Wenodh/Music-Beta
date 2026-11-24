@@ -107,9 +107,9 @@ CREATE POLICY "Participants can view room roster" ON public.room_participants
         )
     );
 
-DROP FUNCTION IF EXISTS public.can_access_listening_room(UUID, UUID);
-DROP FUNCTION IF EXISTS public.is_room_host(TEXT, UUID);
-DROP FUNCTION IF EXISTS public.is_room_member(TEXT, UUID);
+DROP FUNCTION IF EXISTS public.can_access_listening_room(UUID);
+DROP FUNCTION IF EXISTS public.is_room_host(TEXT);
+DROP FUNCTION IF EXISTS public.is_room_member(TEXT);
 
 -- Restore the previous participant policies. These intentionally restore the
 -- prior behavior and therefore also restore its role-escalation/rejoin weakness.
