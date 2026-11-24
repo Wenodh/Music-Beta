@@ -131,9 +131,9 @@ CREATE POLICY "VibeOn room members can read private room messages"
     FOR SELECT
     TO authenticated
     USING (
-        topic LIKE 'room:%'
+        (SELECT realtime.topic()) LIKE 'room:%'
         AND extension IN ('broadcast', 'presence')
-        AND public.is_room_member(split_part(topic, ':', 2), auth.uid())
+        AND public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
     );
 
 DROP POLICY IF EXISTS "VibeOn room members can send private room messages" ON realtime.messages;
@@ -142,9 +142,9 @@ CREATE POLICY "VibeOn room members can send private room messages"
     FOR INSERT
     TO authenticated
     WITH CHECK (
-        topic LIKE 'room:%'
+        (SELECT realtime.topic()) LIKE 'room:%'
         AND extension IN ('broadcast', 'presence')
-        AND public.is_room_member(split_part(topic, ':', 2), auth.uid())
+        AND public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
     );
 
 DROP POLICY IF EXISTS "VibeOn only room members can access room topics" ON realtime.messages;
@@ -154,14 +154,14 @@ CREATE POLICY "VibeOn only room members can access room topics"
     FOR ALL
     TO authenticated
     USING (
-        topic NOT LIKE 'room:%'
-        OR topic = 'room:lobby'
-        OR public.is_room_member(split_part(topic, ':', 2), auth.uid())
+        (SELECT realtime.topic()) NOT LIKE 'room:%'
+        OR (SELECT realtime.topic()) = 'room:lobby'
+        OR public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
     )
     WITH CHECK (
-        topic NOT LIKE 'room:%'
-        OR topic = 'room:lobby'
-        OR public.is_room_member(split_part(topic, ':', 2), auth.uid())
+        (SELECT realtime.topic()) NOT LIKE 'room:%'
+        OR (SELECT realtime.topic()) = 'room:lobby'
+        OR public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
     );
 
 DROP POLICY IF EXISTS "VibeOn only room host can send authoritative events" ON realtime.messages;
@@ -177,7 +177,7 @@ CREATE POLICY "VibeOn only room host can send authoritative events"
             event = 'sync'
             AND payload ->> 'type' IN ('requestSync', 'reaction')
         )
-        OR public.is_room_host(split_part(topic, ':', 2), auth.uid())
+        OR public.is_room_host(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
     );
 
 CREATE OR REPLACE FUNCTION public.join_listening_room(target_room_code TEXT)
