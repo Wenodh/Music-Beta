@@ -62,6 +62,15 @@ import { showToast } from '../features/ui/uiSlice';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const dispatch = useAppDispatch();
+    const dispatchPauseWithTrace = useCallback((reason: string) => {
+        console.warn('[PlaybackTrace] Redux pause dispatched', {
+            reason,
+            songId: currentSongRef.current?.id,
+            wasPlaying: isPlayingRef.current,
+            stack: new Error('pauseMusic dispatch trace').stack,
+        });
+        dispatch(pauseMusic());
+    }, [dispatch]);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
@@ -151,7 +160,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 isPlayingRef.current
             ) {
                 nativeMediaSession.cancelTransientResume();
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
             }
         };
 
@@ -170,7 +179,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         // not auto-pause because another browsing context owns this origin lock.
         if (Capacitor.isNativePlatform()) return;
         if (!isPlaying || typeof navigator === 'undefined' || !('locks' in navigator)) return;
-        return acquirePlaybackOwnership(() => dispatch(pauseMusic()));
+        return acquirePlaybackOwnership(() => dispatchPauseWithTrace('Player pauseMusic dispatch site'));
     }, [isPlaying, dispatch]);
 
     useEffect(() => {
@@ -595,7 +604,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 onPause: () => {
                     nativeMediaSession.cancelTransientResume();
                     wasPlayingBeforeAudioFocusLossRef.current = false;
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 },
                 onNext: () => {
                     nativeMediaSession.cancelTransientResume();
@@ -609,12 +618,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 onHeadphonesDisconnected: () => {
                     nativeMediaSession.cancelTransientResume();
                     wasPlayingBeforeAudioFocusLossRef.current = false;
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 },
                 onAudioFocusLost: () => {
                     if (isPlayingRef.current) {
                         wasPlayingBeforeAudioFocusLossRef.current = true;
-                        dispatch(pauseMusic());
+                        dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     }
                 },
                 onAudioFocusGained: () => {
@@ -659,7 +668,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (nativeIsPlaying && currentSongRef.current) {
                 dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
             } else {
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
             }
         }));
         return () => {
@@ -677,7 +686,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         nativeMediaSession.updatePlaybackState(isPlaying).then((accepted) => {
             if (!accepted && isPlaying && !cancelled) {
                 console.warn('[Player] Native playback could not acquire media audio focus; pausing playback.');
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
             }
         }).catch((error) => {
             console.warn('[Player] Failed to synchronize native playback state:', error);
@@ -716,7 +725,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 nativeMediaSession.cancelTransientResume();
             }
             if (isPlaying) {
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
             }
         } else {
             if (wasPlayingBeforeCallRef.current) {
@@ -849,14 +858,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 activeAudio.pause();
                 activeAudio.removeAttribute('src');
                 activeAudio.load();
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 dispatch(showToast({ message: 'This track has no playable audio source. Please try another track.', type: 'error' }));
                 return;
             }
 
             if (nativePlaybackService.isAvailable) {
                 if (!songUrl) {
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     return;
                 }
                 nativePlaybackService.setMediaItem({
@@ -880,7 +889,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                     return isPlayingRef.current ? nativePlaybackService.play() : nativePlaybackService.pause();
                 }).catch((error) => {
                     console.warn('[Player] Media3 could not load the selected track:', error);
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 });
                 return;
             }
@@ -954,7 +963,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 resolvedAudio.play().then(() => console.info('[PlaybackTrace] source-effect play() resolved', { requestId: currentRequestId, songId: targetSongId, paused: resolvedAudio.paused, currentTime: resolvedAudio.currentTime, readyState: resolvedAudio.readyState })).catch((error: DOMException) => {
                     console.error('[PlaybackTrace] source-effect play() rejected', { requestId: currentRequestId, songId: targetSongId, name: error?.name, message: error?.message, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
                     if (error?.name === 'NotAllowedError' && currentSongRef.current?.id === targetSongId) {
-                        dispatch(pauseMusic());
+                        dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     } else if (error?.name !== 'AbortError') {
                         console.warn('[Player] Playback start failed:', error);
                     }
@@ -966,7 +975,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }).catch((error) => {
             if (activePlaybackRequestIdRef.current !== currentRequestId) return;
             console.warn('[Player] Could not resolve the current audio source:', error);
-            dispatch(pauseMusic());
+            dispatchPauseWithTrace('Player pauseMusic dispatch site');
         });
     }, [currentSong?.id, currentSong?.music, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, savedCurrentTime, dispatch]);
 
@@ -997,7 +1006,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
             if (streamRecoveryRef.current.attempts >= 2) {
                 recordPlaybackDiagnostic({ event: 'stream_recovery_exhausted', songId: song.id, code: mediaError?.code });
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 dispatch(showToast({ message: 'This stream is unavailable. Please try another track.', type: 'error' }));
                 return;
             }
@@ -1021,7 +1030,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
                 if (!refreshedSong || !refreshedUrl || refreshedUrl === failedUrl) {
                     recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
                     return;
                 }
@@ -1033,7 +1042,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             } catch (error) {
                 console.warn('[Player] Stream recovery request failed:', error);
                 recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
             } finally {
                 streamRecoveryInFlightRef.current = false;
@@ -1100,7 +1109,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         let endedHandle: { remove: () => Promise<void> } | null = null;
         nativePlaybackService.addEndedListener(() => {
             if (sleepTimerMode === 'endOfTrack') {
-                dispatch(pauseMusic());
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
                 dispatch(setSleepTimer(null));
             } else if (repeatMode === 'one') {
                 void nativePlaybackService.seekTo(0).then(() => nativePlaybackService.play());
@@ -1112,7 +1121,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                         const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
                         dispatch(playMusic(randomSong));
                     } else {
-                        dispatch(pauseMusic());
+                        dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     }
                 } else {
                     // Do not use the Web Audio gapless guard on the Media3 backend.
@@ -1297,7 +1306,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const handleSongEnd = () => {
             if (!isCrossfading) {
                 if (sleepTimerMode === 'endOfTrack') {
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     dispatch(setSleepTimer(null));
                     return;
                 }
@@ -1316,7 +1325,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             dispatch(playMusic(randomSong));
                         } else {
                             // End of queue: stop playback gracefully
-                            dispatch(pauseMusic());
+                            dispatchPauseWithTrace('Player pauseMusic dispatch site');
                         }
                     } else {
                         playNextInQueue(false);
