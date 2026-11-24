@@ -25,6 +25,7 @@ import {
     setSongUnavailable,
     setChatMutedByHost,
     promoteToHost,
+    demoteFromHost,
     setHostId
 } from '../features/session/sessionSlice';
 import { partyService } from '../services/partyService';
@@ -296,6 +297,10 @@ export const useSession = () => {
                     cancelHostGracePeriod();
                     if (data.new_host_id === userId) {
                         dispatch(promoteToHost());
+                    } else if (isHostRef.current) {
+                        dispatch(demoteFromHost());
+                    }
+                    if (data.new_host_id === userId) {
                         if (channelRef.current) {
                             stateVersionRef.current += 1;
                             channelRef.current.send({
@@ -612,6 +617,11 @@ export const useSession = () => {
 
                 authoritativeHostIdRef.current = data.host_id;
                 dispatch(setHostId(data.host_id));
+                if (data.host_id === user.id) {
+                    if (!isHostRef.current) dispatch(promoteToHost());
+                } else if (isHostRef.current) {
+                    dispatch(demoteFromHost());
+                }
                 if (data.settings && typeof data.settings.mute_chat === 'boolean') {
                     dispatch(setChatMutedByHost(data.settings.mute_chat));
                 }
@@ -692,6 +702,11 @@ export const useSession = () => {
 
             authoritativeHostIdRef.current = data.host_id;
             dispatch(setHostId(data.host_id));
+            if (data.host_id === userId) {
+                if (!isHostRef.current) dispatch(promoteToHost());
+            } else if (isHostRef.current) {
+                dispatch(demoteFromHost());
+            }
             if (data.settings && typeof data.settings.mute_chat === 'boolean') {
                 dispatch(setChatMutedByHost(data.settings.mute_chat));
             }
@@ -926,13 +941,17 @@ export const useSession = () => {
                     if (isCancelled) return;
                     dispatch(setConnectionStatus('connected'));
                     try {
-                        await refreshRoomAuthority();
+                        const roomAuthority = await refreshRoomAuthority();
+                        if (!roomAuthority) throw new Error('Room host authority could not be verified');
+                        const isVerifiedHost = roomAuthority.host_id === userId;
+                        const isVerifiedCoHost = Array.isArray(roomAuthority.co_host_ids)
+                            && roomAuthority.co_host_ids.includes(userId);
                         await channel.track({
                             id: userId,
-                            name: user?.user_metadata?.full_name || (isHost ? 'Host' : 'Guest'),
+                            name: user?.user_metadata?.full_name || (isVerifiedHost ? 'Host' : 'Guest'),
                             avatar: user?.user_metadata?.avatar_url,
-                            isHost: isHost,
-                            role: isHost ? 'host' : 'listener',
+                            isHost: isVerifiedHost,
+                            role: isVerifiedHost ? 'host' : (isVerifiedCoHost ? 'co-host' : 'listener'),
                             joinedAt: new Date().toISOString()
                         });
 
