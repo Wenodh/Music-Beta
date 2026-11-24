@@ -2,42 +2,42 @@
 -- Client broadcasts are hints; database rows and RPCs remain authoritative.
 
 -- SECURITY DEFINER helpers avoid cross-table RLS recursion while checking room membership.
-CREATE OR REPLACE FUNCTION public.is_room_member(target_room_code TEXT, target_user_id UUID)
+CREATE OR REPLACE FUNCTION public.is_room_member(target_room_code TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public, auth
 AS $is_member$
-    SELECT target_user_id IS NOT NULL AND EXISTS (
+    SELECT auth.uid() IS NOT NULL AND EXISTS (
         SELECT 1
         FROM public.listening_rooms r
         JOIN public.room_participants rp ON rp.room_id = r.id
         WHERE r.room_code = target_room_code
-          AND rp.user_id = target_user_id
+          AND rp.user_id = auth.uid()
           AND rp.status IN ('joined', 'reconnecting', 'muted')
     );
 $is_member$;
 
-CREATE OR REPLACE FUNCTION public.is_room_host(target_room_code TEXT, target_user_id UUID)
+CREATE OR REPLACE FUNCTION public.is_room_host(target_room_code TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public, auth
 AS $is_host$
-    SELECT target_user_id IS NOT NULL AND EXISTS (
+    SELECT auth.uid() IS NOT NULL AND EXISTS (
         SELECT 1
         FROM public.listening_rooms r
         JOIN public.room_participants rp ON rp.room_id = r.id
         WHERE r.room_code = target_room_code
-          AND r.host_id = target_user_id
+          AND r.host_id = auth.uid()
           AND rp.user_id = target_user_id
           AND rp.status IN ('joined', 'reconnecting', 'muted')
     );
 $is_host$;
 
-CREATE OR REPLACE FUNCTION public.can_access_listening_room(target_room_id UUID, target_user_id UUID)
+CREATE OR REPLACE FUNCTION public.can_access_listening_room(target_room_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -50,14 +50,14 @@ AS $can_access$
         WHERE r.id = target_room_id
           AND (
                 (r.is_public = true AND r.status IN ('active', 'reconnecting', 'paused'))
-                OR public.is_room_member(r.room_code, target_user_id)
+                OR public.is_room_member(r.room_code)
           )
     );
 $can_access$;
 
-REVOKE ALL ON FUNCTION public.is_room_member(TEXT, UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.is_room_host(TEXT, UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.can_access_listening_room(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_room_member(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_room_host(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.can_access_listening_room(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_room_member(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_room_host(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_listening_room(UUID, UUID) TO anon, authenticated;
@@ -72,7 +72,7 @@ CREATE POLICY "Host can update room" ON public.listening_rooms
 
 DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
 CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
-    FOR SELECT USING (public.can_access_listening_room(id, auth.uid()));
+    FOR SELECT USING (public.can_access_listening_room(id));
 
 DROP POLICY IF EXISTS "Participants can view room roster" ON public.room_participants;
 CREATE POLICY "Participants can view room roster" ON public.room_participants
@@ -133,7 +133,7 @@ CREATE POLICY "VibeOn room members can read private room messages"
     USING (
         (SELECT realtime.topic()) LIKE 'room:%'
         AND extension IN ('broadcast', 'presence')
-        AND public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
+        AND public.is_room_member(split_part((SELECT realtime.topic()), ':', 2))
     );
 
 DROP POLICY IF EXISTS "VibeOn room members can send private room messages" ON realtime.messages;
@@ -144,7 +144,7 @@ CREATE POLICY "VibeOn room members can send private room messages"
     WITH CHECK (
         (SELECT realtime.topic()) LIKE 'room:%'
         AND extension IN ('broadcast', 'presence')
-        AND public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
+        AND public.is_room_member(split_part((SELECT realtime.topic()), ':', 2))
     );
 
 DROP POLICY IF EXISTS "VibeOn only room members can access room topics" ON realtime.messages;
@@ -156,12 +156,12 @@ CREATE POLICY "VibeOn only room members can access room topics"
     USING (
         (SELECT realtime.topic()) NOT LIKE 'room:%'
         OR (SELECT realtime.topic()) = 'room:lobby'
-        OR public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
+        OR public.is_room_member(split_part((SELECT realtime.topic()), ':', 2))
     )
     WITH CHECK (
         (SELECT realtime.topic()) NOT LIKE 'room:%'
         OR (SELECT realtime.topic()) = 'room:lobby'
-        OR public.is_room_member(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
+        OR public.is_room_member(split_part((SELECT realtime.topic()), ':', 2))
     );
 
 DROP POLICY IF EXISTS "VibeOn only room host can send authoritative events" ON realtime.messages;
@@ -177,7 +177,7 @@ CREATE POLICY "VibeOn only room host can send authoritative events"
             event = 'sync'
             AND payload ->> 'type' IN ('requestSync', 'reaction')
         )
-        OR public.is_room_host(split_part((SELECT realtime.topic()), ':', 2), auth.uid())
+        OR public.is_room_host(split_part((SELECT realtime.topic()), ':', 2))
     );
 
 CREATE OR REPLACE FUNCTION public.join_listening_room(target_room_code TEXT)
