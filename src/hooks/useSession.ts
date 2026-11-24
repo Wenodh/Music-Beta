@@ -23,6 +23,7 @@ import {
     setGraceSecondsRemaining,
     setTempRateMultiplier,
     setSongUnavailable,
+    setChatMutedByHost,
     promoteToHost,
     setHostId
 } from '../features/session/sessionSlice';
@@ -75,6 +76,8 @@ export const useSession = () => {
     const songsRef = useRef(songs);
     const isHostRef = useRef(isHost);
     const hostIdRef = useRef(hostId);
+    // Only the persisted room row is authoritative for host-only actions.
+    const authoritativeHostIdRef = useRef<string | null>(null);
     const stateVersionRef = useRef(stateVersion);
     const basePlaybackSpeedRef = useRef(playbackSpeed);
     const participantsRef = useRef(participants);
@@ -169,7 +172,9 @@ export const useSession = () => {
             .subscribe();
 
         return () => {
-            lobbyChannel.unsubscribe();
+            void supabase.removeChannel(lobbyChannel).catch((error) => {
+                console.warn('[useSession] Failed to remove lobby channel:', error);
+            });
         };
     }, [dispatch]);
 
@@ -177,17 +182,16 @@ export const useSession = () => {
     const broadcast = useCallback((type: string, payload: any) => {
         if (!channelRef.current || !isJoined) return;
 
-        // Participants can only broadcast sync requests and reactions
-        if (!isHostRef.current && type !== 'requestSync' && type !== 'reaction') return;
+        const isAuthoritativeHost = authoritativeHostIdRef.current === userId;
+        if (!isAuthoritativeHost && type !== 'requestSync' && type !== 'reaction') return;
 
         stateVersionRef.current += 1;
         const nextVersion = stateVersionRef.current;
-        if (isHostRef.current && type !== 'requestSync' && type !== 'reaction') {
+        if (isAuthoritativeHost && type !== 'requestSync' && type !== 'reaction') {
             dispatch(incrementStateVersion());
         }
 
-        const presenceHost = participantsRef.current.find(p => p.isHost)?.id;
-        const verifiedHostId = isHostRef.current ? userId : (hostIdRef.current || presenceHost);
+        const verifiedHostId = authoritativeHostIdRef.current;
 
         channelRef.current.send({
             type: 'broadcast',
@@ -285,6 +289,7 @@ export const useSession = () => {
 
             if (!error && data?.success) {
                 if (data.new_host_id) {
+                    authoritativeHostIdRef.current = data.new_host_id;
                     dispatch(setHostId(data.new_host_id));
                     cancelHostGracePeriod();
                     if (data.new_host_id === userId) {
@@ -352,16 +357,17 @@ export const useSession = () => {
 
     // Moderation Action: Kick participant from room (Server RPC Authenticated)
     const kickParticipant = useCallback(async (targetUserId: string) => {
-        if (!isHostRef.current) return;
-        try {
-            // First execute authenticated server-side moderation RPC
-            await supabase.rpc('moderate_room_participant', {
-                target_room_code: roomCode,
-                target_user_id: targetUserId,
-                moderation_action: 'kick'
-            });
-        } catch (e) {
-            console.warn('[useSession] Server kick moderation failed, broadcasting to room:', e);
+        if (authoritativeHostIdRef.current !== userId || !targetUserId || targetUserId === userId) return;
+
+        // The RPC is authoritative. Never fall back to an unauthenticated client broadcast.
+        const { data, error } = await supabase.rpc('moderate_room_participant', {
+            target_room_code: roomCode,
+            target_user_id: targetUserId,
+            moderation_action: 'kick'
+        });
+        if (error || !data?.success) {
+            console.warn('[useSession] Server rejected participant kick:', error?.message || data?.message || 'Unknown error');
+            return;
         }
 
         if (channelRef.current) {
@@ -375,7 +381,7 @@ export const useSession = () => {
 
     // Moderation Action: Mute / Unmute room chat (Signed with host userId)
     const toggleRoomChatMute = useCallback((muted: boolean) => {
-        if (!isHostRef.current) return;
+        if (authoritativeHostIdRef.current !== userId) return;
         dispatch(setChatMutedByHost(muted));
         if (channelRef.current) {
             channelRef.current.send({
@@ -578,6 +584,28 @@ export const useSession = () => {
             }
         });
 
+        authoritativeHostIdRef.current = null;
+        const refreshRoomAuthority = async () => {
+            const { data, error } = await supabase
+                .from('listening_rooms')
+                .select('id, host_id, settings')
+                .eq('room_code', roomCode)
+                .maybeSingle();
+
+            if (error || !data?.host_id) {
+                authoritativeHostIdRef.current = null;
+                if (error) console.warn('[useSession] Could not verify room host from database:', error.message);
+                return null;
+            }
+
+            authoritativeHostIdRef.current = data.host_id;
+            dispatch(setHostId(data.host_id));
+            if (data.settings && typeof data.settings.mute_chat === 'boolean') {
+                dispatch(setChatMutedByHost(data.settings.mute_chat));
+            }
+            return data;
+        };
+
         const channel = supabase.channel(`room:${roomCode}`, {
             config: {
                 presence: {
@@ -610,14 +638,11 @@ export const useSession = () => {
 
                 // Detect Host Presence & Manage Grace Period
                 if (uniqueParticipants.length > 0) {
-                    const hostPresent = uniqueParticipants.some(p => p.isHost);
+                    const verifiedHostId = authoritativeHostIdRef.current;
+                    const hostPresent = Boolean(verifiedHostId && uniqueParticipants.some(p => p.id === verifiedHostId));
                     if (hostPresent) {
                         cancelHostGracePeriod();
-                        const currentHost = uniqueParticipants.find(p => p.isHost);
-                        if (currentHost && currentHost.id !== hostIdRef.current) {
-                            dispatch(setHostId(currentHost.id));
-                        }
-                    } else if (!isHostRef.current) {
+                    } else if (verifiedHostId !== userId) {
                         // Host missing - trigger 30s grace countdown before election
                         initiateHostGracePeriod();
                     }
@@ -625,9 +650,7 @@ export const useSession = () => {
             })
             .on('broadcast', { event: 'moderation' }, ({ payload }) => {
                 // Verify sender authorization: only the authenticated host can execute moderation actions!
-                const presenceRoster = channelRef.current?.presenceState() || {};
-                const presenceHosts = Object.values(presenceRoster).flat().filter((p: any) => p.isHost).map((p: any) => p.id);
-                const authorizedHostId = hostIdRef.current || presenceHosts[0] || participantsRef.current.find(p => p.isHost)?.id;
+                const authorizedHostId = authoritativeHostIdRef.current;
 
                 if (!authorizedHostId || payload.senderId !== authorizedHostId) {
                     console.warn('[useSession] Rejected unauthorized moderation broadcast from:', payload.senderId);
@@ -645,14 +668,10 @@ export const useSession = () => {
                 if (payload.senderId === userId) return;
 
                 // 1. Verify message sender matches active presence host FIRST (prevent unauthorized state desync attacks)
-                if (!isHostRef.current && payload.type !== 'requestSync' && payload.type !== 'reaction') {
-                    // Check against actual channel presence roster state directly
-                    const presenceRoster = channelRef.current?.presenceState() || {};
-                    const presenceHosts = Object.values(presenceRoster).flat().filter((p: any) => p.isHost).map((p: any) => p.id);
-                    const authorizedHostId = hostIdRef.current || presenceHosts[0] || participantsRef.current.find(p => p.isHost)?.id;
-
-                    if (authorizedHostId && payload.senderId !== authorizedHostId) {
-                        console.warn('[useSession] Rejected unauthorized broadcast from sender:', payload.senderId);
+                if (payload.type !== 'requestSync' && payload.type !== 'reaction') {
+                    const authorizedHostId = authoritativeHostIdRef.current;
+                    if (!authorizedHostId || payload.senderId !== authorizedHostId) {
+                        console.warn('[useSession] Rejected broadcast without database-confirmed host identity:', payload.senderId);
                         return;
                     }
                 }
@@ -697,7 +716,7 @@ export const useSession = () => {
                         }
                         break;
                     case 'requestSync':
-                        if (isHostRef.current) {
+                        if (authoritativeHostIdRef.current === userId) {
                             broadcast('fullSync', {
                                 song: currentSongRef.current,
                                 isPlaying: isPlayingRef.current,
@@ -727,14 +746,13 @@ export const useSession = () => {
                     isInternalAction.current = false;
                 }, 100);
             })
-            .on('broadcast', { event: 'host_elected' }, ({ payload }) => {
-                if (payload.newHostId) {
-                    dispatch(setHostId(payload.newHostId));
+            .on('broadcast', { event: 'host_elected' }, () => {
+                // Broadcast payloads are hints only. Confirm the elected host against the DB row.
+                void refreshRoomAuthority().then((roomRow) => {
+                    if (!roomRow) return;
                     cancelHostGracePeriod();
-                    if (payload.newHostId === userId) {
-                        dispatch(promoteToHost());
-                    }
-                }
+                    if (roomRow.host_id === userId) dispatch(promoteToHost());
+                });
             })
             .on('broadcast', { event: 'chat' }, ({ payload }) => {
                 if (payload.userId === userId) return;
@@ -802,6 +820,7 @@ export const useSession = () => {
                     if (isCancelled) return;
                     dispatch(setConnectionStatus('connected'));
                     try {
+                        const roomRow = await refreshRoomAuthority();
                         await channel.track({
                             id: userId,
                             name: user?.user_metadata?.full_name || (isHost ? 'Host' : 'Guest'),
@@ -811,26 +830,18 @@ export const useSession = () => {
                             joinedAt: new Date().toISOString()
                         });
 
-                        // Maintain public.room_participants row in database if room exists
-                        if (user?.id) {
-                            try {
-                                const { data: roomRow } = await supabase
-                                    .from('listening_rooms')
-                                    .select('id')
-                                    .eq('room_code', roomCode)
-                                    .maybeSingle();
-
-                                if (roomRow?.id) {
-                                    await supabase.from('room_participants').upsert({
-                                        room_id: roomRow.id,
-                                        user_id: user.id,
-                                        role: isHost ? 'host' : 'listener',
-                                        status: 'joined',
-                                        last_ping: new Date().toISOString()
-                                    }, { onConflict: 'room_id,user_id' });
-                                }
-                            } catch {
-                                // Silent fail if table not yet migrated
+                        // Maintain the authenticated participant row only after the room is verified.
+                        if (user?.id && roomRow?.id) {
+                            const role = roomRow.host_id === user.id ? 'host' : 'listener';
+                            const { error: participantError } = await supabase.from('room_participants').upsert({
+                                room_id: roomRow.id,
+                                user_id: user.id,
+                                role,
+                                status: 'joined',
+                                last_ping: new Date().toISOString()
+                            }, { onConflict: 'room_id,user_id' });
+                            if (participantError) {
+                                console.warn('[useSession] Could not refresh room participant row:', participantError.message);
                             }
                         }
                     } catch (trackError) {
@@ -867,6 +878,7 @@ export const useSession = () => {
 
         return () => {
             isCancelled = true;
+            authoritativeHostIdRef.current = null;
             restoreBaseSpeed();
             cancelHostGracePeriod();
 
