@@ -9,6 +9,63 @@ DROP FUNCTION IF EXISTS public.leave_listening_room(TEXT);
 DROP FUNCTION IF EXISTS public.set_room_chat_muted(TEXT, BOOLEAN);
 DROP FUNCTION IF EXISTS public.moderate_room_participant(VARCHAR, UUID, TEXT);
 
+-- Restore the original moderation RPC behavior.
+CREATE OR REPLACE FUNCTION public.moderate_room_participant(
+    target_room_code VARCHAR,
+    target_user_id UUID,
+    moderation_action TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $original_moderation$
+DECLARE
+    cur_user_id UUID := auth.uid();
+    cur_room public.listening_rooms%ROWTYPE;
+BEGIN
+    IF cur_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT * INTO cur_room
+    FROM public.listening_rooms
+    WHERE room_code = target_room_code OR id::text = target_room_code;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Room not found');
+    END IF;
+
+    IF cur_room.host_id <> cur_user_id AND NOT (cur_user_id = ANY(cur_room.co_host_ids)) THEN
+        RAISE EXCEPTION 'Not authorized to moderate this room';
+    END IF;
+
+    IF moderation_action = 'kick' THEN
+        UPDATE public.room_participants
+        SET status = 'kicked', last_ping = NOW()
+        WHERE room_id = cur_room.id AND user_id = target_user_id;
+
+        RETURN jsonb_build_object('success', true, 'action', 'kick', 'target_user_id', target_user_id);
+    ELSIF moderation_action = 'mute' THEN
+        UPDATE public.room_participants
+        SET status = 'muted', last_ping = NOW()
+        WHERE room_id = cur_room.id AND user_id = target_user_id;
+
+        RETURN jsonb_build_object('success', true, 'action', 'mute', 'target_user_id', target_user_id);
+    ELSIF moderation_action = 'unmute' THEN
+        UPDATE public.room_participants
+        SET status = 'joined', last_ping = NOW()
+        WHERE room_id = cur_room.id AND user_id = target_user_id;
+
+        RETURN jsonb_build_object('success', true, 'action', 'unmute', 'target_user_id', target_user_id);
+    ELSE
+        RETURN jsonb_build_object('success', false, 'message', 'Invalid moderation action');
+    END IF;
+END;
+$original_moderation$;
+
+GRANT EXECUTE ON FUNCTION public.moderate_room_participant(VARCHAR, UUID, TEXT) TO authenticated;
+
 GRANT INSERT, DELETE ON public.room_participants TO anon, authenticated;
 
 DROP POLICY IF EXISTS "Host can update room" ON public.listening_rooms;
