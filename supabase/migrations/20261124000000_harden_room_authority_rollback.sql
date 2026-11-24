@@ -7,6 +7,8 @@ DROP FUNCTION IF EXISTS public.join_listening_room(TEXT);
 DROP FUNCTION IF EXISTS public.set_room_chat_muted(TEXT, BOOLEAN);
 DROP FUNCTION IF EXISTS public.moderate_room_participant(TEXT, UUID, TEXT);
 
+GRANT INSERT ON public.room_participants TO anon, authenticated;
+
 -- Restore the previous participant policies. These intentionally restore the
 -- prior behavior and therefore also restore its role-escalation/rejoin weakness.
 DROP POLICY IF EXISTS "Users can join room" ON public.room_participants;
