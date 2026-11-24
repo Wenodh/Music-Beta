@@ -11,6 +11,14 @@ DROP FUNCTION IF EXISTS public.moderate_room_participant(VARCHAR, UUID, TEXT);
 
 GRANT INSERT, DELETE ON public.room_participants TO anon, authenticated;
 
+DROP POLICY IF EXISTS "Host can update room" ON public.listening_rooms;
+CREATE POLICY "Host and co-hosts can update room" ON public.listening_rooms
+    FOR UPDATE USING (
+        auth.uid() = host_id OR auth.uid() = ANY(co_host_ids)
+    ) WITH CHECK (
+        auth.uid() = host_id OR auth.uid() = ANY(co_host_ids)
+    );
+
 DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
 CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
     FOR SELECT USING (
