@@ -33,6 +33,22 @@ CREATE POLICY "Users can join room" ON public.room_participants
               AND f.user_id_1 = LEAST(r.host_id, auth.uid())
               AND f.user_id_2 = GREATEST(r.host_id, auth.uid())
         )
+        AND EXISTS (
+            SELECT 1
+            FROM public.listening_rooms r
+            WHERE r.id = room_participants.room_id
+              AND r.status IN ('active', 'reconnecting', 'paused')
+              AND (
+                    r.host_id = auth.uid()
+                    OR auth.uid() = ANY(r.co_host_ids)
+                    OR (
+                        SELECT COUNT(*)
+                        FROM public.room_participants active_rp
+                        WHERE active_rp.room_id = r.id
+                          AND active_rp.status IN ('joined', 'reconnecting', 'muted')
+                    ) < r.max_participants
+              )
+        )
     );
 
 DROP POLICY IF EXISTS "Users or host can update participant state" ON public.room_participants;
@@ -49,7 +65,7 @@ CREATE POLICY "Users or host can update participant state" ON public.room_partic
     WITH CHECK (
         (
             auth.uid() = user_id
-            AND status <> 'kicked'
+            AND status IN ('left', 'reconnecting', 'muted')
             AND role = CASE
                 WHEN EXISTS (
                     SELECT 1 FROM public.listening_rooms r
@@ -214,13 +230,13 @@ BEGIN
         ELSE 'listener'
     END;
 
-    INSERT INTO public.room_participants (room_id, user_id, role, status, last_ping)
+    INSERT INTO public.room_participants AS existing (room_id, user_id, role, status, last_ping)
     VALUES (room_row.id, caller_id, participant_role, 'joined', NOW())
     ON CONFLICT (room_id, user_id) DO UPDATE
         SET role = EXCLUDED.role,
             status = 'joined',
             last_ping = NOW()
-        WHERE public.room_participants.status <> 'kicked';
+        WHERE existing.status <> 'kicked';
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'You have been removed from this listening room';
