@@ -41,7 +41,9 @@ public final class VibeOnPlaybackService extends MediaSessionService {
         if (item == null || item.localConfiguration == null || item.localConfiguration.uri == null) return null;
         Uri uri = item.localConfiguration.uri;
         if (!"file".equals(uri.getScheme())) return null;
-        File file = new File(uri.getPath());
+        String path = uri.getPath();
+        if (path == null || path.isEmpty()) return null;
+        File file = new File(path);
         return file.getName().startsWith("media3-") ? file : null;
     }
 
