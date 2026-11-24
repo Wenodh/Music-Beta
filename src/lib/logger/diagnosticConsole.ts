@@ -1,3 +1,5 @@
+import { diagnosticSettings } from './diagnosticSettings';
+
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 export interface LogEntry { id: number; timestamp: string; level: LogLevel; message: string; }
 
@@ -49,7 +51,18 @@ const formatIstTimestamp = (date: Date): string => {
 };
 
 const append = (level: LogLevel, args: unknown[]) => {
-    entries.push({ id: id++, timestamp: formatIstTimestamp(new Date()), level, message: clean(args.map(stringify).join(' ').slice(0, 5000)) });
+    const message = clean(args.map(stringify).join(' ').slice(0, 5000));
+    const settings = diagnosticSettings.get();
+    // Always retain errors for support. Other diagnostic collection is user-controlled.
+    if (level !== 'error') {
+        if (!settings.enabled) return;
+        if (message.includes('[PlaybackTrace]')) {
+            if (!settings.playbackTracing) return;
+        } else if (!settings.verboseLogging || level === 'debug' || level === 'log' || level === 'info') {
+            if (!settings.verboseLogging) return;
+        }
+    }
+    entries.push({ id: id++, timestamp: formatIstTimestamp(new Date()), level, message });
     if (entries.length > LIMIT) entries = entries.slice(-LIMIT);
     save();
     emit();
