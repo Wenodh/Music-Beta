@@ -598,7 +598,7 @@ export const useSession = () => {
         const refreshRoomAuthority = async () => {
             const { data, error } = await supabase
                 .from('listening_rooms')
-                .select('id, host_id, settings')
+                .select('id, host_id, co_host_ids, settings')
                 .eq('room_code', roomCode)
                 .maybeSingle();
 
