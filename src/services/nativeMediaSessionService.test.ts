@@ -118,36 +118,16 @@ describe('NativeMediaSessionBridge', () => {
         ]);
     });
 
-    it('starts the media foreground service before requesting media audio focus', async () => {
+    it('synchronizes media-session state without requesting a competing music audio-focus lease', async () => {
         const { MediaSession } = await import('@capgo/capacitor-media-session');
-        const accepted = await nativeMediaSession.updatePlaybackState(true);
 
-        expect(accepted).toBe(true);
+        expect(await nativeMediaSession.updatePlaybackState(true)).toBe(true);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'playing' });
-        expect(requestAudioFocusMock).toHaveBeenCalledWith({ forCall: false });
-        expect(MediaSession.setPlaybackState.mock.invocationCallOrder[0])
-            .toBeLessThan(requestAudioFocusMock.mock.invocationCallOrder[0]);
 
-        await nativeMediaSession.updatePlaybackState(false);
+        expect(await nativeMediaSession.updatePlaybackState(false)).toBe(true);
         expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'paused' });
-    });
-
-    it('abandons media audio focus on a normal pause', async () => {
-        await nativeMediaSession.updatePlaybackState(false);
-        expect(abandonAudioFocusMock).toHaveBeenCalledWith({ forCall: false });
-    });
-
-    it('does not cancel HTML media playback when the supplementary Android focus request is denied', async () => {
-        const { MediaSession } = await import('@capgo/capacitor-media-session');
-        requestAudioFocusMock.mockResolvedValueOnce({ granted: false });
-
-        const accepted = await nativeMediaSession.updatePlaybackState(true);
-
-        // The HTMLMediaElement/WebView owns audio output. Failure to acquire a
-        // second focus request must not roll the already-started playback back.
-        expect(accepted).toBe(true);
-        expect(MediaSession.setPlaybackState).toHaveBeenCalledTimes(1);
-        expect(MediaSession.setPlaybackState).toHaveBeenCalledWith({ playbackState: 'playing' });
+        expect(requestAudioFocusMock).not.toHaveBeenCalled();
+        expect(abandonAudioFocusMock).not.toHaveBeenCalled();
     });
 
     it('supports browser seek-forward and seek-backward actions using the latest position', async () => {
