@@ -10,10 +10,6 @@ DROP FUNCTION IF EXISTS public.moderate_room_participant(TEXT, UUID, TEXT);
 
 GRANT INSERT ON public.room_participants TO anon, authenticated;
 
-DROP FUNCTION IF EXISTS public.can_access_listening_room(UUID, UUID);
-DROP FUNCTION IF EXISTS public.is_room_host(TEXT, UUID);
-DROP FUNCTION IF EXISTS public.is_room_member(TEXT, UUID);
-
 DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
 CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
     FOR SELECT USING (
@@ -44,6 +40,10 @@ CREATE POLICY "Participants can view room roster" ON public.room_participants
               AND peer.status <> 'kicked'
         )
     );
+
+DROP FUNCTION IF EXISTS public.can_access_listening_room(UUID, UUID);
+DROP FUNCTION IF EXISTS public.is_room_host(TEXT, UUID);
+DROP FUNCTION IF EXISTS public.is_room_member(TEXT, UUID);
 
 -- Restore the previous participant policies. These intentionally restore the
 -- prior behavior and therefore also restore its role-escalation/rejoin weakness.
