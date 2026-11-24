@@ -3,53 +3,9 @@
 
 -- A participant must not self-assign host/co-host/moderator roles or rejoin after a kick.
 DROP POLICY IF EXISTS "Users can join room" ON public.room_participants;
-CREATE POLICY "Users can join room" ON public.room_participants
-    FOR INSERT WITH CHECK (
-        auth.uid() = user_id
-        AND role = CASE
-            WHEN EXISTS (
-                SELECT 1 FROM public.listening_rooms r
-                WHERE r.id = room_id AND r.host_id = auth.uid()
-            ) THEN 'host'
-            WHEN EXISTS (
-                SELECT 1 FROM public.listening_rooms r
-                WHERE r.id = room_id AND auth.uid() = ANY(r.co_host_ids)
-            ) THEN 'co-host'
-            ELSE 'listener'
-        END
-        AND NOT EXISTS (
-            SELECT 1 FROM public.room_participants rp
-            WHERE rp.room_id = room_participants.room_id
-              AND rp.user_id = auth.uid()
-              AND rp.status = 'kicked'
-        )
-        AND NOT EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            JOIN public.friendships f
-              ON f.status = 'blocked'
-             AND f.blocked_by = r.host_id
-            WHERE r.id = room_participants.room_id
-              AND f.user_id_1 = LEAST(r.host_id, auth.uid())
-              AND f.user_id_2 = GREATEST(r.host_id, auth.uid())
-        )
-        AND EXISTS (
-            SELECT 1
-            FROM public.listening_rooms r
-            WHERE r.id = room_participants.room_id
-              AND r.status IN ('active', 'reconnecting', 'paused')
-              AND (
-                    r.host_id = auth.uid()
-                    OR auth.uid() = ANY(r.co_host_ids)
-                    OR (
-                        SELECT COUNT(*)
-                        FROM public.room_participants active_rp
-                        WHERE active_rp.room_id = r.id
-                          AND active_rp.status IN ('joined', 'reconnecting', 'muted')
-                    ) < r.max_participants
-              )
-        )
-    );
+-- All new joins and re-joins must pass through join_listening_room(), which
+-- checks bans, capacity, room status, and the caller's authoritative role.
+REVOKE INSERT ON public.room_participants FROM anon, authenticated;
 
 DROP POLICY IF EXISTS "Users or host can update participant state" ON public.room_participants;
 CREATE POLICY "Users or host can update participant state" ON public.room_participants
