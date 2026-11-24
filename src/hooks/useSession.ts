@@ -562,7 +562,7 @@ export const useSession = () => {
         const previous = previousSessionRef.current;
         const leftPreviousRoom = previous.isJoined
             && Boolean(previous.roomCode)
-            && (!isJoined || previous.roomCode !== roomCode);
+            && (!isJoined || previous.roomCode !== roomCode || previous.userId !== userId);
 
         if (leftPreviousRoom && previous.roomCode) {
             if (previous.isHost && previous.isPublic) {
