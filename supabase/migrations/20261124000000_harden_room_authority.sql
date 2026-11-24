@@ -421,6 +421,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.moderate_room_participant(VARCHAR, UUID, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.moderate_room_participant(VARCHAR, UUID, TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.moderate_room_participant(VARCHAR, UUID, TEXT) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.set_room_chat_muted(
