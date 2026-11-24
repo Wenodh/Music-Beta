@@ -1,4 +1,4 @@
-import { Capacitor, registerPlugin, PluginListenerHandle } from '@capacitor/core';
+import { registerPlugin, PluginListenerHandle } from '@capacitor/core';
 
 interface Media3Plugin {
     setMediaItem(options: { uri?: string; base64?: string; title: string; artist: string; mediaId: string; artworkUri?: string }): Promise<void>;
