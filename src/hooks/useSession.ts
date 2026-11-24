@@ -562,9 +562,9 @@ export const useSession = () => {
                 if (isHostRef.current) {
                     const { error: roomCreateError } = await supabase.from('listening_rooms').upsert({
                         room_code: roomCode,
-                        title: partyName || 'Listening Room',
+                        title: 'Listening Room',
                         host_id: user.id,
-                        is_public: isPublic,
+                        is_public: false,
                         status: 'active'
                     }, { onConflict: 'room_code', ignoreDuplicates: true });
 
@@ -599,7 +599,7 @@ export const useSession = () => {
             cancelled = true;
             authoritativeHostIdRef.current = null;
         };
-    }, [isJoined, roomCode, user?.id, partyName, isPublic, dispatch]);
+    }, [isJoined, roomCode, user?.id, dispatch]);
 
     // Channel Subscription & Realtime Event Dispatcher
     useEffect(() => {
