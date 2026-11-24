@@ -50,8 +50,11 @@ public final class VibeOnPlaybackPlugin extends Plugin {
                         intent.put("playWhenReady", playWhenReady);
                         intent.put("audioFocusLoss", reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
                         notifyListeners("playbackIntentChanged", intent);
+                    }
+
+                    @Override public void onIsPlayingChanged(boolean isPlaying) {
                         JSObject state = new JSObject();
-                        state.put("isPlaying", playWhenReady);
+                        state.put("isPlaying", isPlaying);
                         notifyListeners("playbackChanged", state);
                     }
                 };
@@ -114,10 +117,6 @@ public final class VibeOnPlaybackPlugin extends Plugin {
     @PluginMethod public void pause(PluginCall call) {
         MediaController p = requireController(call); if (p == null) return;
         p.pause(); call.resolve();
-    }
-    @PluginMethod public void stop(PluginCall call) {
-        MediaController p = requireController(call); if (p == null) return;
-        p.stop(); call.resolve();
     }
     @PluginMethod public void seekTo(PluginCall call) {
         MediaController p = requireController(call); if (p == null) return;
