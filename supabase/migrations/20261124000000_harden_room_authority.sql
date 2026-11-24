@@ -63,6 +63,13 @@ GRANT EXECUTE ON FUNCTION public.is_room_host(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_listening_room(UUID, UUID) TO anon, authenticated;
 
 -- A participant must not self-assign host/co-host/moderator roles or rejoin after a kick.
+DROP POLICY IF EXISTS "Host and co-hosts can update room" ON public.listening_rooms;
+DROP POLICY IF EXISTS "Host can update room" ON public.listening_rooms;
+CREATE POLICY "Host can update room" ON public.listening_rooms
+    FOR UPDATE
+    USING (auth.uid() = host_id)
+    WITH CHECK (auth.uid() = host_id);
+
 DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
 CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
     FOR SELECT USING (public.can_access_listening_room(id, auth.uid()));
