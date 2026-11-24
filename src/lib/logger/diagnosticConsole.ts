@@ -32,8 +32,24 @@ const stringify = (value: unknown): string => {
 
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(entries)); } catch { /* Storage unavailable/full. */ } };
 const emit = () => listeners.forEach((listener) => listener());
+const formatIstTimestamp = (date: Date): string => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(date);
+    const part = (type: Intl.DateTimeFormatPartTypes) =>
+        parts.find((item) => item.type === type)?.value ?? '00';
+    return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}.${String(date.getMilliseconds()).padStart(3, '0')}+05:30`;
+};
+
 const append = (level: LogLevel, args: unknown[]) => {
-    entries.push({ id: id++, timestamp: new Date().toISOString(), level, message: clean(args.map(stringify).join(' ').slice(0, 5000)) });
+    entries.push({ id: id++, timestamp: formatIstTimestamp(new Date()), level, message: clean(args.map(stringify).join(' ').slice(0, 5000)) });
     if (entries.length > LIMIT) entries = entries.slice(-LIMIT);
     save();
     emit();
@@ -45,7 +61,13 @@ const load = () => {
         const parsed = saved ? JSON.parse(saved) : [];
         if (Array.isArray(parsed)) entries = parsed.slice(-LIMIT).filter((x) =>
             x && typeof x.timestamp === 'string' && typeof x.message === 'string' &&
-            ['log', 'info', 'warn', 'error', 'debug'].includes(x.level));
+            ['log', 'info', 'warn', 'error', 'debug'].includes(x.level)).map((x) => ({
+                ...x,
+                // Convert previously persisted UTC timestamps to IST on load.
+                timestamp: Number.isNaN(Date.parse(x.timestamp))
+                    ? x.timestamp
+                    : formatIstTimestamp(new Date(x.timestamp)),
+            }));
         id = entries.reduce((max, x) => Math.max(max, Number(x.id) || 0), 0) + 1;
     } catch { entries = []; }
 };
