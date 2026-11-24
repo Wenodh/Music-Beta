@@ -76,6 +76,13 @@ export const useSession = () => {
     const isHostRef = useRef(isHost);
     // Only the persisted room row is authoritative for host-only actions.
     const authoritativeHostIdRef = useRef<string | null>(null);
+    const previousSessionRef = useRef({
+        isJoined,
+        roomCode,
+        userId,
+        isHost,
+        isPublic
+    });
     const stateVersionRef = useRef(stateVersion);
     const basePlaybackSpeedRef = useRef(playbackSpeed);
 
@@ -544,6 +551,30 @@ export const useSession = () => {
         }
     }, [dispatch]);
 
+    // Persist explicit room exits separately from channel teardown. The channel effect
+    // also cleans up on ordinary dependency changes, so it must never end the party itself.
+    useEffect(() => {
+        const previous = previousSessionRef.current;
+        const leftPreviousRoom = previous.isJoined
+            && Boolean(previous.roomCode)
+            && (!isJoined || previous.roomCode !== roomCode);
+
+        if (leftPreviousRoom && previous.roomCode) {
+            if (previous.isHost && previous.isPublic) {
+                void partyService.broadcastPartyEnded(previous.roomCode);
+            }
+            if (previous.userId) {
+                void supabase.rpc('leave_listening_room', {
+                    target_room_code: previous.roomCode
+                }).then(({ error }) => {
+                    if (error) console.warn('[useSession] Could not persist room exit:', error.message);
+                });
+            }
+        }
+
+        previousSessionRef.current = { isJoined, roomCode, userId, isHost, isPublic };
+    }, [isJoined, roomCode, userId, isHost, isPublic]);
+
     // Establish a database-backed membership before opening the private Realtime channel.
     // This also creates the listening_rooms row for authenticated private-room hosts.
     useEffect(() => {
@@ -966,9 +997,6 @@ export const useSession = () => {
             });
             peerConnectionsRef.current.clear();
 
-            if (isHost && isPublic) {
-                void partyService.broadcastPartyEnded(roomCode);
-            }
             void supabase.removeChannel(channel).catch((error) => {
                 console.warn('[useSession] Error removing channel on unmount:', error);
             });
