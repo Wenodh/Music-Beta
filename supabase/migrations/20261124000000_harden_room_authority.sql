@@ -69,6 +69,109 @@ CREATE POLICY "Users or host can update participant state" ON public.room_partic
         )
     );
 
+-- Private room channels are authorized against the authenticated JWT identity.
+-- Participants may publish chat/signaling/presence and requestSync; only the
+-- database host may publish authoritative sync, moderation, or host-election events.
+DROP POLICY IF EXISTS "VibeOn room members can read private room messages" ON realtime.messages;
+CREATE POLICY "VibeOn room members can read private room messages"
+    ON realtime.messages
+    FOR SELECT
+    TO authenticated
+    USING (
+        topic LIKE 'room:%'
+        AND extension IN ('broadcast', 'presence')
+        AND EXISTS (
+            SELECT 1
+            FROM public.listening_rooms r
+            WHERE topic = 'room:' || r.room_code
+              AND (
+                    r.host_id = auth.uid()
+                    OR auth.uid() = ANY(r.co_host_ids)
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.room_participants rp
+                        WHERE rp.room_id = r.id
+                          AND rp.user_id = auth.uid()
+                          AND rp.status IN ('joined', 'reconnecting', 'muted')
+                    )
+              )
+        )
+    );
+
+DROP POLICY IF EXISTS "VibeOn room members can send private room messages" ON realtime.messages;
+CREATE POLICY "VibeOn room members can send private room messages"
+    ON realtime.messages
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        topic LIKE 'room:%'
+        AND extension IN ('broadcast', 'presence')
+        AND EXISTS (
+            SELECT 1
+            FROM public.listening_rooms r
+            WHERE topic = 'room:' || r.room_code
+              AND (
+                    r.host_id = auth.uid()
+                    OR auth.uid() = ANY(r.co_host_ids)
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.room_participants rp
+                        WHERE rp.room_id = r.id
+                          AND rp.user_id = auth.uid()
+                          AND rp.status IN ('joined', 'reconnecting', 'muted')
+                    )
+              )
+        )
+    );
+
+DROP POLICY IF EXISTS "VibeOn only room host can send authoritative events" ON realtime.messages;
+CREATE POLICY "VibeOn only room host can send authoritative events"
+    ON realtime.messages
+    AS RESTRICTIVE
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        extension <> 'broadcast'
+        OR event NOT IN ('sync', 'moderation', 'host_elected')
+        OR (
+            event = 'sync'
+            AND payload ->> 'type' IN ('requestSync', 'reaction')
+        )
+        OR EXISTS (
+            SELECT 1
+            FROM public.listening_rooms r
+            WHERE topic = 'room:' || r.room_code
+              AND r.host_id = auth.uid()
+        )
+    );
+
+CREATE OR REPLACE FUNCTION public.get_room_participant_status(target_room_code TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $
+DECLARE
+    caller_id UUID := auth.uid();
+    participant_status TEXT;
+BEGIN
+    IF caller_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT rp.status INTO participant_status
+    FROM public.room_participants rp
+    JOIN public.listening_rooms r ON r.id = rp.room_id
+    WHERE r.room_code = target_room_code
+      AND rp.user_id = caller_id;
+
+    RETURN participant_status;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.get_room_participant_status(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_room_participant_status(TEXT) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.moderate_room_participant(
     target_room_code TEXT,
     target_user_id UUID,
