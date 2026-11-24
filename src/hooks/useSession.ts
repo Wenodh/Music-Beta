@@ -618,6 +618,7 @@ export const useSession = () => {
 
         const channel = supabase.channel(`room:${roomCode}`, {
             config: {
+                private: true,
                 presence: {
                     key: userId,
                 },
