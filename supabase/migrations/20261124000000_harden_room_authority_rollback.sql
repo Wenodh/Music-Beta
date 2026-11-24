@@ -5,6 +5,7 @@ DROP POLICY IF EXISTS "VibeOn room members can send private room messages" ON re
 DROP POLICY IF EXISTS "VibeOn room members can read private room messages" ON realtime.messages;
 DROP FUNCTION IF EXISTS public.get_room_participant_status(TEXT);
 DROP FUNCTION IF EXISTS public.join_listening_room(TEXT);
+DROP FUNCTION IF EXISTS public.leave_listening_room(TEXT);
 DROP FUNCTION IF EXISTS public.set_room_chat_muted(TEXT, BOOLEAN);
 DROP FUNCTION IF EXISTS public.moderate_room_participant(TEXT, UUID, TEXT);
 
