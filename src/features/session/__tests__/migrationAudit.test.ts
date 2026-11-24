@@ -76,6 +76,7 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.is_room_member');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.can_access_listening_room');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.join_listening_room');
+        expect(content).toContain('CREATE OR REPLACE FUNCTION public.leave_listening_room');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.moderate_room_participant');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.set_room_chat_muted');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.get_room_participant_status');
