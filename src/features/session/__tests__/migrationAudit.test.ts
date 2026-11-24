@@ -83,6 +83,7 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
         expect(content).toContain('FOR UPDATE');
         expect(content).toContain('status <> \'kicked\'');
         expect(content).toContain('AS RESTRICTIVE');
+        expect(content).toContain('CREATE POLICY "Host can update room"');
         expect(content).toContain('REVOKE INSERT, DELETE ON public.room_participants FROM anon, authenticated');
         expect(content).toContain('payload ->> \'type\' IN (\'requestSync\', \'reaction\')');
         expect(content).toContain('GRANT EXECUTE ON FUNCTION public.moderate_room_participant');
