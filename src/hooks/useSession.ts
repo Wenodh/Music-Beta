@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAppSelector, useAppDispatch } from './redux';
 import { supabase } from '../lib/supabase';
 import { soundService } from '../services/soundService';
@@ -40,6 +40,7 @@ import { mapApiSongToSong } from '../services/favoriteRecoveryService';
 
 export const useSession = () => {
     const dispatch = useAppDispatch();
+    const [roomMembershipReady, setRoomMembershipReady] = useState(false);
     const {
         roomCode,
         partyName,
@@ -543,6 +544,63 @@ export const useSession = () => {
         }
     }, [dispatch]);
 
+    // Establish a database-backed membership before opening the private Realtime channel.
+    // This also creates the listening_rooms row for authenticated private-room hosts.
+    useEffect(() => {
+        let cancelled = false;
+        authoritativeHostIdRef.current = null;
+        setRoomMembershipReady(false);
+
+        if (!isJoined || !roomCode) return () => { cancelled = true; };
+        if (!user?.id) {
+            dispatch(setSessionError('Sign in is required to join a secure listening room.'));
+            return () => { cancelled = true; };
+        }
+
+        const prepareMembership = async () => {
+            try {
+                if (isHostRef.current) {
+                    const { error: roomCreateError } = await supabase.from('listening_rooms').upsert({
+                        room_code: roomCode,
+                        title: partyName || 'Listening Room',
+                        host_id: user.id,
+                        is_public: isPublic,
+                        status: 'active'
+                    }, { onConflict: 'room_code', ignoreDuplicates: true });
+
+                    if (roomCreateError) throw roomCreateError;
+                }
+
+                const { data, error } = await supabase.rpc('join_listening_room', {
+                    target_room_code: roomCode
+                });
+                if (error || !data?.success || !data.host_id) {
+                    throw error || new Error(data?.message || 'Room membership could not be verified');
+                }
+                if (cancelled) return;
+
+                authoritativeHostIdRef.current = data.host_id;
+                dispatch(setHostId(data.host_id));
+                if (data.settings && typeof data.settings.mute_chat === 'boolean') {
+                    dispatch(setChatMutedByHost(data.settings.mute_chat));
+                }
+                setRoomMembershipReady(true);
+            } catch (error) {
+                if (cancelled) return;
+                authoritativeHostIdRef.current = null;
+                console.error('[useSession] Secure room membership failed:', error);
+                dispatch(setConnectionStatus('disconnected'));
+                dispatch(setSessionError(error instanceof Error ? error.message : 'Unable to join this listening room.'));
+            }
+        };
+
+        void prepareMembership();
+        return () => {
+            cancelled = true;
+            authoritativeHostIdRef.current = null;
+        };
+    }, [isJoined, roomCode, user?.id, partyName, isPublic, dispatch]);
+
     // Channel Subscription & Realtime Event Dispatcher
     useEffect(() => {
         const cleanupExistingChannel = async () => {
@@ -574,6 +632,8 @@ export const useSession = () => {
             cancelHostGracePeriod();
             return;
         }
+
+        if (!roomMembershipReady) return;
 
         let isCancelled = false;
 
@@ -944,7 +1004,8 @@ export const useSession = () => {
         handleDriftCorrection,
         resolveAndPlayTrack,
         initiateHostGracePeriod,
-        createPeerConnection
+        createPeerConnection,
+        roomMembershipReady
     ]);
 
     // Periodically sync host position for continuous drift evaluation
