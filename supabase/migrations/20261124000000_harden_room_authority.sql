@@ -32,7 +32,7 @@ AS $is_host$
         JOIN public.room_participants rp ON rp.room_id = r.id
         WHERE r.room_code = target_room_code
           AND r.host_id = auth.uid()
-          AND rp.user_id = target_user_id
+          AND rp.user_id = auth.uid()
           AND rp.status IN ('joined', 'reconnecting', 'muted')
     );
 $is_host$;
@@ -58,9 +58,9 @@ $can_access$;
 REVOKE ALL ON FUNCTION public.is_room_member(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.is_room_host(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.can_access_listening_room(UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_room_member(TEXT, UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_room_host(TEXT, UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.can_access_listening_room(UUID, UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_room_member(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_room_host(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_listening_room(UUID) TO anon, authenticated;
 
 -- A participant must not self-assign host/co-host/moderator roles or rejoin after a kick.
 DROP POLICY IF EXISTS "Host and co-hosts can update room" ON public.listening_rooms;
@@ -78,7 +78,7 @@ DROP POLICY IF EXISTS "Participants can view room roster" ON public.room_partici
 CREATE POLICY "Participants can view room roster" ON public.room_participants
     FOR SELECT USING (
         auth.uid() = user_id
-        OR public.can_access_listening_room(room_id, auth.uid())
+        OR public.can_access_listening_room(room_id)
     );
 
 DROP POLICY IF EXISTS "Users can join room" ON public.room_participants;
