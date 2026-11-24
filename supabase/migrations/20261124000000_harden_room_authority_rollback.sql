@@ -1,5 +1,6 @@
 -- Rollback for 20261124000000_harden_room_authority.sql
 DROP POLICY IF EXISTS "VibeOn only room host can send authoritative events" ON realtime.messages;
+DROP POLICY IF EXISTS "VibeOn only room members can access room topics" ON realtime.messages;
 DROP POLICY IF EXISTS "VibeOn room members can send private room messages" ON realtime.messages;
 DROP POLICY IF EXISTS "VibeOn room members can read private room messages" ON realtime.messages;
 DROP FUNCTION IF EXISTS public.get_room_participant_status(TEXT);
