@@ -150,7 +150,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
-AS $
+AS $join_room$
 DECLARE
     caller_id UUID := auth.uid();
     room_row public.listening_rooms%ROWTYPE;
@@ -234,7 +234,7 @@ BEGIN
         'settings', room_row.settings
     );
 END;
-$;
+$join_room$;
 
 REVOKE ALL ON FUNCTION public.join_listening_room(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.join_listening_room(TEXT) TO authenticated;
@@ -244,7 +244,7 @@ RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
-AS $
+AS $room_status$
 DECLARE
     caller_id UUID := auth.uid();
     participant_status TEXT;
@@ -261,7 +261,7 @@ BEGIN
 
     RETURN participant_status;
 END;
-$;
+$room_status$;
 
 REVOKE ALL ON FUNCTION public.get_room_participant_status(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_room_participant_status(TEXT) TO authenticated;
