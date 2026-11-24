@@ -73,6 +73,8 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
 
     it('should secure room moderation, kicked membership, and private Realtime broadcasts', () => {
         const content = fs.readFileSync(authorityMigrationPath, 'utf8');
+        expect(content).toContain('CREATE OR REPLACE FUNCTION public.is_room_member');
+        expect(content).toContain('CREATE OR REPLACE FUNCTION public.can_access_listening_room');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.join_listening_room');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.moderate_room_participant');
         expect(content).toContain('CREATE OR REPLACE FUNCTION public.set_room_chat_muted');
@@ -80,6 +82,7 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
         expect(content).toContain('FOR UPDATE');
         expect(content).toContain('status <> \'kicked\'');
         expect(content).toContain('AS RESTRICTIVE');
+        expect(content).toContain('REVOKE INSERT ON public.room_participants FROM anon, authenticated');
         expect(content).toContain('payload ->> \'type\' IN (\'requestSync\', \'reaction\')');
         expect(content).toContain('GRANT EXECUTE ON FUNCTION public.moderate_room_participant');
         expect(fs.existsSync(authorityRollbackPath)).toBe(true);
