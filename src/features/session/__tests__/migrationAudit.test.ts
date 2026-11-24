@@ -5,6 +5,8 @@ import * as path from 'path';
 describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
     const migrationPath = path.resolve(__dirname, '../../../../supabase/migrations/20261104000000_phase_4_social_experience.sql');
     const rollbackPath = path.resolve(__dirname, '../../../../supabase/migrations/20261104000000_phase_4_social_experience_rollback.sql');
+    const authorityMigrationPath = path.resolve(__dirname, '../../../../supabase/migrations/20261124000000_harden_room_authority.sql');
+    const authorityRollbackPath = path.resolve(__dirname, '../../../../supabase/migrations/20261124000000_harden_room_authority_rollback.sql');
 
     it('should verify migration file exists and is non-empty', () => {
         expect(fs.existsSync(migrationPath)).toBe(true);
@@ -67,5 +69,18 @@ describe('Phase 4 SQL Migrations & Schema Audit Tests', () => {
         expect(content).toContain('FOR UPDATE');
         expect(content).toContain('Caller is not an active participant of this room');
         expect(content).toContain('grace_period_expires_at');
+ 
+    it('should secure room moderation, kicked membership, and private Realtime broadcasts', () => {
+        const content = fs.readFileSync(authorityMigrationPath, 'utf8');
+        expect(content).toContain('CREATE OR REPLACE FUNCTION public.moderate_room_participant');
+        expect(content).toContain('CREATE OR REPLACE FUNCTION public.set_room_chat_muted');
+        expect(content).toContain('CREATE OR REPLACE FUNCTION public.get_room_participant_status');
+        expect(content).toContain('FOR UPDATE');
+        expect(content).toContain('status <> \'kicked\'');
+        expect(content).toContain('AS RESTRICTIVE');
+        expect(content).toContain('payload ->> \'type\' IN (\'requestSync\', \'reaction\')');
+        expect(content).toContain('GRANT EXECUTE ON FUNCTION public.moderate_room_participant');
+        expect(fs.existsSync(authorityRollbackPath)).toBe(true);
+    });
     });
 });
