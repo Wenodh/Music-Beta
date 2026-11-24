@@ -7,9 +7,9 @@ DROP FUNCTION IF EXISTS public.get_room_participant_status(TEXT);
 DROP FUNCTION IF EXISTS public.join_listening_room(TEXT);
 DROP FUNCTION IF EXISTS public.leave_listening_room(TEXT);
 DROP FUNCTION IF EXISTS public.set_room_chat_muted(TEXT, BOOLEAN);
-DROP FUNCTION IF EXISTS public.moderate_room_participant(TEXT, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.moderate_room_participant(VARCHAR, UUID, TEXT);
 
-GRANT INSERT ON public.room_participants TO anon, authenticated;
+GRANT INSERT, DELETE ON public.room_participants TO anon, authenticated;
 
 DROP POLICY IF EXISTS "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms;
 CREATE POLICY "Anyone can view active public rooms or rooms they participate in" ON public.listening_rooms
