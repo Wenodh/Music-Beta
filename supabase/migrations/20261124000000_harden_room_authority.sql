@@ -77,7 +77,7 @@ CREATE POLICY "Participants can view room roster" ON public.room_participants
 DROP POLICY IF EXISTS "Users can join room" ON public.room_participants;
 -- All new joins and re-joins must pass through join_listening_room(), which
 -- checks bans, capacity, room status, and the caller's authoritative role.
-REVOKE INSERT ON public.room_participants FROM anon, authenticated;
+REVOKE INSERT, DELETE ON public.room_participants FROM anon, authenticated;
 
 DROP POLICY IF EXISTS "Users or host can update participant state" ON public.room_participants;
 CREATE POLICY "Users or host can update participant state" ON public.room_participants
@@ -322,7 +322,7 @@ REVOKE ALL ON FUNCTION public.get_room_participant_status(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_room_participant_status(TEXT) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.moderate_room_participant(
-    target_room_code TEXT,
+    target_room_code VARCHAR,
     target_user_id UUID,
     moderation_action TEXT
 )
@@ -340,8 +340,8 @@ BEGIN
         RAISE EXCEPTION 'Not authenticated';
     END IF;
 
-    IF moderation_action <> 'kick' THEN
-        RAISE EXCEPTION 'Unsupported moderation action';
+    IF moderation_action NOT IN ('kick', 'mute', 'unmute') THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Invalid moderation action');
     END IF;
 
     IF target_user_id IS NULL OR target_user_id = caller_id THEN
@@ -363,40 +363,56 @@ BEGIN
     END IF;
 
     IF target_user_id = room_row.host_id THEN
-        RAISE EXCEPTION 'The room host cannot be kicked';
+        RAISE EXCEPTION 'The room host cannot be moderated';
     END IF;
 
-    UPDATE public.room_participants
-    SET status = 'kicked',
-        last_ping = NOW()
-    WHERE room_id = room_row.id
-      AND user_id = target_user_id
-      AND status <> 'kicked';
+    IF moderation_action = 'kick' THEN
+        UPDATE public.room_participants
+        SET status = 'kicked', last_ping = NOW()
+        WHERE room_id = room_row.id
+          AND user_id = target_user_id
+          AND status <> 'kicked';
+    ELSIF moderation_action = 'mute' THEN
+        UPDATE public.room_participants
+        SET status = 'muted', last_ping = NOW()
+        WHERE room_id = room_row.id
+          AND user_id = target_user_id
+          AND status IN ('joined', 'reconnecting');
+    ELSE
+        UPDATE public.room_participants
+        SET status = 'joined', last_ping = NOW()
+        WHERE room_id = room_row.id
+          AND user_id = target_user_id
+          AND status = 'muted';
+    END IF;
 
     GET DIAGNOSTICS affected_rows = ROW_COUNT;
 
-    IF affected_rows > 0 THEN
+    IF affected_rows = 0 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'message', 'Participant is not eligible for this moderation action'
+        );
+    END IF;
+
+    IF moderation_action = 'kick' THEN
         UPDATE public.listening_rooms
         SET co_host_ids = array_remove(co_host_ids, target_user_id),
             updated_at = NOW()
         WHERE id = room_row.id;
     END IF;
 
-    IF affected_rows = 0 THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'message', 'Participant is not currently in this room'
-        );
-    END IF;
-
     RETURN jsonb_build_object(
         'success', true,
         'room_code', room_row.room_code,
         'target_user_id', target_user_id,
-        'action', 'kick'
+        'action', moderation_action
     );
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.moderate_room_participant(VARCHAR, UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.moderate_room_participant(VARCHAR, UUID, TEXT) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.set_room_chat_muted(
     target_room_code TEXT,
@@ -443,7 +459,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.moderate_room_participant(TEXT, UUID, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.set_room_chat_muted(TEXT, BOOLEAN) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.moderate_room_participant(TEXT, UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_room_chat_muted(TEXT, BOOLEAN) TO authenticated;
