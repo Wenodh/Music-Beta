@@ -51,7 +51,13 @@ const SearchPage: React.FC = () => {
         const total = Number(section?.total);
         const start = Number(section?.start || 0);
         if (Number.isFinite(total) && total > 0) return start + results.length < total && !exhausted[category];
-        return results.length >= SEARCH_PAGE_SIZE && !exhausted[category];
+
+        // Some search providers omit total/hasMore on the initial response.
+        // Optimistically allow one more request for any populated category;
+        // a short or empty next page will mark it exhausted.
+        const hasMore = section?.hasMore ?? section?.has_more;
+        if (typeof hasMore === 'boolean') return hasMore && !exhausted[category];
+        return results.length > 0 && !exhausted[category];
     };
 
     const loadMoreCategories: SearchCategory[] = activeTab === 'all'
@@ -113,7 +119,15 @@ const SearchPage: React.FC = () => {
                 const total = Number(payload.total ?? existingSection.total);
                 const firstStart = Number(existingSection.start ?? payload.start ?? 0);
                 const hasTotal = Number.isFinite(total) && total > 0;
-                if (incoming.length < SEARCH_PAGE_SIZE || (hasTotal && firstStart + merged.length >= total)) {
+                // Stop when the provider returns a short/empty page, reports
+                // the end explicitly, or repeats a page without adding new IDs.
+                const providerHasMore = payload.hasMore ?? payload.has_more;
+                if (
+                    incoming.length < SEARCH_PAGE_SIZE ||
+                    uniqueIncoming.length === 0 ||
+                    providerHasMore === false ||
+                    (hasTotal && firstStart + merged.length >= total)
+                ) {
                     setExhausted(previous => ({ ...previous, [category]: true }));
                 }
             });
