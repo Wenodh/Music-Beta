@@ -333,6 +333,15 @@ export class MusicApiService {
         return this.waitForShared<T>(entry, callerSignal);
     }
 
+    public getCacheStats(): { entries: number; approximateBytes: number } {
+        let approximateBytes = 0;
+        for (const [key, entry] of this.memoryCache.entries()) {
+            try { approximateBytes += key.length * 2 + JSON.stringify(entry.data).length * 2; }
+            catch { /* Ignore non-serializable cache payloads in this estimate. */ }
+        }
+        return { entries: this.memoryCache.size, approximateBytes };
+    }
+
     public getCachedData<T = any>(cacheKey: string): T | null {
         const cached = this.memoryCache.get(cacheKey);
         return cached ? cached.data as T : null;
