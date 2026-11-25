@@ -86,12 +86,12 @@ export const getConfiguredCacheTtl = (key: string): number => {
     let path = key.toLowerCase();
     try { path = decodeURIComponent(path); } catch { /* Keep the encoded cache key if malformed. */ }
     let category: CacheCategory = 'catalog';
-    if (/search/.test(path)) category = 'search';
-    else if (/recommend|radio|daily.?mix/.test(path)) category = 'recommendations';
+    if (/recommend|radio|daily.?mix/.test(path)) category = 'recommendations';
     else if (/artist/.test(path)) category = 'artist';
     else if (/album/.test(path)) category = 'album';
     else if (/playlist/.test(path)) category = 'playlist';
     else if (/latest|new.?songs|new.?releases/.test(path)) category = 'latest';
     else if (/trending|top.?hits|modules/.test(path)) category = 'trending';
+    else if (/search/.test(path)) category = 'search';
     return getHomePreferences().cacheHours[category] * 60 * 60 * 1000;
 };
