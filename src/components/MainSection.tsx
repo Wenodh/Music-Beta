@@ -305,72 +305,54 @@ const MainSection: React.FC = () => {
                 </button>
             </motion.div></>}
 
-            {homePreferences.visible.recentlyPlayed && recentlyPlayed && recentlyPlayed.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={recentlyPlayed} title="Recently Played Songs" />
-                </motion.div>
-            )}
-            {homePreferences.visible.recentlyPlayedAlbums && recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
-                </motion.div>
-            )}
-            {homePreferences.visible.latestSongs && data.latestSongs && data.latestSongs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.latestSongs} title="Latest Songs" />
-                </motion.div>
-            )}
-
-            {homePreferences.visible.trendingSongs && data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.songs} title="Trending Songs" />
-                </motion.div>
-            )}
-            {homePreferences.visible.trendingAlbums && data.albums && data.albums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.albums} title="Trending Albums" />
-                </motion.div>
-            )}
-            {homePreferences.visible.featuredArtists && data.artists && data.artists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.artists} title="Featured Artists" />
-                </motion.div>
-            )}
-            {homePreferences.visible.topPlaylists && data.playlists && data.playlists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.playlists} title="Top Playlists" />
-                </motion.div>
-            )}
-
-            {homePreferences.visible.meditation && data.meditation && data.meditation.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.meditation} title="Meditation" />
-                </motion.div>
-            )}
-
-            {homePreferences.visible.work && data.work && data.work.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.work} title="Work" />
-                </motion.div>
-            )}
-
-            {homePreferences.visible.developerPicks && data.devPicks && data.devPicks.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.devPicks} title="Developer's Picks" />
-                </motion.div>
-            )}
-
-            {homePreferences.visible.chill && data.chill && data.chill.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.chill} title="Chill" />
-                </motion.div>
-            )}
-
-            {homePreferences.visible.workout && data.workout && data.workout.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.workout} title="Workout" />
-                </motion.div>
-            )}
+            {homePreferences.order.map((sectionId) => {
+                if (!homePreferences.visible[sectionId]) return null;
+                const sectionProps = { variants: itemVariants, className: 'mb-8 sm:mb-12' };
+                switch (sectionId) {
+                    case 'dailyMix':
+                        return <DailyMix key={sectionId} />;
+                    case 'arcade':
+                        return (
+                            <motion.div key={sectionId} {...sectionProps} onClick={() => navigate('/arcade')} className="mb-8 cursor-pointer group bg-gradient-to-r from-purple-900/30 via-pink-900/20 to-primary/20 border border-primary/30 hover:border-primary/60 p-4 sm:p-6 rounded-3xl transition-all shadow-lg flex items-center justify-between">
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className="p-3 bg-primary/20 text-primary rounded-2xl group-hover:scale-110 transition-transform"><IoGameControllerOutline size={28} /></div>
+                                    <div className="min-w-0">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">New Mini Games</span>
+                                        <h3 className="text-lg sm:text-xl font-black text-white">Vibe Arcade</h3>
+                                        <p className="text-xs text-gray-400">Play music-synced retro games while listening to your favorite songs</p>
+                                    </div>
+                                </div>
+                                <button className="px-4 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shrink-0">Play</button>
+                            </motion.div>
+                        );
+                    case 'recentlyPlayed':
+                        return recentlyPlayed?.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={recentlyPlayed} title="Recently Played Songs" /></motion.div> : null;
+                    case 'recentlyPlayedAlbums':
+                        return recentlyPlayedAlbums?.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={recentlyPlayedAlbums} title="Recently Played Albums" /></motion.div> : null;
+                    case 'latestSongs':
+                        return data.latestSongs.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.latestSongs} title="Latest Songs" /></motion.div> : null;
+                    case 'trendingSongs':
+                        return data.songs.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.songs} title="Trending Songs" /></motion.div> : null;
+                    case 'trendingAlbums':
+                        return data.albums.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.albums} title="Trending Albums" /></motion.div> : null;
+                    case 'featuredArtists':
+                        return data.artists.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.artists} title="Featured Artists" /></motion.div> : null;
+                    case 'topPlaylists':
+                        return data.playlists.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.playlists} title="Top Playlists" /></motion.div> : null;
+                    case 'meditation':
+                        return data.meditation.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.meditation} title="Meditation" /></motion.div> : null;
+                    case 'work':
+                        return data.work.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.work} title="Work" /></motion.div> : null;
+                    case 'developerPicks':
+                        return data.devPicks.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.devPicks} title="Developer's Picks" /></motion.div> : null;
+                    case 'chill':
+                        return data.chill.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.chill} title="Chill" /></motion.div> : null;
+                    case 'workout':
+                        return data.workout.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.workout} title="Workout" /></motion.div> : null;
+                    default:
+                        return null;
+                }
+            })}
 
         </motion.div>
     );
