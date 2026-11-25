@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
 import { musicApiService } from '../services/musicApiService';
@@ -17,6 +17,11 @@ const SearchPage: React.FC = () => {
     const [loadingMoreArtists, setLoadingMoreArtists] = useState(false);
     const [hasRequestedMoreArtists, setHasRequestedMoreArtists] = useState(false);
     const { playSearchSong, loadingSongId } = useSearchSongPlayer();
+
+    useEffect(() => {
+        setActiveTab('all');
+        setHasRequestedMoreArtists(false);
+    }, [searchQuery]);
 
     const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
     const songs = data?.songs?.results || [];
