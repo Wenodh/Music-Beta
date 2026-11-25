@@ -219,8 +219,8 @@ const MainSection: React.FC = () => {
                     });
                 }
 
-                const hasCachedProvider = results.some(r => r.status === 'fulfilled' && (r.value as any).provider === 'cache');
-                setIsStaleData(hasCachedProvider);
+                const hasStaleResponse = results.some(r => r.status === 'fulfilled' && (r.value as any).isStale === true);
+                setIsStaleData(hasStaleResponse);
 
                 // If all major feed requests failed and data is empty, set error
                 const allFailed = results.every(r => r.status === 'rejected');
