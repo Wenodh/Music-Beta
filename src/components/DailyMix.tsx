@@ -27,7 +27,7 @@ const DailyMix: React.FC = () => {
                 const baseSongs = recentlyPlayed.slice(0, 3);
                 const results = await Promise.allSettled(baseSongs.map((song) => {
                     const fullUrl = suggestions(song.id);
-                    const path = fullUrl.replace(/https?:\\/\\/[^/]+/, '');
+                    const path = fullUrl.replace(/https?:\/\/[^/]+/, '');
                     return musicApiService.fetchWithFallback(path, {
                         timeout: 6000,
                         signal: controller.signal,
