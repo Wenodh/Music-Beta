@@ -183,7 +183,7 @@ const MainSection: React.FC = () => {
                     setLoading(false);
                 }
             }
-    }, [language]);
+    }, [language, homePreferences]);
 
     useEffect(() => {
         if (isOffline) return;
@@ -281,29 +281,6 @@ const MainSection: React.FC = () => {
                     </button>
                 </div>
             )}
-
-            {homePreferences.visible.dailyMix && <DailyMix />}
-
-            {homePreferences.visible.arcade && <>{/* Arcade Promotional Entry Banner */}
-            <motion.div
-                variants={itemVariants}
-                onClick={() => navigate('/arcade')}
-                className="mb-8 cursor-pointer group bg-gradient-to-r from-purple-900/30 via-pink-900/20 to-primary/20 border border-primary/30 hover:border-primary/60 p-4 sm:p-6 rounded-3xl transition-all shadow-lg flex items-center justify-between"
-            >
-                <div className="flex items-center gap-4 min-w-0">
-                    <div className="p-3 bg-primary/20 text-primary rounded-2xl group-hover:scale-110 transition-transform">
-                        <IoGameControllerOutline size={28} />
-                    </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">New Mini Games</span>
-                        <h3 className="text-lg sm:text-xl font-black text-white">Vibe Arcade</h3>
-                        <p className="text-xs text-gray-400">Play music-synced retro games while listening to your favorite songs</p>
-                    </div>
-                </div>
-                <button className="px-4 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shrink-0">
-                    Play
-                </button>
-            </motion.div></>}
 
             {homePreferences.order.map((sectionId) => {
                 if (!homePreferences.visible[sectionId]) return null;
