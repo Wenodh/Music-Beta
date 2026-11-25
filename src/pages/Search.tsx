@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
+import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
+import { musicApiService } from '../services/musicApiService';
 import { IoSearchOutline } from 'react-icons/io5';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +13,8 @@ const SearchPage: React.FC = () => {
     const navigate = useNavigate();
     const { theme } = useAppSelector((state) => state.ui);
     const { searchedSongs, isSearching, searchError, searchQuery } = useAppSelector((state) => state.musicPlayer);
-    const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
+    const [activeTab, setActiveTab] = useState<'all' | 'songs' | 'albums' | 'artists' | 'playlists'>('all');
+    const [loadingMoreArtists, setLoadingMoreArtists] = useState(false);
     const { playSearchSong, loadingSongId } = useSearchSongPlayer();
 
     const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
@@ -22,6 +25,7 @@ const SearchPage: React.FC = () => {
     const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0;
 
     const tabs = [
+        { id: 'all', label: 'All', count: songs.length + albums.length + artists.length + playlists.length },
         { id: 'songs', label: 'Songs', count: songs.length },
         { id: 'albums', label: 'Albums', count: albums.length },
         { id: 'artists', label: 'Artists', count: artists.length },
@@ -119,7 +123,7 @@ const SearchPage: React.FC = () => {
                             exit={{ opacity: 0, y: -10 }}
                             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
                         >
-                            {activeTab === 'songs' && songs.map((song: any) => {
+                            {(activeTab === 'songs' || activeTab === 'all') && songs.map((song: any) => {
                                 const isLoadingThisSong = loadingSongId === song.id;
                                 return (
                                     <div
@@ -155,7 +159,7 @@ const SearchPage: React.FC = () => {
                                 );
                             })}
 
-                            {activeTab === 'albums' && albums.map((album: any) => (
+                            {(activeTab === 'albums' || activeTab === 'all') && albums.map((album: any) => (
                                 <div
                                     key={album.id}
                                     onClick={() => navigate(`/albums/${album.id}`)}
@@ -173,25 +177,25 @@ const SearchPage: React.FC = () => {
                                 </div>
                             ))}
 
-                            {activeTab === 'artists' && artists.map((artist: any) => (
+                            {(activeTab === 'artists' || activeTab === 'all') && artists.map((artist: any) => (
                                 <div
                                     key={artist.id}
                                     onClick={() => navigate(`/artists/${artist.id}`)}
                                     className="cursor-pointer group bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/5 hover:border-primary/40 transition-all flex flex-col items-center text-center"
                                 >
-                                    <div className="relative aspect-square mb-2.5 overflow-hidden rounded-full w-24 h-24">
+                                    <div className="relative aspect-square mb-2.5 overflow-hidden rounded-full w-24 h-24 ring-2 ring-primary/10">
                                         <img
-                                            src={artist.image?.[2]?.url || artist.image}
+                                            src={artist.image?.[2]?.url || artist.image?.[1]?.url || artist.image?.[0]?.url || artist.image}
                                             alt={artist.name}
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                         />
                                     </div>
                                     <p className="text-xs font-bold text-white truncate w-full">{decodeHtmlEntities(artist.name)}</p>
-                                    <p className="text-[10px] text-gray-400 truncate mt-0.5 uppercase tracking-wider">{artist.role || 'Artist'}</p>
+                                    <p className="text-[10px] text-gray-400 truncate mt-0.5 uppercase tracking-wider">{artist.role || artist.category || 'Artist'}</p>
                                 </div>
                             ))}
 
-                            {activeTab === 'playlists' && playlists.map((playlist: any) => (
+                            {(activeTab === 'playlists' || activeTab === 'all') && playlists.map((playlist: any) => (
                                 <div
                                     key={playlist.id}
                                     onClick={() => navigate(`/playlists/${playlist.id}`)}
@@ -210,6 +214,35 @@ const SearchPage: React.FC = () => {
                             ))}
                         </motion.div>
                     </AnimatePresence>
+                    {(activeTab === 'artists' || activeTab === 'all') && artists.length > 0 && searchQuery && (
+                        <div className="flex justify-center mt-6">
+                            <button
+                                disabled={loadingMoreArtists}
+                                onClick={async () => {
+                                    setLoadingMoreArtists(true);
+                                    try {
+                                        const path = `/api/search/artists?query=${encodeURIComponent(searchQuery)}&limit=20`;
+                                        const response = await musicApiService.fetchWithFallback(path, { timeout: 7000 });
+                                        const payload = response.data?.data?.results || response.data?.results || [];
+                                        const merged = [...artists, ...payload].filter((artist: any, index: number, list: any[]) =>
+                                            artist?.id && list.findIndex((item: any) => item.id === artist.id) === index
+                                        );
+                                        dispatch(setSearchedSongs({
+                                            ...data,
+                                            artists: { ...(data?.artists || {}), results: merged }
+                                        }));
+                                    } catch (error) {
+                                        console.warn('[Search] Unable to load more artists', error);
+                                    } finally {
+                                        setLoadingMoreArtists(false);
+                                    }
+                                }}
+                                className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-primary/20 border border-white/10 text-sm font-bold disabled:opacity-50"
+                            >
+                                {loadingMoreArtists ? 'Loading artists…' : 'Show more artists'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
