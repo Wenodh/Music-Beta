@@ -13,6 +13,7 @@ const SearchPage: React.FC = () => {
     const navigate = useNavigate();
     const { theme } = useAppSelector((state) => state.ui);
     const { searchedSongs, isSearching, searchError, searchQuery } = useAppSelector((state) => state.musicPlayer);
+    const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
     const [activeTab, setActiveTab] = useState<'all' | 'songs' | 'albums' | 'artists' | 'playlists'>('all');
     type SearchCategory = 'songs' | 'albums' | 'artists' | 'playlists';
     const SEARCH_PAGE_SIZE = 10;
@@ -135,7 +136,6 @@ const SearchPage: React.FC = () => {
         }
     };
 
-    const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
     const songs = data?.songs?.results || [];
     const albums = data?.albums?.results || [];
     const artists = data?.artists?.results || [];
