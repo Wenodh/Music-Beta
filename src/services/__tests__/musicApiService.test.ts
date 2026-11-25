@@ -69,6 +69,8 @@ describe('MusicApiService request coordination and cache behavior', () => {
         const refreshed = await stale.refreshPromise;
         expect(refreshed?.data.data.results[0].id).toBe('new-song');
         expect(service.getCachedData<any>('/api/search?q=stale-test')?.data.results[0].id).toBe('new-song');
+        expect(service.getCacheStats().metrics.backgroundRefreshes).toBe(1);
+        expect(service.getCacheStats().metrics.logicalRequests).toBe(2);
     });
 
     it('returns fresh cached data without making another HTTP request', async () => {
