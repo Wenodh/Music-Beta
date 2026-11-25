@@ -93,19 +93,26 @@ const SearchPage: React.FC = () => {
                 const existingSection = nextData[category] || {};
                 const existing = existingSection.results || [];
                 const seen = new Set(existing.map((item: any) => item?.id).filter(Boolean));
-                const merged = [...existing, ...incoming.filter((item: any) => item?.id && !seen.has(item.id))];
+                const uniqueIncoming = incoming.filter((item: any) => {
+                    if (!item?.id || seen.has(item.id)) return false;
+                    seen.add(item.id);
+                    return true;
+                });
+                const merged = [...existing, ...uniqueIncoming];
 
                 nextData[category] = {
                     ...existingSection,
                     ...payload,
+                    // Keep the first page's starting offset; results now contain all pages.
+                    start: existingSection.start ?? payload.start,
                     results: merged,
                 };
 
                 setNextPages(previous => ({ ...previous, [category]: previous[category] + 1 }));
                 const total = Number(payload.total ?? existingSection.total);
-                const start = Number(payload.start ?? existingSection.start ?? 0);
+                const firstStart = Number(existingSection.start ?? payload.start ?? 0);
                 const hasTotal = Number.isFinite(total) && total > 0;
-                if (incoming.length < SEARCH_PAGE_SIZE || (hasTotal && start + incoming.length >= total)) {
+                if (incoming.length < SEARCH_PAGE_SIZE || (hasTotal && firstStart + merged.length >= total)) {
                     setExhausted(previous => ({ ...previous, [category]: true }));
                 }
             });
