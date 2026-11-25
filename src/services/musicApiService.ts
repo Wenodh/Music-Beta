@@ -32,7 +32,7 @@ const MAX_CACHE_ENTRIES = 200;
 let dbPromise: Promise<IDBPDatabase<MusicCacheDBSchema>> | null = null;
 
 const getCacheDB = () => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
     if (!dbPromise) {
         dbPromise = openDB<MusicCacheDBSchema>(DB_NAME, DB_VERSION, {
             upgrade(db) {
@@ -144,6 +144,16 @@ export class MusicApiService {
         return getConfiguredCacheTtl(key);
     }
 
+    private persistMemorySnapshot() {
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                const snapshot: Record<string, CacheEntry<any>> = {};
+                [...this.memoryCache.entries()].forEach(([cacheKey, value]) => { snapshot[cacheKey] = value; });
+                localStorage.setItem('vibeon_music_cache', JSON.stringify(snapshot));
+            }
+        } catch { /* Ignore quota/security errors. */ }
+    }
+
     private async persistEntry<T>(key: string, data: T) {
         const now = Date.now();
         const entry: CacheEntry<T> = { key, data, timestamp: now, lastAccessedAt: now };
@@ -171,15 +181,11 @@ export class MusicApiService {
                     await Promise.all(oldest.map((item) => transaction.store.delete(item.key)));
                     await transaction.done;
                 }
+            } else {
+                this.persistMemorySnapshot();
             }
         } catch {
-            try {
-                if (typeof window !== 'undefined' && window.localStorage) {
-                    const snapshot: Record<string, CacheEntry<any>> = {};
-                    [...this.memoryCache.entries()].forEach(([cacheKey, value]) => { snapshot[cacheKey] = value; });
-                    localStorage.setItem('vibeon_music_cache', JSON.stringify(snapshot));
-                }
-            } catch { /* Ignore quota/security errors. */ }
+            this.persistMemorySnapshot();
         }
     }
 
