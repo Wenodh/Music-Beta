@@ -269,11 +269,21 @@ export class MusicApiService {
 
         const controller = new AbortController();
         const requestPromise = (async (): Promise<ApiResponse<T>> => {
+            const primaryCooling = this.isProviderCoolingDown('primary');
+            const secondaryCooling = this.isProviderCoolingDown('secondary');
+            if (primaryCooling && secondaryCooling) {
+                if (cached?.data) {
+                    return { data: cached.data as T, isCached: true, provider: 'cache' };
+                }
+                const retryAt = Math.max(this.providerCooldownUntil.primary, this.providerCooldownUntil.secondary);
+                throw new Error(`All music providers are temporarily unavailable. Retry after ${new Date(retryAt).toISOString()}.`);
+            }
+
             const providers = [
                 { name: 'primary', base: PRIMARY_API_BASE },
                 { name: 'secondary', base: SECONDARY_API_BASE },
             ];
-            if (this.isProviderCoolingDown('primary') && !this.isProviderCoolingDown('secondary')) providers.reverse();
+            if (primaryCooling && !secondaryCooling) providers.reverse();
 
             let lastError: any = null;
             const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
