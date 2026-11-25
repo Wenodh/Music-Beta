@@ -76,7 +76,8 @@ import { useBackHandler } from '../hooks/useBackHandler';
 import { backNavigationService } from '../services/backNavigationService';
 import ConsoleLogsPanel from './ConsoleLogsPanel';
 import { musicApiService } from '../services/musicApiService';
-import { CACHE_CATEGORIES, HOME_SECTIONS, HomePreferences, getHomePreferences, saveHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
+import { CACHE_CATEGORIES, HOME_SECTIONS, getHomePreferences, saveHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
+import type { HomePreferences } from '../features/home/homePreferences';
 
 export type SettingsCategoryId =
     | 'account'
@@ -645,7 +646,31 @@ const SettingsDrawer: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{apiCacheStats.entries}</p><p className="text-[10px] text-gray-500">Cached responses</p></div>
-                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{(apiCacheStats.approximateBytes / (1024 * 1024)).toFixed(2)} MB</p><p className="text-[10px] text-gray-500">Approx. memory size</p></div>
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{(apiCacheStats.approximateBytes / (1024 * 1024)).toFixed(2)} MB</p><p className="text-[10px] text-gray-500">Approx. cache memory</p></div>
+                            </div>
+                            <div className="space-y-2">
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-900 dark:text-white">API efficiency</h4>
+                                    <p className="text-[10px] text-gray-500">Session totals since app startup. Refresh Settings to update this snapshot.</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        ['Logical calls', apiCacheStats.metrics.logicalRequests],
+                                        ['HTTP attempts', apiCacheStats.metrics.httpAttempts],
+                                        ['Cache hits', apiCacheStats.metrics.cacheHits],
+                                        ['Deduplicated', apiCacheStats.metrics.deduplicatedRequests],
+                                        ['Retries', apiCacheStats.metrics.retries],
+                                        ['Provider fallbacks', apiCacheStats.metrics.providerFallbacks],
+                                        ['Provider failures', apiCacheStats.metrics.providerFailures],
+                                        ['Stale fallbacks', apiCacheStats.metrics.staleFallbacks],
+                                        ['Cancellations', apiCacheStats.metrics.cancellations],
+                                    ].map(([label, value]) => (
+                                        <div key={label} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                            <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">{value}</p>
+                                            <p className="text-[9px] leading-tight text-gray-500">{label}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                             <button onClick={async () => {
                                 await musicApiService.clearCache();
