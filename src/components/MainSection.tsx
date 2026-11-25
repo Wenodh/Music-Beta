@@ -68,7 +68,8 @@ const MainSection: React.FC = () => {
                     english: ['Taylor Swift', 'The Weeknd', 'Drake', 'Ed Sheeran', 'Justin Bieber', 'Dua Lipa', 'Bruno Mars', 'Ariana Grande', 'Billie Eilish', 'Post Malone', 'Kendrick Lamar', 'Rihanna', 'Eminem', 'Sia']
                 };
 
-                const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
+                // Keep the first paint lightweight; featured artists are intentionally capped here.
+                const artistsToFetch = (curatedArtists[language.toLowerCase()] || [language]).slice(0, 5);
 
                 // Helper to sanitize base URLs for limit parameter
                 const getSanitizedUrl = (baseUrl: string) => {
@@ -96,7 +97,7 @@ const MainSection: React.FC = () => {
 
                 const results = await Promise.allSettled([
                     fetchFeed(`${modules}${language}&page=0&limit=25`),
-                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`),
+                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=60`),
                     fetchFeed(`${playlistSearch}${language}`),
                     fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
                     fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
