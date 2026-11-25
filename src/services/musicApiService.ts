@@ -52,6 +52,7 @@ const getCacheDB = () => {
 export interface ApiResponse<T = any> {
     data: T;
     isCached: boolean;
+    isStale?: boolean;
     provider: string;
     refreshPromise?: Promise<ApiResponse<T>>;
 }
@@ -299,7 +300,7 @@ export class MusicApiService {
             cached.lastAccessedAt = Date.now();
             this.memoryCache.set(key, cached);
             void getCacheDB()?.then(db => db.put('feed_cache', cached)).catch(() => undefined);
-            return { data: cached.data as T, isCached: true, provider: 'cache' };
+            return { data: cached.data as T, isCached: true, isStale: false, provider: 'cache' };
         }
         if (!options.forceRefresh) this.metrics.cacheMisses += 1;
 
@@ -313,7 +314,7 @@ export class MusicApiService {
                     forceRefresh: true,
                 });
             void refreshPromise.catch(() => undefined);
-            return { data: cached.data as T, isCached: true, provider: 'cache', refreshPromise };
+            return { data: cached.data as T, isCached: true, isStale: true, provider: 'cache', refreshPromise };
         }
         if (existing && !existing.controller.signal.aborted) {
             this.metrics.deduplicatedRequests += 1;
@@ -329,7 +330,7 @@ export class MusicApiService {
             const secondaryCooling = this.isProviderCoolingDown('secondary');
             if (primaryCooling && secondaryCooling) {
                 if (cached?.data) {
-                    return { data: cached.data as T, isCached: true, provider: 'cache' };
+                    return { data: cached.data as T, isCached: true, isStale: true, provider: 'cache' };
                 }
                 const retryAt = Math.max(this.providerCooldownUntil.primary, this.providerCooldownUntil.secondary);
                 throw new Error(`All music providers are temporarily unavailable. Retry after ${new Date(retryAt).toISOString()}.`);
@@ -381,7 +382,7 @@ export class MusicApiService {
             if (cached?.data) {
                 this.metrics.staleFallbacks += 1;
                 console.warn(`[MusicApiService] Providers unavailable for ${pathAndQuery}; serving stale cache.`);
-                return { data: cached.data as T, isCached: true, provider: 'cache' };
+                return { data: cached.data as T, isCached: true, isStale: true, provider: 'cache' };
             }
             throw lastError || new Error(`All music providers failed for ${pathAndQuery}`);
         })();
