@@ -21,7 +21,6 @@ describe('MusicApiService request coordination and cache behavior', () => {
     afterEach(() => {
         vi.clearAllMocks();
         vi.useRealTimers();
-        localStorage.clear();
     });
 
     it('deduplicates concurrent requests for the same cache key', async () => {
