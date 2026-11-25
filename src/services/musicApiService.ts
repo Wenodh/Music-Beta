@@ -53,6 +53,13 @@ export interface ApiResponse<T = any> {
     data: T;
     isCached: boolean;
     provider: string;
+    refreshPromise?: Promise<ApiResponse<T>>;
+}
+
+export interface FetchOptions {
+    staleWhileRevalidate?: boolean;
+    /** Internal recursion guard used by the background refresh. */
+    forceRefresh?: boolean;
 }
 
 const createCanceledError = () => {
@@ -266,7 +273,8 @@ export class MusicApiService {
     public async fetchWithFallback<T = any>(
         pathAndQuery: string,
         config: AxiosRequestConfig = {},
-        cacheKey?: string
+        cacheKey?: string,
+        options: FetchOptions = {}
     ): Promise<ApiResponse<T>> {
         const key = cacheKey || pathAndQuery;
         const callerSignal = config.signal;
@@ -289,6 +297,17 @@ export class MusicApiService {
         this.metrics.cacheMisses += 1;
 
         const existing = this.inFlightRequests.get(key);
+        if (cached && options.staleWhileRevalidate && !options.forceRefresh) {
+            // Keep the UI responsive with stale data while a single shared refresh runs.
+            const refreshPromise = existing && !existing.controller.signal.aborted
+                ? existing.promise
+                : this.fetchWithFallback<T>(pathAndQuery, { ...config, signal: undefined }, cacheKey, {
+                    staleWhileRevalidate: true,
+                    forceRefresh: true,
+                });
+            void refreshPromise.catch(() => undefined);
+            return { data: cached.data as T, isCached: true, provider: 'cache', refreshPromise };
+        }
         if (existing && !existing.controller.signal.aborted) {
             this.metrics.deduplicatedRequests += 1;
             return this.waitForShared<T>(existing, callerSignal);
