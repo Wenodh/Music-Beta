@@ -75,6 +75,7 @@ import { setDownloadedIds } from '../features/library/librarySlice';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { backNavigationService } from '../services/backNavigationService';
 import ConsoleLogsPanel from './ConsoleLogsPanel';
+import { CACHE_CATEGORIES, HOME_SECTIONS, HomePreferences, getHomePreferences, saveHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
 
 export type SettingsCategoryId =
     | 'account'
@@ -85,7 +86,8 @@ export type SettingsCategoryId =
     | 'privacy'
     | 'data'
     | 'about'
-    | 'diagnostics';
+    | 'diagnostics'
+    | 'home';
 
 interface CategoryDef {
     id: SettingsCategoryId;
@@ -151,6 +153,12 @@ export const SETTINGS_CATEGORIES: CategoryDef[] = [
         title: 'About',
         description: 'Version, developer info, privacy policy',
         icon: IoInformationCircleOutline,
+    },
+    {
+        id: 'home',
+        title: 'Home Screen & Cache',
+        description: 'Customize Home sections and API cache freshness',
+        icon: IoOptionsOutline,
     },
     {
         id: 'diagnostics',
@@ -354,6 +362,7 @@ const SettingsDrawer: React.FC = () => {
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
     const [soundPrefs, setSoundPrefs] = useState<NotificationSoundPreferences>(soundService.getPreferences());
     const [previewingId, setPreviewingId] = useState<string | null>(null);
+    const [homePreferences, setHomePreferences] = useState<HomePreferences>(() => getHomePreferences());
 
     const searchInputRef = useRef<HTMLInputElement>(null);
     const contentPanelRef = useRef<HTMLDivElement>(null);
@@ -405,6 +414,8 @@ const SettingsDrawer: React.FC = () => {
     ];
 
     const qualities = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
+
+    useEffect(() => subscribeHomePreferences(() => setHomePreferences(getHomePreferences())), []);
 
     useEffect(() => {
         if (isSettingsOpen) {
@@ -574,6 +585,74 @@ const SettingsDrawer: React.FC = () => {
     // Active Category Content Renderer
     const renderCategoryContent = (categoryId: SettingsCategoryId) => {
         switch (categoryId) {
+            case 'home':
+                return (
+                    <div className="space-y-6">
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Home screen sections</h3>
+                                <p className="text-xs text-gray-500">Choose what appears on Home. Disabled sections will not be requested by the Home feed.</p>
+                            </div>
+                            <div className="space-y-2">
+                                {homePreferences.order.map((id, index) => {
+                                    const section = HOME_SECTIONS.find(item => item.id === id);
+                                    if (!section) return null;
+                                    return (
+                                        <div key={id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-white/5">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{section.label}</p>
+                                                <p className="text-[10px] text-gray-500">{section.description}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button aria-label={`Move ${section.label} up`} disabled={index === 0} onClick={() => {
+                                                    const order = [...homePreferences.order];
+                                                    [order[index - 1], order[index]] = [order[index], order[index - 1]];
+                                                    setHomePreferences(saveHomePreferences({ order }));
+                                                }} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-200 dark:hover:bg-white/10">↑</button>
+                                                <button aria-label={`Move ${section.label} down`} disabled={index === homePreferences.order.length - 1} onClick={() => {
+                                                    const order = [...homePreferences.order];
+                                                    [order[index + 1], order[index]] = [order[index], order[index + 1]];
+                                                    setHomePreferences(saveHomePreferences({ order }));
+                                                }} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-200 dark:hover:bg-white/10">↓</button>
+                                                <button role="switch" aria-checked={homePreferences.visible[id]} aria-label={`Show ${section.label}`} onClick={() => setHomePreferences(saveHomePreferences({ visible: { ...homePreferences.visible, [id]: !homePreferences.visible[id] } }))} className={`w-10 h-5 rounded-full relative transition-colors ${homePreferences.visible[id] ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                                                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${homePreferences.visible[id] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <button onClick={() => setHomePreferences(saveHomePreferences({ visible: Object.fromEntries(HOME_SECTIONS.map(section => [section.id, section.defaultVisible])) as HomePreferences['visible'], order: HOME_SECTIONS.map(section => section.id) }))} className="text-xs font-bold text-primary">Restore Home defaults</button>
+                        </section>
+                        <section className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">API cache duration</h3>
+                                <p className="text-xs text-gray-500">Fresh responses are reused until expiry. Expired responses remain available as fallback if providers fail.</p>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">Cache preset</span>
+                                <select value={homePreferences.cachePreset} onChange={event => {
+                                    const preset = event.target.value as HomePreferences['cachePreset'];
+                                    const multipliers = { frequent: 0.25, balanced: 1, save: 2 };
+                                    const cacheHours = preset === 'custom' ? homePreferences.cacheHours : Object.fromEntries(CACHE_CATEGORIES.map(category => [category.id, Math.min(category.maxHours, Math.max(category.minHours, category.defaultHours * multipliers[preset]))])) as HomePreferences['cacheHours'];
+                                    setHomePreferences(saveHomePreferences({ cachePreset: preset, cacheHours }));
+                                }} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs">
+                                    <option value="frequent">Frequent updates</option><option value="balanced">Balanced</option><option value="save">Save API calls</option><option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                {CACHE_CATEGORIES.map(category => (
+                                    <label key={category.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-white/5">
+                                        <span className="text-sm text-gray-900 dark:text-white">{category.label}</span>
+                                        <select value={homePreferences.cacheHours[category.id]} onChange={event => setHomePreferences(saveHomePreferences({ cachePreset: 'custom', cacheHours: { ...homePreferences.cacheHours, [category.id]: Number(event.target.value) } }))} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs">
+                                            {[0.25, 0.5, 1, 3, 6, 12, 24, 48, 72, 168, 336, 720].filter(hours => hours >= category.minHours && hours <= category.maxHours).map(hours => <option key={hours} value={hours}>{hours < 1 ? `${Math.round(hours * 60)} minutes` : hours < 24 ? `${hours} hours` : `${hours / 24} days`}</option>)}
+                                        </select>
+                                    </label>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+                );
             case 'account':
                 return (
                     <div className="space-y-6">
