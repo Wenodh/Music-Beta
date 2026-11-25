@@ -334,6 +334,9 @@ export class MusicApiService {
         const existing = this.inFlightRequests.get(key);
         if (cached && options.staleWhileRevalidate && !options.forceRefresh) {
             // Keep the UI responsive with stale data while a single shared refresh runs.
+            if (existing && !existing.controller.signal.aborted) {
+                this.metrics.deduplicatedRequests += 1;
+            }
             const refreshPromise = existing && !existing.controller.signal.aborted
                 ? existing.promise
                 : this.fetchWithFallback<T>(pathAndQuery, { ...config, signal: undefined }, cacheKey, {
