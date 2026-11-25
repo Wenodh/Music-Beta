@@ -75,6 +75,7 @@ import { setDownloadedIds } from '../features/library/librarySlice';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { backNavigationService } from '../services/backNavigationService';
 import ConsoleLogsPanel from './ConsoleLogsPanel';
+import { musicApiService } from '../services/musicApiService';
 import { CACHE_CATEGORIES, HOME_SECTIONS, HomePreferences, getHomePreferences, saveHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
 
 export type SettingsCategoryId =
@@ -363,6 +364,7 @@ const SettingsDrawer: React.FC = () => {
     const [soundPrefs, setSoundPrefs] = useState<NotificationSoundPreferences>(soundService.getPreferences());
     const [previewingId, setPreviewingId] = useState<string | null>(null);
     const [homePreferences, setHomePreferences] = useState<HomePreferences>(() => getHomePreferences());
+    const [apiCacheStats, setApiCacheStats] = useState(() => musicApiService.getCacheStats());
 
     const searchInputRef = useRef<HTMLInputElement>(null);
     const contentPanelRef = useRef<HTMLDivElement>(null);
@@ -420,6 +422,7 @@ const SettingsDrawer: React.FC = () => {
     useEffect(() => {
         if (isSettingsOpen) {
             updateStorageInfo();
+            setApiCacheStats(musicApiService.getCacheStats());
             setSoundPrefs(soundService.getPreferences());
         } else {
             soundService.stopPreview();
@@ -640,6 +643,15 @@ const SettingsDrawer: React.FC = () => {
                                     <option value="frequent">Frequent updates</option><option value="balanced">Balanced</option><option value="save">Save API calls</option><option value="custom">Custom</option>
                                 </select>
                             </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{apiCacheStats.entries}</p><p className="text-[10px] text-gray-500">Cached responses</p></div>
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{(apiCacheStats.approximateBytes / (1024 * 1024)).toFixed(2)} MB</p><p className="text-[10px] text-gray-500">Approx. memory size</p></div>
+                            </div>
+                            <button onClick={async () => {
+                                await musicApiService.clearCache();
+                                setApiCacheStats(musicApiService.getCacheStats());
+                                dispatch(showToast({ message: 'API cache cleared. Offline downloads were not affected.', type: 'success' }));
+                            }} className="w-full p-3 rounded-xl border border-red-500/30 text-red-500 text-xs font-bold hover:bg-red-500/10 transition-colors">Clear API cache (keeps offline downloads)</button>
                             <div className="space-y-2">
                                 {CACHE_CATEGORIES.map(category => (
                                     <label key={category.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-white/5">
