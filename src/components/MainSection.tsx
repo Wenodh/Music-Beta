@@ -104,7 +104,7 @@ const MainSection: React.FC = () => {
                     fetchFeed(`${playlistById}158224644`),
                     fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
                     fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`),
+                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=60`),
                     ...artistsToFetch.map(name => {
                         return fetchFeed(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
