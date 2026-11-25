@@ -58,6 +58,22 @@ describe('home preferences', () => {
         expect(restored.cacheHours.search).toBe(CACHE_CATEGORIES.find(item => item.id === 'search')?.minHours);
     });
 
+    it('normalizes duplicate section IDs and malformed persisted values', () => {
+        const storage = createStorage();
+        storage.setItem('vibeon_home_preferences_v1', JSON.stringify({
+            order: ['arcade', 'arcade', 'unknown'],
+            visible: { meditation: 'false', workout: true },
+            cachePreset: 'unexpected',
+        }));
+        vi.stubGlobal('localStorage', storage);
+
+        const preferences = getHomePreferences();
+        expect(preferences.order.filter(id => id === 'arcade')).toHaveLength(1);
+        expect(preferences.visible.meditation).toBe(false);
+        expect(preferences.visible.workout).toBe(true);
+        expect(preferences.cachePreset).toBe('balanced');
+    });
+
     it('selects a TTL from the endpoint category and decodes query strings', () => {
         vi.stubGlobal('localStorage', createStorage());
         expect(getConfiguredCacheTtl('/api/search/songs?query=Telugu%20Top%20Hits')).toBe(6 * 60 * 60 * 1000);
