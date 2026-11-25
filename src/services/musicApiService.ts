@@ -260,7 +260,12 @@ export class MusicApiService {
         }
 
         const existing = this.inFlightRequests.get(key);
-        if (existing) return this.waitForShared<T>(existing, callerSignal);
+        if (existing && !existing.controller.signal.aborted) {
+            return this.waitForShared<T>(existing, callerSignal);
+        }
+        // A canceled request can remain in the map until its promise settles.
+        // Do not attach a new caller to an already-aborted request (notably in StrictMode).
+        if (existing?.controller.signal.aborted) this.inFlightRequests.delete(key);
 
         const controller = new AbortController();
         const requestPromise = (async (): Promise<ApiResponse<T>> => {
