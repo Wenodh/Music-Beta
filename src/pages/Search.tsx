@@ -224,7 +224,7 @@ const SearchPage: React.FC = () => {
                                     setLoadingMoreArtists(true);
                                     setHasRequestedMoreArtists(true);
                                     try {
-                                        const path = `/api/search/artists?query=${encodeURIComponent(searchQuery)}&limit=20`;
+                                        const path = `/api/search/artists?page=0&limit=25&query=${encodeURIComponent(searchQuery)}`;
                                         const response = await musicApiService.fetchWithFallback(path, { timeout: 7000 });
                                         const payload = response.data?.data?.results || response.data?.results || [];
                                         const merged = [...artists, ...payload].filter((artist: any, index: number, list: any[]) =>
