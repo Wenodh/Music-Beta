@@ -10,6 +10,12 @@ interface CacheEntry<T> {
     timestamp: number;
 }
 
+interface InFlightEntry<T = any> {
+    promise: Promise<ApiResponse<T>>;
+    controller: AbortController;
+    consumers: number;
+}
+
 interface MusicCacheDBSchema extends DBSchema {
     feed_cache: {
         key: string;
@@ -20,24 +26,23 @@ interface MusicCacheDBSchema extends DBSchema {
 
 const DB_NAME = 'vibeon_music_cache_db';
 const DB_VERSION = 1;
-
+const MAX_CACHE_ENTRIES = 200;
 let dbPromise: Promise<IDBPDatabase<MusicCacheDBSchema>> | null = null;
 
 const getCacheDB = () => {
     if (typeof window === 'undefined') return null;
     if (!dbPromise) {
-        try {
-            dbPromise = openDB<MusicCacheDBSchema>(DB_NAME, DB_VERSION, {
-                upgrade(db) {
-                    if (!db.objectStoreNames.contains('feed_cache')) {
-                        const store = db.createObjectStore('feed_cache', { keyPath: 'key' });
-                        store.createIndex('by-timestamp', 'timestamp');
-                    }
-                },
-            });
-        } catch {
-            return null;
-        }
+        dbPromise = openDB<MusicCacheDBSchema>(DB_NAME, DB_VERSION, {
+            upgrade(db) {
+                if (!db.objectStoreNames.contains('feed_cache')) {
+                    const store = db.createObjectStore('feed_cache', { keyPath: 'key' });
+                    store.createIndex('by-timestamp', 'timestamp');
+                }
+            },
+        }).catch((error) => {
+            dbPromise = null;
+            throw error;
+        });
     }
     return dbPromise;
 };
@@ -48,153 +53,197 @@ export interface ApiResponse<T = any> {
     provider: string;
 }
 
+const createCanceledError = () => {
+    const error = new Error('canceled');
+    error.name = 'CanceledError';
+    return error;
+};
+
+const isCanceled = (error: any) =>
+    axios.isCancel(error) || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED';
+
+const wait = (ms: number, signal: AbortSignal) => new Promise<void>((resolve, reject) => {
+    if (signal.aborted) return reject(createCanceledError());
+    const timer = setTimeout(() => {
+        signal.removeEventListener('abort', onAbort);
+        resolve();
+    }, ms);
+    const onAbort = () => {
+        clearTimeout(timer);
+        reject(createCanceledError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+});
+
 export class MusicApiService {
-    // In-memory fast cache
     private memoryCache = new Map<string, CacheEntry<any>>();
+    private inFlightRequests = new Map<string, InFlightEntry>();
+    private providerFailureCount: Record<string, number> = { primary: 0, secondary: 0 };
+    private providerCooldownUntil: Record<string, number> = { primary: 0, secondary: 0 };
 
-    // Deduplication of identical in-flight network requests
-    private inFlightRequests = new Map<string, Promise<ApiResponse<any>>>();
-
-    // Circuit breaker state tracking
-    private providerFailureCount: Record<string, number> = {
-        primary: 0,
-        secondary: 0,
-    };
-    private providerCooldownUntil: Record<string, number> = {
-        primary: 0,
-        secondary: 0,
-    };
-
-    private readonly COOLDOWN_MS = 60000; // 60s cooldown after 3 consecutive failures
+    private readonly COOLDOWN_MS = 60000;
     private readonly MAX_CONSECUTIVE_FAILURES = 3;
-    private readonly DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes cache TTL
+    private readonly DEFAULT_TTL_MS = 30 * 60 * 1000;
+    private readonly SEARCH_TTL_MS = 90 * 1000;
 
     constructor() {
-        this.loadFromStorage();
+        void this.loadFromStorage();
     }
 
     private async loadFromStorage() {
-        // Hydrate from localStorage fallback
         try {
             if (typeof window !== 'undefined' && window.localStorage) {
                 const raw = localStorage.getItem('vibeon_music_cache');
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     Object.entries(parsed).forEach(([key, val]) => {
-                        this.memoryCache.set(key, val as CacheEntry<any>);
+                        if (val && typeof (val as CacheEntry<any>).timestamp === 'number') {
+                            this.memoryCache.set(key, val as CacheEntry<any>);
+                        }
                     });
                 }
             }
-        } catch {
-            // Ignore parse errors
-        }
+        } catch { /* Storage is optional. */ }
 
-        // Hydrate from IndexedDB asynchronously
         try {
             const db = await getCacheDB();
-            if (db) {
-                const allEntries = await db.getAll('feed_cache');
-                allEntries.forEach((entry) => {
-                    if (entry && entry.key && entry.data) {
-                        this.memoryCache.set(entry.key, entry);
-                    }
-                });
-            }
-        } catch {
-            // IndexedDB read error ignored
-        }
+            if (!db) return;
+            const entries = await db.getAll('feed_cache');
+            entries.forEach((entry) => {
+                if (entry?.key && entry.data !== undefined) {
+                    const existing = this.memoryCache.get(entry.key);
+                    if (!existing || entry.timestamp > existing.timestamp) this.memoryCache.set(entry.key, entry);
+                }
+            });
+        } catch { /* IndexedDB may be unavailable in private browsing. */ }
+    }
+
+    private getTtl(key: string) {
+        return key.includes('/api/search') ? this.SEARCH_TTL_MS : this.DEFAULT_TTL_MS;
     }
 
     private async persistEntry<T>(key: string, data: T) {
         const entry: CacheEntry<T> = { key, data, timestamp: Date.now() };
         this.memoryCache.set(key, entry);
 
-        // Save to IndexedDB
+        // Keep memory/storage bounded; evict oldest entries first.
+        if (this.memoryCache.size > MAX_CACHE_ENTRIES) {
+            const oldest = [...this.memoryCache.values()]
+                .sort((a, b) => a.timestamp - b.timestamp)
+                .slice(0, this.memoryCache.size - MAX_CACHE_ENTRIES);
+            oldest.forEach((item) => this.memoryCache.delete(item.key));
+        }
+
         try {
             const db = await getCacheDB();
             if (db) {
                 await db.put('feed_cache', entry);
+                const count = await db.count('feed_cache');
+                if (count > MAX_CACHE_ENTRIES) {
+                    const all = await db.getAll('feed_cache');
+                    all.sort((a, b) => a.timestamp - b.timestamp)
+                        .slice(0, count - MAX_CACHE_ENTRIES)
+                        .forEach((item) => { void db.delete('feed_cache', item.key); });
+                }
             }
         } catch {
-            // Fallback to localStorage
             try {
                 if (typeof window !== 'undefined' && window.localStorage) {
-                    const obj: Record<string, any> = {};
-                    const entries = Array.from(this.memoryCache.entries()).slice(-30);
-                    entries.forEach(([k, v]) => {
-                        obj[k] = v;
-                    });
-                    localStorage.setItem('vibeon_music_cache', JSON.stringify(obj));
+                    const snapshot: Record<string, CacheEntry<any>> = {};
+                    [...this.memoryCache.entries()].forEach(([cacheKey, value]) => { snapshot[cacheKey] = value; });
+                    localStorage.setItem('vibeon_music_cache', JSON.stringify(snapshot));
                 }
-            } catch {
-                // Ignore write errors
-            }
+            } catch { /* Ignore quota/security errors. */ }
         }
     }
 
-    /**
-     * Check if provider is currently in cooldown due to circuit breaker
-     */
-    private isProviderCoolingDown(providerName: string): boolean {
-        const now = Date.now();
-        return this.providerCooldownUntil[providerName] > now;
+    private isProviderCoolingDown(name: string) {
+        return this.providerCooldownUntil[name] > Date.now();
     }
 
-    private recordProviderSuccess(providerName: string) {
-        this.providerFailureCount[providerName] = 0;
-        this.providerCooldownUntil[providerName] = 0;
+    private recordProviderSuccess(name: string) {
+        this.providerFailureCount[name] = 0;
+        this.providerCooldownUntil[name] = 0;
     }
 
-    private recordProviderFailure(providerName: string) {
-        const wasCoolingDown = this.isProviderCoolingDown(providerName);
-        this.providerFailureCount[providerName] = (this.providerFailureCount[providerName] || 0) + 1;
-        if (this.providerFailureCount[providerName] >= this.MAX_CONSECUTIVE_FAILURES && !wasCoolingDown) {
-            this.providerCooldownUntil[providerName] = Date.now() + this.COOLDOWN_MS;
-            console.warn(`[MusicApiService] Circuit breaker tripped for ${providerName}. Cooldown until ${new Date(this.providerCooldownUntil[providerName]).toLocaleTimeString()}`);
+    private recordProviderFailure(name: string, error: any) {
+        if (isCanceled(error)) return;
+        // A normal 4xx indicates a request/client issue, not provider instability.
+        const status = error?.response?.status;
+        if (status && status < 500 && status !== 429) return;
+
+        this.providerFailureCount[name] = (this.providerFailureCount[name] || 0) + 1;
+        if (this.providerFailureCount[name] >= this.MAX_CONSECUTIVE_FAILURES && !this.isProviderCoolingDown(name)) {
+            this.providerCooldownUntil[name] = Date.now() + this.COOLDOWN_MS;
+            console.warn(
+                `[MusicApiService] Circuit breaker tripped for ${name} after ${this.providerFailureCount[name]} failed requests. Status=${status || 'network/timeout'}; cooldown=${this.COOLDOWN_MS}ms.`
+            );
         }
     }
-    /**
-     * Strict validation: checks if payload is truly valid music data and not an error response
-     */
+
     public isValidMusicPayload(payload: any): boolean {
         if (!payload || typeof payload !== 'object') return false;
-
-        // Explicit error indicators from JioSaavn proxies
         if (payload.status === 'FAILED' || payload.status === 'ERROR') return false;
         if (typeof payload.message === 'string' && /rate limit|blocked|denied|failed/i.test(payload.message)) return false;
-
-        // Check if data is present and has meaningful structure
         const target = payload.data !== undefined ? payload.data : payload;
-
-        if (Array.isArray(target)) return target.length >= 0;
+        if (Array.isArray(target)) return true;
         if (target && typeof target === 'object') {
-            if (Array.isArray(target.results)) return true;
-            if (Array.isArray(target.songs)) return true;
-            if (target.id !== undefined) return true;
-            if (target.name !== undefined || target.title !== undefined) return true;
-            // General non-empty object containing results
+            if (Array.isArray(target.results) || Array.isArray(target.songs)) return true;
+            if (target.id !== undefined || target.name !== undefined || target.title !== undefined) return true;
             return Object.keys(target).length > 0 && !('error' in target);
         }
-
         return false;
     }
 
-    /**
-     * Normalize varied payload formats into consistent standard
-     */
     public normalizeResponse(payload: any): any {
         if (!this.isValidMusicPayload(payload)) return null;
-
         if (payload.data !== undefined) return payload;
         if (payload.results !== undefined) return { data: { results: payload.results } };
         if (Array.isArray(payload)) return { data: { results: payload } };
         return { data: payload };
     }
 
-    /**
-     * Primary resilient fetching method with provider cascading, circuit breaker,
-     * signal-safe in-flight deduplication, and stale-while-revalidate fallback.
-     */
+    private async waitForShared<T>(entry: InFlightEntry<T>, signal?: AbortSignal): Promise<ApiResponse<T>> {
+        if (signal?.aborted) throw createCanceledError();
+        entry.consumers += 1;
+        let released = false;
+        const release = () => {
+            if (released) return;
+            released = true;
+            entry.consumers = Math.max(0, entry.consumers - 1);
+            if (entry.consumers === 0 && this.inFlightRequests.size && entry.controller.signal.aborted === false) {
+                // Cancel upstream work only when every waiting caller has left.
+                entry.controller.abort();
+            }
+        };
+
+        if (!signal) {
+            try { return await entry.promise; }
+            finally { release(); }
+        }
+
+        return new Promise<ApiResponse<T>>((resolve, reject) => {
+            const onAbort = () => {
+                release();
+                reject(createCanceledError());
+            };
+            signal.addEventListener('abort', onAbort, { once: true });
+            entry.promise.then(
+                (result) => {
+                    signal.removeEventListener('abort', onAbort);
+                    if (signal.aborted) return onAbort();
+                    release();
+                    resolve(result);
+                },
+                (error) => {
+                    signal.removeEventListener('abort', onAbort);
+                    release();
+                    reject(error);
+                }
+            );
+        });
+    }
+
     public async fetchWithFallback<T = any>(
         pathAndQuery: string,
         config: AxiosRequestConfig = {},
@@ -202,166 +251,90 @@ export class MusicApiService {
     ): Promise<ApiResponse<T>> {
         const key = cacheKey || pathAndQuery;
         const cached = this.memoryCache.get(key);
+        const callerSignal = config.signal;
 
-        // Check if caller signal is already aborted
-        if (config.signal?.aborted) {
-            const err = new Error('canceled');
-            (err as any).name = 'CanceledError';
-            throw err;
+        if (callerSignal?.aborted) throw createCanceledError();
+
+        if (cached && Date.now() - cached.timestamp < this.getTtl(key)) {
+            return { data: cached.data as T, isCached: true, provider: 'cache' };
         }
 
-        // If duplicate request is already in-flight, attach a listener to caller's signal
-        if (this.inFlightRequests.has(key)) {
-            const inFlight = this.inFlightRequests.get(key)!;
-            if (!config.signal) return inFlight;
+        const existing = this.inFlightRequests.get(key);
+        if (existing) return this.waitForShared<T>(existing, callerSignal);
 
-            return new Promise<ApiResponse<T>>((resolve, reject) => {
-                const onAbort = () => {
-                    const err = new Error('canceled');
-                    (err as any).name = 'CanceledError';
-                    reject(err);
-                };
-                config.signal!.addEventListener('abort', onAbort, { once: true });
-                inFlight.then(
-                    (res) => {
-                        config.signal!.removeEventListener('abort', onAbort);
-                        resolve(res);
-                    },
-                    (err) => {
-                        config.signal!.removeEventListener('abort', onAbort);
-                        reject(err);
-                    }
-                );
-            });
-        }
-
-        const requestPromise = (async () => {
+        const controller = new AbortController();
+        const requestPromise = (async (): Promise<ApiResponse<T>> => {
             const providers = [
                 { name: 'primary', base: PRIMARY_API_BASE },
                 { name: 'secondary', base: SECONDARY_API_BASE },
             ];
-
-            const primaryCooling = this.isProviderCoolingDown('primary');
-            const secondaryCooling = this.isProviderCoolingDown('secondary');
-
-            // Do not reset both breakers immediately: that defeats cooldown,
-            // floods failing providers with requests, and repeatedly trips breakers.
-            if (primaryCooling && secondaryCooling) {
-                if (cached?.data) {
-                    console.warn(`[MusicApiService] Both providers are cooling down. Serving stale cache for ${pathAndQuery}.`);
-                    return { data: cached.data as T, isCached: true, provider: 'cache' };
-                }
-                const retryAt = Math.max(this.providerCooldownUntil.primary, this.providerCooldownUntil.secondary);
-                throw new Error(`All music providers are temporarily unavailable. Retry after ${new Date(retryAt).toISOString()}.`);
-            }
-
-            if (primaryCooling && !secondaryCooling) {
-                // Prioritize secondary if primary is cooling down.
-                providers.reverse();
-            }
+            if (this.isProviderCoolingDown('primary') && !this.isProviderCoolingDown('secondary')) providers.reverse();
 
             let lastError: any = null;
+            const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
 
             for (const provider of providers) {
-                if (this.isProviderCoolingDown(provider.name)) {
-                    continue;
-                }
-
-                const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
-                const targetUrl = `${provider.base}${cleanPath}`;
+                if (this.isProviderCoolingDown(provider.name)) continue;
 
                 for (let attempt = 0; attempt < 2; attempt++) {
+                    if (controller.signal.aborted) throw createCanceledError();
                     try {
-                        const response = await axios.get(targetUrl, {
+                        const response = await axios.get(`${provider.base}${cleanPath}`, {
                             timeout: config.timeout || 7000,
+                            headers: config.headers,
+                            params: config.params,
+                            signal: controller.signal,
                         });
-
                         const normalized = this.normalizeResponse(response.data);
-                        if (normalized) {
-                            this.recordProviderSuccess(provider.name);
-                            await this.persistEntry(key, normalized);
-                            return { data: normalized as T, isCached: false, provider: provider.name };
-                        } else {
-                            throw new Error(`Malformed or error payload received from ${provider.name}`);
-                        }
-                    } catch (err: any) {
-                        lastError = err;
-                        if (attempt === 1) {
-                            this.recordProviderFailure(provider.name);
-                        } else {
-                            await new Promise((res) => setTimeout(res, 300 * (attempt + 1)));
-                        }
+                        if (!normalized) throw new Error(`Malformed payload from ${provider.name}`);
+                        this.recordProviderSuccess(provider.name);
+                        await this.persistEntry(key, normalized);
+                        return { data: normalized as T, isCached: false, provider: provider.name };
+                    } catch (error: any) {
+                        if (isCanceled(error) || controller.signal.aborted) throw createCanceledError();
+                        lastError = error;
+                        const status = error?.response?.status;
+                        const retryable = !status || status === 429 || status >= 500 || error?.code === 'ECONNABORTED';
+                        if (attempt === 1 || !retryable) this.recordProviderFailure(provider.name, error);
+                        if (attempt === 0 && retryable) await wait(250, controller.signal);
+                        else if (!retryable) break;
                     }
                 }
             }
 
-            // Both network providers failed: return cached data if available without throwing
-            if (cached && cached.data) {
-                console.warn(`[MusicApiService] Network providers unavailable for ${pathAndQuery}. Serving stale cached data.`);
+            if (cached?.data) {
+                console.warn(`[MusicApiService] Providers unavailable for ${pathAndQuery}; serving stale cache.`);
                 return { data: cached.data as T, isCached: true, provider: 'cache' };
             }
-
             throw lastError || new Error(`All music providers failed for ${pathAndQuery}`);
         })();
 
-        this.inFlightRequests.set(key, requestPromise);
+        const entry: InFlightEntry<T> = { promise: requestPromise, controller, consumers: 0 };
+        this.inFlightRequests.set(key, entry);
+        // Ensure only this request removes its own map entry.
+        requestPromise.finally(() => {
+            if (this.inFlightRequests.get(key) === entry) this.inFlightRequests.delete(key);
+        }).catch(() => undefined);
 
-        try {
-            // Bind caller's signal safely
-            if (config.signal) {
-                return await new Promise<ApiResponse<T>>((resolve, reject) => {
-                    const onAbort = () => {
-                        const err = new Error('canceled');
-                        (err as any).name = 'CanceledError';
-                        reject(err);
-                    };
-                    config.signal!.addEventListener('abort', onAbort, { once: true });
-                    requestPromise.then(
-                        (res) => {
-                            config.signal!.removeEventListener('abort', onAbort);
-                            resolve(res);
-                        },
-                        (err) => {
-                            config.signal!.removeEventListener('abort', onAbort);
-                            reject(err);
-                        }
-                    );
-                });
-            }
-
-            return await requestPromise;
-        } finally {
-            this.inFlightRequests.delete(key);
-        }
+        return this.waitForShared<T>(entry, callerSignal);
     }
 
-    /**
-     * Synchronously access cached data if available
-     */
     public getCachedData<T = any>(cacheKey: string): T | null {
         const cached = this.memoryCache.get(cacheKey);
-        return cached ? (cached.data as T) : null;
+        return cached ? cached.data as T : null;
     }
 
-    /**
-     * Clear all memory and persistent caches (for testing and manual reset)
-     */
     public async clearCache(): Promise<void> {
         this.memoryCache.clear();
+        this.inFlightRequests.forEach((entry) => entry.controller.abort());
         this.inFlightRequests.clear();
         this.providerFailureCount = { primary: 0, secondary: 0 };
         this.providerCooldownUntil = { primary: 0, secondary: 0 };
         try {
-            if (typeof window !== 'undefined' && window.localStorage) {
-                localStorage.removeItem('vibeon_music_cache');
-            }
+            if (typeof window !== 'undefined' && window.localStorage) localStorage.removeItem('vibeon_music_cache');
             const db = await getCacheDB();
-            if (db) {
-                await db.clear('feed_cache');
-            }
-        } catch {
-            // Ignore clear errors
-        }
+            if (db) await db.clear('feed_cache');
+        } catch { /* Ignore cache cleanup errors. */ }
     }
 }
 
