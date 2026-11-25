@@ -42,6 +42,7 @@ const MainSection: React.FC = () => {
     const [isStaleData, setIsStaleData] = useState(false);
     const [retryTrigger, setRetryTrigger] = useState(0);
     const [homePreferences, setHomePreferences] = useState(() => getHomePreferences());
+    const feedVisibilityKey = JSON.stringify(homePreferences.visible);
 
     useEffect(() => subscribeHomePreferences(() => setHomePreferences(getHomePreferences())), []);
 
@@ -183,7 +184,7 @@ const MainSection: React.FC = () => {
                     setLoading(false);
                 }
             }
-    }, [language, homePreferences]);
+    }, [language, feedVisibilityKey]);
 
     useEffect(() => {
         if (isOffline) return;
