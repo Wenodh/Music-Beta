@@ -98,7 +98,7 @@ const MainSection: React.FC = () => {
 
                 const fetchFeed = (url: string) => {
                     const path = extractPath(url);
-                    return musicApiService.fetchWithFallback(path, { signal });
+                    return musicApiService.fetchWithFallback(path, { signal }, undefined, { staleWhileRevalidate: true });
                 };
 
                 const results = await Promise.allSettled([
@@ -164,7 +164,61 @@ const MainSection: React.FC = () => {
                     latestSongs: latestSongs
                 });
 
-                // Detect if content was served from stale cache
+                // Show stale content immediately, then patch only the sections that refresh.
+                const refreshes: Promise<any>[] = [];
+                const refreshField = (result: PromiseSettledResult<any>, field: keyof typeof data, select: (payload: any) => any[]) => {
+                    if (result.status !== 'fulfilled' || !result.value.refreshPromise) return;
+                    refreshes.push(result.value.refreshPromise.then((freshResponse: any) => {
+                        if (signal.aborted) return freshResponse;
+                        setData(previous => ({ ...previous, [field]: select(freshResponse.data) }));
+                        return freshResponse;
+                    }));
+                };
+
+                refreshField(albumsRes, 'albums', payload => payload.data?.results || []);
+                refreshField(songsRes, 'songs', payload => deduplicateSongs(payload.data?.results || []).slice(0, 50));
+                refreshField(playlistsRes, 'playlists', payload => payload.data?.results || []);
+                refreshField(meditationRes, 'meditation', payload => payload.data?.results || []);
+                refreshField(workRes, 'work', payload => payload.data?.results || []);
+                refreshField(devPicksRes, 'devPicks', payload => payload.data?.songs || []);
+                refreshField(chillRes, 'chill', payload => payload.data?.results || []);
+                refreshField(workoutRes, 'workout', payload => payload.data?.results || []);
+                refreshField(latestSongsRes, 'latestSongs', payload => deduplicateSongs(payload.data?.results || []).slice(0, 50));
+
+                artistsResults.forEach((result, index) => {
+                    if (result.status !== 'fulfilled' || !result.value.refreshPromise) return;
+                    refreshes.push(result.value.refreshPromise.then((freshResponse: any) => {
+                        if (signal.aborted) return freshResponse;
+                        const freshArtist = freshResponse.data.data?.results?.[0];
+                        if (freshArtist) {
+                            const previousArtist = result.value.data.data?.results?.[0];
+                            const artistName = artistsToFetch[index];
+                            setData(previous => {
+                                const artists = [...previous.artists];
+                                const existingIndex = artists.findIndex(artist =>
+                                    (previousArtist?.id && artist.id === previousArtist.id) ||
+                                    (artistName && artist.name?.toLowerCase() === artistName.toLowerCase())
+                                );
+                                if (existingIndex >= 0) artists[existingIndex] = freshArtist;
+                                else artists.push(freshArtist);
+                                return { ...previous, artists };
+                            });
+                        }
+                        return freshResponse;
+                    }));
+                });
+
+                // Keep the stale banner until all background refreshes have settled successfully.
+                if (refreshes.length) {
+                    void Promise.allSettled(refreshes).then(outcomes => {
+                        if (signal.aborted) return;
+                        const allFresh = outcomes.every(outcome =>
+                            outcome.status === 'fulfilled' && outcome.value?.provider !== 'cache'
+                        );
+                        if (allFresh) setIsStaleData(false);
+                    });
+                }
+
                 const hasCachedProvider = results.some(r => r.status === 'fulfilled' && (r.value as any).provider === 'cache');
                 setIsStaleData(hasCachedProvider);
 
