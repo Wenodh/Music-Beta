@@ -9,6 +9,7 @@ interface CacheEntry<T> {
     key: string;
     data: T;
     timestamp: number;
+    lastAccessedAt?: number;
 }
 
 interface InFlightEntry<T = any> {
@@ -81,12 +82,25 @@ export class MusicApiService {
     private inFlightRequests = new Map<string, InFlightEntry>();
     private providerFailureCount: Record<string, number> = { primary: 0, secondary: 0 };
     private providerCooldownUntil: Record<string, number> = { primary: 0, secondary: 0 };
+    private storageReady: Promise<void>;
+    private metrics = {
+        logicalRequests: 0,
+        httpAttempts: 0,
+        cacheHits: 0,
+        cacheMisses: 0,
+        deduplicatedRequests: 0,
+        retries: 0,
+        providerFallbacks: 0,
+        providerFailures: 0,
+        staleFallbacks: 0,
+        cancellations: 0,
+    };
 
     private readonly COOLDOWN_MS = 60000;
     private readonly MAX_CONSECUTIVE_FAILURES = 3;
 
     constructor() {
-        void this.loadFromStorage();
+        this.storageReady = this.loadFromStorage();
     }
 
     private async loadFromStorage() {
@@ -122,13 +136,14 @@ export class MusicApiService {
     }
 
     private async persistEntry<T>(key: string, data: T) {
-        const entry: CacheEntry<T> = { key, data, timestamp: Date.now() };
+        const now = Date.now();
+        const entry: CacheEntry<T> = { key, data, timestamp: now, lastAccessedAt: now };
         this.memoryCache.set(key, entry);
 
         // Keep memory/storage bounded; evict oldest entries first.
         if (this.memoryCache.size > MAX_CACHE_ENTRIES) {
             const oldest = [...this.memoryCache.values()]
-                .sort((a, b) => a.timestamp - b.timestamp)
+                .sort((a, b) => (a.lastAccessedAt ?? a.timestamp) - (b.lastAccessedAt ?? b.timestamp))
                 .slice(0, this.memoryCache.size - MAX_CACHE_ENTRIES);
             oldest.forEach((item) => this.memoryCache.delete(item.key));
         }
@@ -140,9 +155,12 @@ export class MusicApiService {
                 const count = await db.count('feed_cache');
                 if (count > MAX_CACHE_ENTRIES) {
                     const all = await db.getAll('feed_cache');
-                    all.sort((a, b) => a.timestamp - b.timestamp)
-                        .slice(0, count - MAX_CACHE_ENTRIES)
-                        .forEach((item) => { void db.delete('feed_cache', item.key); });
+                    const oldest = all
+                        .sort((a, b) => (a.lastAccessedAt ?? a.timestamp) - (b.lastAccessedAt ?? b.timestamp))
+                        .slice(0, count - MAX_CACHE_ENTRIES);
+                    const transaction = db.transaction('feed_cache', 'readwrite');
+                    await Promise.all(oldest.map((item) => transaction.store.delete(item.key)));
+                    await transaction.done;
                 }
             }
         } catch {
@@ -171,6 +189,7 @@ export class MusicApiService {
         const status = error?.response?.status;
         if (status && status < 500 && status !== 429) return;
 
+        this.metrics.providerFailures += 1;
         this.providerFailureCount[name] = (this.providerFailureCount[name] || 0) + 1;
         if (this.providerFailureCount[name] >= this.MAX_CONSECUTIVE_FAILURES && !this.isProviderCoolingDown(name)) {
             this.providerCooldownUntil[name] = Date.now() + this.COOLDOWN_MS;
@@ -210,7 +229,7 @@ export class MusicApiService {
             if (released) return;
             released = true;
             entry.consumers = Math.max(0, entry.consumers - 1);
-            if (entry.consumers === 0 && this.inFlightRequests.size && entry.controller.signal.aborted === false) {
+            if (entry.consumers === 0 && entry.controller.signal.aborted === false) {
                 // Cancel upstream work only when every waiting caller has left.
                 entry.controller.abort();
             }
@@ -249,17 +268,27 @@ export class MusicApiService {
         cacheKey?: string
     ): Promise<ApiResponse<T>> {
         const key = cacheKey || pathAndQuery;
-        const cached = this.memoryCache.get(key);
         const callerSignal = config.signal;
+        this.metrics.logicalRequests += 1;
+        await this.storageReady;
+        const cached = this.memoryCache.get(key);
 
-        if (callerSignal?.aborted) throw createCanceledError();
+        if (callerSignal?.aborted) {
+            this.metrics.cancellations += 1;
+            throw createCanceledError();
+        }
 
         if (cached && Date.now() - cached.timestamp < this.getTtl(key)) {
+            this.metrics.cacheHits += 1;
+            cached.lastAccessedAt = Date.now();
+            this.memoryCache.set(key, cached);
             return { data: cached.data as T, isCached: true, provider: 'cache' };
         }
+        this.metrics.cacheMisses += 1;
 
         const existing = this.inFlightRequests.get(key);
         if (existing && !existing.controller.signal.aborted) {
+            this.metrics.deduplicatedRequests += 1;
             return this.waitForShared<T>(existing, callerSignal);
         }
         // A canceled request can remain in the map until its promise settles.
@@ -293,6 +322,8 @@ export class MusicApiService {
                 for (let attempt = 0; attempt < 2; attempt++) {
                     if (controller.signal.aborted) throw createCanceledError();
                     try {
+                        this.metrics.httpAttempts += 1;
+                        if (provider.name === 'secondary') this.metrics.providerFallbacks += 1;
                         const response = await axios.get(`${provider.base}${cleanPath}`, {
                             timeout: config.timeout || 7000,
                             headers: config.headers,
@@ -305,18 +336,25 @@ export class MusicApiService {
                         await this.persistEntry(key, normalized);
                         return { data: normalized as T, isCached: false, provider: provider.name };
                     } catch (error: any) {
-                        if (isCanceled(error) || controller.signal.aborted) throw createCanceledError();
+                        if (isCanceled(error) || controller.signal.aborted) {
+                            this.metrics.cancellations += 1;
+                            throw createCanceledError();
+                        }
                         lastError = error;
                         const status = error?.response?.status;
                         const retryable = !status || status === 429 || status >= 500 || error?.code === 'ECONNABORTED';
                         if (attempt === 1 || !retryable) this.recordProviderFailure(provider.name, error);
-                        if (attempt === 0 && retryable) await wait(250, controller.signal);
+                        if (attempt === 0 && retryable) {
+                            this.metrics.retries += 1;
+                            await wait(250, controller.signal);
+                        }
                         else if (!retryable) break;
                     }
                 }
             }
 
             if (cached?.data) {
+                this.metrics.staleFallbacks += 1;
                 console.warn(`[MusicApiService] Providers unavailable for ${pathAndQuery}; serving stale cache.`);
                 return { data: cached.data as T, isCached: true, provider: 'cache' };
             }
@@ -333,13 +371,13 @@ export class MusicApiService {
         return this.waitForShared<T>(entry, callerSignal);
     }
 
-    public getCacheStats(): { entries: number; approximateBytes: number } {
+    public getCacheStats(): { entries: number; approximateBytes: number; metrics: typeof this.metrics } {
         let approximateBytes = 0;
         for (const [key, entry] of this.memoryCache.entries()) {
             try { approximateBytes += key.length * 2 + JSON.stringify(entry.data).length * 2; }
             catch { /* Ignore non-serializable cache payloads in this estimate. */ }
         }
-        return { entries: this.memoryCache.size, approximateBytes };
+        return { entries: this.memoryCache.size, approximateBytes, metrics: { ...this.metrics } };
     }
 
     public getCachedData<T = any>(cacheKey: string): T | null {
@@ -353,6 +391,7 @@ export class MusicApiService {
         this.inFlightRequests.clear();
         this.providerFailureCount = { primary: 0, secondary: 0 };
         this.providerCooldownUntil = { primary: 0, secondary: 0 };
+        this.metrics = { logicalRequests: 0, httpAttempts: 0, cacheHits: 0, cacheMisses: 0, deduplicatedRequests: 0, retries: 0, providerFallbacks: 0, providerFailures: 0, staleFallbacks: 0, cancellations: 0 };
         try {
             if (typeof window !== 'undefined' && window.localStorage) localStorage.removeItem('vibeon_music_cache');
             const db = await getCacheDB();
