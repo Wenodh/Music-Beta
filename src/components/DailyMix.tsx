@@ -13,52 +13,65 @@ const DailyMix: React.FC = () => {
     const COOLDOWN = 30 * 60 * 1000; // 30 minutes cooldown
 
     useEffect(() => {
+        if (!recentlyPlayed?.length) return;
+        if (dailyMix?.length && Date.now() - lastDailyMixUpdate < COOLDOWN) return;
+
+        const controller = new AbortController();
+        let mounted = true;
+
         const fetchMix = async () => {
-            if (!recentlyPlayed || recentlyPlayed.length === 0) return;
-
-            const now = Date.now();
-            // Only update if cooldown has passed or if we have no songs yet
-            if (dailyMix && dailyMix.length > 0 && (now - lastDailyMixUpdate < COOLDOWN)) {
-                return;
-            }
-
             setLoading(true);
             try {
-                // Get a few recent songs to base suggestions on
+                // Seed from the three most recent tracks; the API service deduplicates
+                // identical requests and caches each seed's recommendation response.
                 const baseSongs = recentlyPlayed.slice(0, 3);
-                const suggestPromises = baseSongs.map(song => {
+                const results = await Promise.allSettled(baseSongs.map((song) => {
                     const fullUrl = suggestions(song.id);
-                    const path = fullUrl.replace(/https?:\/\/[^/]+/, '');
-                    return musicApiService.fetchWithFallback(path, { timeout: 6000 });
-                });
-                const results = await Promise.allSettled(suggestPromises);
+                    const path = fullUrl.replace(/https?:\\/\\/[^/]+/, '');
+                    return musicApiService.fetchWithFallback(path, {
+                        timeout: 6000,
+                        signal: controller.signal,
+                    });
+                }));
 
-                let allSuggestions: any[] = [];
-                results.forEach(res => {
-                    if (res.status === 'fulfilled') {
-                        const payload = res.value.data;
-                        allSuggestions = [...allSuggestions, ...(payload.data || [])];
+                if (controller.signal.aborted) return;
+
+                const byId = new Map<string, any>();
+                results.forEach((result) => {
+                    if (result.status !== 'fulfilled') return;
+                    const payload = result.value.data;
+                    const tracks = payload?.data || payload?.results || [];
+                    if (Array.isArray(tracks)) {
+                        tracks.forEach((track: any) => {
+                            if (track?.id && !byId.has(track.id)) byId.set(track.id, track);
+                        });
                     }
                 });
 
-                // Remove duplicates and shuffle (Fisher-Yates)
-                const uniqueSuggestions = Array.from(new Map(allSuggestions.map(s => [s.id, s])).values());
+                const uniqueSuggestions = [...byId.values()];
                 for (let i = uniqueSuggestions.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [uniqueSuggestions[i], uniqueSuggestions[j]] = [uniqueSuggestions[j], uniqueSuggestions[i]];
                 }
-                const shuffled = uniqueSuggestions.slice(0, 20);
 
-                dispatch(setDailyMix({ songs: shuffled, timestamp: now }));
-            } catch (error) {
-                console.error('Error fetching Daily Mix:', error);
+                if (mounted && uniqueSuggestions.length) {
+                    dispatch(setDailyMix({ songs: uniqueSuggestions.slice(0, 20), timestamp: Date.now() }));
+                }
+            } catch (error: any) {
+                if (error?.name !== 'CanceledError' && !controller.signal.aborted) {
+                    console.error('Error fetching Daily Mix:', error);
+                }
             } finally {
-                setLoading(false);
+                if (mounted && !controller.signal.aborted) setLoading(false);
             }
         };
 
-        fetchMix();
-    }, [recentlyPlayed]);
+        void fetchMix();
+        return () => {
+            mounted = false;
+            controller.abort();
+        };
+    }, [recentlyPlayed, dailyMix, lastDailyMixUpdate, dispatch]);
 
     const itemVariants = {
         hidden: { y: 20, opacity: 0 },
