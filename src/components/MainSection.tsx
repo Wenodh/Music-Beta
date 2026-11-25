@@ -7,6 +7,7 @@ import { IoCloudOffline, IoArrowForward, IoGameControllerOutline, IoRefreshOutli
 import { useNavigate } from 'react-router-dom';
 import { musicApiService } from '../services/musicApiService';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
+import { getHomePreferences, HOME_SECTIONS, HomeSectionId, subscribeHomePreferences } from '../features/home/homePreferences';
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
@@ -40,6 +41,9 @@ const MainSection: React.FC = () => {
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [isStaleData, setIsStaleData] = useState(false);
     const [retryTrigger, setRetryTrigger] = useState(0);
+    const [homePreferences, setHomePreferences] = useState(() => getHomePreferences());
+
+    useEffect(() => subscribeHomePreferences(() => setHomePreferences(getHomePreferences())), []);
 
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
@@ -69,7 +73,8 @@ const MainSection: React.FC = () => {
                 };
 
                 // Keep the first paint lightweight; featured artists are intentionally capped here.
-                const artistsToFetch = (curatedArtists[language.toLowerCase()] || [language]).slice(0, 5);
+                const artistsToFetch = homePreferences.visible.featuredArtists ? (curatedArtists[language.toLowerCase()] || [language]).slice(0, 5) : [];
+                const enabled = homePreferences.visible;
 
                 // Helper to sanitize base URLs for limit parameter
                 const getSanitizedUrl = (baseUrl: string) => {
@@ -96,15 +101,15 @@ const MainSection: React.FC = () => {
                 };
 
                 const results = await Promise.allSettled([
-                    fetchFeed(`${modules}${language}&page=0&limit=25`),
-                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=60`),
-                    fetchFeed(`${playlistSearch}${language}`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
-                    fetchFeed(`${playlistById}158224644`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=60`),
+                    enabled.trendingAlbums ? fetchFeed(`${modules}${language}&page=0&limit=25`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.trendingSongs ? fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=60`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.topPlaylists ? fetchFeed(`${playlistSearch}${language}`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.meditation ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.work ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.developerPicks ? fetchFeed(`${playlistById}158224644`) : Promise.resolve({ data: { data: { songs: [] } }, provider: 'skipped' }),
+                    enabled.chill ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.workout ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.latestSongs ? fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=60`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
                     ...artistsToFetch.map(name => {
                         return fetchFeed(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
@@ -277,9 +282,9 @@ const MainSection: React.FC = () => {
                 </div>
             )}
 
-            <DailyMix />
+            {homePreferences.visible.dailyMix && <DailyMix />}
 
-            {/* Arcade Promotional Entry Banner */}
+            {homePreferences.visible.arcade && <>{/* Arcade Promotional Entry Banner */}
             <motion.div
                 variants={itemVariants}
                 onClick={() => navigate('/arcade')}
@@ -298,70 +303,70 @@ const MainSection: React.FC = () => {
                 <button className="px-4 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shrink-0">
                     Play
                 </button>
-            </motion.div>
+            </motion.div></>}
 
-            {recentlyPlayed && recentlyPlayed.length > 0 && (
+            {homePreferences.visible.recentlyPlayed && recentlyPlayed && recentlyPlayed.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={recentlyPlayed} title="Recently Played Songs" />
                 </motion.div>
             )}
-            {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
+            {homePreferences.visible.recentlyPlayedAlbums && recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
                 </motion.div>
             )}
-            {data.latestSongs && data.latestSongs.length > 0 && (
+            {homePreferences.visible.latestSongs && data.latestSongs && data.latestSongs.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.latestSongs} title="Latest Songs" />
                 </motion.div>
             )}
 
-            {data.songs && data.songs.length > 0 && (
+            {homePreferences.visible.trendingSongs && data.songs && data.songs.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.songs} title="Trending Songs" />
                 </motion.div>
             )}
-            {data.albums && data.albums.length > 0 && (
+            {homePreferences.visible.trendingAlbums && data.albums && data.albums.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.albums} title="Trending Albums" />
                 </motion.div>
             )}
-            {data.artists && data.artists.length > 0 && (
+            {homePreferences.visible.featuredArtists && data.artists && data.artists.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.artists} title="Featured Artists" />
                 </motion.div>
             )}
-            {data.playlists && data.playlists.length > 0 && (
+            {homePreferences.visible.topPlaylists && data.playlists && data.playlists.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.playlists} title="Top Playlists" />
                 </motion.div>
             )}
 
-            {data.meditation && data.meditation.length > 0 && (
+            {homePreferences.visible.meditation && data.meditation && data.meditation.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.meditation} title="Meditation" />
                 </motion.div>
             )}
 
-            {data.work && data.work.length > 0 && (
+            {homePreferences.visible.work && data.work && data.work.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.work} title="Work" />
                 </motion.div>
             )}
 
-            {data.devPicks && data.devPicks.length > 0 && (
+            {homePreferences.visible.developerPicks && data.devPicks && data.devPicks.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.devPicks} title="Developer's Picks" />
                 </motion.div>
             )}
 
-            {data.chill && data.chill.length > 0 && (
+            {homePreferences.visible.chill && data.chill && data.chill.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.chill} title="Chill" />
                 </motion.div>
             )}
 
-            {data.workout && data.workout.length > 0 && (
+            {homePreferences.visible.workout && data.workout && data.workout.length > 0 && (
                 <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
                     <Slider data={data.workout} title="Workout" />
                 </motion.div>
