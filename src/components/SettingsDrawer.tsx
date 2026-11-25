@@ -656,6 +656,7 @@ const SettingsDrawer: React.FC = () => {
                                 <div className="grid grid-cols-3 gap-2">
                                     {[
                                         ['Logical calls', apiCacheStats.metrics.logicalRequests],
+                                        ['Background refreshes', apiCacheStats.metrics.backgroundRefreshes],
                                         ['HTTP attempts', apiCacheStats.metrics.httpAttempts],
                                         ['Cache hits', apiCacheStats.metrics.cacheHits],
                                         ['Deduplicated', apiCacheStats.metrics.deduplicatedRequests],
