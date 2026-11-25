@@ -15,6 +15,7 @@ const SearchPage: React.FC = () => {
     const { searchedSongs, isSearching, searchError, searchQuery } = useAppSelector((state) => state.musicPlayer);
     const [activeTab, setActiveTab] = useState<'all' | 'songs' | 'albums' | 'artists' | 'playlists'>('all');
     const [loadingMoreArtists, setLoadingMoreArtists] = useState(false);
+    const [hasRequestedMoreArtists, setHasRequestedMoreArtists] = useState(false);
     const { playSearchSong, loadingSongId } = useSearchSongPlayer();
 
     const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
@@ -191,7 +192,8 @@ const SearchPage: React.FC = () => {
                                         />
                                     </div>
                                     <p className="text-xs font-bold text-white truncate w-full">{decodeHtmlEntities(artist.name)}</p>
-                                    <p className="text-[10px] text-gray-400 truncate mt-0.5 uppercase tracking-wider">{artist.role || artist.category || 'Artist'}</p>
+                                    <p className="text-[10px] text-gray-400 truncate mt-0.5 uppercase tracking-wider">{artist.role || artist.category || 'Artist'}{artist.followerCount ? ` • ${Number(artist.followerCount).toLocaleString()} followers` : ''}</p>
+                                    {artist.description && <p className="text-[10px] text-gray-500 line-clamp-2 mt-1">{decodeHtmlEntities(artist.description)}</p>}
                                 </div>
                             ))}
 
@@ -214,12 +216,13 @@ const SearchPage: React.FC = () => {
                             ))}
                         </motion.div>
                     </AnimatePresence>
-                    {(activeTab === 'artists' || activeTab === 'all') && artists.length > 0 && searchQuery && (
+                    {(activeTab === 'artists' || activeTab === 'all') && artists.length > 0 && searchQuery && !hasRequestedMoreArtists && (
                         <div className="flex justify-center mt-6">
                             <button
                                 disabled={loadingMoreArtists}
                                 onClick={async () => {
                                     setLoadingMoreArtists(true);
+                                    setHasRequestedMoreArtists(true);
                                     try {
                                         const path = `/api/search/artists?query=${encodeURIComponent(searchQuery)}&limit=20`;
                                         const response = await musicApiService.fetchWithFallback(path, { timeout: 7000 });
@@ -232,6 +235,7 @@ const SearchPage: React.FC = () => {
                                             artists: { ...(data?.artists || {}), results: merged }
                                         }));
                                     } catch (error) {
+                                        setHasRequestedMoreArtists(false);
                                         console.warn('[Search] Unable to load more artists', error);
                                     } finally {
                                         setLoadingMoreArtists(false);
