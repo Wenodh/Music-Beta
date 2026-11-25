@@ -73,6 +73,23 @@ describe('MusicApiService request coordination and cache behavior', () => {
         expect(service.getCacheStats().metrics.logicalRequests).toBe(2);
     });
 
+    it('honors long Retry-After values by falling back instead of retrying early', async () => {
+        const rateLimited = Object.assign(new Error('rate limited'), {
+            response: { status: 429, headers: { 'retry-after': '30' } },
+        });
+        mockedGet
+            .mockRejectedValueOnce(rateLimited)
+            .mockResolvedValueOnce({ data: payload([{ id: 'secondary-song' }]) } as any);
+
+        const service = new MusicApiService();
+        const response = await service.fetchWithFallback('/api/trending');
+
+        expect(response.provider).toBe('secondary');
+        expect(mockedGet).toHaveBeenCalledTimes(2);
+        expect(service.getCacheStats().metrics.retries).toBe(0);
+        expect(service.getCacheStats().metrics.providerFallbacks).toBe(1);
+    });
+
     it('returns fresh cached data without making another HTTP request', async () => {
         mockedGet.mockResolvedValueOnce({ data: payload([{ id: 'cached-song' }]) } as any);
         const service = new MusicApiService();
