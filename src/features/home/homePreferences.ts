@@ -49,15 +49,27 @@ const normalize = (value: Partial<HomePreferences> | null | undefined): HomePref
     const base = defaults();
     if (!value) return base;
     const validIds = new Set<string>(HOME_SECTIONS.map(section => section.id));
-    const order = Array.isArray(value.order) ? value.order.filter((id): id is HomeSectionId => validIds.has(id)) : base.order;
+    const order = Array.isArray(value.order)
+        ? [...new Set(value.order.filter((id): id is HomeSectionId => validIds.has(id)))]
+        : [...base.order];
     HOME_SECTIONS.forEach(section => { if (!order.includes(section.id)) order.push(section.id); });
-    const visible = { ...base.visible, ...(value.visible || {}) };
+
+    const visible = { ...base.visible };
+    HOME_SECTIONS.forEach(section => {
+        const candidate = value.visible?.[section.id];
+        if (typeof candidate === 'boolean') visible[section.id] = candidate;
+    });
+
+    const validPresets: HomePreferences['cachePreset'][] = ['frequent', 'balanced', 'save', 'custom'];
+    const cachePreset = validPresets.includes(value.cachePreset as HomePreferences['cachePreset'])
+        ? value.cachePreset as HomePreferences['cachePreset']
+        : 'balanced';
     const cacheHours = { ...base.cacheHours };
     CACHE_CATEGORIES.forEach(category => {
         const candidate = Number(value.cacheHours?.[category.id]);
         if (Number.isFinite(candidate)) cacheHours[category.id] = Math.min(category.maxHours, Math.max(category.minHours, candidate));
     });
-    return { visible, order, cacheHours, cachePreset: value.cachePreset || 'balanced' };
+    return { visible, order, cacheHours, cachePreset };
 };
 
 export const getHomePreferences = (): HomePreferences => {
@@ -76,8 +88,11 @@ export const saveHomePreferences = (updates: Partial<HomePreferences>): HomePref
 export const subscribeHomePreferences = (listener: () => void) => {
     listeners.add(listener);
     if (typeof window !== 'undefined') {
-        window.addEventListener('storage', listener);
-        return () => { listeners.delete(listener); window.removeEventListener('storage', listener); };
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === STORAGE_KEY || event.key === null) listener();
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => { listeners.delete(listener); window.removeEventListener('storage', handleStorage); };
     }
     return () => listeners.delete(listener);
 };
