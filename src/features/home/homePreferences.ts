@@ -83,7 +83,8 @@ export const subscribeHomePreferences = (listener: () => void) => {
 };
 
 export const getConfiguredCacheTtl = (key: string): number => {
-    const path = key.toLowerCase();
+    let path = key.toLowerCase();
+    try { path = decodeURIComponent(path); } catch { /* Keep the encoded cache key if malformed. */ }
     let category: CacheCategory = 'catalog';
     if (/search/.test(path)) category = 'search';
     else if (/recommend|radio|daily.?mix/.test(path)) category = 'recommendations';
