@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import { setSearchedSongs } from '../features/musicplayer/musicPlayerSlice';
 import { musicApiService } from '../services/musicApiService';
@@ -14,14 +14,119 @@ const SearchPage: React.FC = () => {
     const { theme } = useAppSelector((state) => state.ui);
     const { searchedSongs, isSearching, searchError, searchQuery } = useAppSelector((state) => state.musicPlayer);
     const [activeTab, setActiveTab] = useState<'all' | 'songs' | 'albums' | 'artists' | 'playlists'>('all');
-    const [loadingMoreArtists, setLoadingMoreArtists] = useState(false);
-    const [hasRequestedMoreArtists, setHasRequestedMoreArtists] = useState(false);
+    type SearchCategory = 'songs' | 'albums' | 'artists' | 'playlists';
+    const SEARCH_PAGE_SIZE = 10;
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+    const [nextPages, setNextPages] = useState<Record<SearchCategory, number>>({
+        songs: 1, albums: 1, artists: 1, playlists: 1,
+    });
+    const [exhausted, setExhausted] = useState<Record<SearchCategory, boolean>>({
+        songs: false, albums: false, artists: false, playlists: false,
+    });
+    const loadingMoreRef = useRef(false);
+    const loadMoreControllerRef = useRef<AbortController | null>(null);
+    const searchQueryRef = useRef(searchQuery);
     const { playSearchSong, loadingSongId } = useSearchSongPlayer();
 
     useEffect(() => {
+        searchQueryRef.current = searchQuery;
         setActiveTab('all');
-        setHasRequestedMoreArtists(false);
+        setNextPages({ songs: 1, albums: 1, artists: 1, playlists: 1 });
+        setExhausted({ songs: false, albums: false, artists: false, playlists: false });
+        setLoadMoreError(null);
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+        loadMoreControllerRef.current?.abort();
+        loadMoreControllerRef.current = null;
     }, [searchQuery]);
+
+    useEffect(() => () => loadMoreControllerRef.current?.abort(), []);
+
+    const categories: SearchCategory[] = ['songs', 'albums', 'artists', 'playlists'];
+    const canLoadMoreCategory = (category: SearchCategory) => {
+        const section = data?.[category];
+        const results = section?.results || [];
+        const total = Number(section?.total);
+        const start = Number(section?.start || 0);
+        if (Number.isFinite(total) && total > 0) return start + results.length < total && !exhausted[category];
+        return results.length >= SEARCH_PAGE_SIZE && !exhausted[category];
+    };
+
+    const loadMoreCategories: SearchCategory[] = activeTab === 'all'
+        ? categories.filter(canLoadMoreCategory)
+        : categories.includes(activeTab as SearchCategory) && canLoadMoreCategory(activeTab as SearchCategory)
+            ? [activeTab as SearchCategory]
+            : [];
+
+    const handleShowMore = async () => {
+        if (loadingMoreRef.current || !searchQuery.trim() || !loadMoreCategories.length) return;
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+        setLoadMoreError(null);
+
+        const queryAtStart = searchQuery;
+        const controller = new AbortController();
+        loadMoreControllerRef.current?.abort();
+        loadMoreControllerRef.current = controller;
+
+        try {
+            const responses = await Promise.allSettled(loadMoreCategories.map(category =>
+                musicApiService.fetchWithFallback(
+                    `/api/search/${category}?query=${encodeURIComponent(queryAtStart)}&page=${nextPages[category]}&limit=${SEARCH_PAGE_SIZE}`,
+                    { timeout: 7000, signal: controller.signal }
+                )
+            ));
+
+            if (controller.signal.aborted || searchQueryRef.current !== queryAtStart) return;
+
+            let nextData = { ...(Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs) } as any;
+            let successful = 0;
+
+            responses.forEach((result, index) => {
+                const category = loadMoreCategories[index];
+                if (result.status !== 'fulfilled') return;
+                successful += 1;
+
+                const payload = result.value.data?.data || result.value.data || {};
+                const incoming = Array.isArray(payload.results) ? payload.results : [];
+                const existingSection = nextData[category] || {};
+                const existing = existingSection.results || [];
+                const seen = new Set(existing.map((item: any) => item?.id).filter(Boolean));
+                const merged = [...existing, ...incoming.filter((item: any) => item?.id && !seen.has(item.id))];
+
+                nextData[category] = {
+                    ...existingSection,
+                    ...payload,
+                    results: merged,
+                };
+
+                setNextPages(previous => ({ ...previous, [category]: previous[category] + 1 }));
+                const total = Number(payload.total ?? existingSection.total);
+                const start = Number(payload.start ?? existingSection.start ?? 0);
+                const hasTotal = Number.isFinite(total) && total > 0;
+                if (incoming.length < SEARCH_PAGE_SIZE || (hasTotal && start + incoming.length >= total)) {
+                    setExhausted(previous => ({ ...previous, [category]: true }));
+                }
+            });
+
+            if (successful > 0) dispatch(setSearchedSongs(nextData));
+            if (successful < loadMoreCategories.length) {
+                setLoadMoreError('Some results could not be loaded. Try again.');
+            }
+        } catch (error) {
+            if (!controller.signal.aborted) {
+                console.warn('[Search] Unable to load more results', error);
+                setLoadMoreError('Unable to load more results. Please try again.');
+            }
+        } finally {
+            if (loadMoreControllerRef.current === controller) {
+                loadMoreControllerRef.current = null;
+                loadingMoreRef.current = false;
+                setLoadingMore(false);
+            }
+        }
+    };
 
     const data = Array.isArray(searchedSongs) ? { songs: { results: searchedSongs } } : searchedSongs;
     const songs = data?.songs?.results || [];
@@ -221,35 +326,16 @@ const SearchPage: React.FC = () => {
                             ))}
                         </motion.div>
                     </AnimatePresence>
-                    {(activeTab === 'artists' || activeTab === 'all') && artists.length > 0 && searchQuery && !hasRequestedMoreArtists && (
-                        <div className="flex justify-center mt-6">
+                    {searchQuery && loadMoreCategories.length > 0 && (
+                        <div className="flex flex-col items-center gap-2 mt-6">
                             <button
-                                disabled={loadingMoreArtists}
-                                onClick={async () => {
-                                    setLoadingMoreArtists(true);
-                                    setHasRequestedMoreArtists(true);
-                                    try {
-                                        const path = `/api/search/artists?page=0&limit=25&query=${encodeURIComponent(searchQuery)}`;
-                                        const response = await musicApiService.fetchWithFallback(path, { timeout: 7000 });
-                                        const payload = response.data?.data?.results || response.data?.results || [];
-                                        const merged = [...artists, ...payload].filter((artist: any, index: number, list: any[]) =>
-                                            artist?.id && list.findIndex((item: any) => item.id === artist.id) === index
-                                        );
-                                        dispatch(setSearchedSongs({
-                                            ...data,
-                                            artists: { ...(data?.artists || {}), results: merged }
-                                        }));
-                                    } catch (error) {
-                                        setHasRequestedMoreArtists(false);
-                                        console.warn('[Search] Unable to load more artists', error);
-                                    } finally {
-                                        setLoadingMoreArtists(false);
-                                    }
-                                }}
+                                disabled={loadingMore}
+                                onClick={handleShowMore}
                                 className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-primary/20 border border-white/10 text-sm font-bold disabled:opacity-50"
                             >
-                                {loadingMoreArtists ? 'Loading artists…' : 'Show more artists'}
+                                {loadingMore ? 'Loading…' : 'Show more'}
                             </button>
+                            {loadMoreError && <p role="alert" className="text-xs text-red-400">{loadMoreError}</p>}
                         </div>
                     )}
                 </div>
