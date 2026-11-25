@@ -249,11 +249,16 @@ export class MusicApiService {
 
         return new Promise<ApiResponse<T>>((resolve, reject) => {
             const onAbort = () => {
+                if (released) return;
                 this.metrics.cancellations += 1;
                 release();
                 reject(createCanceledError());
             };
             signal.addEventListener('abort', onAbort, { once: true });
+            if (signal.aborted) {
+                onAbort();
+                return;
+            }
             entry.promise.then(
                 (result) => {
                     signal.removeEventListener('abort', onAbort);
