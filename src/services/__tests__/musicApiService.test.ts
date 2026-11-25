@@ -63,6 +63,7 @@ describe('MusicApiService request coordination and cache behavior', () => {
         );
 
         expect(stale.isCached).toBe(true);
+        expect(stale.isStale).toBe(true);
         expect(stale.data.data.results[0].id).toBe('old-song');
         expect(stale.refreshPromise).toBeDefined();
 
@@ -81,6 +82,7 @@ describe('MusicApiService request coordination and cache behavior', () => {
         const cached = await service.fetchWithFallback('/api/search?q=fresh-test');
 
         expect(cached.isCached).toBe(true);
+        expect(cached.isStale).toBe(false);
         expect(mockedGet).toHaveBeenCalledTimes(1);
         expect(service.getCacheStats().metrics.cacheHits).toBe(1);
     });
