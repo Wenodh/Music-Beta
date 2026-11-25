@@ -7,7 +7,7 @@ import { IoCloudOffline, IoArrowForward, IoGameControllerOutline, IoRefreshOutli
 import { useNavigate } from 'react-router-dom';
 import { musicApiService } from '../services/musicApiService';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
-import { getHomePreferences, HOME_SECTIONS, HomeSectionId, subscribeHomePreferences } from '../features/home/homePreferences';
+import { getHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
@@ -74,8 +74,8 @@ const MainSection: React.FC = () => {
                 };
 
                 // Keep the first paint lightweight; featured artists are intentionally capped here.
-                const artistsToFetch = homePreferences.visible.featuredArtists ? (curatedArtists[language.toLowerCase()] || [language]).slice(0, 5) : [];
-                const enabled = homePreferences.visible;
+                const artistsToFetch = getHomePreferences().visible.featuredArtists ? (curatedArtists[language.toLowerCase()] || [language]).slice(0, 5) : [];
+                const enabled = getHomePreferences().visible;
 
                 // Helper to sanitize base URLs for limit parameter
                 const getSanitizedUrl = (baseUrl: string) => {
