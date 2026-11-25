@@ -620,7 +620,7 @@ const SettingsDrawer: React.FC = () => {
             case 'home':
                 return (
                     <div className="space-y-6">
-                        <section className="space-y-3">
+                        <section id="home-sections" className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">Home screen sections</h3>
                                 <p className="text-xs text-gray-500">Choose what appears on Home. Disabled sections will not be requested by the Home feed.</p>
@@ -656,12 +656,12 @@ const SettingsDrawer: React.FC = () => {
                             </div>
                             <button onClick={() => setHomePreferences(saveHomePreferences({ visible: Object.fromEntries(HOME_SECTIONS.map(section => [section.id, section.defaultVisible])) as HomePreferences['visible'], order: HOME_SECTIONS.map(section => section.id) }))} className="text-xs font-bold text-primary">Restore Home defaults</button>
                         </section>
-                        <section className="space-y-3">
+                        <section id="home-cache-duration" className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">API cache duration</h3>
                                 <p className="text-xs text-gray-500">Fresh responses are reused until expiry. Expired responses remain available as fallback if providers fail.</p>
                             </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                            <div id="home-cache-preset" className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
                                 <span className="text-sm font-medium text-gray-900 dark:text-white">Cache preset</span>
                                 <select value={homePreferences.cachePreset} onChange={event => {
                                     const preset = event.target.value as HomePreferences['cachePreset'];
@@ -676,7 +676,7 @@ const SettingsDrawer: React.FC = () => {
                                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{apiCacheStats.entries}</p><p className="text-[10px] text-gray-500">Cached responses</p></div>
                                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{(apiCacheStats.approximateBytes / (1024 * 1024)).toFixed(2)} MB</p><p className="text-[10px] text-gray-500">Approx. cache memory</p></div>
                             </div>
-                            <div className="space-y-2">
+                            <div id="home-api-diagnostics" className="space-y-2">
                                 <div>
                                     <h4 className="text-xs font-bold text-gray-900 dark:text-white">API efficiency</h4>
                                     <p className="text-[10px] text-gray-500">Session totals since app startup. Refresh Settings to update this snapshot.</p>
