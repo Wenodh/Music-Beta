@@ -92,6 +92,7 @@ export class MusicApiService {
     private storageReady: Promise<void>;
     private metrics = {
         logicalRequests: 0,
+        backgroundRefreshes: 0,
         httpAttempts: 0,
         cacheHits: 0,
         cacheMisses: 0,
@@ -283,7 +284,8 @@ export class MusicApiService {
     ): Promise<ApiResponse<T>> {
         const key = cacheKey || pathAndQuery;
         const callerSignal = config.signal;
-        this.metrics.logicalRequests += 1;
+        if (options.forceRefresh) this.metrics.backgroundRefreshes += 1;
+        else this.metrics.logicalRequests += 1;
         await this.storageReady;
         const cached = this.memoryCache.get(key);
 
@@ -299,7 +301,7 @@ export class MusicApiService {
             void getCacheDB()?.then(db => db.put('feed_cache', cached)).catch(() => undefined);
             return { data: cached.data as T, isCached: true, provider: 'cache' };
         }
-        this.metrics.cacheMisses += 1;
+        if (!options.forceRefresh) this.metrics.cacheMisses += 1;
 
         const existing = this.inFlightRequests.get(key);
         if (cached && options.staleWhileRevalidate && !options.forceRefresh) {
@@ -349,7 +351,7 @@ export class MusicApiService {
                     if (controller.signal.aborted) throw createCanceledError();
                     try {
                         this.metrics.httpAttempts += 1;
-                        if (provider.name === 'secondary') this.metrics.providerFallbacks += 1;
+                        if (provider.name === 'secondary' && attempt === 0) this.metrics.providerFallbacks += 1;
                         const response = await axios.get(`${provider.base}${cleanPath}`, {
                             timeout: config.timeout || 7000,
                             headers: config.headers,
@@ -405,7 +407,11 @@ export class MusicApiService {
 
     public getCachedData<T = any>(cacheKey: string): T | null {
         const cached = this.memoryCache.get(cacheKey);
-        return cached ? cached.data as T : null;
+        if (!cached) return null;
+        cached.lastAccessedAt = Date.now();
+        this.memoryCache.set(cacheKey, cached);
+        void getCacheDB()?.then(db => db.put('feed_cache', cached)).catch(() => undefined);
+        return cached.data as T;
     }
 
     public async clearCache(): Promise<void> {
@@ -413,9 +419,7 @@ export class MusicApiService {
         this.memoryCache.clear();
         this.inFlightRequests.forEach((entry) => entry.controller.abort());
         this.inFlightRequests.clear();
-        this.providerFailureCount = { primary: 0, secondary: 0 };
-        this.providerCooldownUntil = { primary: 0, secondary: 0 };
-        this.metrics = { logicalRequests: 0, httpAttempts: 0, cacheHits: 0, cacheMisses: 0, deduplicatedRequests: 0, retries: 0, providerFallbacks: 0, providerFailures: 0, staleFallbacks: 0, cancellations: 0 };
+
         try {
             if (typeof window !== 'undefined' && window.localStorage) localStorage.removeItem('vibeon_music_cache');
             const db = await getCacheDB();
