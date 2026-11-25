@@ -242,6 +242,7 @@ export class MusicApiService {
 
         return new Promise<ApiResponse<T>>((resolve, reject) => {
             const onAbort = () => {
+                this.metrics.cancellations += 1;
                 release();
                 reject(createCanceledError());
             };
@@ -282,6 +283,7 @@ export class MusicApiService {
             this.metrics.cacheHits += 1;
             cached.lastAccessedAt = Date.now();
             this.memoryCache.set(key, cached);
+            void getCacheDB()?.then(db => db.put('feed_cache', cached)).catch(() => undefined);
             return { data: cached.data as T, isCached: true, provider: 'cache' };
         }
         this.metrics.cacheMisses += 1;
@@ -336,10 +338,7 @@ export class MusicApiService {
                         await this.persistEntry(key, normalized);
                         return { data: normalized as T, isCached: false, provider: provider.name };
                     } catch (error: any) {
-                        if (isCanceled(error) || controller.signal.aborted) {
-                            this.metrics.cancellations += 1;
-                            throw createCanceledError();
-                        }
+                        if (isCanceled(error) || controller.signal.aborted) throw createCanceledError();
                         lastError = error;
                         const status = error?.response?.status;
                         const retryable = !status || status === 429 || status >= 500 || error?.code === 'ECONNABORTED';
@@ -386,6 +385,7 @@ export class MusicApiService {
     }
 
     public async clearCache(): Promise<void> {
+        await this.storageReady;
         this.memoryCache.clear();
         this.inFlightRequests.forEach((entry) => entry.controller.abort());
         this.inFlightRequests.clear();
