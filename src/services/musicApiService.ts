@@ -192,11 +192,32 @@ export class MusicApiService {
         this.providerCooldownUntil[name] = 0;
     }
 
+    private getRetryAfterMs(error: any): number | null {
+        const headers = error?.response?.headers;
+        const value = headers?.['retry-after'] ?? headers?.get?.('retry-after');
+        if (value === undefined || value === null || value === '') return null;
+
+        const seconds = Number(value);
+        if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+        const timestamp = Date.parse(String(value));
+        return Number.isFinite(timestamp) ? Math.max(0, timestamp - Date.now()) : null;
+    }
+
     private recordProviderFailure(name: string, error: any) {
         if (isCanceled(error)) return;
         // A normal 4xx indicates a request/client issue, not provider instability.
         const status = error?.response?.status;
         if (status && status < 500 && status !== 429) return;
+        if (status === 429) {
+            const retryAfterMs = this.getRetryAfterMs(error);
+            if (retryAfterMs !== null) {
+                this.providerCooldownUntil[name] = Math.max(
+                    this.providerCooldownUntil[name] || 0,
+                    Date.now() + retryAfterMs
+                );
+            }
+        }
 
         this.metrics.providerFailures += 1;
         this.providerFailureCount[name] = (this.providerFailureCount[name] || 0) + 1;
@@ -368,13 +389,17 @@ export class MusicApiService {
                         if (isCanceled(error) || controller.signal.aborted) throw createCanceledError();
                         lastError = error;
                         const status = error?.response?.status;
+                        const retryAfterMs = status === 429 ? this.getRetryAfterMs(error) : null;
                         const retryable = !status || status === 429 || status >= 500 || error?.code === 'ECONNABORTED';
-                        if (attempt === 1 || !retryable) this.recordProviderFailure(provider.name, error);
-                        if (attempt === 0 && retryable) {
+                        // Avoid holding a request open when a provider asks us to wait a long time.
+                        const shouldRetry = retryable && !(status === 429 && retryAfterMs !== null && retryAfterMs > 10000);
+                        if (attempt === 1 || !shouldRetry) this.recordProviderFailure(provider.name, error);
+                        if (attempt === 0 && shouldRetry) {
                             this.metrics.retries += 1;
-                            await wait(250, controller.signal);
+                            await wait(status === 429 && retryAfterMs !== null ? Math.max(250, retryAfterMs) : 250, controller.signal);
+                        } else if (!shouldRetry) {
+                            break;
                         }
-                        else if (!retryable) break;
                     }
                 }
             }
