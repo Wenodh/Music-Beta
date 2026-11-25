@@ -221,7 +221,10 @@ const SearchPage: React.FC = () => {
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
+                                onClick={() => {
+                                    setActiveTab(tab.id as any);
+                                    setLoadMoreError(null);
+                                }}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
                                     activeTab === tab.id
                                         ? 'bg-primary text-white shadow-lg'
