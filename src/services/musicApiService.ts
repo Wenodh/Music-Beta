@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { getConfiguredCacheTtl } from '../features/home/homePreferences';
 
 export const PRIMARY_API_BASE = 'https://elitejiosaavn-api.vercel.app';
 export const SECONDARY_API_BASE = 'https://jiosaavn-api-cyan-theta.vercel.app';
@@ -83,8 +84,6 @@ export class MusicApiService {
 
     private readonly COOLDOWN_MS = 60000;
     private readonly MAX_CONSECUTIVE_FAILURES = 3;
-    private readonly DEFAULT_TTL_MS = 30 * 60 * 1000;
-    private readonly SEARCH_TTL_MS = 90 * 1000;
 
     constructor() {
         void this.loadFromStorage();
@@ -119,7 +118,7 @@ export class MusicApiService {
     }
 
     private getTtl(key: string) {
-        return key.includes('/api/search') ? this.SEARCH_TTL_MS : this.DEFAULT_TTL_MS;
+        return getConfiguredCacheTtl(key);
     }
 
     private async persistEntry<T>(key: string, data: T) {
