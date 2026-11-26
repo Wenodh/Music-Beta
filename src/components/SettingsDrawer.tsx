@@ -562,12 +562,16 @@ const SettingsDrawer: React.FC = () => {
         }, 150);
     };
 
-    // Navigate before closing the drawer so the route transition is not
-    // interrupted by the drawer's close-state effects.
-    const handleViewPolicy = () => {
-        navigate('/privacy');
+    // Keep the drawer's synthetic back-stack entry as the previous route.
+    // Otherwise its close cleanup calls history.back() and cancels navigation.
+    const navigateFromSettings = (path: string) => {
+        backNavigationService.preserveOverlayHistoryForNavigation();
+        navigate(path);
         dispatch(setSettingsOpen(false));
-        window.scrollTo(0, 0);
+    };
+
+    const handleViewPolicy = () => {
+        navigateFromSettings('/privacy');
     };
 
     // Highlight text helper
@@ -730,10 +734,7 @@ const SettingsDrawer: React.FC = () => {
                                         />
                                         <div
                                             className="overflow-hidden cursor-pointer hover:opacity-75 transition-opacity"
-                                            onClick={() => {
-                                                navigate('/profile');
-                                                dispatch(setSettingsOpen(false));
-                                            }}
+                                            onClick={() => navigateFromSettings('/profile')}
                                         >
                                             <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
                                                 {user.user_metadata?.full_name || 'Vibe User'}
@@ -1387,10 +1388,7 @@ const SettingsDrawer: React.FC = () => {
                                 <p className="text-xs text-gray-500">Configure online visibility, activity sharing, and private account status</p>
                             </div>
                             <button
-                                onClick={() => {
-                                    dispatch(setSettingsOpen(false));
-                                    navigate('/profile');
-                                }}
+                                onClick={() => navigateFromSettings('/profile')}
                                 className="px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-sm"
                             >
                                 Open Profile →
