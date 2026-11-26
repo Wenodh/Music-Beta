@@ -35,6 +35,9 @@ import {
     updateDirectMessagesStatusByFriendLocal,
     getNextMessageSequenceLocal,
     saveCallLogLocal,
+    getPendingMessageDeliveriesLocal,
+    removePendingMessageDeliveryLocal,
+    recordPendingMessageAttemptLocal,
     isUserBlockedLocal,
     isMessageReplayOrDuplicateLocal,
     Friend,
@@ -178,7 +181,11 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     }, []);
 
     // Managed outbound channel map with 30s idle disposal timeout
-    const outboundChannelsRef = useRef<Map<string, { channel: RealtimeChannel; idleTimer: NodeJS.Timeout | null }>>(new Map());
+    const outboundChannelsRef = useRef<Map<string, {
+        channel: RealtimeChannel;
+        idleTimer: NodeJS.Timeout | null;
+        subscriptionPromise: Promise<void> | null;
+    }>>(new Map());
 
     // Messages wait here until the peer's public key has been exchanged.
     // Message bodies are never sent in plaintext during a new-key handshake.
@@ -209,7 +216,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         return payload;
     }, [user?.id, userId]);
 
-    // Helper to send message or signal via recipient channel with assured connection and idle cleanup
+    // One in-flight subscription per recipient. Concurrent message, ACK, key-exchange
+    // and call-signalling sends share the same promise instead of racing subscribe().
     const sendToUser = useCallback(async (targetUserId: string, event: string, payload: any) => {
         const targetChannelName = `user:${targetUserId}`;
         let entry = outboundChannelsRef.current.get(targetUserId);
@@ -219,32 +227,75 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             entry.idleTimer = null;
         }
 
-        let targetChannel = entry?.channel;
-        if (!targetChannel) {
-            targetChannel = supabase.channel(targetChannelName);
-            entry = { channel: targetChannel, idleTimer: null };
+        if (!entry) {
+            entry = {
+                channel: supabase.channel(targetChannelName),
+                idleTimer: null,
+                subscriptionPromise: null,
+            };
             outboundChannelsRef.current.set(targetUserId, entry);
         }
 
-        try {
-            if (targetChannel.state !== 'joined') {
-                const subscriptionStatus = await new Promise<string>((resolve) => {
-                    const timeout = setTimeout(() => resolve('TIMED_OUT'), 10000);
-                    targetChannel!.subscribe((status) => {
-                        if (['SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-                            clearTimeout(timeout);
-                            resolve(status);
+        const ensureSubscribed = async (): Promise<void> => {
+            if (entry!.channel.state === 'joined') return;
+            if (entry!.subscriptionPromise) return entry!.subscriptionPromise;
+
+            entry!.subscriptionPromise = (async () => {
+                let lastError: Error = new Error(`Realtime channel ${targetChannelName} failed to subscribe`);
+                for (let attempt = 0; attempt < 3; attempt += 1) {
+                    const channel = entry!.channel;
+                    try {
+                        const status = await new Promise<string>((resolve, reject) => {
+                            let settled = false;
+                            const timeout = setTimeout(() => {
+                                if (!settled) {
+                                    settled = true;
+                                    reject(new Error(`Realtime channel ${targetChannelName} subscription timed out`));
+                                }
+                            }, 10000);
+                            channel.subscribe((nextStatus) => {
+                                if (settled) return;
+                                if (nextStatus === 'SUBSCRIBED') {
+                                    settled = true;
+                                    clearTimeout(timeout);
+                                    resolve(nextStatus);
+                                } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(nextStatus)) {
+                                    settled = true;
+                                    clearTimeout(timeout);
+                                    reject(new Error(`Realtime channel ${targetChannelName} did not subscribe: ${nextStatus}`));
+                                }
+                            });
+                        });
+                        if (status === 'SUBSCRIBED') return;
+                    } catch (error) {
+                        lastError = error instanceof Error ? error : new Error(String(error));
+                        try {
+                            channel.unsubscribe();
+                            await supabase.removeChannel(channel);
+                        } catch (cleanupError) {
+                            console.debug('[Realtime] Failed to dispose errored outbound channel:', cleanupError);
                         }
-                    });
-                });
 
-                if (subscriptionStatus !== 'SUBSCRIBED') {
-                    throw new Error(`Realtime channel ${targetChannelName} did not subscribe: ${subscriptionStatus}`);
+                        if (attempt < 2) {
+                            const backoff = 300 * (2 ** attempt) + Math.floor(Math.random() * 200);
+                            await new Promise((resolve) => setTimeout(resolve, backoff));
+                            entry!.channel = supabase.channel(targetChannelName);
+                        }
+                    }
                 }
-            }
+                outboundChannelsRef.current.delete(targetUserId);
+                throw lastError;
+            })().finally(() => {
+                if (entry) entry.subscriptionPromise = null;
+            });
 
+            return entry!.subscriptionPromise!;
+        };
+
+        try {
+            await ensureSubscribed();
             const enrichedPayload = await enrichPayloadWithGuestEnvelope(targetUserId, event, payload);
-            const sendStatus = await targetChannel.send({
+            const sendStatus = await entry.channel.send({
                 type: 'broadcast',
                 event,
                 payload: enrichedPayload,
@@ -258,14 +309,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             console.warn(`[Realtime] Failed to send ${event} to ${targetUserId}:`, error);
             return false;
         } finally {
-            // Schedule 30-second idle channel cleanup after both successful and failed attempts.
-            if (entry) {
+            if (outboundChannelsRef.current.get(targetUserId) === entry) {
+                if (entry.idleTimer) clearTimeout(entry.idleTimer);
                 entry.idleTimer = setTimeout(() => {
+                    if (outboundChannelsRef.current.get(targetUserId) !== entry) return;
+                    if (entry!.subscriptionPromise) return;
                     try {
                         entry!.channel.unsubscribe();
                         supabase.removeChannel(entry!.channel);
-                    } catch (cleanupErr) {
-                        console.warn('[Realtime] Outbound channel cleanup error:', cleanupErr);
+                    } catch (cleanupError) {
+                        console.warn('[Realtime] Outbound channel cleanup error:', cleanupError);
                     }
                     outboundChannelsRef.current.delete(targetUserId);
                 }, 30000);
@@ -289,7 +342,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             });
             if (sent) {
                 await updateDirectMessageStatusLocal(msg.id, 'sent');
+                await removePendingMessageDeliveryLocal(msg.id);
                 dispatch(updateMessageStatus({ friendId, messageId: msg.id, status: 'sent' }));
+            } else {
+                await recordPendingMessageAttemptLocal(msg.id, 'Realtime send was not accepted');
             }
             return sent;
         } catch (error) {
@@ -1362,7 +1418,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             status: 'sending',
         };
 
-        await saveDirectMessageLocal(msg);
+        await saveDirectMessageLocal(msg, true);
         dispatch(addDirectMessage(msg));
 
         try {
@@ -1389,6 +1445,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 requestId: messageId,
             });
             if (!requestSent) {
+                await recordPendingMessageAttemptLocal(messageId, 'Encryption key exchange could not be delivered');
                 outstanding.delete(messageId);
                 if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(friendId);
                 dispatch(showToast({
@@ -1401,6 +1458,80 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             dispatch(showToast({ message: 'Message could not be secured. Please try again.', type: 'error' }));
         }
     }, [user?.id, user?.user_metadata?.full_name, guestId, dispatch, sendToUser, sendEncryptedDirectMessage]);
+
+    // Restore durable outgoing messages after refresh, app restart or network recovery.
+    const isResumingOutboxRef = useRef(false);
+    const resumePendingMessageDeliveries = useCallback(async () => {
+        if (isResumingOutboxRef.current) return;
+        isResumingOutboxRef.current = true;
+        try {
+            const pending = await getPendingMessageDeliveriesLocal();
+            const grouped = new Map<string, typeof pending>();
+            for (const item of pending) {
+                const group = grouped.get(item.friendId) || [];
+                group.push(item);
+                grouped.set(item.friendId, group);
+            }
+
+            for (const [friendId, records] of grouped) {
+                const storedMessages = await getDirectMessagesLocal(friendId);
+                const recordIds = new Set(records.map((record) => record.messageId));
+                const queuedMessages = storedMessages.filter((message) => recordIds.has(message.id));
+                if (queuedMessages.length === 0) continue;
+
+                pendingEncryptedMessagesRef.current.set(friendId, queuedMessages);
+                const peerKey = await e2eeService.getPeerPublicKey(friendId);
+                if (peerKey) {
+                    for (const message of queuedMessages) {
+                        const record = records.find((item) => item.messageId === message.id);
+                        if (record && record.nextAttemptAt > Date.now()) continue;
+                        await sendEncryptedDirectMessage(friendId, message);
+                    }
+                    continue;
+                }
+
+                const identity = await e2eeService.getOrCreateLocalIdentity();
+                const requestId = queuedMessages[0].id;
+                const outstanding = pendingKeyExchangeRequestsRef.current.get(friendId) || new Set<string>();
+                if (outstanding.has(requestId)) continue;
+                outstanding.add(requestId);
+                pendingKeyExchangeRequestsRef.current.set(friendId, outstanding);
+
+                const sent = await sendToUser(friendId, 'direct_key_exchange', {
+                    type: 'request',
+                    senderId: userId,
+                    senderName: userName,
+                    publicKeyJwk: identity.publicKeyJwk,
+                    requestId,
+                });
+                if (!sent) {
+                    outstanding.delete(requestId);
+                    if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(friendId);
+                    for (const message of queuedMessages) {
+                        await recordPendingMessageAttemptLocal(message.id, 'Could not resume encryption key exchange');
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('[DirectComms] Failed to restore pending outgoing messages:', error);
+        } finally {
+            isResumingOutboxRef.current = false;
+        }
+    }, [sendEncryptedDirectMessage, sendToUser, userId, userName]);
+
+    useEffect(() => {
+        void resumePendingMessageDeliveries();
+        const retryWhenAvailable = () => { void resumePendingMessageDeliveries(); };
+        const retryWhenVisible = () => {
+            if (document.visibilityState === 'visible') retryWhenAvailable();
+        };
+        window.addEventListener('online', retryWhenAvailable);
+        document.addEventListener('visibilitychange', retryWhenVisible);
+        return () => {
+            window.removeEventListener('online', retryWhenAvailable);
+            document.removeEventListener('visibilitychange', retryWhenVisible);
+        };
+    }, [resumePendingMessageDeliveries]);
 
     // Acquire media stream with camera fallback
     const acquireMediaStream = async (requestedCallType: CallType): Promise<{ stream: MediaStream; hasVideo: boolean }> => {
