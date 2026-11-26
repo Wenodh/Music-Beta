@@ -1,4 +1,7 @@
 import { diagnosticSettings } from './diagnosticSettings';
+import packageJson from '../../../package.json';
+
+const APP_VERSION = packageJson.version;
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 export interface LogEntry { id: number; timestamp: string; level: LogLevel; message: string; }
@@ -51,7 +54,7 @@ const formatIstTimestamp = (date: Date): string => {
 };
 
 const append = (level: LogLevel, args: unknown[]) => {
-    const message = clean(args.map(stringify).join(' ').slice(0, 5000));
+    const message = clean(`[Vibe On v${APP_VERSION}] ${args.map(stringify).join(' ')}`.slice(0, 5000));
     const settings = diagnosticSettings.get();
     // Always retain errors for support. Other diagnostic collection is user-controlled.
     if (level !== 'error') {
@@ -100,6 +103,6 @@ export const diagnosticConsole = {
         });
         window.addEventListener('error', (event) => append('error', ['[window.error]', event.message, event.filename, event.lineno, event.colno, event.error]));
         window.addEventListener('unhandledrejection', (event) => append('error', ['[unhandledrejection]', event.reason]));
-        append('info', ['Diagnostic console initialized', { userAgent: navigator.userAgent, platform: navigator.platform }]);
+        append('info', ['Diagnostic console initialized', { appVersion: APP_VERSION, userAgent: navigator.userAgent, platform: navigator.platform, online: navigator.onLine }]);
     },
 };
