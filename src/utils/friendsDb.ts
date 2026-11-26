@@ -215,7 +215,7 @@ export const removePendingMessageDeliveryLocal = async (messageId: string): Prom
 
 export const getPendingMessageRetryDelayMs = (attempt: number): number => {
     const safeAttempt = Math.max(1, Math.floor(attempt));
-    return Math.min(5 * 60_000, 2_000 * (2 ** Math.min(safeAttempt - 1, 7)));
+    return Math.min(5 * 60_000, 2_000 * (2 ** Math.min(safeAttempt - 1, 8)));
 };
 
 export const recordPendingMessageAttemptLocal = async (messageId: string, error?: unknown): Promise<void> => {
