@@ -149,6 +149,17 @@ describe('E2EE Service & Friends DB Integration', () => {
         expect(decrypted).toBe(plaintext);
     });
 
+    it('rejects malformed, non-P-256, and private JWKs before storing peer keys', async () => {
+        await expect(e2eeService.recordPeerPublicKey('bad-peer', {
+            kty: 'EC', crv: 'P-384', x: 'x', y: 'y',
+        })).rejects.toThrow('Invalid peer public key');
+        await expect(e2eeService.recordPeerPublicKey('private-peer', {
+            kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'private-material',
+        })).rejects.toThrow('Invalid peer public key');
+        expect(await e2eeService.getStoredPeerKeyRecord('bad-peer')).toBeUndefined();
+        expect(await e2eeService.getStoredPeerKeyRecord('private-peer')).toBeUndefined();
+    });
+
     it('detects public key substitution and alerts on unexpected key changes without blind overwrite', async () => {
         const cryptoObj = globalThis.crypto;
 
