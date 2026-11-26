@@ -1568,8 +1568,6 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         const retryWhenVisible = () => {
             if (document.visibilityState === 'visible') retryWhenAvailable();
         };
-        window.addEventListener('online', retryWhenAvailable);
-        document.addEventListener('visibilitychange', retryWhenVisible);
         const retryFromOutboxChange = () => { void resumePendingMessageDeliveries(); };
         window.addEventListener('online', retryWhenAvailable);
         window.addEventListener('vibeon:outbox-changed', retryFromOutboxChange);
