@@ -12,6 +12,7 @@ export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'seen';
 export interface PendingMessageDelivery {
     messageId: string;
     friendId: string;
+    senderId: string;
     createdAt: number;
     updatedAt: number;
     attempts: number;
@@ -100,7 +101,7 @@ interface FriendsDBSchema extends DBSchema {
     outbox: {
         key: string;
         value: PendingMessageDelivery;
-        indexes: { 'by-friend': string; 'by-next-attempt': number };
+        indexes: { 'by-friend': string; 'by-sender': string; 'by-next-attempt': number };
     };
 }
 
@@ -146,6 +147,7 @@ const getDB = () => {
                 if (!db.objectStoreNames.contains('outbox')) {
                     const outbox = db.createObjectStore('outbox', { keyPath: 'messageId' });
                     outbox.createIndex('by-friend', 'friendId');
+                    outbox.createIndex('by-sender', 'senderId');
                     outbox.createIndex('by-next-attempt', 'nextAttemptAt');
                 }
             },
@@ -179,6 +181,7 @@ export const saveDirectMessageLocal = async (msg: DirectMessage, queueForDeliver
         await tx.objectStore('outbox').put({
             messageId: msg.id,
             friendId: msg.friendId,
+            senderId: msg.senderId,
             createdAt: now,
             updatedAt: now,
             attempts: 0,
@@ -200,11 +203,10 @@ export const saveDirectMessageLocal = async (msg: DirectMessage, queueForDeliver
     await tx.done;
 };
 
-export const getPendingMessageDeliveriesLocal = async (friendId?: string): Promise<PendingMessageDelivery[]> => {
+export const getPendingMessageDeliveriesLocal = async (senderId: string): Promise<PendingMessageDelivery[]> => {
     const db = await getDB();
-    const records = friendId
-        ? await db.getAllFromIndex('outbox', 'by-friend', friendId)
-        : await db.getAll('outbox');
+    // Never resume another locally cached account's pending messages after account switching.
+    const records = await db.getAllFromIndex('outbox', 'by-sender', senderId);
     return records.sort((a, b) => a.nextAttemptAt - b.nextAttemptAt || a.createdAt - b.createdAt);
 };
 
