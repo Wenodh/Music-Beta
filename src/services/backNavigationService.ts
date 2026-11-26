@@ -107,6 +107,16 @@ class BackNavigationService {
     }
 
     /**
+     * Preserve the current overlay history entry when navigating to a new route.
+     * The router's next PUSH turns this entry into the legitimate previous route;
+     * overlay cleanup must not call history.back() and undo that navigation.
+     */
+    public preserveOverlayHistoryForNavigation() {
+        this.cancelPendingSyntheticPop();
+        this.historySyntheticPushed = 0;
+    }
+
+    /**
      * Push a synthetic history state if not already pushed, so the browser back button
      * triggers popstate instead of navigating to the previous page.
      */
