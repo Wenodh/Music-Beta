@@ -296,7 +296,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             console.error('[DirectComms] Encrypted message delivery failed:', error);
             return false;
         }
-    }, [userId, userName, dispatch, sendToUser]);
+    }, [dispatch, sendToUser]);
 
     // Cleanup all outbound channels on unmount
     useEffect(() => {
