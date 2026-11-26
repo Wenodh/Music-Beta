@@ -9,6 +9,16 @@ export interface Friend {
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'seen';
 
+export interface PendingMessageDelivery {
+    messageId: string;
+    friendId: string;
+    createdAt: number;
+    updatedAt: number;
+    attempts: number;
+    nextAttemptAt: number;
+    lastError?: string;
+}
+
 export interface DirectMessage {
     id: string;
     friendId: string;
@@ -87,6 +97,11 @@ interface FriendsDBSchema extends DBSchema {
         key: string;
         value: BlockedUserRecord;
     };
+    outbox: {
+        key: string;
+        value: PendingMessageDelivery;
+        indexes: { 'by-friend': string; 'by-next-attempt': number };
+    };
 }
 
 /** Return the high-water mark for one sender, never the whole conversation. */
@@ -99,7 +114,7 @@ export const getMaxSequenceForSender = (
 );
 
 const DB_NAME = 'vibeon_friends';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase<FriendsDBSchema>> | null = null;
 
@@ -128,6 +143,11 @@ const getDB = () => {
                 if (!db.objectStoreNames.contains('blocked_users')) {
                     db.createObjectStore('blocked_users', { keyPath: 'userId' });
                 }
+                if (!db.objectStoreNames.contains('outbox')) {
+                    const outbox = db.createObjectStore('outbox', { keyPath: 'messageId' });
+                    outbox.createIndex('by-friend', 'friendId');
+                    outbox.createIndex('by-next-attempt', 'nextAttemptAt');
+                }
             },
         });
     }
@@ -149,10 +169,22 @@ export const removeFriendLocal = async (id: string) => {
     await db.delete('friends', id);
 };
 
-export const saveDirectMessageLocal = async (msg: DirectMessage) => {
+export const saveDirectMessageLocal = async (msg: DirectMessage, queueForDelivery = false) => {
     const db = await getDB();
-    const tx = db.transaction(['direct_messages', 'message_sequences'], 'readwrite');
+    // Save the outgoing message and its durable delivery operation atomically.
+    const tx = db.transaction(['direct_messages', 'message_sequences', 'outbox'], 'readwrite');
     await tx.objectStore('direct_messages').put(msg);
+    if (queueForDelivery) {
+        const now = Date.now();
+        await tx.objectStore('outbox').put({
+            messageId: msg.id,
+            friendId: msg.friendId,
+            createdAt: now,
+            updatedAt: now,
+            attempts: 0,
+            nextAttemptAt: now,
+        });
+    }
 
     if (typeof msg.seq === 'number' && msg.seq > 0) {
         const sequenceStore = tx.objectStore('message_sequences');
@@ -166,6 +198,37 @@ export const saveDirectMessageLocal = async (msg: DirectMessage) => {
     }
 
     await tx.done;
+};
+
+export const getPendingMessageDeliveriesLocal = async (friendId?: string): Promise<PendingMessageDelivery[]> => {
+    const db = await getDB();
+    const records = friendId
+        ? await db.getAllFromIndex('outbox', 'by-friend', friendId)
+        : await db.getAll('outbox');
+    return records.sort((a, b) => a.nextAttemptAt - b.nextAttemptAt || a.createdAt - b.createdAt);
+};
+
+export const removePendingMessageDeliveryLocal = async (messageId: string): Promise<void> => {
+    const db = await getDB();
+    await db.delete('outbox', messageId);
+};
+
+export const recordPendingMessageAttemptLocal = async (messageId: string, error?: unknown): Promise<void> => {
+    const db = await getDB();
+    const record = await db.get('outbox', messageId);
+    if (!record) return;
+    const attempts = record.attempts + 1;
+    const baseDelay = Math.min(5 * 60_000, 2_000 * (2 ** Math.min(attempts - 1, 7)));
+    const jitter = Math.floor(Math.random() * Math.min(5_000, baseDelay * 0.2));
+    const message = error instanceof Error ? error.message : (error ? String(error) : undefined);
+    const now = Date.now();
+    await db.put('outbox', {
+        ...record,
+        attempts,
+        updatedAt: now,
+        nextAttemptAt: now + baseDelay + jitter,
+        lastError: message?.slice(0, 240),
+    });
 };
 
 export const deleteDirectMessageLocal = async (messageId: string): Promise<void> => {
