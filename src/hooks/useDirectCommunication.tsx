@@ -248,15 +248,45 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 for (let attempt = 0; attempt < 3; attempt += 1) {
                     const channel = entry!.channel;
                     try {
+                        console.info('[Realtime] Starting outbound channel subscription', {
+                            targetUserId,
+                            attempt: attempt + 1,
+                            maxAttempts: 3,
+                            online: typeof navigator !== 'undefined' ? navigator.onLine : null,
+                        });
                         const status = await new Promise<string>((resolve, reject) => {
                             let settled = false;
                             const timeout = setTimeout(() => {
                                 if (!settled) {
                                     settled = true;
+                                    console.warn('[Realtime] Outbound channel subscription timed out', {
+                                        targetUserId,
+                                        attempt: attempt + 1,
+                                        channelState: channel.state,
+                                        online: typeof navigator !== 'undefined' ? navigator.onLine : null,
+                                    });
                                     reject(new Error(`Realtime channel ${targetChannelName} subscription timed out`));
                                 }
                             }, 10000);
-                            channel.subscribe((nextStatus) => {
+                            channel.subscribe((nextStatus, channelError) => {
+                                if (nextStatus === 'SUBSCRIBED') {
+                                    console.info('[Realtime] Outbound channel subscribed', {
+                                        targetUserId,
+                                        attempt: attempt + 1,
+                                        channelState: channel.state,
+                                    });
+                                } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(nextStatus)) {
+                                    console.warn('[Realtime] Outbound channel subscription rejected', {
+                                        targetUserId,
+                                        attempt: attempt + 1,
+                                        status: nextStatus,
+                                        channelState: channel.state,
+                                        online: typeof navigator !== 'undefined' ? navigator.onLine : null,
+                                        error: channelError instanceof Error
+                                            ? { name: channelError.name, message: channelError.message, stack: channelError.stack }
+                                            : channelError ? String(channelError) : null,
+                                    });
+                                }
                                 if (settled) return;
                                 if (nextStatus === 'SUBSCRIBED') {
                                     settled = true;
@@ -265,7 +295,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                                 } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(nextStatus)) {
                                     settled = true;
                                     clearTimeout(timeout);
-                                    reject(new Error(`Realtime channel ${targetChannelName} did not subscribe: ${nextStatus}`));
+                                    const detail = channelError instanceof Error
+                                        ? `: ${channelError.name}: ${channelError.message}`
+                                        : '';
+                                    reject(new Error(`Realtime channel ${targetChannelName} did not subscribe: ${nextStatus}${detail}`));
                                 }
                             });
                         });
