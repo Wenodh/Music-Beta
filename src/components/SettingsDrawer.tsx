@@ -562,15 +562,12 @@ const SettingsDrawer: React.FC = () => {
         }, 150);
     };
 
-    // Seamless navigation to Privacy Policy
+    // Navigate before closing the drawer so the route transition is not
+    // interrupted by the drawer's close-state effects.
     const handleViewPolicy = () => {
-        dispatch(setSettingsOpen(false));
         navigate('/privacy');
-        try {
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        } catch {
-            window.scrollTo(0, 0);
-        }
+        dispatch(setSettingsOpen(false));
+        window.scrollTo(0, 0);
     };
 
     // Highlight text helper
