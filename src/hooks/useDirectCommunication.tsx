@@ -280,8 +280,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             const encrypted = await e2eeService.encryptMessage(friendId, msg.text);
             const sent = await sendToUser(friendId, 'direct_message', {
                 id: msg.id,
-                senderId: userId,
-                senderName: userName,
+                senderId: msg.senderId,
+                senderName: msg.senderName,
                 text: '',
                 encrypted,
                 timestamp: msg.timestamp,
@@ -1343,13 +1343,19 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         const cleanText = text.trim();
         if (!cleanText) return;
 
-        const nextSeq = await getNextMessageSequenceLocal(friendId, userId);
+        // Resolve the self-certifying guest ID before constructing any signed
+        // key-exchange payload. The initial render may still hold a temporary ID.
+        const senderId = user?.id || (await guestSessionService.getOrCreateGuestIdentityKey()).guestId;
+        const senderName = user?.user_metadata?.full_name || (user?.id ? 'Vibe User' : `Guest ${senderId.slice(-4)}`);
+        if (!user?.id && senderId !== guestId) setGuestId(senderId);
+
+        const nextSeq = await getNextMessageSequenceLocal(friendId, senderId);
         const messageId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const msg: DirectMessage = {
             id: messageId,
             friendId,
-            senderId: userId,
-            senderName: userName,
+            senderId,
+            senderName,
             text: cleanText,
             timestamp: Date.now(),
             seq: nextSeq,
@@ -1377,8 +1383,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             pendingKeyExchangeRequestsRef.current.set(friendId, outstanding);
             const requestSent = await sendToUser(friendId, 'direct_key_exchange', {
                 type: 'request',
-                senderId: userId,
-                senderName: userName,
+                senderId,
+                senderName,
                 publicKeyJwk: identity.publicKeyJwk,
                 requestId: messageId,
             });
@@ -1394,7 +1400,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             console.error('[DirectComms] Could not prepare encrypted message:', error);
             dispatch(showToast({ message: 'Message could not be secured. Please try again.', type: 'error' }));
         }
-    }, [userId, userName, dispatch, sendToUser, sendEncryptedDirectMessage]);
+    }, [user?.id, user?.user_metadata?.full_name, guestId, dispatch, sendToUser, sendEncryptedDirectMessage]);
 
     // Acquire media stream with camera fallback
     const acquireMediaStream = async (requestedCallType: CallType): Promise<{ stream: MediaStream; hasVideo: boolean }> => {
