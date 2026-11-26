@@ -196,7 +196,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     recipientId: targetUserId,
                     signalType: isKeyExchange ? 'direct_key_exchange' : (payload.signalType || ''),
                     callType: payload.callType,
-                    data: isKeyExchange ? payload.publicKeyJwk : (payload.sdp || payload.candidate || null),
+                    data: isKeyExchange ? { type: payload.type, publicKeyJwk: payload.publicKeyJwk } : (payload.sdp || payload.candidate || null),
                 });
                 return {
                     ...payload,
@@ -767,9 +767,13 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         exchange.signedEnvelope,
                         userId,
                         'direct_key_exchange',
-                        exchange.publicKeyJwk
+                        { type: exchange.type, publicKeyJwk: exchange.publicKeyJwk }
                     );
-                    if (!verified.isValid || exchange.signedEnvelope.envelope.senderId !== exchange.senderId) {
+                    if (
+                        !verified.isValid ||
+                        exchange.signedEnvelope.envelope.senderId !== exchange.senderId ||
+                        exchange.signedEnvelope.envelope.callId !== exchange.requestId
+                    ) {
                         console.warn('[DirectComms] Dropped forged or replayed guest key exchange:', exchange.senderId, verified.reason);
                         return;
                     }
