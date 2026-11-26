@@ -37,6 +37,7 @@ import {
     saveCallLogLocal,
     getPendingMessageDeliveriesLocal,
     removePendingMessageDeliveryLocal,
+    removePendingMessageDeliveriesForFriendLocal,
     recordPendingMessageAttemptLocal,
     isUserBlockedLocal,
     isMessageReplayOrDuplicateLocal,
@@ -342,7 +343,9 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             });
             if (sent) {
                 await updateDirectMessageStatusLocal(msg.id, 'sent');
-                await removePendingMessageDeliveryLocal(msg.id);
+                // A successful broadcast is not proof of recipient delivery.
+                // Keep the durable outbox entry until the recipient ACKs.
+                await recordPendingMessageAttemptLocal(msg.id);
                 dispatch(updateMessageStatus({ friendId, messageId: msg.id, status: 'sent' }));
             } else {
                 await recordPendingMessageAttemptLocal(msg.id, 'Realtime send was not accepted');
@@ -878,6 +881,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                         } else {
                             pendingEncryptedMessagesRef.current.delete(exchange.senderId);
                         }
+                        window.dispatchEvent(new Event('vibeon:outbox-changed'));
                     }
                 } catch (error) {
                     console.error('[DirectComms] Public-key exchange failed:', error);
@@ -913,7 +917,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 );
 
                 if (replayCheck.isDuplicate) {
-                    console.warn('[DirectComms] Dropping duplicate message with existing ID:', incomingPayload.id);
+                    // ACK duplicate deliveries again: the original ACK may have been
+                    // lost, and the sender correctly retains the message in its outbox.
+                    const alreadyViewing = activeFriendIdRef.current === incomingPayload.senderId;
+                    void sendToUser(incomingPayload.senderId, alreadyViewing ? 'message_seen' : 'message_ack', {
+                        messageId: incomingPayload.id,
+                        senderId: userId,
+                        timestamp: Date.now(),
+                    });
                     return;
                 }
 
@@ -999,15 +1010,18 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             .on('broadcast', { event: 'message_ack' }, async ({ payload }) => {
                 const { messageId, senderId } = payload;
                 await updateDirectMessageStatusLocal(messageId, 'delivered');
+                await removePendingMessageDeliveryLocal(messageId);
                 dispatch(updateMessageStatus({ friendId: senderId, messageId, status: 'delivered' }));
             })
             .on('broadcast', { event: 'message_seen' }, async ({ payload }) => {
                 const { messageId, senderId } = payload;
                 if (messageId) {
                     await updateDirectMessageStatusLocal(messageId, 'seen');
+                    await removePendingMessageDeliveryLocal(messageId);
                     dispatch(updateMessageStatus({ friendId: senderId, messageId, status: 'seen' }));
                 } else if (senderId) {
                     await updateDirectMessagesStatusByFriendLocal(senderId, 'seen');
+                    await removePendingMessageDeliveriesForFriendLocal(senderId);
                     dispatch(markFriendMessagesSeen({ friendId: senderId }));
                 }
             })
@@ -1424,7 +1438,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         try {
             const identity = await e2eeService.getOrCreateLocalIdentity();
             const peerKey = await e2eeService.getPeerPublicKey(friendId);
-            if (peerKey && await sendEncryptedDirectMessage(friendId, msg)) return;
+            if (peerKey && await sendEncryptedDirectMessage(friendId, msg)) {
+                window.dispatchEvent(new Event('vibeon:outbox-changed'));
+                return;
+            }
 
             const pending = pendingEncryptedMessagesRef.current.get(friendId) || [];
             if (!pending.some((queuedMessage) => queuedMessage.id === msg.id)) pending.push(msg);
@@ -1444,8 +1461,12 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 publicKeyJwk: identity.publicKeyJwk,
                 requestId: messageId,
             });
+            await recordPendingMessageAttemptLocal(
+                messageId,
+                requestSent ? undefined : 'Encryption key exchange could not be delivered'
+            );
+            window.dispatchEvent(new Event('vibeon:outbox-changed'));
             if (!requestSent) {
-                await recordPendingMessageAttemptLocal(messageId, 'Encryption key exchange could not be delivered');
                 outstanding.delete(messageId);
                 if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(friendId);
                 dispatch(showToast({
@@ -1461,9 +1482,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Restore durable outgoing messages after refresh, app restart or network recovery.
     const isResumingOutboxRef = useRef(false);
+    const outboxRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
     const resumePendingMessageDeliveries = useCallback(async () => {
         if (isResumingOutboxRef.current) return;
         isResumingOutboxRef.current = true;
+        if (outboxRetryTimerRef.current) {
+            clearTimeout(outboxRetryTimerRef.current);
+            outboxRetryTimerRef.current = null;
+        }
         try {
             const pending = await getPendingMessageDeliveriesLocal();
             const grouped = new Map<string, typeof pending>();
@@ -1490,6 +1516,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     continue;
                 }
 
+                if (records.every((record) => record.nextAttemptAt > Date.now())) continue;
                 const identity = await e2eeService.getOrCreateLocalIdentity();
                 const requestId = queuedMessages[0].id;
                 const outstanding = pendingKeyExchangeRequestsRef.current.get(friendId) || new Set<string>();
@@ -1504,18 +1531,33 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     publicKeyJwk: identity.publicKeyJwk,
                     requestId,
                 });
+                for (const message of queuedMessages) {
+                    await recordPendingMessageAttemptLocal(
+                        message.id,
+                        sent ? undefined : 'Could not resume encryption key exchange'
+                    );
+                }
                 if (!sent) {
                     outstanding.delete(requestId);
                     if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(friendId);
-                    for (const message of queuedMessages) {
-                        await recordPendingMessageAttemptLocal(message.id, 'Could not resume encryption key exchange');
-                    }
                 }
             }
         } catch (error) {
             console.warn('[DirectComms] Failed to restore pending outgoing messages:', error);
         } finally {
             isResumingOutboxRef.current = false;
+            try {
+                const remaining = await getPendingMessageDeliveriesLocal();
+                if (remaining.length > 0) {
+                    const nextAttemptAt = Math.min(...remaining.map((item) => item.nextAttemptAt));
+                    const delay = Math.max(1_000, nextAttemptAt - Date.now());
+                    outboxRetryTimerRef.current = setTimeout(() => {
+                        void resumePendingMessageDeliveries();
+                    }, delay);
+                }
+            } catch (scheduleError) {
+                console.warn('[DirectComms] Could not schedule pending-message retry:', scheduleError);
+            }
         }
     }, [sendEncryptedDirectMessage, sendToUser, userId, userName]);
 
@@ -1527,9 +1569,15 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         };
         window.addEventListener('online', retryWhenAvailable);
         document.addEventListener('visibilitychange', retryWhenVisible);
+        const retryFromOutboxChange = () => { void resumePendingMessageDeliveries(); };
+        window.addEventListener('online', retryWhenAvailable);
+        window.addEventListener('vibeon:outbox-changed', retryFromOutboxChange);
+        document.addEventListener('visibilitychange', retryWhenVisible);
         return () => {
             window.removeEventListener('online', retryWhenAvailable);
+            window.removeEventListener('vibeon:outbox-changed', retryFromOutboxChange);
             document.removeEventListener('visibilitychange', retryWhenVisible);
+            if (outboxRetryTimerRef.current) clearTimeout(outboxRetryTimerRef.current);
         };
     }, [resumePendingMessageDeliveries]);
 
