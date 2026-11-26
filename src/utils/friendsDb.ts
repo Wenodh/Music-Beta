@@ -115,14 +115,14 @@ export const getMaxSequenceForSender = (
 );
 
 const DB_NAME = 'vibeon_friends';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbPromise: Promise<IDBPDatabase<FriendsDBSchema>> | null = null;
 
 const getDB = () => {
     if (!dbPromise) {
         dbPromise = openDB<FriendsDBSchema>(DB_NAME, DB_VERSION, {
-            upgrade(db, _oldVersion) {
+            upgrade(db, _oldVersion, _newVersion, tx) {
                 if (!db.objectStoreNames.contains('friends')) {
                     db.createObjectStore('friends', { keyPath: 'id' });
                 }
@@ -149,6 +149,12 @@ const getDB = () => {
                     outbox.createIndex('by-friend', 'friendId');
                     outbox.createIndex('by-sender', 'senderId');
                     outbox.createIndex('by-next-attempt', 'nextAttemptAt');
+                }
+                // Also upgrade installations that already created the initial outbox
+                // schema before sender-scoped recovery was introduced.
+                const outboxStore = tx.objectStore('outbox');
+                if (!outboxStore.indexNames.contains('by-sender')) {
+                    outboxStore.createIndex('by-sender', 'senderId');
                 }
             },
         });
