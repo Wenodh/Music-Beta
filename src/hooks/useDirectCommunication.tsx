@@ -187,16 +187,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Sign complete message envelope if sender is an unauthenticated guest
     const enrichPayloadWithGuestEnvelope = useCallback(async (targetUserId: string, event: string, payload: any) => {
-        if (!user?.id && userId.startsWith('anon-') && event === 'direct_signal') {
+        if (!user?.id && userId.startsWith('anon-') && (event === 'direct_signal' || event === 'direct_key_exchange')) {
             try {
-                // Pass only media payload (sdp or candidate) or null for control signals
-                const mediaData = payload.sdp || payload.candidate || null;
+                // Authenticate the ECDH public key as well as WebRTC signaling for guests.
+                const isKeyExchange = event === 'direct_key_exchange';
                 const signedEnvelope = await guestSessionService.signSignalingEnvelope({
-                    callId: payload.callId || '',
+                    callId: payload.callId || payload.requestId || '',
                     recipientId: targetUserId,
-                    signalType: payload.signalType || '',
+                    signalType: isKeyExchange ? 'direct_key_exchange' : (payload.signalType || ''),
                     callType: payload.callType,
-                    data: mediaData,
+                    data: isKeyExchange ? payload.publicKeyJwk : (payload.sdp || payload.candidate || null),
                 });
                 return {
                     ...payload,
@@ -740,6 +740,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     publicKeyJwk?: JsonWebKey;
                     requestId?: string;
                     type?: 'request' | 'response';
+                    signedEnvelope?: Awaited<ReturnType<typeof guestSessionService.signSignalingEnvelope>>;
                 };
                 if (!exchange?.senderId || !exchange.publicKeyJwk || !exchange.requestId) return;
                 if (exchange.senderId === userId) return;
@@ -755,6 +756,23 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     }
                     outstanding.delete(exchange.requestId);
                     if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(exchange.senderId);
+                }
+
+                if (exchange.senderId.startsWith('anon-')) {
+                    if (!exchange.signedEnvelope) {
+                        console.warn('[DirectComms] Dropped unauthenticated guest key exchange:', exchange.senderId);
+                        return;
+                    }
+                    const verified = await guestSessionService.verifySignalingEnvelope(
+                        exchange.signedEnvelope,
+                        userId,
+                        'direct_key_exchange',
+                        exchange.publicKeyJwk
+                    );
+                    if (!verified.isValid || exchange.signedEnvelope.envelope.senderId !== exchange.senderId) {
+                        console.warn('[DirectComms] Dropped forged or replayed guest key exchange:', exchange.senderId, verified.reason);
+                        return;
+                    }
                 }
 
                 const blocked = await isUserBlockedLocal(exchange.senderId);
