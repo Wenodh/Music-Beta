@@ -213,6 +213,14 @@ export const removePendingMessageDeliveryLocal = async (messageId: string): Prom
     await db.delete('outbox', messageId);
 };
 
+export const removePendingMessageDeliveriesForFriendLocal = async (friendId: string): Promise<void> => {
+    const db = await getDB();
+    const tx = db.transaction('outbox', 'readwrite');
+    const keys = await tx.store.index('by-friend').getAllKeys(friendId);
+    await Promise.all(keys.map((key) => tx.store.delete(key)));
+    await tx.done;
+};
+
 export const getPendingMessageRetryDelayMs = (attempt: number): number => {
     const safeAttempt = Math.max(1, Math.floor(attempt));
     return Math.min(5 * 60_000, 2_000 * (2 ** Math.min(safeAttempt - 1, 8)));
