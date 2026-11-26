@@ -180,6 +180,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Managed outbound channel map with 30s idle disposal timeout
     const outboundChannelsRef = useRef<Map<string, { channel: RealtimeChannel; idleTimer: NodeJS.Timeout | null }>>(new Map());
 
+    // Messages wait here until the peer's public key has been exchanged.
+    // Message bodies are never sent in plaintext during a new-key handshake.
+    const pendingEncryptedMessagesRef = useRef<Map<string, DirectMessage[]>>(new Map());
+
     // Sign complete message envelope if sender is an unauthenticated guest
     const enrichPayloadWithGuestEnvelope = useCallback(async (targetUserId: string, event: string, payload: any) => {
         if (!user?.id && userId.startsWith('anon-') && event === 'direct_signal') {
@@ -265,6 +269,25 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
         }
     }, [enrichPayloadWithGuestEnvelope]);
+
+    // Send only after a peer key is available. This is shared by normal sends and
+    // the key-exchange completion path so both paths enforce identical encryption.
+    const sendEncryptedDirectMessage = useCallback(async (friendId: string, msg: DirectMessage) => {
+        try {
+            const encrypted = await e2eeService.encryptMessage(friendId, msg.text);
+            await sendToUser(friendId, 'direct_message', {
+                id: msg.id,
+                senderId: userId,
+                senderName: userName,
+                text: '',
+                encrypted,
+                timestamp: msg.timestamp,
+                seq: msg.seq,
+            });
+        } catch (error) {
+            console.error('[DirectComms] Encrypted message delivery failed:', error);
+        }
+    }, [userId, userName, sendToUser]);
 
     // Cleanup all outbound channels on unmount
     useEffect(() => {
@@ -701,6 +724,58 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         });
 
         channel
+            .on('broadcast', { event: 'direct_key_exchange' }, async ({ payload }) => {
+                const exchange = payload as {
+                    senderId?: string;
+                    senderName?: string;
+                    publicKeyJwk?: JsonWebKey;
+                    requestId?: string;
+                    type?: 'request' | 'response';
+                };
+                if (!exchange?.senderId || !exchange.publicKeyJwk || !exchange.requestId) return;
+                if (exchange.senderId === userId) return;
+
+                const blocked = await isUserBlockedLocal(exchange.senderId);
+                if (blocked) {
+                    console.info('[DirectComms] Ignored key exchange from blocked user:', exchange.senderId);
+                    return;
+                }
+
+                try {
+                    const result = await e2eeService.recordPeerPublicKey(exchange.senderId, exchange.publicKeyJwk, false);
+                    if (result.status === 'changed') {
+                        console.warn('[DirectComms] Refusing key exchange because peer identity key changed:', exchange.senderId);
+                        dispatch(showToast({
+                            message: `Security notice: ${exchange.senderName || 'Contact'} identity key changed. Verify the contact before messaging.`,
+                            type: 'error',
+                        }));
+                        return;
+                    }
+
+                    if (exchange.type === 'request') {
+                        const identity = await e2eeService.getOrCreateLocalIdentity();
+                        await sendToUser(exchange.senderId, 'direct_key_exchange', {
+                            type: 'response',
+                            senderId: userId,
+                            senderName: userName,
+                            publicKeyJwk: identity.publicKeyJwk,
+                            requestId: exchange.requestId,
+                        });
+                    }
+
+                    // A response means the peer key is now pinned locally. Flush messages
+                    // queued while encryption was unavailable.
+                    if (exchange.type === 'response') {
+                        const queued = pendingEncryptedMessagesRef.current.get(exchange.senderId) || [];
+                        pendingEncryptedMessagesRef.current.delete(exchange.senderId);
+                        for (const pendingMessage of queued) {
+                            await sendEncryptedDirectMessage(exchange.senderId, pendingMessage);
+                        }
+                    }
+                } catch (error) {
+                    console.error('[DirectComms] Public-key exchange failed:', error);
+                }
+            })
             .on('broadcast', { event: 'direct_message' }, async ({ payload }) => {
                 const incomingPayload = payload as {
                     id: string;
@@ -1211,14 +1286,14 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         }, 45000);
     }, [incomingCall?.callId, dispatch, logIncomingCall]);
 
-    // Send 1-on-1 direct message with E2EE encryption and sequence counter
+    // Send 1-on-1 direct messages. First contact exchanges public keys only;
+    // message content stays queued locally until encryption is possible.
     const sendDirectMessage = useCallback(async (friendId: string, text: string) => {
-        if (!text.trim()) return;
-
         const cleanText = text.trim();
-        const nextSeq = await getNextMessageSequenceLocal(friendId, userId);
-        const messageId = Date.now().toString() + Math.random().toString(36).substring(7);
+        if (!cleanText) return;
 
+        const nextSeq = await getNextMessageSequenceLocal(friendId, userId);
+        const messageId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const msg: DirectMessage = {
             id: messageId,
             friendId,
@@ -1227,43 +1302,39 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             text: cleanText,
             timestamp: Date.now(),
             seq: nextSeq,
-            status: 'sent',
+            status: 'sending',
         };
 
-        // Save unencrypted plaintext locally in IndexedDB (local storage is considered secure on-device)
         await saveDirectMessageLocal(msg);
         dispatch(addDirectMessage(msg));
 
-        // Obtain our local identity public key to share in-band for zero-friction key exchange
-        let myPublicKeyJwk: JsonWebKey | undefined;
         try {
             const identity = await e2eeService.getOrCreateLocalIdentity();
-            myPublicKeyJwk = identity.publicKeyJwk;
-        } catch (idErr) {
-            console.warn('[DirectComms] Could not export local identity public key:', idErr);
+            const peerKey = await e2eeService.getPeerPublicKey(friendId);
+            if (peerKey) {
+                await sendEncryptedDirectMessage(friendId, msg);
+                return;
+            }
+
+            const pending = pendingEncryptedMessagesRef.current.get(friendId) || [];
+            pending.push(msg);
+            pendingEncryptedMessagesRef.current.set(friendId, pending);
+
+            // Send our public key and request the peer's key. This event contains no
+            // message body; the peer replies with its public key before queued content
+            // is encrypted and transmitted.
+            await sendToUser(friendId, 'direct_key_exchange', {
+                type: 'request',
+                senderId: userId,
+                senderName: userName,
+                publicKeyJwk: identity.publicKeyJwk,
+                requestId: messageId,
+            });
+        } catch (error) {
+            console.error('[DirectComms] Could not prepare encrypted message:', error);
+            dispatch(showToast({ message: 'Message could not be secured. Please try again.', type: 'error' }));
         }
-
-        // Attempt E2EE encryption before sending over Supabase Realtime broadcast
-        let encryptedPayload: EncryptedPayload | undefined;
-        try {
-            encryptedPayload = await e2eeService.encryptMessage(friendId, cleanText);
-        } catch (encErr) {
-            console.info('[DirectComms] Initial message handshake - transmitting initial plaintext with in-band public key exchange:', encErr);
-        }
-
-        const networkPayload = {
-            id: msg.id,
-            senderId: userId,
-            senderName: userName,
-            text: encryptedPayload ? '' : cleanText,
-            encrypted: encryptedPayload,
-            senderPublicKey: myPublicKeyJwk,
-            timestamp: msg.timestamp,
-            seq: nextSeq,
-        };
-
-        sendToUser(friendId, 'direct_message', networkPayload);
-    }, [userId, userName, dispatch, sendToUser]);
+    }, [userId, userName, dispatch, sendToUser, sendEncryptedDirectMessage]);
 
     // Acquire media stream with camera fallback
     const acquireMediaStream = async (requestedCallType: CallType): Promise<{ stream: MediaStream; hasVideo: boolean }> => {
