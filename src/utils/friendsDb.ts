@@ -251,14 +251,23 @@ export const recordPendingMessageAttemptLocal = async (messageId: string, error?
 
 export const deleteDirectMessageLocal = async (messageId: string): Promise<void> => {
     const db = await getDB();
-    await db.delete('direct_messages', messageId);
+    const tx = db.transaction(['direct_messages', 'outbox'], 'readwrite');
+    await Promise.all([
+        tx.objectStore('direct_messages').delete(messageId),
+        tx.objectStore('outbox').delete(messageId),
+    ]);
+    await tx.done;
 };
 
 export const clearDirectMessagesForFriendLocal = async (friendId: string): Promise<void> => {
     const db = await getDB();
-    const tx = db.transaction('direct_messages', 'readwrite');
-    const keys = await tx.store.index('by-friend').getAllKeys(friendId);
-    await Promise.all(keys.map((key) => tx.store.delete(key)));
+    const tx = db.transaction(['direct_messages', 'outbox'], 'readwrite');
+    const messageKeys = await tx.objectStore('direct_messages').index('by-friend').getAllKeys(friendId);
+    const outboxKeys = await tx.objectStore('outbox').index('by-friend').getAllKeys(friendId);
+    await Promise.all([
+        ...messageKeys.map((key) => tx.objectStore('direct_messages').delete(key)),
+        ...outboxKeys.map((key) => tx.objectStore('outbox').delete(key)),
+    ]);
     await tx.done;
 };
 
