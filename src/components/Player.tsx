@@ -232,7 +232,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [revokeAudioBlob, revokePreloadBlob, revokeImageBlob]);
 
     // Dual buffer system
-    const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
+    const audioRefA = useRef<HTMLAudioElement>(new Audio());
     const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
     const [isSourceWebAudioEligible, setIsSourceWebAudioEligible] = useState<boolean>(true);
     const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
@@ -354,8 +354,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (audioEngine.isElementCaptured(currentAudio)) {
                 unbindAudioListeners(currentAudio);
                 currentAudio.pause();
-                currentAudio.src = '';
-                const freshAudio = new Audio('');
+                currentAudio.removeAttribute('src');
+                currentAudio.load();
+                const freshAudio = new Audio();
                 configureAudioElement(freshAudio);
                 audioRef.current = freshAudio;
 
