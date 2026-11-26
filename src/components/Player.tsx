@@ -233,7 +233,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Dual buffer system
     const audioRefA = useRef<HTMLAudioElement>(new Audio());
-    const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
+    const audioRefB = useRef<HTMLAudioElement>(new Audio());
     const [isSourceWebAudioEligible, setIsSourceWebAudioEligible] = useState<boolean>(true);
     const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
     const [isCrossfading, setIsCrossfading] = useState(false);
