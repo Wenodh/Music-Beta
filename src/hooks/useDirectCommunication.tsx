@@ -1491,7 +1491,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             outboxRetryTimerRef.current = null;
         }
         try {
-            const pending = await getPendingMessageDeliveriesLocal();
+            const pending = await getPendingMessageDeliveriesLocal(userId);
             const grouped = new Map<string, typeof pending>();
             for (const item of pending) {
                 const group = grouped.get(item.friendId) || [];
@@ -1548,7 +1548,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         } finally {
             isResumingOutboxRef.current = false;
             try {
-                const remaining = await getPendingMessageDeliveriesLocal();
+                const remaining = await getPendingMessageDeliveriesLocal(userId);
                 if (remaining.length > 0) {
                     const nextAttemptAt = Math.min(...remaining.map((item) => item.nextAttemptAt));
                     const delay = Math.max(1_000, nextAttemptAt - Date.now());
