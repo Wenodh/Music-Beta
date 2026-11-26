@@ -1554,19 +1554,19 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             isResumingOutboxRef.current = false;
             if (userIdRef.current !== userId) {
                 window.dispatchEvent(new Event('vibeon:outbox-changed'));
-                return;
-            }
-            try {
-                const remaining = await getPendingMessageDeliveriesLocal(userId);
-                if (remaining.length > 0) {
-                    const nextAttemptAt = Math.min(...remaining.map((item) => item.nextAttemptAt));
-                    const delay = Math.max(1_000, nextAttemptAt - Date.now());
-                    outboxRetryTimerRef.current = setTimeout(() => {
-                        void resumePendingMessageDeliveries();
-                    }, delay);
+            } else {
+                try {
+                    const remaining = await getPendingMessageDeliveriesLocal(userId);
+                    if (remaining.length > 0) {
+                        const nextAttemptAt = Math.min(...remaining.map((item) => item.nextAttemptAt));
+                        const delay = Math.max(1_000, nextAttemptAt - Date.now());
+                        outboxRetryTimerRef.current = setTimeout(() => {
+                            void resumePendingMessageDeliveries();
+                        }, delay);
+                    }
+                } catch (scheduleError) {
+                    console.warn('[DirectComms] Could not schedule pending-message retry:', scheduleError);
                 }
-            } catch (scheduleError) {
-                console.warn('[DirectComms] Could not schedule pending-message retry:', scheduleError);
             }
         }
     }, [sendEncryptedDirectMessage, sendToUser, userId, userName]);
