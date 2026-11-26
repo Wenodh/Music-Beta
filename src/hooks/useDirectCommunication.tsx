@@ -1520,7 +1520,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const identity = await e2eeService.getOrCreateLocalIdentity();
                 const requestId = queuedMessages[0].id;
                 const outstanding = pendingKeyExchangeRequestsRef.current.get(friendId) || new Set<string>();
-                if (outstanding.has(requestId)) continue;
+                // Reuse the request ID so a delayed response to an earlier retry
+                // remains valid; the signed envelope nonce still changes per send.
                 outstanding.add(requestId);
                 pendingKeyExchangeRequestsRef.current.set(friendId, outstanding);
 
