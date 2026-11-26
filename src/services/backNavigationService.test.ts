@@ -1,10 +1,22 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { backNavigationService } from './backNavigationService';
 
 describe('BackNavigationService route transitions', () => {
+    beforeEach(() => {
+        // Vitest runs in the Node environment; provide only the browser history
+        // surface this service needs instead of depending on a DOM implementation.
+        vi.stubGlobal('window', {
+            history: {
+                pushState: vi.fn(),
+                back: vi.fn(),
+            },
+        });
+    });
+
     afterEach(() => {
         backNavigationService.resetForTests();
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
         vi.useRealTimers();
     });
 
