@@ -217,6 +217,20 @@ class E2EEService {
         publicKeyJwk: JsonWebKey,
         allowOverwrite = false
     ): Promise<PeerKeyComparisonResult> {
+        // Accept only public P-256 EC keys. Reject malformed JWKs and any
+        // private-key material before they can poison the pinned-key store.
+        if (
+            publicKeyJwk?.kty !== 'EC' ||
+            publicKeyJwk.crv !== 'P-256' ||
+            typeof publicKeyJwk.x !== 'string' ||
+            typeof publicKeyJwk.y !== 'string' ||
+            Boolean(publicKeyJwk.d)
+        ) {
+            throw new Error('Invalid peer public key: expected a public P-256 EC JWK');
+        }
+        const cryptoObj = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
+        await cryptoObj.subtle.importKey('jwk', publicKeyJwk, ECDH_PARAMS, true, []);
+
         const newFingerprint = await computePublicKeyFingerprint(publicKeyJwk);
         const existing = await this.getStoredPeerKeyRecord(peerId);
 
