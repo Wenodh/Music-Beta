@@ -30,6 +30,9 @@ const SearchSection: React.FC = () => {
 
     const hasResults = songs.length > 0 || albums.length > 0 || artists.length > 0 || playlists.length > 0;
 
+    // The dedicated Search page owns its results UI. Never render the navbar overlay there.
+    if (location.pathname === '/search') return null;
+
     // Do not display dropdown if idle with no results and not searching
     if (!isSearching && !hasResults && !searchError) return null;
 

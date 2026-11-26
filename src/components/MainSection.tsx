@@ -7,6 +7,7 @@ import { IoCloudOffline, IoArrowForward, IoGameControllerOutline, IoRefreshOutli
 import { useNavigate } from 'react-router-dom';
 import { musicApiService } from '../services/musicApiService';
 import { modules, songs as songsUrl, playlistSearch, searchArtist, playlistById } from '../constants';
+import { getHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
 
 const MainSection: React.FC = () => {
     const navigate = useNavigate();
@@ -40,6 +41,10 @@ const MainSection: React.FC = () => {
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [isStaleData, setIsStaleData] = useState(false);
     const [retryTrigger, setRetryTrigger] = useState(0);
+    const [homePreferences, setHomePreferences] = useState(() => getHomePreferences());
+    const feedVisibilityKey = JSON.stringify(homePreferences.visible);
+
+    useEffect(() => subscribeHomePreferences(() => setHomePreferences(getHomePreferences())), []);
 
     useEffect(() => {
         const handleOnline = () => setIsOffline(false);
@@ -68,7 +73,9 @@ const MainSection: React.FC = () => {
                     english: ['Taylor Swift', 'The Weeknd', 'Drake', 'Ed Sheeran', 'Justin Bieber', 'Dua Lipa', 'Bruno Mars', 'Ariana Grande', 'Billie Eilish', 'Post Malone', 'Kendrick Lamar', 'Rihanna', 'Eminem', 'Sia']
                 };
 
-                const artistsToFetch = curatedArtists[language.toLowerCase()] || [language];
+                // Keep the first paint lightweight; featured artists are intentionally capped here.
+                const artistsToFetch = getHomePreferences().visible.featuredArtists ? (curatedArtists[language.toLowerCase()] || [language]).slice(0, 5) : [];
+                const enabled = getHomePreferences().visible;
 
                 // Helper to sanitize base URLs for limit parameter
                 const getSanitizedUrl = (baseUrl: string) => {
@@ -91,19 +98,19 @@ const MainSection: React.FC = () => {
 
                 const fetchFeed = (url: string) => {
                     const path = extractPath(url);
-                    return musicApiService.fetchWithFallback(path, { signal });
+                    return musicApiService.fetchWithFallback(path, { signal }, undefined, { staleWhileRevalidate: true });
                 };
 
                 const results = await Promise.allSettled([
-                    fetchFeed(`${modules}${language}&page=0&limit=25`),
-                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=100`),
-                    fetchFeed(`${playlistSearch}${language}`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`),
-                    fetchFeed(`${playlistById}158224644`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`),
-                    fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`),
-                    fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=100`),
+                    enabled.trendingAlbums ? fetchFeed(`${modules}${language}&page=0&limit=25`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.trendingSongs ? fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' Top Hits')}&page=0&limit=60`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.topPlaylists ? fetchFeed(`${playlistSearch}${language}`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.meditation ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Meditation')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.work ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Work')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.developerPicks ? fetchFeed(`${playlistById}158224644`) : Promise.resolve({ data: { data: { songs: [] } }, provider: 'skipped' }),
+                    enabled.chill ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Chill')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.workout ? fetchFeed(`${sanitizedPlaylistSearch}${sanitizedPlaylistSearch.includes('?') ? '&' : '?'}query=${encodeURIComponent(language + ' Workout')}&limit=15`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
+                    enabled.latestSongs ? fetchFeed(`${songsUrl}?query=${encodeURIComponent(language + ' New Songs')}&page=0&limit=60`) : Promise.resolve({ data: { data: { results: [] } }, provider: 'skipped' }),
                     ...artistsToFetch.map(name => {
                         return fetchFeed(`${sanitizedSearchArtist}${sanitizedSearchArtist.includes('?') ? '&' : '?'}query=${encodeURIComponent(name)}&limit=1`);
                     })
@@ -157,9 +164,63 @@ const MainSection: React.FC = () => {
                     latestSongs: latestSongs
                 });
 
-                // Detect if content was served from stale cache
-                const hasCachedProvider = results.some(r => r.status === 'fulfilled' && (r.value as any).provider === 'cache');
-                setIsStaleData(hasCachedProvider);
+                // Show stale content immediately, then patch only the sections that refresh.
+                const refreshes: Promise<any>[] = [];
+                const refreshField = (result: PromiseSettledResult<any>, field: keyof typeof data, select: (payload: any) => any[]) => {
+                    if (result.status !== 'fulfilled' || !result.value.refreshPromise) return;
+                    refreshes.push(result.value.refreshPromise.then((freshResponse: any) => {
+                        if (signal.aborted) return freshResponse;
+                        setData(previous => ({ ...previous, [field]: select(freshResponse.data) }));
+                        return freshResponse;
+                    }));
+                };
+
+                refreshField(albumsRes, 'albums', payload => payload.data?.results || []);
+                refreshField(songsRes, 'songs', payload => deduplicateSongs(payload.data?.results || []).slice(0, 50));
+                refreshField(playlistsRes, 'playlists', payload => payload.data?.results || []);
+                refreshField(meditationRes, 'meditation', payload => payload.data?.results || []);
+                refreshField(workRes, 'work', payload => payload.data?.results || []);
+                refreshField(devPicksRes, 'devPicks', payload => payload.data?.songs || []);
+                refreshField(chillRes, 'chill', payload => payload.data?.results || []);
+                refreshField(workoutRes, 'workout', payload => payload.data?.results || []);
+                refreshField(latestSongsRes, 'latestSongs', payload => deduplicateSongs(payload.data?.results || []).slice(0, 50));
+
+                artistsResults.forEach((result, index) => {
+                    if (result.status !== 'fulfilled' || !result.value.refreshPromise) return;
+                    refreshes.push(result.value.refreshPromise.then((freshResponse: any) => {
+                        if (signal.aborted) return freshResponse;
+                        const freshArtist = freshResponse.data.data?.results?.[0];
+                        if (freshArtist) {
+                            const previousArtist = result.value.data.data?.results?.[0];
+                            const artistName = artistsToFetch[index];
+                            setData(previous => {
+                                const artists = [...previous.artists];
+                                const existingIndex = artists.findIndex(artist =>
+                                    (previousArtist?.id && artist.id === previousArtist.id) ||
+                                    (artistName && artist.name?.toLowerCase() === artistName.toLowerCase())
+                                );
+                                if (existingIndex >= 0) artists[existingIndex] = freshArtist;
+                                else artists.push(freshArtist);
+                                return { ...previous, artists };
+                            });
+                        }
+                        return freshResponse;
+                    }));
+                });
+
+                // Keep the stale banner until all background refreshes have settled successfully.
+                if (refreshes.length) {
+                    void Promise.allSettled(refreshes).then(outcomes => {
+                        if (signal.aborted) return;
+                        const allFresh = outcomes.every(outcome =>
+                            outcome.status === 'fulfilled' && outcome.value?.provider !== 'cache'
+                        );
+                        if (allFresh) setIsStaleData(false);
+                    });
+                }
+
+                const hasStaleResponse = results.some(r => r.status === 'fulfilled' && (r.value as any).isStale === true);
+                setIsStaleData(hasStaleResponse);
 
                 // If all major feed requests failed and data is empty, set error
                 const allFailed = results.every(r => r.status === 'rejected');
@@ -177,7 +238,7 @@ const MainSection: React.FC = () => {
                     setLoading(false);
                 }
             }
-    }, [language]);
+    }, [language, feedVisibilityKey]);
 
     useEffect(() => {
         if (isOffline) return;
@@ -276,95 +337,54 @@ const MainSection: React.FC = () => {
                 </div>
             )}
 
-            <DailyMix />
-
-            {/* Arcade Promotional Entry Banner */}
-            <motion.div
-                variants={itemVariants}
-                onClick={() => navigate('/arcade')}
-                className="mb-8 cursor-pointer group bg-gradient-to-r from-purple-900/30 via-pink-900/20 to-primary/20 border border-primary/30 hover:border-primary/60 p-4 sm:p-6 rounded-3xl transition-all shadow-lg flex items-center justify-between"
-            >
-                <div className="flex items-center gap-4 min-w-0">
-                    <div className="p-3 bg-primary/20 text-primary rounded-2xl group-hover:scale-110 transition-transform">
-                        <IoGameControllerOutline size={28} />
-                    </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">New Mini Games</span>
-                        <h3 className="text-lg sm:text-xl font-black text-white">Vibe Arcade</h3>
-                        <p className="text-xs text-gray-400">Play music-synced retro games while listening to your favorite songs</p>
-                    </div>
-                </div>
-                <button className="px-4 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shrink-0">
-                    Play
-                </button>
-            </motion.div>
-
-            {recentlyPlayed && recentlyPlayed.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={recentlyPlayed} title="Recently Played Songs" />
-                </motion.div>
-            )}
-            {recentlyPlayedAlbums && recentlyPlayedAlbums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={recentlyPlayedAlbums} title="Recently Played Albums" />
-                </motion.div>
-            )}
-            {data.latestSongs && data.latestSongs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.latestSongs} title="Latest Songs" />
-                </motion.div>
-            )}
-
-            {data.songs && data.songs.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.songs} title="Trending Songs" />
-                </motion.div>
-            )}
-            {data.albums && data.albums.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.albums} title="Trending Albums" />
-                </motion.div>
-            )}
-            {data.artists && data.artists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.artists} title="Featured Artists" />
-                </motion.div>
-            )}
-            {data.playlists && data.playlists.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.playlists} title="Top Playlists" />
-                </motion.div>
-            )}
-
-            {data.meditation && data.meditation.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.meditation} title="Meditation" />
-                </motion.div>
-            )}
-
-            {data.work && data.work.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.work} title="Work" />
-                </motion.div>
-            )}
-
-            {data.devPicks && data.devPicks.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.devPicks} title="Developer's Picks" />
-                </motion.div>
-            )}
-
-            {data.chill && data.chill.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.chill} title="Chill" />
-                </motion.div>
-            )}
-
-            {data.workout && data.workout.length > 0 && (
-                <motion.div variants={itemVariants} className="mb-8 sm:mb-12">
-                    <Slider data={data.workout} title="Workout" />
-                </motion.div>
-            )}
+            {homePreferences.order.map((sectionId) => {
+                if (!homePreferences.visible[sectionId]) return null;
+                const sectionProps = { variants: itemVariants, className: 'mb-8 sm:mb-12' };
+                switch (sectionId) {
+                    case 'dailyMix':
+                        return <DailyMix key={sectionId} />;
+                    case 'arcade':
+                        return (
+                            <motion.div key={sectionId} {...sectionProps} onClick={() => navigate('/arcade')} className="mb-8 cursor-pointer group bg-gradient-to-r from-purple-900/30 via-pink-900/20 to-primary/20 border border-primary/30 hover:border-primary/60 p-4 sm:p-6 rounded-3xl transition-all shadow-lg flex items-center justify-between">
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className="p-3 bg-primary/20 text-primary rounded-2xl group-hover:scale-110 transition-transform"><IoGameControllerOutline size={28} /></div>
+                                    <div className="min-w-0">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">New Mini Games</span>
+                                        <h3 className="text-lg sm:text-xl font-black text-white">Vibe Arcade</h3>
+                                        <p className="text-xs text-gray-400">Play music-synced retro games while listening to your favorite songs</p>
+                                    </div>
+                                </div>
+                                <button className="px-4 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shrink-0">Play</button>
+                            </motion.div>
+                        );
+                    case 'recentlyPlayed':
+                        return recentlyPlayed?.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={recentlyPlayed} title="Recently Played Songs" /></motion.div> : null;
+                    case 'recentlyPlayedAlbums':
+                        return recentlyPlayedAlbums?.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={recentlyPlayedAlbums} title="Recently Played Albums" /></motion.div> : null;
+                    case 'latestSongs':
+                        return data.latestSongs.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.latestSongs} title="Latest Songs" /></motion.div> : null;
+                    case 'trendingSongs':
+                        return data.songs.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.songs} title="Trending Songs" /></motion.div> : null;
+                    case 'trendingAlbums':
+                        return data.albums.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.albums} title="Trending Albums" /></motion.div> : null;
+                    case 'featuredArtists':
+                        return data.artists.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.artists} title="Featured Artists" /></motion.div> : null;
+                    case 'topPlaylists':
+                        return data.playlists.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.playlists} title="Top Playlists" /></motion.div> : null;
+                    case 'meditation':
+                        return data.meditation.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.meditation} title="Meditation" /></motion.div> : null;
+                    case 'work':
+                        return data.work.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.work} title="Work" /></motion.div> : null;
+                    case 'developerPicks':
+                        return data.devPicks.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.devPicks} title="Developer's Picks" /></motion.div> : null;
+                    case 'chill':
+                        return data.chill.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.chill} title="Chill" /></motion.div> : null;
+                    case 'workout':
+                        return data.workout.length ? <motion.div key={sectionId} {...sectionProps}><Slider data={data.workout} title="Workout" /></motion.div> : null;
+                    default:
+                        return null;
+                }
+            })}
 
         </motion.div>
     );

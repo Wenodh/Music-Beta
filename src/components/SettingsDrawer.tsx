@@ -74,6 +74,10 @@ import { getDownloadStorageInfo, deleteAllDownloads } from '../utils/db';
 import { setDownloadedIds } from '../features/library/librarySlice';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { backNavigationService } from '../services/backNavigationService';
+import ConsoleLogsPanel from './ConsoleLogsPanel';
+import { musicApiService } from '../services/musicApiService';
+import { CACHE_CATEGORIES, HOME_SECTIONS, getHomePreferences, saveHomePreferences, subscribeHomePreferences } from '../features/home/homePreferences';
+import type { HomePreferences } from '../features/home/homePreferences';
 
 export type SettingsCategoryId =
     | 'account'
@@ -83,7 +87,9 @@ export type SettingsCategoryId =
     | 'sounds'
     | 'privacy'
     | 'data'
-    | 'about';
+    | 'about'
+    | 'diagnostics'
+    | 'home';
 
 interface CategoryDef {
     id: SettingsCategoryId;
@@ -149,6 +155,18 @@ export const SETTINGS_CATEGORIES: CategoryDef[] = [
         title: 'About',
         description: 'Version, developer info, privacy policy',
         icon: IoInformationCircleOutline,
+    },
+    {
+        id: 'home',
+        title: 'Home Screen & Cache',
+        description: 'Customize Home sections and API cache freshness',
+        icon: IoOptionsOutline,
+    },
+    {
+        id: 'diagnostics',
+        title: 'Console & Diagnostics',
+        description: 'View app logs, playback errors, and copy diagnostics for support',
+        icon: IoServerOutline,
     },
 ];
 
@@ -314,6 +332,41 @@ const SEARCHABLE_SETTINGS: SearchableItem[] = [
         description: 'Application version, developer credits, and external privacy policy',
         keywords: ['about', 'version', 'developer', 'wenodh', 'privacy policy'],
     },
+    {
+        id: 'home-sections',
+        categoryId: 'home',
+        title: 'Home Screen Sections',
+        description: 'Show, hide, and reorder Home feed sections',
+        keywords: ['home', 'feed', 'sections', 'visibility', 'reorder', 'layout'],
+    },
+    {
+        id: 'home-cache-duration',
+        categoryId: 'home',
+        title: 'API Cache Duration',
+        description: 'Configure how long search, trending, artist, album, playlist, and recommendation data stays fresh',
+        keywords: ['cache', 'ttl', 'freshness', 'duration', 'api', 'requests', 'hours', 'days'],
+    },
+    {
+        id: 'home-cache-preset',
+        categoryId: 'home',
+        title: 'API Cache Preset',
+        description: 'Choose frequent updates, balanced caching, or fewer API calls',
+        keywords: ['cache', 'preset', 'frequent', 'balanced', 'save', 'api calls'],
+    },
+    {
+        id: 'home-api-diagnostics',
+        categoryId: 'home',
+        title: 'API Efficiency Metrics',
+        description: 'Inspect cache hits, HTTP attempts, retries, deduplicated requests, and provider failures',
+        keywords: ['api', 'metrics', 'requests', 'cache hits', 'retry', 'provider', 'diagnostics'],
+    },
+    {
+        id: 'diagnostics-console',
+        categoryId: 'diagnostics',
+        title: 'Console Logs & Debugging',
+        description: 'View, filter, and copy app logs, playback events, and JavaScript errors',
+        keywords: ['console', 'logs', 'debug', 'diagnostics', 'error', 'playback', 'crash'],
+    },
 ];
 
 const SettingsDrawer: React.FC = () => {
@@ -339,6 +392,8 @@ const SettingsDrawer: React.FC = () => {
     const [storageInfo, setStorageInfo] = useState({ count: 0, totalSize: 0 });
     const [soundPrefs, setSoundPrefs] = useState<NotificationSoundPreferences>(soundService.getPreferences());
     const [previewingId, setPreviewingId] = useState<string | null>(null);
+    const [homePreferences, setHomePreferences] = useState<HomePreferences>(() => getHomePreferences());
+    const [apiCacheStats, setApiCacheStats] = useState(() => musicApiService.getCacheStats());
 
     const searchInputRef = useRef<HTMLInputElement>(null);
     const contentPanelRef = useRef<HTMLDivElement>(null);
@@ -391,9 +446,12 @@ const SettingsDrawer: React.FC = () => {
 
     const qualities = ['12kbps', '48kbps', '96kbps', '160kbps', '320kbps'];
 
+    useEffect(() => subscribeHomePreferences(() => setHomePreferences(getHomePreferences())), []);
+
     useEffect(() => {
         if (isSettingsOpen) {
             updateStorageInfo();
+            setApiCacheStats(musicApiService.getCacheStats());
             setSoundPrefs(soundService.getPreferences());
         } else {
             soundService.stopPreview();
@@ -504,15 +562,16 @@ const SettingsDrawer: React.FC = () => {
         }, 150);
     };
 
-    // Seamless navigation to Privacy Policy
-    const handleViewPolicy = () => {
+    // Keep the drawer's synthetic back-stack entry as the previous route.
+    // Otherwise its close cleanup calls history.back() and cancels navigation.
+    const navigateFromSettings = (path: string) => {
+        backNavigationService.preserveOverlayHistoryForNavigation();
+        navigate(path);
         dispatch(setSettingsOpen(false));
-        navigate('/privacy');
-        try {
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        } catch {
-            window.scrollTo(0, 0);
-        }
+    };
+
+    const handleViewPolicy = () => {
+        navigateFromSettings('/privacy');
     };
 
     // Highlight text helper
@@ -559,6 +618,108 @@ const SettingsDrawer: React.FC = () => {
     // Active Category Content Renderer
     const renderCategoryContent = (categoryId: SettingsCategoryId) => {
         switch (categoryId) {
+            case 'home':
+                return (
+                    <div className="space-y-6">
+                        <section id="home-sections" className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Home screen sections</h3>
+                                <p className="text-xs text-gray-500">Choose what appears on Home. Disabled sections will not be requested by the Home feed.</p>
+                            </div>
+                            <div className="space-y-2">
+                                {homePreferences.order.map((id, index) => {
+                                    const section = HOME_SECTIONS.find(item => item.id === id);
+                                    if (!section) return null;
+                                    return (
+                                        <div key={id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-white/5">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{section.label}</p>
+                                                <p className="text-[10px] text-gray-500">{section.description}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button aria-label={`Move ${section.label} up`} disabled={index === 0} onClick={() => {
+                                                    const order = [...homePreferences.order];
+                                                    [order[index - 1], order[index]] = [order[index], order[index - 1]];
+                                                    setHomePreferences(saveHomePreferences({ order }));
+                                                }} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-200 dark:hover:bg-white/10">↑</button>
+                                                <button aria-label={`Move ${section.label} down`} disabled={index === homePreferences.order.length - 1} onClick={() => {
+                                                    const order = [...homePreferences.order];
+                                                    [order[index + 1], order[index]] = [order[index], order[index + 1]];
+                                                    setHomePreferences(saveHomePreferences({ order }));
+                                                }} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-200 dark:hover:bg-white/10">↓</button>
+                                                <button role="switch" aria-checked={homePreferences.visible[id]} aria-label={`Show ${section.label}`} onClick={() => setHomePreferences(saveHomePreferences({ visible: { ...homePreferences.visible, [id]: !homePreferences.visible[id] } }))} className={`w-10 h-5 rounded-full relative transition-colors ${homePreferences.visible[id] ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                                                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${homePreferences.visible[id] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <button onClick={() => setHomePreferences(saveHomePreferences({ visible: Object.fromEntries(HOME_SECTIONS.map(section => [section.id, section.defaultVisible])) as HomePreferences['visible'], order: HOME_SECTIONS.map(section => section.id) }))} className="text-xs font-bold text-primary">Restore Home defaults</button>
+                        </section>
+                        <section id="home-cache-duration" className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">API cache duration</h3>
+                                <p className="text-xs text-gray-500">Fresh responses are reused until expiry. Expired responses remain available as fallback if providers fail.</p>
+                            </div>
+                            <div id="home-cache-preset" className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">Cache preset</span>
+                                <select value={homePreferences.cachePreset} onChange={event => {
+                                    const preset = event.target.value as HomePreferences['cachePreset'];
+                                    const multipliers = { frequent: 0.25, balanced: 1, save: 2 };
+                                    const cacheHours = preset === 'custom' ? homePreferences.cacheHours : Object.fromEntries(CACHE_CATEGORIES.map(category => [category.id, Math.min(category.maxHours, Math.max(category.minHours, category.defaultHours * multipliers[preset]))])) as HomePreferences['cacheHours'];
+                                    setHomePreferences(saveHomePreferences({ cachePreset: preset, cacheHours }));
+                                }} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs">
+                                    <option value="frequent">Frequent updates</option><option value="balanced">Balanced</option><option value="save">Save API calls</option><option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{apiCacheStats.entries}</p><p className="text-[10px] text-gray-500">Cached responses</p></div>
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"><p className="text-lg font-bold text-gray-900 dark:text-white">{(apiCacheStats.approximateBytes / (1024 * 1024)).toFixed(2)} MB</p><p className="text-[10px] text-gray-500">Approx. cache memory</p></div>
+                            </div>
+                            <div id="home-api-diagnostics" className="space-y-2">
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-900 dark:text-white">API efficiency</h4>
+                                    <p className="text-[10px] text-gray-500">Session totals since app startup. Refresh Settings to update this snapshot.</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        ['Logical calls', apiCacheStats.metrics.logicalRequests],
+                                        ['Background refreshes', apiCacheStats.metrics.backgroundRefreshes],
+                                        ['HTTP attempts', apiCacheStats.metrics.httpAttempts],
+                                        ['Cache hits', apiCacheStats.metrics.cacheHits],
+                                        ['Deduplicated', apiCacheStats.metrics.deduplicatedRequests],
+                                        ['Retries', apiCacheStats.metrics.retries],
+                                        ['Provider fallbacks', apiCacheStats.metrics.providerFallbacks],
+                                        ['Provider failures', apiCacheStats.metrics.providerFailures],
+                                        ['Stale fallbacks', apiCacheStats.metrics.staleFallbacks],
+                                        ['Cancellations', apiCacheStats.metrics.cancellations],
+                                    ].map(([label, value]) => (
+                                        <div key={label} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                            <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">{value}</p>
+                                            <p className="text-[9px] leading-tight text-gray-500">{label}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <button onClick={async () => {
+                                await musicApiService.clearCache();
+                                setApiCacheStats(musicApiService.getCacheStats());
+                                dispatch(showToast({ message: 'API cache cleared. Offline downloads were not affected.', type: 'success' }));
+                            }} className="w-full p-3 rounded-xl border border-red-500/30 text-red-500 text-xs font-bold hover:bg-red-500/10 transition-colors">Clear API cache (keeps offline downloads)</button>
+                            <div className="space-y-2">
+                                {CACHE_CATEGORIES.map(category => (
+                                    <label key={category.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-white/5">
+                                        <span className="text-sm text-gray-900 dark:text-white">{category.label}</span>
+                                        <select value={homePreferences.cacheHours[category.id]} onChange={event => setHomePreferences(saveHomePreferences({ cachePreset: 'custom', cacheHours: { ...homePreferences.cacheHours, [category.id]: Number(event.target.value) } }))} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs">
+                                            {[0.25, 0.5, 1, 3, 6, 12, 24, 48, 72, 168, 336, 720].filter(hours => hours >= category.minHours && hours <= category.maxHours).map(hours => <option key={hours} value={hours}>{hours < 1 ? `${Math.round(hours * 60)} minutes` : hours < 24 ? `${hours} hours` : `${hours / 24} days`}</option>)}
+                                        </select>
+                                    </label>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+                );
             case 'account':
                 return (
                     <div className="space-y-6">
@@ -573,10 +734,7 @@ const SettingsDrawer: React.FC = () => {
                                         />
                                         <div
                                             className="overflow-hidden cursor-pointer hover:opacity-75 transition-opacity"
-                                            onClick={() => {
-                                                navigate('/profile');
-                                                dispatch(setSettingsOpen(false));
-                                            }}
+                                            onClick={() => navigateFromSettings('/profile')}
                                         >
                                             <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
                                                 {user.user_metadata?.full_name || 'Vibe User'}
@@ -1230,10 +1388,7 @@ const SettingsDrawer: React.FC = () => {
                                 <p className="text-xs text-gray-500">Configure online visibility, activity sharing, and private account status</p>
                             </div>
                             <button
-                                onClick={() => {
-                                    dispatch(setSettingsOpen(false));
-                                    navigate('/profile');
-                                }}
+                                onClick={() => navigateFromSettings('/profile')}
                                 className="px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-sm"
                             >
                                 Open Profile →
@@ -1461,6 +1616,17 @@ const SettingsDrawer: React.FC = () => {
                                 </div>
                                 <span className="text-xs font-bold text-primary px-3 py-1 bg-primary/10 rounded-xl">Open →</span>
                             </button>
+                        </div>
+                    </div>
+                );
+
+            case 'diagnostics':
+                return (
+                    <div className="space-y-4">
+                        <div id="diagnostics-console">
+                            <h3 className="mb-2 text-sm font-bold text-gray-900 dark:text-white">Device Console</h3>
+                            <p className="mb-4 text-xs text-gray-500">Capture logs while reproducing playback problems, then copy the report and paste it into support chat.</p>
+                            <ConsoleLogsPanel />
                         </div>
                     </div>
                 );

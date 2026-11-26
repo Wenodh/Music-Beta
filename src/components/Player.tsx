@@ -35,7 +35,9 @@ import { IoHeartOutline, IoHeart, IoAddCircleOutline, IoClose } from 'react-icon
 import { suggestions } from '../constants';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { nativeMediaSession } from '../services/nativeMediaSessionService';
+import { nativePlaybackService } from '../services/nativePlaybackService';
 import { setRecommendations, setQueueOpen } from '../features/musicplayer/musicPlayerSlice';
 import { getOfflineSong } from '../utils/db';
 import Visualizer from './Visualizer';
@@ -52,9 +54,23 @@ import { backNavigationService } from '../services/backNavigationService';
 import { Song } from '../types/music';
 import { getDominantColor } from '../utils/colorExtractor';
 import { getNextSong } from '../utils/playlist';
+import { fetchSongDetailsWithRetry } from '../services/favoriteRecoveryService';
+import { classifyMediaError, recordPlaybackDiagnostic } from '../services/playbackDiagnostics';
+import { acquirePlaybackOwnership } from '../services/playbackCoordinator';
+import { recoverPlaybackAfterLifecycle } from '../services/playbackLifecycle';
+import { showToast } from '../features/ui/uiSlice';
 
 const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const dispatch = useAppDispatch();
+    const dispatchPauseWithTrace = useCallback((reason: string) => {
+        console.warn('[PlaybackTrace] Redux pause dispatched', {
+            reason,
+            songId: currentSongRef.current?.id,
+            wasPlaying: isPlayingRef.current,
+            stack: new Error('pauseMusic dispatch trace').stack,
+        });
+        dispatch(pauseMusic());
+    }, [dispatch]);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
@@ -80,6 +96,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const { favorites } = useAppSelector((state) => state.library);
     const { isCallActive, incomingCall } = useAppSelector((state) => state.friends);
     const wasPlayingBeforeCallRef = useRef<boolean>(false);
+    const wasPlayingBeforeAudioFocusLossRef = useRef<boolean>(false);
 
     const pillRef = useRef<HTMLDivElement>(null);
     const [pillDimensions, setPillDimensions] = useState({ width: 0, height: 0 });
@@ -108,29 +125,94 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     const [imageUrl, setImageUrl] = useState<string>('');
     const [progress, setProgress] = useState(0);
+    const nativePositionRef = useRef(0);
+    const nativeDurationRef = useRef(0);
     const isFavorite = favorites.some(s => s.id === currentSong?.id);
     const lastProcessedSongId = useRef<string | null>(null);
     const currentSongRef = useRef(currentSong);
     useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+    const isPlayingRef = useRef(isPlaying);
+    isPlayingRef.current = isPlaying;
+    const playbackChannelRef = useRef<BroadcastChannel | null>(null);
+    const playbackTabIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const streamRecoveryRef = useRef<{ songId: string; attempts: number }>({ songId: '', attempts: 0 });
+    const streamRecoveryInFlightRef = useRef(false);
+    const pendingStreamRecoveryRef = useRef<{ songId: string; position: number } | null>(null);
 
     const { broadcast, sendReaction, toggleCall, toggleMute, sendMessage, isInternalAction } = useSession();
     const { isJoined, isHost, reactions } = useAppSelector(state => state.session);
 
+    // Coordinate playback between browser tabs. A newly-started session takes
+    // ownership and asks other Vibe On tabs to pause, preventing doubled audio.
+    useEffect(() => {
+        // Native Android playback belongs to this app's WebView. Cross-tab
+        // coordination can receive unrelated browser/PWA messages and must not
+        // pause the native app's active audio session.
+        if (Capacitor.isNativePlatform()) return;
+        if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+
+        const channel = new BroadcastChannel('vibeon-playback-v1');
+        playbackChannelRef.current = channel;
+        const handlePlaybackMessage = (event: MessageEvent<{ type?: string; sender?: string }>) => {
+            if (
+                event.data?.type === 'PLAYBACK_STARTED' &&
+                event.data.sender !== playbackTabIdRef.current &&
+                isPlayingRef.current
+            ) {
+                nativeMediaSession.cancelTransientResume();
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+            }
+        };
+
+        channel.addEventListener('message', handlePlaybackMessage);
+        return () => {
+            channel.removeEventListener('message', handlePlaybackMessage);
+            channel.close();
+            if (playbackChannelRef.current === channel) playbackChannelRef.current = null;
+        };
+    }, [dispatch]);
+
+    // Web Locks provides atomic playback ownership when supported. BroadcastChannel
+    // remains the fallback and keeps non-owner tabs informed.
+    useEffect(() => {
+        // Web Locks only coordinate browser tabs. Android's native WebView must
+        // not auto-pause because another browsing context owns this origin lock.
+        if (Capacitor.isNativePlatform()) return;
+        if (!isPlaying || typeof navigator === 'undefined' || !('locks' in navigator)) return;
+        return acquirePlaybackOwnership(() => dispatchPauseWithTrace('Player pauseMusic dispatch site'));
+    }, [isPlaying, dispatch]);
+
+    useEffect(() => {
+        if (!isPlaying || !currentSong) return;
+        playbackChannelRef.current?.postMessage({
+            type: 'PLAYBACK_STARTED',
+            sender: playbackTabIdRef.current,
+            songId: currentSong.id,
+        });
+    }, [isPlaying, currentSong?.id]);
+
     const currentBlobUrlsRef = useRef<{ audio?: string; image?: string }>({});
+    const currentBlobSongIdRef = useRef<string | null>(null);
+    const pendingAudioBlobRevokeRef = useRef<string[]>([]);
     const preloadBlobUrlRef = useRef<string | undefined>(undefined);
+    const preloadSongIdRef = useRef<string | null>(null);
     const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const revokeAudioBlob = useCallback(() => {
         if (currentBlobUrlsRef.current.audio) {
             URL.revokeObjectURL(currentBlobUrlsRef.current.audio);
             currentBlobUrlsRef.current.audio = undefined;
+            currentBlobSongIdRef.current = null;
         }
+        pendingAudioBlobRevokeRef.current.forEach((url) => URL.revokeObjectURL(url));
+        pendingAudioBlobRevokeRef.current = [];
     }, []);
 
     const revokePreloadBlob = useCallback(() => {
         if (preloadBlobUrlRef.current) {
             URL.revokeObjectURL(preloadBlobUrlRef.current);
             preloadBlobUrlRef.current = undefined;
+            preloadSongIdRef.current = null;
         }
     }, []);
 
@@ -144,16 +226,48 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     useEffect(() => {
         return () => {
             revokeAudioBlob();
+            revokePreloadBlob();
             revokeImageBlob();
         };
-    }, [revokeAudioBlob, revokeImageBlob]);
+    }, [revokeAudioBlob, revokePreloadBlob, revokeImageBlob]);
 
     // Dual buffer system
-    const audioRefA = useRef<HTMLAudioElement>(new Audio(''));
-    const audioRefB = useRef<HTMLAudioElement>(new Audio(''));
+    const audioRefA = useRef<HTMLAudioElement>(new Audio());
+    const audioRefB = useRef<HTMLAudioElement>(new Audio());
     const [isSourceWebAudioEligible, setIsSourceWebAudioEligible] = useState<boolean>(true);
     const [activeBuffer, setActiveBuffer] = useState<'A' | 'B'>('A');
     const [isCrossfading, setIsCrossfading] = useState(false);
+
+    // Temporary playback diagnostics for Android WebView lifecycle investigation.
+    useEffect(() => {
+        const elements = [audioRefA.current, audioRefB.current];
+        const eventNames = ['loadstart', 'loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'play', 'playing', 'pause', 'waiting', 'stalled', 'suspend', 'emptied', 'abort', 'error', 'ended', 'timeupdate'];
+        const listeners = elements.map((audio, index) => eventNames.map((eventName) => {
+            const handler = () => {
+                const error = audio.error;
+                console.info('[PlaybackTrace] media event', {
+                    buffer: index === 0 ? 'A' : 'B', event: eventName,
+                    songId: currentSongRef.current?.id, reduxIsPlaying: isPlayingRef.current,
+                    paused: audio.paused, currentTime: Number.isFinite(audio.currentTime) ? Number(audio.currentTime.toFixed(2)) : null,
+                    duration: Number.isFinite(audio.duration) ? Number(audio.duration.toFixed(2)) : null,
+                    readyState: audio.readyState, networkState: audio.networkState,
+                    errorCode: error?.code ?? null, errorMessage: error?.message || null,
+                    sourceHost: (() => { try { return new URL(audio.currentSrc || audio.src, window.location.href).host; } catch { return 'unknown'; } })(),
+                });
+            };
+            audio.addEventListener(eventName, handler);
+            return [eventName, handler] as const;
+        }));
+        console.info('[PlaybackTrace] media listeners attached', { platform: Capacitor.getPlatform(), songId: currentSongRef.current?.id });
+        return () => {
+            listeners.forEach((handlers, index) => handlers.forEach(([eventName, handler]) => elements[index].removeEventListener(eventName, handler)));
+            console.info('[PlaybackTrace] media listeners detached', { songId: currentSongRef.current?.id });
+        };
+    }, []);
+
+    useEffect(() => {
+        console.info('[PlaybackTrace] Redux playback state', { songId: currentSong?.id, isPlaying, activeBuffer, preferredQuality, currentTime: savedCurrentTime });
+    }, [currentSong?.id, isPlaying, activeBuffer, preferredQuality, savedCurrentTime]);
 
     const getActiveAudio = () => activeBuffer === 'A' ? audioRefA.current : audioRefB.current;
     const getInactiveAudio = () => activeBuffer === 'A' ? audioRefB.current : audioRefA.current;
@@ -192,7 +306,14 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Helper to configure audio element
     const configureAudioElement = useCallback((audio: HTMLAudioElement) => {
-        audio.crossOrigin = 'anonymous';
+        // Android uses direct HTMLMediaElement output, not Web Audio capture.
+        // Forcing CORS mode can reject otherwise playable CDN streams that do
+        // not expose Access-Control-Allow-Origin.
+        if (Capacitor.getPlatform() === 'android') {
+            audio.removeAttribute('crossorigin');
+        } else {
+            audio.crossOrigin = 'anonymous';
+        }
         audio.preload = 'auto';
         audio.preservesPitch = true;
         audio.playbackRate = playbackSpeed;
@@ -206,6 +327,18 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const prepareAudioForSource = useCallback((buffer: 'A' | 'B', songUrl: string): HTMLAudioElement => {
         const audioRef = buffer === 'A' ? audioRefA : audioRefB;
         const currentAudio = audioRef.current;
+
+        // Android WebView may suspend AudioContext when the app is backgrounded
+        // or the screen is locked. A captured MediaElementAudioSourceNode cannot
+        // reliably fall back to hardware HTML media output while suspended.
+        // Keep Android on the direct HTMLMediaElement output path until Media3
+        // owns playback and its queue natively.
+        if (Capacitor.getPlatform() === 'android') {
+            currentAudio.playbackRate = playbackSpeed;
+            currentAudio.preservesPitch = true;
+            return currentAudio;
+        }
+
         const isEligible = isWebAudioEligibleSource(songUrl);
 
         if (isEligible) {
@@ -221,8 +354,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (audioEngine.isElementCaptured(currentAudio)) {
                 unbindAudioListeners(currentAudio);
                 currentAudio.pause();
-                currentAudio.src = '';
-                const freshAudio = new Audio('');
+                currentAudio.removeAttribute('src');
+                currentAudio.load();
+                const freshAudio = new Audio();
                 configureAudioElement(freshAudio);
                 audioRef.current = freshAudio;
 
@@ -240,6 +374,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
 
     // Synchronize playback speed across both audio buffers (accounting for temporary session drift correction)
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) {
+            void nativePlaybackService.setPlaybackSpeed(playbackSpeed);
+            return;
+        }
         [audioRefA.current, audioRefB.current].forEach(audio => {
             if (audio) {
                 audio.playbackRate = playbackSpeed;
@@ -253,6 +391,10 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const handleRateAdjustment = (e: any) => {
             const effectiveSpeed = e.detail?.effectiveSpeed;
             if (effectiveSpeed && !isNaN(effectiveSpeed)) {
+                if (nativePlaybackService.isAvailable) {
+                    void nativePlaybackService.setPlaybackSpeed(effectiveSpeed);
+                    return;
+                }
                 [audioRefA.current, audioRefB.current].forEach(audio => {
                     if (audio) {
                         audio.playbackRate = effectiveSpeed;
@@ -269,32 +411,94 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     const getSongUrl = useCallback(async (song: Song | null, isPreload = false) => {
         if (!song) return '';
 
-        // Check if song is offline
+        // Check if song is offline. Transfer a preloaded object URL to the active
+        // slot when its track becomes current; never revoke a URL still in use.
         const offlineSong = await getOfflineSong(song.id);
         if (offlineSong?.audioBlob) {
-            const url = URL.createObjectURL(offlineSong.audioBlob);
-            if (!isPreload) {
-                revokeAudioBlob();
-                currentBlobUrlsRef.current.audio = url;
-            } else {
+            if (isPreload) {
+                if (preloadSongIdRef.current === song.id && preloadBlobUrlRef.current) {
+                    return preloadBlobUrlRef.current;
+                }
                 revokePreloadBlob();
+                const url = URL.createObjectURL(offlineSong.audioBlob);
                 preloadBlobUrlRef.current = url;
+                preloadSongIdRef.current = song.id;
+                return url;
             }
+
+            if (preloadSongIdRef.current === song.id && preloadBlobUrlRef.current) {
+                const previousUrl = currentBlobUrlsRef.current.audio;
+                if (previousUrl && previousUrl !== preloadBlobUrlRef.current) {
+                    pendingAudioBlobRevokeRef.current.push(previousUrl);
+                }
+                currentBlobUrlsRef.current.audio = preloadBlobUrlRef.current;
+                currentBlobSongIdRef.current = song.id;
+                preloadBlobUrlRef.current = undefined;
+                preloadSongIdRef.current = null;
+                return currentBlobUrlsRef.current.audio;
+            }
+
+            if (currentBlobSongIdRef.current === song.id && currentBlobUrlsRef.current.audio) {
+                return currentBlobUrlsRef.current.audio;
+            }
+
+            const previousUrl = currentBlobUrlsRef.current.audio;
+            const url = URL.createObjectURL(offlineSong.audioBlob);
+            if (previousUrl && previousUrl !== url) pendingAudioBlobRevokeRef.current.push(previousUrl);
+            currentBlobUrlsRef.current.audio = url;
+            currentBlobSongIdRef.current = song.id;
             return url;
         }
 
-        const musicData = song.music || song.downloadUrl;
-        if (Array.isArray(musicData)) {
-            return musicData.find((d: any) => d.quality === preferredQuality)?.url || musicData[musicData.length - 1]?.url;
+        if (isPreload) {
+            if (preloadSongIdRef.current !== song.id) revokePreloadBlob();
         }
-        return musicData || '';
-    }, [preferredQuality, revokeAudioBlob]);
+
+        const resolveCandidate = (value: Song['music'] | Song['downloadUrl']): string => {
+            if (typeof value === 'string') return value.trim();
+            if (!Array.isArray(value) || value.length === 0) return '';
+            const preferred = value.find((item) => item?.quality === preferredQuality && typeof item.url === 'string' && item.url.trim());
+            const fallback = value.find((item) => typeof item?.url === 'string' && item.url.trim());
+            return (preferred || fallback)?.url?.trim() || '';
+        };
+
+        // Some API responses contain an empty/partial music array but a valid
+        // downloadUrl. Do not let a truthy empty array hide the fallback source.
+        const musicUrl = resolveCandidate(song.music);
+        const downloadUrl = resolveCandidate(song.downloadUrl);
+        const songUrl = musicUrl || downloadUrl;
+        if (!songUrl) {
+            console.warn('[Player] No playable audio URL found for song:', {
+                songId: song.id,
+                preferredQuality,
+                musicFormat: Array.isArray(song.music) ? song.music.map((item) => item?.quality) : typeof song.music,
+                downloadFormat: Array.isArray(song.downloadUrl) ? song.downloadUrl.map((item) => item?.quality) : typeof song.downloadUrl,
+            });
+            return '';
+        }
+
+        try {
+            const parsed = new URL(songUrl, window.location.href);
+            console.info('[Player] Audio source resolved:', {
+                songId: song.id,
+                source: musicUrl ? 'music' : 'downloadUrl',
+                protocol: parsed.protocol,
+                host: parsed.host || 'local',
+                preferredQuality,
+            });
+        } catch {
+            console.warn('[Player] Audio source URL is malformed:', { songId: song.id });
+            return '';
+        }
+        return songUrl;
+    }, [preferredQuality, revokeAudioBlob, revokePreloadBlob]);
 
     const playNextInQueue = useCallback((isManual = true) => {
         if (!isManual && repeatMode === 'one') {
             const activeAudio = getActiveAudio();
             activeAudio.currentTime = 0;
-            activeAudio.play().catch(e => console.warn("Playback failed", e));
+            console.info('[PlaybackTrace] play() invoked from isPlaying effect', { songId: currentSongRef.current?.id, buffer: activeBuffer, paused: activeAudio.paused, readyState: activeAudio.readyState, networkState: activeAudio.networkState });
+            activeAudio.play().then(() => console.info('[PlaybackTrace] state-effect play() resolved', { songId: currentSongRef.current?.id, paused: activeAudio.paused, currentTime: activeAudio.currentTime })).catch(e => console.error('[PlaybackTrace] state-effect play() rejected', { songId: currentSongRef.current?.id, name: e?.name, message: e?.message, paused: activeAudio.paused, readyState: activeAudio.readyState, networkState: activeAudio.networkState }));
             return;
         }
 
@@ -390,33 +594,122 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             }
         }
 
-        if (currentSong) {
+        if (currentSong && !nativePlaybackService.isAvailable) {
             nativeMediaSession.updateMetadata(currentSong, imageUrl);
             nativeMediaSession.registerCallbacks({
-                onPlay: () => dispatch(playMusic({ ...currentSong, forcePlay: true })),
-                onPause: () => dispatch(pauseMusic()),
-                onNext: () => playNextInQueue(true),
-                onPrevious: prevSong,
+                onPlay: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatch(playMusic({ ...currentSong, forcePlay: true }));
+                },
+                onPause: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                },
+                onNext: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    playNextInQueue(true);
+                },
+                onPrevious: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    prevSong();
+                },
                 onSeek: (seconds) => handleSeek(seconds),
-                onHeadphonesDisconnected: () => dispatch(pauseMusic()),
-                onAudioFocusLost: () => dispatch(pauseMusic()),
+                onHeadphonesDisconnected: () => {
+                    nativeMediaSession.cancelTransientResume();
+                    wasPlayingBeforeAudioFocusLossRef.current = false;
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                },
+                onAudioFocusLost: () => {
+                    if (isPlayingRef.current) {
+                        wasPlayingBeforeAudioFocusLossRef.current = true;
+                        dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                    }
+                },
+                onAudioFocusGained: () => {
+                    if (wasPlayingBeforeAudioFocusLossRef.current && currentSongRef.current) {
+                        wasPlayingBeforeAudioFocusLossRef.current = false;
+                        dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+                    }
+                },
             });
         }
     }, [currentSong, dispatch, imageUrl, prevSong, playNextInQueue, recommendationsCache, uiTheme.accentColor]);
 
-    // Sync Playback State with MediaSession & Native Service
+    // Reflect lock-screen/headset/system playback changes back into Redux so the
+    // React controls remain consistent with the native ExoPlayer session.
     useEffect(() => {
-        nativeMediaSession.updatePlaybackState(isPlaying);
+        if (!nativePlaybackService.isAvailable) return;
+        let disposed = false;
+        const listeners: Array<{ remove: () => Promise<void> }> = [];
+        const register = (promise: Promise<{ remove: () => Promise<void> } | null>) => {
+            promise.then((handle) => {
+                if (!handle) return;
+                if (disposed) void handle.remove();
+                else listeners.push(handle);
+            }).catch((error) => console.warn('[Player] Media3 listener unavailable:', error));
+        };
+        register(nativePlaybackService.addPlaybackIntentListener(({ playWhenReady, audioFocusLoss }) => {
+            if (!playWhenReady && audioFocusLoss && isPlayingRef.current) {
+                wasPlayingBeforeAudioFocusLossRef.current = true;
+            }
+        }));
+        register(nativePlaybackService.addPlaybackChangedListener(({ isPlaying: nativeIsPlaying }) => {
+            if (disposed || nativeIsPlaying === isPlayingRef.current) return;
+            if (nativeIsPlaying && wasPlayingBeforeAudioFocusLossRef.current) {
+                wasPlayingBeforeAudioFocusLossRef.current = false;
+                if (isCallActive || incomingCall) {
+                    wasPlayingBeforeCallRef.current = true;
+                } else if (currentSongRef.current) {
+                    dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+                }
+                return;
+            }
+            if (nativeIsPlaying && currentSongRef.current) {
+                dispatch(playMusic({ ...currentSongRef.current, forcePlay: true }));
+            } else {
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+            }
+        }));
+        return () => {
+            disposed = true;
+            listeners.forEach((handle) => { void handle.remove(); });
+        };
+    }, [dispatch, isCallActive, incomingCall]);
 
+    // Sync playback state and ensure Android promotes the app to its mediaPlayback
+    // foreground service before the user can lock the screen.
+    useEffect(() => {
+        let cancelled = false;
+
+        if (nativePlaybackService.isAvailable) return;
+        nativeMediaSession.updatePlaybackState(isPlaying).then((accepted) => {
+            if (!accepted && isPlaying && !cancelled) {
+                console.warn('[Player] Native playback could not acquire media audio focus; pausing playback.');
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+            }
+        }).catch((error) => {
+            console.warn('[Player] Failed to synchronize native playback state:', error);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isPlaying, dispatch]);
+
+    // Refresh the system seek position when the active buffer or track changes.
+    useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         const activeAudio = getActiveAudio();
-        if (activeAudio && !isNaN(activeAudio.duration)) {
+        if (activeAudio && Number.isFinite(activeAudio.duration)) {
             nativeMediaSession.updatePositionState(
                 activeAudio.duration || 0,
                 activeAudio.currentTime || 0,
                 activeAudio.playbackRate || 1
             );
         }
-    }, [isPlaying, activeBuffer]);
+    }, [activeBuffer, currentSong?.id]);
 
     // Audio focus management during Voice & Video Calls:
     // When an incoming call arrives or a direct call is active, pause music cleanly.
@@ -425,9 +718,15 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const inCallOrRinging = isCallActive || Boolean(incomingCall);
 
         if (inCallOrRinging) {
-            if (isPlaying) {
+            // Audio-focus loss can pause music before this effect observes the incoming call.
+            // Transfer that intent to the call lifecycle so music resumes after the call ends.
+            if (isPlaying || wasPlayingBeforeAudioFocusLossRef.current) {
                 wasPlayingBeforeCallRef.current = true;
-                dispatch(pauseMusic());
+                wasPlayingBeforeAudioFocusLossRef.current = false;
+                nativeMediaSession.cancelTransientResume();
+            }
+            if (isPlaying) {
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
             }
         } else {
             if (wasPlayingBeforeCallRef.current) {
@@ -439,40 +738,72 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [isCallActive, incomingCall, isPlaying, dispatch]);
 
-    // Android background & screen-lock playback preservation:
-    // When the screen locks or app transitions to the background on Android,
-    // ensure HTMLAudioElement and AudioContext are kept active and not auto-paused by WebView lifecycle.
+    // Android background & screen-lock playback preservation.
+    // The Capgo MediaSession plugin starts the native mediaPlayback foreground service
+    // when playback becomes active. Keep the Web Audio graph and active media element
+    // synchronized with the native app lifecycle as the WebView backgrounds/foregrounds.
     useEffect(() => {
-        let appStateHandle: any = null;
+        if (nativePlaybackService.isAvailable) return;
+        let disposed = false;
+        let appStateHandle: { remove: () => Promise<void> } | null = null;
 
-        try {
-            CapApp.addListener('appStateChange', (state) => {
-                const activeAudio = getActiveAudio();
-                const audioEngine = AudioEngine.getInstance();
-                const ctx = audioEngine.getAudioContext();
+        const recoverPlayback = async (isActive: boolean) => {
+            if (!isPlayingRef.current) return;
 
-                if (state.isActive) {
-                    if (ctx && ctx.state === 'suspended' && isPlaying) {
-                        ctx.resume().catch(() => {});
-                    }
-                } else {
-                    // Screen locked / backgrounded: if playback is active, ensure audio playback continues uninterrupted
-                    if (isPlaying && activeAudio && activeAudio.paused) {
-                        activeAudio.play().catch((err) => {
-                            console.warn('[Player] Background audio play resumption failed:', err);
-                        });
-                    }
+            const activeAudio = getActiveAudio();
+            const context = audioEngine.getAudioContext();
+
+            try {
+                // Android can suspend Web Audio after the initial background transition.
+                // Retry on app resume, document visibility changes, and AudioContext state changes.
+                const recovery = await recoverPlaybackAfterLifecycle({
+                    isPlaying: isPlayingRef.current,
+                    audio: activeAudio,
+                    audioContextState: context?.state,
+                    resumeAudioContext: () => audioEngine.resume(),
+                });
+                if (!recovery.audioContextResumed && audioEngine.isElementCaptured(activeAudio)) {
+                    console.warn('[Player] Captured Web Audio element remains suspended; background audio may be unavailable until the app is resumed.');
                 }
-            }).then((handle) => {
+            } catch (error) {
+                console.warn(
+                    `[Player] ${isActive ? 'Foreground' : 'Background'} playback recovery failed:`,
+                    error
+                );
+            }
+        };
+
+        const context = audioEngine.getAudioContext();
+        const handleAudioContextStateChange = () => {
+            if (isPlayingRef.current && context?.state === 'suspended') {
+                void recoverPlayback(false);
+            }
+        };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') void recoverPlayback(true);
+        };
+        context?.addEventListener('statechange', handleAudioContextStateChange);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+            void recoverPlayback(isActive);
+        }).then((handle) => {
+            if (disposed) {
+                void handle.remove();
+            } else {
                 appStateHandle = handle;
-            }).catch(() => {});
-        } catch {
-            // CapApp not available
-        }
+            }
+        }).catch((error) => {
+            console.warn('[Player] Could not register app lifecycle listener:', error);
+        });
 
         return () => {
-            if (appStateHandle && typeof appStateHandle.remove === 'function') {
-                appStateHandle.remove();
+            disposed = true;
+            context?.removeEventListener('statechange', handleAudioContextStateChange);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (appStateHandle) {
+                void appStateHandle.remove();
+                appStateHandle = null;
             }
         };
     }, [isPlaying, activeBuffer]);
@@ -515,11 +846,54 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const targetSong = currentSong;
         const targetSongId = targetSong?.id;
         const currentRequestId = ++activePlaybackRequestIdRef.current;
+        console.info('[PlaybackTrace] source effect started', { requestId: currentRequestId, songId: targetSongId, isPlaying, activeBuffer, preferredQuality, musicPresent: Boolean(targetSong?.music), downloadUrlPresent: Boolean(targetSong?.downloadUrl) });
 
         getSongUrl(targetSong).then(songUrl => {
             // Check generation token and current song ID before mutating state
             if (activePlaybackRequestIdRef.current !== currentRequestId) return;
             if (currentSongRef.current?.id !== targetSongId) return;
+
+            // Never leave the previous track attached when the selected track has
+            // no usable URL. Otherwise the playback-state effect can replay stale audio.
+            if (targetSong && !songUrl) {
+                activeAudio.pause();
+                activeAudio.removeAttribute('src');
+                activeAudio.load();
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                dispatch(showToast({ message: 'This track has no playable audio source. Please try another track.', type: 'error' }));
+                return;
+            }
+
+            if (nativePlaybackService.isAvailable) {
+                if (!songUrl) {
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                    return;
+                }
+                nativePlaybackService.setMediaItem({
+                    uri: songUrl,
+                    mediaId: targetSongId || songUrl,
+                    title: targetSong?.name || 'Vibe On',
+                    artist: targetSong?.primaryArtists || '',
+                    artworkUri: typeof targetSong?.image === 'string' ? targetSong.image : undefined,
+                }).then(async () => {
+                    if (currentSongRef.current?.id !== targetSongId) return;
+                    const pendingRecovery = pendingStreamRecoveryRef.current;
+                    const resumeAt = pendingRecovery?.songId === targetSongId
+                        ? pendingRecovery.position
+                        : (!isInitialPositionRestoredRef.current ? savedCurrentTime : 0);
+                    if (resumeAt > 0) {
+                        await nativePlaybackService.seekTo(resumeAt);
+                        isInitialPositionRestoredRef.current = true;
+                        restoredSongIdRef.current = targetSongId || null;
+                        if (pendingRecovery?.songId === targetSongId) pendingStreamRecoveryRef.current = null;
+                    }
+                    return isPlayingRef.current ? nativePlaybackService.play() : nativePlaybackService.pause();
+                }).catch((error) => {
+                    console.warn('[Player] Media3 could not load the selected track:', error);
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                });
+                return;
+            }
 
             const isEligible = isWebAudioEligibleSource(songUrl);
             setIsSourceWebAudioEligible(isEligible);
@@ -530,8 +904,30 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
             if (activePlaybackRequestIdRef.current !== currentRequestId) return;
 
             if (songUrl && resolvedAudio.src !== songUrl) {
+                console.info('[PlaybackTrace] assigning source', { requestId: currentRequestId, songId: targetSongId, buffer: activeBuffer, host: (() => { try { return new URL(songUrl).host; } catch { return 'unknown'; } })() });
                 resolvedAudio.src = songUrl;
                 setIsCrossfading(false);
+
+                const pendingRecovery = pendingStreamRecoveryRef.current;
+                if (pendingRecovery?.songId === targetSongId) {
+                    const restoreRecoveredPosition = () => {
+                        if (currentSongRef.current?.id !== targetSongId) {
+                            pendingStreamRecoveryRef.current = null;
+                            return;
+                        }
+                        const duration = resolvedAudio.duration;
+                        const position = Number.isFinite(duration) && duration > 0
+                            ? Math.min(pendingRecovery.position, duration)
+                            : pendingRecovery.position;
+                        try {
+                            resolvedAudio.currentTime = Math.max(0, position);
+                        } catch {
+                            // Some streaming sources reject seeks until they become seekable.
+                        }
+                        pendingStreamRecoveryRef.current = null;
+                    };
+                    resolvedAudio.addEventListener('loadedmetadata', restoreRecoveredPosition, { once: true });
+                }
 
                 // Restore position only once for the re-hydrated initial song
                 if (!isInitialPositionRestoredRef.current && savedCurrentTime > 0 && targetSongId) {
@@ -550,51 +946,236 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 }
             }
 
-            if (isPlaying) {
-                resolvedAudio.play().catch(e => console.warn("Playback failed", e));
+            // Flush deferred Blob URL revocations even when the inactive buffer was
+            // already preloaded with this source before it became the active buffer.
+            if (songUrl) {
+                if (songUrl.startsWith('blob:')) {
+                    pendingAudioBlobRevokeRef.current.forEach((url) => {
+                        if (url !== songUrl) URL.revokeObjectURL(url);
+                    });
+                    pendingAudioBlobRevokeRef.current = [];
+                } else {
+                    revokeAudioBlob();
+                }
+            }
+
+            // Source resolution is asynchronous; use the latest Redux intent rather
+            // than the isPlaying value captured when this effect first started.
+            const shouldPlay = isPlayingRef.current;
+            if (shouldPlay) {
+                console.info('[PlaybackTrace] play() invoked from source effect', { requestId: currentRequestId, songId: targetSongId, buffer: activeBuffer, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
+                resolvedAudio.play().then(() => console.info('[PlaybackTrace] source-effect play() resolved', { requestId: currentRequestId, songId: targetSongId, paused: resolvedAudio.paused, currentTime: resolvedAudio.currentTime, readyState: resolvedAudio.readyState })).catch((error: DOMException) => {
+                    console.error('[PlaybackTrace] source-effect play() rejected', { requestId: currentRequestId, songId: targetSongId, name: error?.name, message: error?.message, paused: resolvedAudio.paused, readyState: resolvedAudio.readyState, networkState: resolvedAudio.networkState });
+                    if (error?.name === 'NotAllowedError' && currentSongRef.current?.id === targetSongId) {
+                        dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                    } else if (error?.name !== 'AbortError') {
+                        console.warn('[Player] Playback start failed:', error);
+                    }
+                });
             } else {
                 resolvedAudio.pause();
                 getInactiveAudio().pause();
             }
+        }).catch((error) => {
+            if (activePlaybackRequestIdRef.current !== currentRequestId) return;
+            console.warn('[Player] Could not resolve the current audio source:', error);
+            dispatchPauseWithTrace('Player pauseMusic dispatch site');
         });
-    }, [currentSong?.id, activeBuffer, getSongUrl, prepareAudioForSource]);
+    }, [currentSong?.id, currentSong?.music, currentSong?.downloadUrl, preferredQuality, activeBuffer, getSongUrl, prepareAudioForSource, revokeAudioBlob, savedCurrentTime, dispatch]);
+
+    // Recover an expired or failed online stream using fresh provider song details.
+    useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
+        const audio = getActiveAudio();
+        const handleMediaError = async () => {
+            const song = currentSongRef.current;
+            if (!isPlaying || !song || !audio.src || audio.src.startsWith('blob:')) return;
+            const mediaError = audio.error;
+            const failedSource = audio.currentSrc || audio.src;
+            let failedSourceHost = 'unavailable';
+            try { failedSourceHost = new URL(failedSource, window.location.href).host || 'local'; } catch { /* Keep host unavailable. */ }
+            console.error('[Player] HTML media element error:', {
+                songId: song.id,
+                mediaErrorCode: mediaError?.code ?? null,
+                mediaErrorMessage: mediaError?.message || 'Unknown media error',
+                sourceHost: failedSourceHost,
+                readyState: audio.readyState,
+                networkState: audio.networkState,
+            });
+            const failureKind = classifyMediaError(mediaError);
+            if (!failureKind || failureKind === 'aborted') return;
+
+            if (streamRecoveryRef.current.songId !== song.id) {
+                streamRecoveryRef.current = { songId: song.id, attempts: 0 };
+            }
+            if (streamRecoveryRef.current.attempts >= 2) {
+                recordPlaybackDiagnostic({ event: 'stream_recovery_exhausted', songId: song.id, code: mediaError?.code });
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                dispatch(showToast({ message: 'This stream is unavailable. Please try another track.', type: 'error' }));
+                return;
+            }
+
+            if (streamRecoveryInFlightRef.current) return;
+            streamRecoveryInFlightRef.current = true;
+            streamRecoveryRef.current.attempts += 1;
+            const failedUrl = audio.currentSrc || audio.src;
+            const resumePosition = Number.isFinite(audio.currentTime) ? audio.currentTime : savedCurrentTime;
+            recordPlaybackDiagnostic({ event: 'stream_recovery_started', songId: song.id, code: mediaError?.code });
+
+            try {
+                const result = await fetchSongDetailsWithRetry(song.id, 1);
+                if (currentSongRef.current?.id !== song.id) return;
+
+                const refreshedSong = result.song;
+                const media = refreshedSong?.downloadUrl || refreshedSong?.music;
+                const refreshedUrl = Array.isArray(media)
+                    ? (media.find((item: any) => item.quality === preferredQuality)?.url || media[media.length - 1]?.url || '')
+                    : (media || '');
+
+                if (!refreshedSong || !refreshedUrl || refreshedUrl === failedUrl) {
+                    recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                    dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
+                    return;
+                }
+
+                pendingStreamRecoveryRef.current = { songId: song.id, position: Math.max(0, resumePosition || 0) };
+                dispatch(setCurrentTime(Math.max(0, resumePosition || 0)));
+                recordPlaybackDiagnostic({ event: 'stream_recovery_succeeded', songId: song.id });
+                dispatch(playMusic({ ...refreshedSong, forcePlay: true }));
+            } catch (error) {
+                console.warn('[Player] Stream recovery request failed:', error);
+                recordPlaybackDiagnostic({ event: 'stream_recovery_failed', songId: song.id, code: mediaError?.code });
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                dispatch(showToast({ message: 'Unable to refresh this audio stream. Please try another track.', type: 'error' }));
+            } finally {
+                streamRecoveryInFlightRef.current = false;
+            }
+        };
+
+        audio.addEventListener('error', handleMediaError);
+        return () => audio.removeEventListener('error', handleMediaError);
+    }, [activeBuffer, currentSong?.id, currentSong?.music, isPlaying, preferredQuality, savedCurrentTime, dispatch]);
 
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) {
+            (isPlaying ? nativePlaybackService.play() : nativePlaybackService.pause())
+                .catch((error) => console.warn('[Player] Media3 playback state update failed:', error));
+            return;
+        }
         const activeAudio = getActiveAudio();
         if (isPlaying) {
+            if (!activeAudio.currentSrc && !activeAudio.src) {
+                console.warn('[Player] Play requested before an audio source was assigned:', {
+                    songId: currentSongRef.current?.id,
+                    readyState: activeAudio.readyState,
+                    networkState: activeAudio.networkState,
+                });
+                return;
+            }
             activeAudio.play().catch(e => console.warn("Playback failed", e));
         } else {
+            console.info('[PlaybackTrace] pause() invoked from isPlaying effect', { songId: currentSongRef.current?.id, buffer: activeBuffer, activePaused: activeAudio.paused, inactivePaused: getInactiveAudio().paused });
             activeAudio.pause();
             getInactiveAudio().pause();
         }
     }, [isPlaying]);
 
-    // Throttled Redux update and persistence for current playback position
+    // Media3 position is sampled from the native decoder, not from the WebView's audio tags.
+    useEffect(() => {
+        if (!nativePlaybackService.isAvailable || !currentSong) return;
+        let disposed = false;
+        let inFlight = false;
+        let lastSavedAt = 0;
+        const syncPosition = async () => {
+            if (disposed || inFlight) return;
+            inFlight = true;
+            try {
+                const state = await nativePlaybackService.getPlaybackState();
+                if (!state || disposed || state.mediaId !== currentSongRef.current?.id) return;
+                const duration = Math.max(0, state.durationMs / 1000);
+                const position = Math.max(0, state.positionMs / 1000);
+                nativeDurationRef.current = duration;
+                nativePositionRef.current = position;
+                if (duration > 0) setProgress(Math.min(100, (position / duration) * 100));
+                if (Date.now() - lastSavedAt >= 2000) {
+                    dispatch(setCurrentTime(position));
+                    lastSavedAt = Date.now();
+                }
+            } catch (error) {
+                console.warn('[Player] Could not read Media3 playback position:', error);
+            } finally {
+                inFlight = false;
+            }
+        };
+        void syncPosition();
+        const timer = window.setInterval(() => { void syncPosition(); }, 500);
+        let endedHandle: { remove: () => Promise<void> } | null = null;
+        nativePlaybackService.addEndedListener(() => {
+            if (sleepTimerMode === 'endOfTrack') {
+                dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                dispatch(setSleepTimer(null));
+            } else if (repeatMode === 'one') {
+                void nativePlaybackService.seekTo(0).then(() => nativePlaybackService.play());
+            } else {
+                const index = songs.findIndex((song) => song.id === currentSongRef.current?.id);
+                const isLastSong = index === songs.length - 1;
+                if (isLastSong && repeatMode === 'none') {
+                    if (isSongRadioEnabled && recommendations.length > 0) {
+                        const randomSong = recommendations[Math.floor(Math.random() * Math.min(5, recommendations.length))];
+                        dispatch(playMusic(randomSong));
+                    } else {
+                        dispatchPauseWithTrace('Player pauseMusic dispatch site');
+                    }
+                } else {
+                    // Do not use the Web Audio gapless guard on the Media3 backend.
+                    dispatch(nextSong({ isManual: false }));
+                }
+            }
+        }).then((handle) => {
+            if (!handle) return;
+            if (disposed) void handle.remove();
+            else endedHandle = handle;
+        }).catch((error) => console.warn('[Player] Media3 end listener unavailable:', error));
+        return () => {
+            disposed = true;
+            window.clearInterval(timer);
+            if (endedHandle) void endedHandle.remove();
+        };
+    }, [currentSong?.id, dispatch, repeatMode, sleepTimerMode, songs, isSongRadioEnabled, recommendations]);
+
+    // Throttle both persistence and Media Session bridge updates. Browsers only
+    // need periodic position snapshots; sending one on every timeupdate is noisy.
     const lastDispatchedTimeRef = useRef<number>(0);
+    const lastPositionStateUpdateRef = useRef<number>(0);
 
     // Save playback position on pause, unload, and backgrounding
     useEffect(() => {
         const savePosition = () => {
             const activeAudio = getActiveAudio();
-            if (activeAudio && activeAudio.currentTime > 0) {
+            if (activeAudio && Number.isFinite(activeAudio.currentTime) && activeAudio.currentTime > 0) {
                 dispatch(setCurrentTime(activeAudio.currentTime));
             }
         };
 
-        window.addEventListener('beforeunload', savePosition);
-        document.addEventListener('visibilitychange', () => {
+        const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
                 savePosition();
             }
-        });
+        };
+
+        window.addEventListener('beforeunload', savePosition);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             window.removeEventListener('beforeunload', savePosition);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [dispatch]);
+    }, [dispatch, activeBuffer]);
 
-    // Preload next song
+    // Preload next song (Media3 currently owns one active item).
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         if (isGaplessEnabled && currentSong && songs.length > 0) {
             const next = getNextSong(currentSong, songs, shuffle, repeatMode, false);
 
@@ -610,8 +1191,9 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         }
     }, [currentSong?.id, songs, isGaplessEnabled, activeBuffer, getSongUrl, shuffle, repeatMode]);
 
-    // Crossfade Logic
+    // Crossfade remains on the Web Audio backend; Media3 is single-item in this migration.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) return;
         const activeAudio = getActiveAudio();
         const inactiveAudio = getInactiveAudio();
 
@@ -627,12 +1209,16 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                 lastDispatchedTimeRef.current = now;
             }
 
-            // Update MediaSession and native position state
-            nativeMediaSession.updatePositionState(
-                duration || 0,
-                currentTime || 0,
-                activeAudio.playbackRate || 1
-            );
+            // Keep browser/OS seek controls current without flooding the
+            // Capacitor bridge or Media Session API with every timeupdate event.
+            if (now - lastPositionStateUpdateRef.current >= 1000) {
+                nativeMediaSession.updatePositionState(
+                    duration || 0,
+                    currentTime || 0,
+                    activeAudio.playbackRate || 1
+                );
+                lastPositionStateUpdateRef.current = now;
+            }
 
             // Update Progress Bar
             const progressVal = (currentTime / (duration || 1)) * 100;
@@ -724,7 +1310,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         const handleSongEnd = () => {
             if (!isCrossfading) {
                 if (sleepTimerMode === 'endOfTrack') {
-                    dispatch(pauseMusic());
+                    dispatchPauseWithTrace('Player pauseMusic dispatch site');
                     dispatch(setSleepTimer(null));
                     return;
                 }
@@ -743,7 +1329,7 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
                             dispatch(playMusic(randomSong));
                         } else {
                             // End of queue: stop playback gracefully
-                            dispatch(pauseMusic());
+                            dispatchPauseWithTrace('Player pauseMusic dispatch site');
                         }
                     } else {
                         playNextInQueue(false);
@@ -760,8 +1346,12 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
         };
     }, [activeBuffer, currentSong, isGaplessEnabled, isCrossfading, crossfadeDuration, songs, effectiveVolume, dispatch, playNextInQueue, repeatMode, shuffle, isSongRadioEnabled, recommendations, sleepTimerMode, bindAudioListeners, unbindAudioListeners]);
 
-    // Update individual audio volumes and Web Audio booster gain based on user global volume
+    // Update native or Web Audio output volume.
     useEffect(() => {
+        if (nativePlaybackService.isAvailable) {
+            void nativePlaybackService.setVolume(effectiveVolume);
+            return;
+        }
         const hardwareVolume = Math.min(1.0, Math.max(0, effectiveVolume));
         // If current source is ineligible for Web Audio, cap gain to 1.0
         const softwareGain = isSourceWebAudioEligible && effectiveVolume > 1.0 ? effectiveVolume : 1.0;
@@ -789,9 +1379,25 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     }, [isMoreMenuOpen]);
 
     const handleSeek = (time: number) => {
+        if (nativePlaybackService.isAvailable) {
+            if (Number.isFinite(time) && time >= 0) {
+                nativePositionRef.current = time;
+                void nativePlaybackService.seekTo(time);
+                if (isHost && isJoined && !isInternalAction.current) broadcast('seek', { time });
+            }
+            return;
+        }
         const activeAudio = getActiveAudio();
-        if (time >= 0) {
+        if (Number.isFinite(time) && time >= 0) {
             activeAudio.currentTime = time;
+            if (Number.isFinite(activeAudio.duration) && activeAudio.duration > 0) {
+                nativeMediaSession.updatePositionState(
+                    activeAudio.duration,
+                    Math.min(time, activeAudio.duration),
+                    activeAudio.playbackRate || 1
+                );
+                lastPositionStateUpdateRef.current = Date.now();
+            }
             if (isHost && isJoined && !isInternalAction.current) {
                 broadcast('seek', { time });
             }
@@ -799,20 +1405,30 @@ const Player = ({ onShowMiniPlayer }: { onShowMiniPlayer?: () => void }) => {
     };
 
     const handleProgressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const activeAudio = getActiveAudio();
         const newPercentage = parseFloat(event.target.value);
+        if (nativePlaybackService.isAvailable) {
+            handleSeek((newPercentage / 100) * nativeDurationRef.current);
+            return;
+        }
+        const activeAudio = getActiveAudio();
         const newTime = (newPercentage / 100) * (activeAudio.duration || 0);
         handleSeek(newTime);
     };
 
     const handlePlayPause = () => {
+        nativeMediaSession.cancelTransientResume();
+        wasPlayingBeforeAudioFocusLossRef.current = false;
         dispatch(playMusic(currentSong));
     };
 
     const handleDoubleTap = (side: 'left' | 'right') => {
         const activeAudio = getActiveAudio();
         const seekAmount = side === 'left' ? -10 : 10;
-        activeAudio.currentTime = Math.max(0, Math.min(activeAudio.duration, activeAudio.currentTime + seekAmount));
+        if (nativePlaybackService.isAvailable) {
+            handleSeek(Math.max(0, Math.min(nativeDurationRef.current, nativePositionRef.current + seekAmount)));
+        } else {
+            activeAudio.currentTime = Math.max(0, Math.min(activeAudio.duration, activeAudio.currentTime + seekAmount));
+        }
         setSeekAnimation(side === 'left' ? 'backward' : 'forward');
         setTimeout(() => setSeekAnimation(null), 500);
     };

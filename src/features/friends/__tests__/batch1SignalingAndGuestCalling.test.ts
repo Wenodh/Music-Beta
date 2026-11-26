@@ -9,6 +9,38 @@ describe('Batch 1: Signaling-First Calling & Guest Identity Verification Matrix'
         vi.clearAllMocks();
     });
 
+    describe('Guest signaling envelope recipient binding', () => {
+        it.each(['authenticated-recipient', 'guest-recipient'])(
+            'verifies a guest call request for a %s and rejects a different recipient',
+            async (recipientId) => {
+                const signedEnvelope = await guestSessionService.signSignalingEnvelope({
+                    callId: `guest-call-${recipientId}`,
+                    recipientId,
+                    signalType: 'call-request',
+                    callType: 'video',
+                    data: null,
+                });
+
+                const valid = await guestSessionService.verifySignalingEnvelope(
+                    signedEnvelope,
+                    recipientId,
+                    'call-request',
+                    null
+                );
+                expect(valid.isValid).toBe(true);
+
+                const wrongRecipient = await guestSessionService.verifySignalingEnvelope(
+                    signedEnvelope,
+                    `${recipientId}-other`,
+                    'call-request',
+                    null
+                );
+                expect(wrongRecipient.isValid).toBe(false);
+                expect(wrongRecipient.reason).toContain('Recipient mismatch');
+            }
+        );
+    });
+
     describe('Calling Matrix Scenarios', () => {
         it('Auth -> Auth: signals directly without requiring signedEnvelope', async () => {
             const senderId = 'auth-user-1';

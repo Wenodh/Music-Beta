@@ -58,16 +58,20 @@ settingsListener.startListening({
         toggleRepeatMode,
         toggleShuffle
     ),
-    effect: async (action, listenerApi) => {
-        // Dispatch updateSettingsTimestamp first to update local timestamp
+    effect: async (_action, listenerApi) => {
+        // Cancel older pending uploads so rapid slider/toggle changes produce one
+        // upload containing the latest Redux settings snapshot.
+        listenerApi.cancelActiveListeners();
         listenerApi.dispatch(updateSettingsTimestamp());
 
-        // Debounce or just upload? user asked for "immediately"
-        // We'll use a small debounce to avoid spamming the DB during rapid changes (like slider moves)
-        // listenerApi.cancelActiveInstances() is removed as it can cause TypeErrors in some environments
-        await listenerApi.delay(1000);
+        try {
+            await listenerApi.delay(1000);
+            if (listenerApi.signal.aborted) return;
+        } catch {
+            // A newer settings action superseded this debounce window.
+            return;
+        }
 
-        // Avoid uploading if we are currently fetching settings (e.g. on login/sync)
         const state = listenerApi.getState() as RootState;
         if (state.library.isSyncing) return;
 

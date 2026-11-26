@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useFetchDetails from '../hooks/useFetchDetails';
 import { musicApiService } from '../services/musicApiService';
 import ImageComponent from './ImageComponent';
@@ -36,6 +36,8 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl = extra
     const [sortBy, setSortBy] = useState<'default' | 'name' | 'artist' | 'duration'>('default');
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
     const [isBioExpanded, setIsBioExpanded] = useState(false);
+    const [shouldLoadRecommendations, setShouldLoadRecommendations] = useState(false);
+    const recommendationsSentinelRef = useRef<HTMLDivElement>(null);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [visibleSongsCount, setVisibleSongsCount] = useState(30);
@@ -59,6 +61,20 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl = extra
     }, [details, dispatch]);
 
     useEffect(() => {
+        const node = recommendationsSentinelRef.current;
+        if (!node || typeof IntersectionObserver === 'undefined') return;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                setShouldLoadRecommendations(true);
+                observer.disconnect();
+            }
+        }, { rootMargin: '300px' });
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [details?.id, details?.type]);
+
+    useEffect(() => {
+        if (!shouldLoadRecommendations) return;
         const controller = new AbortController();
         let isAborted = false;
 
@@ -120,7 +136,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl = extra
             isAborted = true;
             controller.abort();
         };
-    }, [details?.id, details?.type]);
+    }, [details?.id, details?.type, shouldLoadRecommendations]);
 
     const sortedSongs = [...rawSongs].sort((a: any, b: any) => {
         if (sortBy === 'name') {
@@ -495,6 +511,7 @@ const PageTemplate: React.FC<PageTemplateProps> = ({ apiUrl, getImageUrl = extra
                 </div>
             )}
 
+            <div ref={recommendationsSentinelRef} aria-hidden="true" className="h-px w-full" />
             <div className="mt-12 sm:mt-20 space-y-12 sm:space-y-16">
                 {(details as any)?.singles && (details as any).singles.length > 0 && (
                     <Slider data={(details as any).singles} title="Singles & EPs" />

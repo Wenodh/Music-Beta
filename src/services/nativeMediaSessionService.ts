@@ -1,18 +1,8 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
+import { VibeOnMedia } from './vibeOnMediaPlugin';
 import { MediaSession } from '@capgo/capacitor-media-session';
 import { decodeHtmlEntities } from '../utils/decodeHtml';
 import { Song } from '../types/music';
-
-interface VibeOnMediaPluginInterface {
-    requestAudioFocus(): Promise<{ granted: boolean }>;
-    abandonAudioFocus(): Promise<void>;
-    checkPermissions?(): Promise<{ notifications: string }>;
-    requestPermissions?(): Promise<{ notifications: string }>;
-    addListener(eventName: 'audioFocusChanged', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
-    addListener(eventName: 'becomingNoisy', listener: (data: { event: string }) => void): Promise<{ remove: () => void }>;
-}
-
-const VibeOnMedia = registerPlugin<VibeOnMediaPluginInterface>('VibeOnMedia');
 
 export interface MediaControlsCallbacks {
     onPlay: () => void;
@@ -22,6 +12,7 @@ export interface MediaControlsCallbacks {
     onSeek: (seconds: number) => void;
     onHeadphonesDisconnected?: () => void;
     onAudioFocusLost?: () => void;
+    onAudioFocusGained?: () => void;
 }
 
 class NativeMediaSessionBridge {
@@ -30,6 +21,12 @@ class NativeMediaSessionBridge {
     private listenersRegistered = false;
     private removeFocusListener: (() => void) | null = null;
     private removeNoisyListener: (() => void) | null = null;
+    private resumeAfterTransientFocusLoss = false;
+    private lastKnownPosition = 0;
+    private lastKnownDuration = 0;
+    // Ignore out-of-order async state syncs. A stale initial `paused` update must
+    // never abandon focus after a newer user-initiated `playing` request.
+    private playbackStateRevision = 0;
 
     public async checkAndRequestNotificationPermissions(): Promise<boolean> {
         if (!this.isNative) return true;
@@ -76,12 +73,17 @@ class NativeMediaSessionBridge {
 
                 if (!this.listenersRegistered) {
                     const focusHandle = await VibeOnMedia.addListener('audioFocusChanged', (data) => {
+                        if (data.forCall) return;
                         if (data.event === 'audioFocusLost') {
+                            this.resumeAfterTransientFocusLoss = Boolean(data.canResume);
                             if (this.activeHandlers?.onAudioFocusLost) {
                                 this.activeHandlers.onAudioFocusLost();
                             } else {
                                 this.activeHandlers?.onPause();
                             }
+                        } else if (data.event === 'audioFocusGained' && this.resumeAfterTransientFocusLoss) {
+                            this.resumeAfterTransientFocusLoss = false;
+                            this.activeHandlers?.onAudioFocusGained?.();
                         }
                     });
                     this.removeFocusListener = focusHandle.remove;
@@ -102,32 +104,78 @@ class NativeMediaSessionBridge {
             }
         }
 
-        // Web MediaSession fallback
+        // Browser Media Session API. Register each action independently because
+        // browser support differs (especially for seek and stop actions).
         if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
-            try {
-                navigator.mediaSession.setActionHandler('play', () => this.activeHandlers?.onPlay());
-                navigator.mediaSession.setActionHandler('pause', () => this.activeHandlers?.onPause());
-                navigator.mediaSession.setActionHandler('nexttrack', () => this.activeHandlers?.onNext());
-                navigator.mediaSession.setActionHandler('previoustrack', () => this.activeHandlers?.onPrevious());
-                navigator.mediaSession.setActionHandler('seekto', (details) => {
-                    if (details.seekTime !== undefined && details.seekTime !== null) {
-                        this.activeHandlers?.onSeek(details.seekTime);
-                    }
-                });
-            } catch {
-                // Ignore unsupported action handler errors
-            }
+            const mediaSession = navigator.mediaSession;
+            const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler) => {
+                try {
+                    mediaSession.setActionHandler(action, handler);
+                } catch {
+                    // An unsupported action must not prevent the other controls registering.
+                }
+            };
+
+            setHandler('play', () => this.activeHandlers?.onPlay());
+            setHandler('pause', () => this.activeHandlers?.onPause());
+            setHandler('stop', () => this.activeHandlers?.onPause());
+            setHandler('nexttrack', () => this.activeHandlers?.onNext());
+            setHandler('previoustrack', () => this.activeHandlers?.onPrevious());
+            setHandler('seekto', (details) => {
+                if (Number.isFinite(details.seekTime)) {
+                    this.activeHandlers?.onSeek(details.seekTime!);
+                }
+            });
+            setHandler('seekbackward', (details) => {
+                const current = Number.isFinite(details.seekTime)
+                    ? details.seekTime!
+                    : this.lastKnownPosition;
+                const offset = Number.isFinite(details.seekOffset) && details.seekOffset! > 0
+                    ? details.seekOffset!
+                    : 10;
+                this.activeHandlers?.onSeek(Math.max(0, current - offset));
+            });
+            setHandler('seekforward', (details) => {
+                const current = Number.isFinite(details.seekTime)
+                    ? details.seekTime!
+                    : this.lastKnownPosition;
+                const offset = Number.isFinite(details.seekOffset) && details.seekOffset! > 0
+                    ? details.seekOffset!
+                    : 10;
+                this.activeHandlers?.onSeek(this.lastKnownDuration > 0 ? Math.min(this.lastKnownDuration, current + offset) : current + offset);
+            });
         }
     }
 
     public async updateMetadata(song: Song | null, imageUrl: string | null) {
-        if (!song) return;
+        if (!song) {
+            if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+                navigator.mediaSession.metadata = null;
+            }
+            return;
+        }
 
         const title = decodeHtmlEntities(song.name);
         const artist = decodeHtmlEntities(song.primaryArtists || '');
         const album = decodeHtmlEntities(typeof song.album === 'string' ? song.album : song.album?.name || '');
+        const artworkType = (() => {
+            if (!imageUrl) return undefined;
+            try {
+                const pathname = new URL(imageUrl, typeof window !== 'undefined' ? window.location.href : 'https://vibeon.invalid').pathname.toLowerCase();
+                if (pathname.endsWith('.png')) return 'image/png';
+                if (pathname.endsWith('.webp')) return 'image/webp';
+                if (pathname.endsWith('.avif')) return 'image/avif';
+                if (pathname.endsWith('.gif')) return 'image/gif';
+                if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) return 'image/jpeg';
+            } catch {
+                // Opaque/blob/CDN URLs may not expose a reliable extension.
+            }
+            // Let the browser/native media service inspect opaque CDN URLs rather
+            // than falsely declaring every unknown image to be JPEG.
+            return undefined;
+        })();
         const artwork = imageUrl
-            ? [{ src: imageUrl, sizes: '512x512', type: 'image/png' }]
+            ? [{ src: imageUrl, sizes: '512x512', ...(artworkType ? { type: artworkType } : {}) }]
             : [];
 
         if (this.isNative) {
@@ -157,51 +205,74 @@ class NativeMediaSessionBridge {
         }
     }
 
-    public async updatePlaybackState(isPlaying: boolean) {
+    public async updatePlaybackState(isPlaying: boolean): Promise<boolean> {
+        const revision = ++this.playbackStateRevision;
         const state = isPlaying ? 'playing' : 'paused';
+        const isCurrentRequest = () => revision === this.playbackStateRevision;
 
         if (this.isNative) {
+            // Media-session UI/foreground-service synchronization is supplementary to
+            // HTML audio. A plugin failure here must not cancel a user-requested play.
             try {
-                if (isPlaying) {
-                    await VibeOnMedia.requestAudioFocus().catch(() => {});
-                }
                 await MediaSession.setPlaybackState({ playbackState: state });
             } catch (err) {
-                console.warn('[NativeMediaSession] Failed to set native playback state:', err);
+                console.warn('[NativeMediaSession] Failed to synchronize native playback state:', err);
             }
+
+            // An older paused update can finish after a newer play request. Do not let
+            // that stale update abandon the focus acquired by the newer request.
+            if (!isCurrentRequest()) return true;
+
+            // Android currently uses HTMLMediaElement as the playback owner. WebView
+            // requests and manages AudioManager focus for that media element itself.
+            // Requesting a second app-owned focus lease here creates two competing
+            // focus owners; WebView can take focus after this request and deliver
+            // AUDIOFOCUS_LOSS to our listener, which incorrectly dispatches pauseMusic().
+            // Keep explicit VibeOnMedia focus requests exclusively for voice calls.
+            // Media3 will own music focus when the native playback backend is enabled.
         }
 
-        if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+        if (isCurrentRequest() && typeof window !== 'undefined' && 'mediaSession' in navigator) {
             try {
                 navigator.mediaSession.playbackState = state;
             } catch {
                 // Ignore
             }
         }
+        return true;
+    }
+
+    public cancelTransientResume() {
+        this.resumeAfterTransientFocusLoss = false;
     }
 
     public async updatePositionState(duration: number, position: number, playbackRate = 1.0) {
+        if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(position)) return;
+
+        const safeDuration = duration;
+        const safePosition = Math.min(safeDuration, Math.max(0, position));
+        const safePlaybackRate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1.0;
+        this.lastKnownPosition = safePosition;
+        this.lastKnownDuration = safeDuration;
+        const positionState = {
+            duration: safeDuration,
+            position: safePosition,
+            playbackRate: safePlaybackRate,
+        };
+
         if (this.isNative) {
             try {
-                await MediaSession.setPositionState({
-                    duration: duration > 0 ? duration : 0,
-                    position: position > 0 ? position : 0,
-                    playbackRate: playbackRate > 0 ? playbackRate : 1.0,
-                });
+                await MediaSession.setPositionState(positionState);
             } catch {
-                // Ignore position updates if service is busy
+                // Ignore position updates if service is busy or the duration is not yet accepted.
             }
         }
 
         if (typeof window !== 'undefined' && 'mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
             try {
-                navigator.mediaSession.setPositionState({
-                    duration: duration > 0 ? duration : 0,
-                    position: position > 0 ? position : 0,
-                    playbackRate: playbackRate > 0 ? playbackRate : 1.0,
-                });
+                navigator.mediaSession.setPositionState(positionState);
             } catch {
-                // Ignore
+                // Browsers reject invalid or stale position updates; playback itself should continue.
             }
         }
     }
@@ -210,7 +281,6 @@ class NativeMediaSessionBridge {
         if (this.isNative) {
             try {
                 await MediaSession.setPlaybackState({ playbackState: 'none' });
-                await VibeOnMedia.abandonAudioFocus().catch(() => {});
             } catch {
                 // Ignore
             }
@@ -224,6 +294,7 @@ class NativeMediaSessionBridge {
             this.removeNoisyListener = null;
         }
         this.listenersRegistered = false;
+        this.resumeAfterTransientFocusLoss = false;
         this.activeHandlers = null;
     }
 }

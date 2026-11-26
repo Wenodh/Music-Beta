@@ -196,6 +196,11 @@ const sessionSlice = createSlice({
             state.hostGracePeriodActive = false;
             state.stateVersion += 1;
         },
+        demoteFromHost: (state) => {
+            state.isHost = false;
+            state.hostGracePeriodActive = false;
+            state.graceSecondsRemaining = 30;
+        },
         setPartyDetails: (state, action: PayloadAction<{ partyName?: string; description?: string; category?: string; isPublic?: boolean }>) => {
             if (action.payload.partyName !== undefined) state.partyName = action.payload.partyName;
             if (action.payload.description !== undefined) state.partyDescription = action.payload.description;
@@ -290,6 +295,7 @@ export const {
     setHostId,
     setCoHostIds,
     promoteToHost,
+    demoteFromHost,
     setPartyDetails,
     setPublicParties,
     addOrUpdatePublicParty,

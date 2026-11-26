@@ -6,8 +6,85 @@ import friendsReducer, {
     setCallVideoEnabled,
     setCallSpeakerOn,
     endDirectCall,
+    setDirectMessages,
+    removeDirectMessage,
+    setWaitingCall,
+    promoteWaitingCall,
+    setCallQuality,
 } from './friendsSlice';
 import uiReducer, { setMobileNavItems, resetMobileNavItems } from '../ui/uiSlice';
+
+describe('friendsSlice Conversation History', () => {
+    it('removes one message without changing other conversations', () => {
+        const initialState = friendsReducer(undefined, { type: 'unknown' });
+        const withMessages = friendsReducer(initialState, setDirectMessages({
+            friendId: 'friend-a',
+            messages: [
+                { id: 'message-1', friendId: 'friend-a', senderId: 'me', senderName: 'Me', text: 'Keep', timestamp: 1 },
+                { id: 'message-2', friendId: 'friend-a', senderId: 'friend-a', senderName: 'Friend', text: 'Delete', timestamp: 2 },
+            ],
+        }));
+        const withOtherConversation = friendsReducer(withMessages, setDirectMessages({
+            friendId: 'friend-b',
+            messages: [
+                { id: 'message-3', friendId: 'friend-b', senderId: 'friend-b', senderName: 'Other', text: 'Untouched', timestamp: 3 },
+            ],
+        }));
+
+        const updated = friendsReducer(withOtherConversation, removeDirectMessage({
+            friendId: 'friend-a',
+            messageId: 'message-2',
+        }));
+
+        expect(updated.directMessages['friend-a'].map((message) => message.id)).toEqual(['message-1']);
+        expect(updated.directMessages['friend-b'].map((message) => message.id)).toEqual(['message-3']);
+    });
+});
+
+describe('friendsSlice Call Waiting and Quality', () => {
+    it('queues one waiting call and promotes it after the active call ends', () => {
+        let state = friendsReducer(undefined, startDirectCall({
+            callId: 'active-call',
+            friendId: 'friend-a',
+            friendName: 'Alice',
+            callType: 'audio',
+            isIncoming: false,
+        }));
+        state = friendsReducer(state, setWaitingCall({
+            callId: 'waiting-call',
+            callerId: 'friend-b',
+            callerName: 'Bob',
+            channelName: 'user:me',
+            callType: 'video',
+            receivedAt: 10,
+        }));
+
+        expect(state.activeCall?.callId).toBe('active-call');
+        expect(state.waitingCall?.callId).toBe('waiting-call');
+        expect(state.incomingCall).toBeNull();
+
+        state = friendsReducer(state, endDirectCall({ callId: 'active-call' }));
+        state = friendsReducer(state, promoteWaitingCall());
+
+        expect(state.isCallActive).toBe(false);
+        expect(state.incomingCall?.callId).toBe('waiting-call');
+        expect(state.waitingCall).toBeNull();
+    });
+
+    it('stores and clears connection quality independently of call state', () => {
+        let state = friendsReducer(undefined, setCallQuality({
+            level: 'fair',
+            rttMs: 280,
+            jitterMs: 20,
+            packetLossPercent: 1.5,
+            bitrateKbps: 64,
+            sampledAt: 100,
+        }));
+        expect(state.callQuality?.level).toBe('fair');
+        state = friendsReducer(state, setCallQuality(null));
+        expect(state.callQuality).toBeNull();
+    });
+});
 
 describe('friendsSlice Call State Machine', () => {
     const initial = friendsReducer(undefined, { type: 'unknown' });

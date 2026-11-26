@@ -3,7 +3,7 @@ import { SETTINGS_CATEGORIES } from '../SettingsDrawer';
 import { ALL_MOBILE_NAV_ITEMS } from '../../constants/navigation';
 
 describe('SettingsDrawer Categories & Search Metadata', () => {
-    it('defines exactly the 8 approved settings categories', () => {
+    it('defines the approved settings categories', () => {
         const expectedIds = [
             'account',
             'audio',
@@ -13,6 +13,8 @@ describe('SettingsDrawer Categories & Search Metadata', () => {
             'privacy',
             'data',
             'about',
+            'home',
+            'diagnostics',
         ];
         const categoryIds = SETTINGS_CATEGORIES.map((c) => c.id);
         expect(categoryIds).toEqual(expectedIds);

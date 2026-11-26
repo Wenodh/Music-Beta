@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { useAppDispatch, useAppSelector } from './redux';
 import { setPresenceMap, updateUserPresence } from '../features/social/socialSlice';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -21,7 +21,7 @@ export interface ExplicitPlaybackEvent {
 
 export const useFriendPresence = () => {
     const dispatch = useAppDispatch();
-    const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+    const { user } = useAppSelector((state) => state.auth);
     const { currentSong, isPlaying } = useAppSelector((state) => state.musicPlayer);
     const [guestId, setGuestId] = useState<string>(() => {
         try {
@@ -51,6 +51,17 @@ export const useFriendPresence = () => {
     const isChannelJoinedRef = useRef<boolean>(false);
     const isSubscribedProcessingRef = useRef<boolean>(false);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // removeChannel() also unsubscribes. Guard repeated terminal callbacks so
+    // channel teardown cannot recursively schedule removal of the same instance.
+    const removingChannelsRef = useRef(new WeakSet<RealtimeChannel>());
+    const safeUnsubscribe = useCallback((channel: RealtimeChannel) => {
+        if (removingChannelsRef.current.has(channel)) return;
+        removingChannelsRef.current.add(channel);
+        void supabase.removeChannel(channel).catch((error) => {
+            console.warn('[useFriendPresence] Channel removal failed:', error);
+        });
+    }, []);
 
     // Serialized Promise Queue:
     // Ensures all asynchronous presence tracking operations execute sequentially on the active channel.
@@ -260,11 +271,20 @@ export const useFriendPresence = () => {
 
     // Setup and manage channel subscription lifecycle
     useEffect(() => {
+        if (!isSupabaseConfigured && import.meta.env.MODE !== 'test') {
+            stopHeartbeat();
+            stopReconnect();
+            isChannelJoinedRef.current = false;
+            isSubscribedProcessingRef.current = false;
+            trackingQueueRef.current = Promise.resolve();
+            return;
+        }
+
         if (!activeUserId) {
             stopHeartbeat();
             stopReconnect();
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                safeUnsubscribe(channelRef.current);
                 channelRef.current = null;
             }
             isChannelJoinedRef.current = false;
@@ -280,7 +300,7 @@ export const useFriendPresence = () => {
 
             // Clean up existing channel if any
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                safeUnsubscribe(channelRef.current);
                 channelRef.current = null;
             }
             isChannelJoinedRef.current = false;
@@ -380,11 +400,8 @@ export const useFriendPresence = () => {
                         if (channelRef.current === channel) {
                             channelRef.current = null;
                         }
-                        try {
-                            channel.unsubscribe();
-                        } catch {
-                            // Handled silently
-                        }
+                        // Idempotent cleanup: terminal callbacks may repeat while leaving.
+                        safeUnsubscribe(channel);
 
                         // Reset serialized queue for this channel
                         trackingQueueRef.current = Promise.resolve();
@@ -409,7 +426,7 @@ export const useFriendPresence = () => {
             stopHeartbeat();
             stopReconnect();
             if (channelRef.current) {
-                channelRef.current.unsubscribe();
+                safeUnsubscribe(channelRef.current);
                 channelRef.current = null;
             }
             isChannelJoinedRef.current = false;
@@ -424,6 +441,7 @@ export const useFriendPresence = () => {
         stopHeartbeat,
         stopReconnect,
         syncPresenceRoster,
+        safeUnsubscribe,
     ]);
 
     // App foreground / background and visibility lifecycle handling

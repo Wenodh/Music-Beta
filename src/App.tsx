@@ -16,6 +16,7 @@ import ToastContainer from './components/toast/ToastContainer';
 import MiniPlayer from './components/MiniPlayer';
 import { showToast, removeToast, closePlaylistModal, setLyricsOpen, setEqualizerOpen, setPlayerExpanded, setSessionModalOpen, setImportExportModalOpen } from './features/ui/uiSlice';
 import { backNavigationService } from './services/backNavigationService';
+import { nativeMediaSession } from './services/nativeMediaSessionService';
 import { useBackHandler } from './hooks/useBackHandler';
 import { setSettingsOpen, setQueueOpen } from './features/musicplayer/musicPlayerSlice';
 import { setIsCallScreenExpanded, setIsFriendsModalOpen, setIncomingCall } from './features/friends/friendsSlice';
