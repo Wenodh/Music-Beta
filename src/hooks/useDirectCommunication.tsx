@@ -252,8 +252,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             if (sendStatus !== 'ok') {
                 throw new Error(`Realtime broadcast ${event} to ${targetUserId} returned ${sendStatus}`);
             }
+            return true;
         } catch (error) {
             console.warn(`[Realtime] Failed to send ${event} to ${targetUserId}:`, error);
+            return false;
         } finally {
             // Schedule 30-second idle channel cleanup after both successful and failed attempts.
             if (entry) {
@@ -272,10 +274,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     // Send only after a peer key is available. This is shared by normal sends and
     // the key-exchange completion path so both paths enforce identical encryption.
-    const sendEncryptedDirectMessage = useCallback(async (friendId: string, msg: DirectMessage) => {
+    const sendEncryptedDirectMessage = useCallback(async (friendId: string, msg: DirectMessage): Promise<boolean> => {
         try {
             const encrypted = await e2eeService.encryptMessage(friendId, msg.text);
-            await sendToUser(friendId, 'direct_message', {
+            const sent = await sendToUser(friendId, 'direct_message', {
                 id: msg.id,
                 senderId: userId,
                 senderName: userName,
@@ -284,10 +286,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 timestamp: msg.timestamp,
                 seq: msg.seq,
             });
+            if (sent) {
+                await updateDirectMessageStatusLocal(msg.id, 'sent');
+                dispatch(updateMessageStatus({ friendId, messageId: msg.id, status: 'sent' }));
+            }
+            return sent;
         } catch (error) {
             console.error('[DirectComms] Encrypted message delivery failed:', error);
+            return false;
         }
-    }, [userId, userName, sendToUser]);
+    }, [userId, userName, dispatch, sendToUser]);
 
     // Cleanup all outbound channels on unmount
     useEffect(() => {
@@ -767,9 +775,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                     // queued while encryption was unavailable.
                     if (exchange.type === 'response') {
                         const queued = pendingEncryptedMessagesRef.current.get(exchange.senderId) || [];
-                        pendingEncryptedMessagesRef.current.delete(exchange.senderId);
+                        const remaining: DirectMessage[] = [];
                         for (const pendingMessage of queued) {
-                            await sendEncryptedDirectMessage(exchange.senderId, pendingMessage);
+                            if (!(await sendEncryptedDirectMessage(exchange.senderId, pendingMessage))) {
+                                remaining.push(pendingMessage);
+                            }
+                        }
+                        if (remaining.length > 0) {
+                            pendingEncryptedMessagesRef.current.set(exchange.senderId, remaining);
+                        } else {
+                            pendingEncryptedMessagesRef.current.delete(exchange.senderId);
                         }
                     }
                 } catch (error) {
@@ -1311,18 +1326,16 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
         try {
             const identity = await e2eeService.getOrCreateLocalIdentity();
             const peerKey = await e2eeService.getPeerPublicKey(friendId);
-            if (peerKey) {
-                await sendEncryptedDirectMessage(friendId, msg);
-                return;
-            }
+            if (peerKey && await sendEncryptedDirectMessage(friendId, msg)) return;
 
             const pending = pendingEncryptedMessagesRef.current.get(friendId) || [];
-            pending.push(msg);
+            if (!pending.some((queuedMessage) => queuedMessage.id === msg.id)) pending.push(msg);
             pendingEncryptedMessagesRef.current.set(friendId, pending);
 
             // Send our public key and request the peer's key. This event contains no
             // message body; the peer replies with its public key before queued content
-            // is encrypted and transmitted.
+            // is encrypted and transmitted. Also use this as a retry trigger when the
+            // peer was known but its realtime channel was temporarily unavailable.
             await sendToUser(friendId, 'direct_key_exchange', {
                 type: 'request',
                 senderId: userId,
