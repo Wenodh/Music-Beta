@@ -213,22 +213,32 @@ export const removePendingMessageDeliveryLocal = async (messageId: string): Prom
     await db.delete('outbox', messageId);
 };
 
+export const getPendingMessageRetryDelayMs = (attempt: number): number => {
+    const safeAttempt = Math.max(1, Math.floor(attempt));
+    return Math.min(5 * 60_000, 2_000 * (2 ** Math.min(safeAttempt - 1, 7)));
+};
+
 export const recordPendingMessageAttemptLocal = async (messageId: string, error?: unknown): Promise<void> => {
     const db = await getDB();
-    const record = await db.get('outbox', messageId);
-    if (!record) return;
+    const tx = db.transaction('outbox', 'readwrite');
+    const record = await tx.store.get(messageId);
+    if (!record) {
+        await tx.done;
+        return;
+    }
     const attempts = record.attempts + 1;
-    const baseDelay = Math.min(5 * 60_000, 2_000 * (2 ** Math.min(attempts - 1, 7)));
+    const baseDelay = getPendingMessageRetryDelayMs(attempts);
     const jitter = Math.floor(Math.random() * Math.min(5_000, baseDelay * 0.2));
     const message = error instanceof Error ? error.message : (error ? String(error) : undefined);
     const now = Date.now();
-    await db.put('outbox', {
+    await tx.store.put({
         ...record,
         attempts,
         updatedAt: now,
         nextAttemptAt: now + baseDelay + jitter,
         lastError: message?.slice(0, 240),
     });
+    await tx.done;
 };
 
 export const deleteDirectMessageLocal = async (messageId: string): Promise<void> => {
