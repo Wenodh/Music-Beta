@@ -183,6 +183,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
     // Messages wait here until the peer's public key has been exchanged.
     // Message bodies are never sent in plaintext during a new-key handshake.
     const pendingEncryptedMessagesRef = useRef<Map<string, DirectMessage[]>>(new Map());
+    const pendingKeyExchangeRequestsRef = useRef<Map<string, Set<string>>>(new Map());
 
     // Sign complete message envelope if sender is an unauthenticated guest
     const enrichPayloadWithGuestEnvelope = useCallback(async (targetUserId: string, event: string, payload: any) => {
@@ -742,6 +743,19 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 };
                 if (!exchange?.senderId || !exchange.publicKeyJwk || !exchange.requestId) return;
                 if (exchange.senderId === userId) return;
+                if (exchange.type !== 'request' && exchange.type !== 'response') return;
+
+                // Responses must match a request issued by this live session. This
+                // prevents stale/replayed broadcasts from triggering queued sends.
+                if (exchange.type === 'response') {
+                    const outstanding = pendingKeyExchangeRequestsRef.current.get(exchange.senderId);
+                    if (!outstanding?.has(exchange.requestId)) {
+                        console.info('[DirectComms] Ignored unsolicited or stale key-exchange response:', exchange.senderId);
+                        return;
+                    }
+                    outstanding.delete(exchange.requestId);
+                    if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(exchange.senderId);
+                }
 
                 const blocked = await isUserBlockedLocal(exchange.senderId);
                 if (blocked) {
@@ -1336,13 +1350,24 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             // message body; the peer replies with its public key before queued content
             // is encrypted and transmitted. Also use this as a retry trigger when the
             // peer was known but its realtime channel was temporarily unavailable.
-            await sendToUser(friendId, 'direct_key_exchange', {
+            const outstanding = pendingKeyExchangeRequestsRef.current.get(friendId) || new Set<string>();
+            outstanding.add(messageId);
+            pendingKeyExchangeRequestsRef.current.set(friendId, outstanding);
+            const requestSent = await sendToUser(friendId, 'direct_key_exchange', {
                 type: 'request',
                 senderId: userId,
                 senderName: userName,
                 publicKeyJwk: identity.publicKeyJwk,
                 requestId: messageId,
             });
+            if (!requestSent) {
+                outstanding.delete(messageId);
+                if (outstanding.size === 0) pendingKeyExchangeRequestsRef.current.delete(friendId);
+                dispatch(showToast({
+                    message: 'Message is queued securely. Could not reach the contact to exchange encryption keys yet.',
+                    type: 'info',
+                }));
+            }
         } catch (error) {
             console.error('[DirectComms] Could not prepare encrypted message:', error);
             dispatch(showToast({ message: 'Message could not be secured. Please try again.', type: 'error' }));
