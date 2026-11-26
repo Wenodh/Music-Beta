@@ -104,6 +104,8 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
     const userId = user?.id || guestId;
     const userName = user?.user_metadata?.full_name || (user?.id ? 'Vibe User' : `Guest ${guestId.slice(-4)}`);
+    const userIdRef = useRef(userId);
+    userIdRef.current = userId;
 
     const personalChannelRef = useRef<RealtimeChannel | null>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -1500,6 +1502,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             }
 
             for (const [friendId, records] of grouped) {
+                if (userIdRef.current !== userId) return;
                 const storedMessages = await getDirectMessagesLocal(friendId);
                 const recordIds = new Set(records.map((record) => record.messageId));
                 const queuedMessages = storedMessages.filter((message) => recordIds.has(message.id));
@@ -1509,6 +1512,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
                 const peerKey = await e2eeService.getPeerPublicKey(friendId);
                 if (peerKey) {
                     for (const message of queuedMessages) {
+                        if (userIdRef.current !== userId) return;
                         const record = records.find((item) => item.messageId === message.id);
                         if (record && record.nextAttemptAt > Date.now()) continue;
                         await sendEncryptedDirectMessage(friendId, message);
@@ -1518,6 +1522,7 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
 
                 if (records.every((record) => record.nextAttemptAt > Date.now())) continue;
                 const identity = await e2eeService.getOrCreateLocalIdentity();
+                if (userIdRef.current !== userId) return;
                 const requestId = queuedMessages[0].id;
                 const outstanding = pendingKeyExchangeRequestsRef.current.get(friendId) || new Set<string>();
                 // Reuse the request ID so a delayed response to an earlier retry
@@ -1547,6 +1552,10 @@ export const DirectCommunicationProvider: React.FC<{ children: React.ReactNode }
             console.warn('[DirectComms] Failed to restore pending outgoing messages:', error);
         } finally {
             isResumingOutboxRef.current = false;
+            if (userIdRef.current !== userId) {
+                window.dispatchEvent(new Event('vibeon:outbox-changed'));
+                return;
+            }
             try {
                 const remaining = await getPendingMessageDeliveriesLocal(userId);
                 if (remaining.length > 0) {
